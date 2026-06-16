@@ -7,6 +7,8 @@ import { sestavitUrlPolozky } from "@/lib/url-polozky";
 /** Diagnostika Blob úložiště z API */
 interface DiagnozaBlob {
   trvaleUloziste: boolean;
+  maAutentizaci: boolean;
+  jeBuild: boolean;
   prostredi: { vercel: boolean; nodeEnv: string };
   promenne: {
     BLOB_STORE_ID: boolean;
@@ -184,6 +186,7 @@ export function AdminPanel() {
               <div className="mx-auto max-w-sm rounded border border-amber-700/20 p-3 text-left font-mono text-[10px] leading-relaxed text-text-jemny">
                 <p>diagnoza za běhu:</p>
                 <p>vercel: {diagnoza.prostredi.vercel ? "ano" : "ne"}</p>
+                <p>autentizace: {diagnoza.maAutentizaci ? "ano" : "ne"}</p>
                 <p>node: {diagnoza.prostredi.nodeEnv}</p>
                 <p>BLOB_STORE_ID: {diagnoza.promenne.BLOB_STORE_ID ? "ano" : "ne"}</p>
                 <p>BLOB_READ_WRITE_TOKEN: {diagnoza.promenne.BLOB_READ_WRITE_TOKEN ? "ano" : "ne"}</p>

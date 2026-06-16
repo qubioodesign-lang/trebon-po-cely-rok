@@ -1,19 +1,22 @@
 import "server-only";
 
-import { head, put, del } from "@vercel/blob";
+import { head, put } from "@vercel/blob";
 import fs from "fs";
 import path from "path";
 import type { UlozisteDat } from "./uloziste-dat";
+import { ziskatVolbyBlob } from "./env-blob";
 
 /** Cesta k metadata JSON v Blob úložišti */
 export const BLOB_CESTA_METADATA = "data/uloziste.json";
 
 const CESTA_DEPLOY = path.join(process.cwd(), "data", "uloziste-deploy.json");
 
-/** Načte data z Vercel Blob */
+/** Načte data z Vercel Blob (OIDC nebo read-write token) */
 export async function nacistDataBlob(): Promise<UlozisteDat> {
+  const volby = ziskatVolbyBlob();
+
   try {
-    const meta = await head(BLOB_CESTA_METADATA);
+    const meta = await head(BLOB_CESTA_METADATA, volby);
     const odpoved = await fetch(meta.url);
 
     if (!odpoved.ok) {
@@ -29,18 +32,15 @@ export async function nacistDataBlob(): Promise<UlozisteDat> {
   }
 }
 
-/** Uloží data do Vercel Blob (přepíše existující soubor) */
+/** Uloží data do Vercel Blob */
 export async function ulozitDataBlob(data: UlozisteDat): Promise<void> {
-  try {
-    const existujici = await head(BLOB_CESTA_METADATA);
-    await del(existujici.url);
-  } catch {
-    // Soubor zatím neexistuje
-  }
+  const volby = ziskatVolbyBlob();
 
   await put(BLOB_CESTA_METADATA, JSON.stringify(data, null, 2), {
+    ...volby,
     access: "public",
     addRandomSuffix: false,
+    allowOverwrite: true,
     contentType: "application/json",
   });
 }

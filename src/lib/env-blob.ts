@@ -2,23 +2,49 @@ import "server-only";
 
 /**
  * Načte proměnnou prostředí za běhu.
- * Dynamický přístup process.env[klic] zabrání Next.js inline při buildu,
- * kdy proměnná ještě neexistovala (typický problém na Vercelu).
+ * Dynamický přístup process.env[klic] zabrání Next.js inline při buildu.
  */
 export function ziskatEnv(klic: string): string | undefined {
   return process.env[klic];
 }
 
-/** True, pokud je Blob úložiště nakonfigurované */
+/** True během next build – OIDC token ještě není k dispozici */
+export function jeBuildFaze(): boolean {
+  return ziskatEnv("NEXT_PHASE") === "phase-production-build";
+}
+
+/**
+ * True, pokud jsou k dispozici skutečné Blob credentials.
+ * OIDC vyžaduje BLOB_STORE_ID + VERCEL_OIDC_TOKEN (ne jen store ID v dashboardu).
+ */
+export function maBlobAutentizaci(): boolean {
+  if (ziskatEnv("BLOB_READ_WRITE_TOKEN")) {
+    return true;
+  }
+
+  return Boolean(ziskatEnv("BLOB_STORE_ID") && ziskatEnv("VERCEL_OIDC_TOKEN"));
+}
+
+/** True, pokud má aplikace používat Blob úložiště (ne při buildu) */
 export function pouzivaBlobUloziste(): boolean {
-  return Boolean(
-    ziskatEnv("BLOB_READ_WRITE_TOKEN") || ziskatEnv("BLOB_STORE_ID")
-  );
+  if (jeBuildFaze()) {
+    return false;
+  }
+  return maBlobAutentizaci();
+}
+
+/** Volby pro @vercel/blob SDK – explicitní storeId pro OIDC */
+export function ziskatVolbyBlob(): { storeId?: string } {
+  const storeId = ziskatEnv("BLOB_STORE_ID");
+  if (!storeId) return {};
+  return { storeId };
 }
 
 /** Bezpečná diagnostika pro administraci – neobsahuje tajné hodnoty */
 export interface DiagnozaBlob {
   trvaleUloziste: boolean;
+  maAutentizaci: boolean;
+  jeBuild: boolean;
   prostredi: {
     vercel: boolean;
     nodeEnv: string;
@@ -28,7 +54,6 @@ export interface DiagnozaBlob {
     BLOB_READ_WRITE_TOKEN: boolean;
     VERCEL_OIDC_TOKEN: boolean;
   };
-  /** Náhled store ID (např. store_abc…) – jen pro ověření, že se načetlo */
   nahledStoreId: string | null;
 }
 
@@ -37,6 +62,8 @@ export function ziskatDiagnozuBlob(): DiagnozaBlob {
 
   return {
     trvaleUloziste: pouzivaBlobUloziste(),
+    maAutentizaci: maBlobAutentizaci(),
+    jeBuild: jeBuildFaze(),
     prostredi: {
       vercel: ziskatEnv("VERCEL") === "1",
       nodeEnv: ziskatEnv("NODE_ENV") ?? "neznámé",
