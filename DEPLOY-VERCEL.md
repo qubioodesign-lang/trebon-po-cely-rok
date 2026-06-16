@@ -42,12 +42,23 @@ git push
 
 ## Krok 4 – Propojení Blob s projektem
 
-1. Po vytvoření klikněte **Connect Project**
-2. Vyberte projekt **trebon-po-cely-rok**
-3. Zaškrtněte **Production**, **Preview**, **Development**
-4. **Connect**
+Tlačítko **Connect Project** nemusí být na hlavní stránce úložiště. Zkuste:
 
-Vercel automaticky přidá proměnnou `BLOB_READ_WRITE_TOKEN` do projektu.
+### Varianta A – ze strany Blob úložiště
+1. **Storage** → vaše Blob úložiště → záložka **Projects**
+2. **Connect to Project** → vyberte `trebon-po-cely-rok`
+3. Zaškrtněte **Production**, **Preview**, **Development** → **Connect**
+
+### Varianta B – ze strany projektu
+1. Projekt **trebon-po-cely-rok** → **Settings** → **Storage**
+2. **Connect Store** / **Connect Database** → vyberte Blob úložiště → **Connect**
+
+### Jak ověřit propojení
+1. Projekt → **Settings** → **Environment Variables**
+2. Musí existovat **alespoň jedna** z proměnných:
+   - `BLOB_STORE_ID` (novější OIDC režim)
+   - `BLOB_READ_WRITE_TOKEN` (klasický režim)
+3. Pokud chybí obě → Blob ještě není propojený
 
 ---
 
@@ -97,9 +108,9 @@ BLOB_READ_WRITE_TOKEN=vercel_blob_rw_...
 
 ## Řešení problémů
 
-**„trvalé úložiště není aktivní"** – Blob není propojený s projektem. Opakujte kroky 3–5.
+**„trvalé úložiště není aktivní"** – chybí `BLOB_STORE_ID` i `BLOB_READ_WRITE_TOKEN`. Propojte Blob (krok 4) a redeploy.
 
-**Nahrávání selže (500)** – zkontrolujte Vercel → Project → Settings → Environment Variables, zda existuje `BLOB_READ_WRITE_TOKEN`.
+**Nahrávání selže (500)** – zkontrolujte Environment Variables (`BLOB_STORE_ID` nebo `BLOB_READ_WRITE_TOKEN`).
 
 **Fotografie se nenačte** – v prohlížeči zkontrolujte konzoli; URL musí směřovat na `*.public.blob.vercel-storage.com`.
 

@@ -42,9 +42,11 @@ const PRAZDNA_DATA: UlozisteDat = {
   pushOdbery: [],
 };
 
-/** True, pokud je nastaven token pro Vercel Blob */
+/** True, pokud je Blob úložiště nakonfigurované (token nebo OIDC přes BLOB_STORE_ID) */
 export function pouzivaBlobUloziste(): boolean {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+  return Boolean(
+    process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID
+  );
 }
 
 /** Najde cestu k lokálnímu souboru */
