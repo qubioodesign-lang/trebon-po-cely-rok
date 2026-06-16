@@ -4,6 +4,18 @@ import { useState, useEffect, useCallback } from "react";
 import type { Polozka, MetrikySouhrn } from "@/types";
 import { sestavitUrlPolozky } from "@/lib/url-polozky";
 
+/** Diagnostika Blob úložiště z API */
+interface DiagnozaBlob {
+  trvaleUloziste: boolean;
+  prostredi: { vercel: boolean; nodeEnv: string };
+  promenne: {
+    BLOB_STORE_ID: boolean;
+    BLOB_READ_WRITE_TOKEN: boolean;
+    VERCEL_OIDC_TOKEN: boolean;
+  };
+  nahledStoreId: string | null;
+}
+
 /**
  * Jednoduchá administrace chráněná heslem.
  * Umožňuje správu fotografií, videí a zobrazení metrik.
@@ -16,6 +28,7 @@ export function AdminPanel() {
   const [metriky, setMetriky] = useState<MetrikySouhrn | null>(null);
   const [nahrava, setNahrava] = useState(false);
   const [trvaleUloziste, setTrvaleUloziste] = useState<boolean | null>(null);
+  const [diagnoza, setDiagnoza] = useState<DiagnozaBlob | null>(null);
 
   const nacistData = useCallback(async () => {
     const response = await fetch("/api/admin/polozky");
@@ -24,6 +37,7 @@ export function AdminPanel() {
       setPolozky(data.polozky);
       setMetriky(data.metriky);
       setTrvaleUloziste(data.trvaleUloziste ?? false);
+      setDiagnoza(data.diagnoza ?? null);
     }
   }, []);
 
@@ -164,9 +178,22 @@ export function AdminPanel() {
         </div>
 
         {trvaleUloziste === false && (
-          <p className="text-center text-xs font-light text-amber-700/80">
-            trvalé úložiště není aktivní – nastavte Vercel Blob (viz DEPLOY-VERCEL.md)
-          </p>
+          <div className="space-y-2 text-center text-xs font-light text-amber-700/80">
+            <p>trvalé úložiště není aktivní – nastavte Vercel Blob (viz DEPLOY-VERCEL.md)</p>
+            {diagnoza && (
+              <div className="mx-auto max-w-sm rounded border border-amber-700/20 p-3 text-left font-mono text-[10px] leading-relaxed text-text-jemny">
+                <p>diagnoza za běhu:</p>
+                <p>vercel: {diagnoza.prostredi.vercel ? "ano" : "ne"}</p>
+                <p>node: {diagnoza.prostredi.nodeEnv}</p>
+                <p>BLOB_STORE_ID: {diagnoza.promenne.BLOB_STORE_ID ? "ano" : "ne"}</p>
+                <p>BLOB_READ_WRITE_TOKEN: {diagnoza.promenne.BLOB_READ_WRITE_TOKEN ? "ano" : "ne"}</p>
+                <p>VERCEL_OIDC_TOKEN: {diagnoza.promenne.VERCEL_OIDC_TOKEN ? "ano" : "ne"}</p>
+                {diagnoza.nahledStoreId && (
+                  <p>store: {diagnoza.nahledStoreId}</p>
+                )}
+              </div>
+            )}
+          </div>
         )}
 
         {trvaleUloziste === true && (

@@ -3,7 +3,7 @@ import "server-only";
 import path from "path";
 import fs from "fs";
 import { put, del } from "@vercel/blob";
-import { pouzivaBlobUloziste } from "./uloziste-dat";
+import { pouzivaBlobUloziste } from "./env-blob";
 
 const UPLOADS_ADRESAR = path.join(process.cwd(), "public", "uploads");
 

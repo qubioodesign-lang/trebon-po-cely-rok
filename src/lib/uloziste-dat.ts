@@ -5,6 +5,16 @@ import path from "path";
 import type { Polozka } from "@/types";
 import type { TypUdalostiMetriky } from "@/types";
 import { nacistDataBlob, ulozitDataBlob } from "./uloziste-blob";
+import { pouzivaBlobUloziste } from "./env-blob";
+
+export { pouzivaBlobUloziste } from "./env-blob";
+
+/** Najde cestu k lokálnímu souboru */
+function ziskatCestuKeCteni(): string {
+  if (fs.existsSync(CESTA_LOKALNI)) return CESTA_LOKALNI;
+  if (fs.existsSync(CESTA_DEPLOY)) return CESTA_DEPLOY;
+  return CESTA_LOKALNI;
+}
 
 /** Lokální datový soubor (vývoj bez Blob tokenu) */
 const CESTA_LOKALNI = path.join(process.cwd(), "data", "uloziste.json");
@@ -41,20 +51,6 @@ const PRAZDNA_DATA: UlozisteDat = {
   metriky: [],
   pushOdbery: [],
 };
-
-/** True, pokud je Blob úložiště nakonfigurované (token nebo OIDC přes BLOB_STORE_ID) */
-export function pouzivaBlobUloziste(): boolean {
-  return Boolean(
-    process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID
-  );
-}
-
-/** Najde cestu k lokálnímu souboru */
-function ziskatCestuKeCteni(): string {
-  if (fs.existsSync(CESTA_LOKALNI)) return CESTA_LOKALNI;
-  if (fs.existsSync(CESTA_DEPLOY)) return CESTA_DEPLOY;
-  return CESTA_LOKALNI;
-}
 
 /** Načte data z Blob nebo lokálního souboru */
 export async function nacistData(): Promise<UlozisteDat> {

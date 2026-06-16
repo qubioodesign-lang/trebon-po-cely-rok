@@ -10,7 +10,10 @@ import {
 } from "@/lib/polozky";
 import { ulozitSoubor, smazatSoubor } from "@/lib/soubory";
 import { ziskatSouhrnMetrik } from "@/lib/metriky";
-import { pouzivaBlobUloziste } from "@/lib/uloziste-dat";
+import { pouzivaBlobUloziste, ziskatDiagnozuBlob } from "@/lib/env-blob";
+
+/** Vždy číst proměnné prostředí za běhu, ne z build cache */
+export const dynamic = "force-dynamic";
 
 /** Seznam všech položek a metrik (pouze pro admina) */
 export async function GET() {
@@ -20,11 +23,13 @@ export async function GET() {
 
   const polozky = await ziskatVsechnyPolozky();
   const metriky = await ziskatSouhrnMetrik();
+  const diagnoza = ziskatDiagnozuBlob();
 
   return NextResponse.json({
     polozky,
     metriky,
     trvaleUloziste: pouzivaBlobUloziste(),
+    diagnoza,
   });
 }
 
@@ -52,10 +57,13 @@ export async function POST(request: NextRequest) {
       datumPorizeni,
     });
 
-    return NextResponse.json({ polozka });
+    return NextResponse.json({ polozka, diagnoza: ziskatDiagnozuBlob() });
   } catch (error) {
     const zprava = error instanceof Error ? error.message : "Chyba při nahrávání";
-    return NextResponse.json({ chyba: zprava }, { status: 500 });
+    return NextResponse.json(
+      { chyba: zprava, diagnoza: ziskatDiagnozuBlob() },
+      { status: 500 }
+    );
   }
 }
 
