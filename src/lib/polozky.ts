@@ -1,39 +1,44 @@
 import type { Polozka, PolozkaVerejna, TypObsahu } from "@/types";
-import { nacistData, upravitData, seraditPolozky } from "./uloziste-dat";
+import {
+  nacistData,
+  upravitData,
+  seraditPolozky,
+} from "./uloziste-dat";
+import { sestavitUrlPolozky } from "./url-polozky";
 
 /** Vrátí všechny aktivní položky seřazené podle pořadí */
-export function ziskatAktivniPolozky(): PolozkaVerejna[] {
-  const { polozky } = nacistData();
+export async function ziskatAktivniPolozky(): Promise<PolozkaVerejna[]> {
+  const { polozky } = await nacistData();
 
   return seraditPolozky(polozky)
     .filter((p) => p.aktivni)
     .map((p) => ({
       id: p.id,
       typ: p.typ,
-      url: `/uploads/${p.soubor}`,
+      url: sestavitUrlPolozky(p.soubor),
       popis: p.popis,
     }));
 }
 
 /** Vrátí všechny položky včetně neaktivních (pro administraci) */
-export function ziskatVsechnyPolozky(): Polozka[] {
-  const { polozky } = nacistData();
+export async function ziskatVsechnyPolozky(): Promise<Polozka[]> {
+  const { polozky } = await nacistData();
   return seraditPolozky(polozky);
 }
 
 /** Vytvoří novou položku */
-export function vytvoritPolozku(data: {
+export async function vytvoritPolozku(data: {
   typ: TypObsahu;
   soubor: string;
   popis: string;
   datumPorizeni?: string | null;
-}): Polozka {
+}): Promise<Polozka> {
   const id = crypto.randomUUID();
   const datumPublikace = new Date().toISOString();
 
   let novaPolozka!: Polozka;
 
-  upravitData((uloziste) => {
+  await upravitData((uloziste) => {
     const maxPoradi = uloziste.polozky.reduce(
       (max, p) => Math.max(max, p.poradi),
       -1
@@ -57,26 +62,26 @@ export function vytvoritPolozku(data: {
 }
 
 /** Aktualizuje popis položky */
-export function aktualizovatPopis(id: string, popis: string): void {
-  upravitData((uloziste) => {
+export async function aktualizovatPopis(id: string, popis: string): Promise<void> {
+  await upravitData((uloziste) => {
     const polozka = uloziste.polozky.find((p) => p.id === id);
     if (polozka) polozka.popis = popis;
   });
 }
 
 /** Přepne viditelnost položky */
-export function prepnoutAktivni(id: string, aktivni: boolean): void {
-  upravitData((uloziste) => {
+export async function prepnoutAktivni(id: string, aktivni: boolean): Promise<void> {
+  await upravitData((uloziste) => {
     const polozka = uloziste.polozky.find((p) => p.id === id);
     if (polozka) polozka.aktivni = aktivni;
   });
 }
 
 /** Smaže položku z úložiště */
-export function smazatPolozku(id: string): Polozka | null {
+export async function smazatPolozku(id: string): Promise<Polozka | null> {
   let smazana: Polozka | null = null;
 
-  upravitData((uloziste) => {
+  await upravitData((uloziste) => {
     const index = uloziste.polozky.findIndex((p) => p.id === id);
     if (index === -1) return;
     smazana = uloziste.polozky[index];
@@ -87,8 +92,8 @@ export function smazatPolozku(id: string): Polozka | null {
 }
 
 /** Změní pořadí položek podle pole ID */
-export function zmenitPoradi(ids: string[]): void {
-  upravitData((uloziste) => {
+export async function zmenitPoradi(ids: string[]): Promise<void> {
+  await upravitData((uloziste) => {
     ids.forEach((id, index) => {
       const polozka = uloziste.polozky.find((p) => p.id === id);
       if (polozka) polozka.poradi = index;

@@ -10,7 +10,7 @@ import {
 } from "@/lib/polozky";
 import { ulozitSoubor, smazatSoubor } from "@/lib/soubory";
 import { ziskatSouhrnMetrik } from "@/lib/metriky";
-import { jeVercelProstredi } from "@/lib/uloziste-dat";
+import { pouzivaBlobUloziste } from "@/lib/uloziste-dat";
 
 /** Seznam všech položek a metrik (pouze pro admina) */
 export async function GET() {
@@ -18,10 +18,14 @@ export async function GET() {
     return NextResponse.json({ chyba: "Neautorizováno" }, { status: 401 });
   }
 
-  const polozky = ziskatVsechnyPolozky();
-  const metriky = ziskatSouhrnMetrik();
+  const polozky = await ziskatVsechnyPolozky();
+  const metriky = await ziskatSouhrnMetrik();
 
-  return NextResponse.json({ polozky, metriky, jeVercel: jeVercelProstredi() });
+  return NextResponse.json({
+    polozky,
+    metriky,
+    trvaleUloziste: pouzivaBlobUloziste(),
+  });
 }
 
 /** Nahrání nové položky */
@@ -40,10 +44,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ chyba: "Soubor je povinný" }, { status: 400 });
     }
 
-    const { nazevSouboru, typ } = await ulozitSoubor(soubor);
-    const polozka = vytvoritPolozku({
+    const { cestaSouboru, typ } = await ulozitSoubor(soubor);
+    const polozka = await vytvoritPolozku({
       typ,
-      soubor: nazevSouboru,
+      soubor: cestaSouboru,
       popis,
       datumPorizeni,
     });
@@ -65,7 +69,7 @@ export async function PATCH(request: NextRequest) {
   const { id, popis, aktivni, poradiIds } = body;
 
   if (poradiIds && Array.isArray(poradiIds)) {
-    zmenitPoradi(poradiIds);
+    await zmenitPoradi(poradiIds);
     return NextResponse.json({ uspech: true });
   }
 
@@ -74,11 +78,11 @@ export async function PATCH(request: NextRequest) {
   }
 
   if (popis !== undefined) {
-    aktualizovatPopis(id, popis);
+    await aktualizovatPopis(id, popis);
   }
 
   if (aktivni !== undefined) {
-    prepnoutAktivni(id, aktivni);
+    await prepnoutAktivni(id, aktivni);
   }
 
   return NextResponse.json({ uspech: true });
@@ -95,9 +99,9 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ chyba: "Chybí ID položky" }, { status: 400 });
   }
 
-  const smazana = smazatPolozku(id);
+  const smazana = await smazatPolozku(id);
   if (smazana) {
-    smazatSoubor(smazana.soubor);
+    await smazatSoubor(smazana.soubor);
   }
 
   return NextResponse.json({ uspech: true });

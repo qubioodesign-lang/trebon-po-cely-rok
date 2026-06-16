@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ chyba: "Neplatný typ události" }, { status: 400 });
     }
 
-    zaznamenatMetriku(payload);
+    await zaznamenatMetriku(payload);
     return NextResponse.json({ uspech: true });
   } catch {
     return NextResponse.json({ chyba: "Chyba při záznamu metriky" }, { status: 500 });

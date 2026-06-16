@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { Polozka, MetrikySouhrn } from "@/types";
+import { sestavitUrlPolozky } from "@/lib/url-polozky";
 
 /**
  * Jednoduchá administrace chráněná heslem.
@@ -14,7 +15,7 @@ export function AdminPanel() {
   const [polozky, setPolozky] = useState<Polozka[]>([]);
   const [metriky, setMetriky] = useState<MetrikySouhrn | null>(null);
   const [nahrava, setNahrava] = useState(false);
-  const [jeVercel, setJeVercel] = useState(false);
+  const [trvaleUloziste, setTrvaleUloziste] = useState<boolean | null>(null);
 
   const nacistData = useCallback(async () => {
     const response = await fetch("/api/admin/polozky");
@@ -22,7 +23,7 @@ export function AdminPanel() {
       const data = await response.json();
       setPolozky(data.polozky);
       setMetriky(data.metriky);
-      setJeVercel(data.jeVercel ?? false);
+      setTrvaleUloziste(data.trvaleUloziste ?? false);
     }
   }, []);
 
@@ -162,9 +163,15 @@ export function AdminPanel() {
           </button>
         </div>
 
-        {jeVercel && (
+        {trvaleUloziste === false && (
+          <p className="text-center text-xs font-light text-amber-700/80">
+            trvalé úložiště není aktivní – nastavte Vercel Blob (viz DEPLOY-VERCEL.md)
+          </p>
+        )}
+
+        {trvaleUloziste === true && (
           <p className="text-center text-xs font-light text-text-velmiJemny">
-            testovací nasazení na Vercelu – nahrávání a úpravy se neukládají
+            trvalé úložiště aktivní – fotografie a změny se ukládají
           </p>
         )}
 
@@ -246,7 +253,7 @@ export function AdminPanel() {
                 {polozka.typ === "fotografie" ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={`/uploads/${polozka.soubor}`}
+                    src={sestavitUrlPolozky(polozka.soubor)}
                     alt=""
                     className="h-full w-full object-cover"
                   />

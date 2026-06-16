@@ -10,13 +10,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ chyba: "Neplatná subscription" }, { status: 400 });
     }
 
-    ulozitPushOdber({
+    await ulozitPushOdber({
       endpoint: subscription.endpoint,
       klicP256dh: subscription.keys.p256dh,
       klicAuth: subscription.keys.auth,
     });
 
-    zaznamenatMetriku({
+    await zaznamenatMetriku({
       typ: "povoleno_upozorneni",
       navstevnikId,
     });

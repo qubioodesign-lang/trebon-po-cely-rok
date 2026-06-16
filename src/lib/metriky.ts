@@ -1,12 +1,9 @@
 import type { MetrikySouhrn, PayloadMetriky } from "@/types";
 import { nacistData, upravitData } from "./uloziste-dat";
 
-/**
- * Zaznamená událost do metrik.
- * Sleduje návštěvy, posuny, návraty a další klíčové ukazatele.
- */
-export function zaznamenatMetriku(payload: PayloadMetriky): void {
-  upravitData((uloziste) => {
+/** Zaznamená událost do metrik */
+export async function zaznamenatMetriku(payload: PayloadMetriky): Promise<void> {
+  await upravitData((uloziste) => {
     uloziste.metriky.push({
       id: crypto.randomUUID(),
       typ: payload.typ,
@@ -18,8 +15,8 @@ export function zaznamenatMetriku(payload: PayloadMetriky): void {
 }
 
 /** Vrátí agregovaný souhrn všech metrik */
-export function ziskatSouhrnMetrik(): MetrikySouhrn {
-  const { metriky } = nacistData();
+export async function ziskatSouhrnMetrik(): Promise<MetrikySouhrn> {
+  const { metriky } = await nacistData();
 
   const pocetNavstev = metriky.filter((m) => m.typ === "navsteva").length;
 
@@ -70,12 +67,12 @@ export function ziskatSouhrnMetrik(): MetrikySouhrn {
 }
 
 /** Uloží push subscription pro budoucí notifikace */
-export function ulozitPushOdber(data: {
+export async function ulozitPushOdber(data: {
   endpoint: string;
   klicP256dh: string;
   klicAuth: string;
-}): void {
-  upravitData((uloziste) => {
+}): Promise<void> {
+  await upravitData((uloziste) => {
     const existujici = uloziste.pushOdbery.findIndex(
       (o) => o.endpoint === data.endpoint
     );

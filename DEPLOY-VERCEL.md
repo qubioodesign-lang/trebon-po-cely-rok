@@ -1,93 +1,106 @@
-# Nasazení na Vercel – průvodce krok za krokem
+# Nasazení na Vercel – průvodce
 
-Tento průvodce vás provede prvním testovacím nasazením pro mobilní testování.
+## Trvalé ukládání fotografií (Vercel Blob)
 
-## Co funguje na Vercelu (test)
-
-- Galerie, tažení prstem, šipky
-- Obrazovky „chci se vracet" a „děkujeme"
-- PWA / HTTPS
-- Ukázková fotografie z `data/uloziste-deploy.json`
-
-## Co na Vercelu nefunguje (zatím)
-
-- Nahrávání nových fotografií v administraci
-- Trvalé ukládání metrik a úprav
+Projekt ukládá fotografie a metadata do **Vercel Blob**. Data přežijí redeploy i nové nasazení.
 
 ---
 
-## Krok 1 – Příprava projektu ✅
-
-Projekt je připraven. Změny:
-
-- `data/uloziste-deploy.json` – seed data pro Vercel (v gitu)
-- `public/uploads/vzorova-fotografie.svg` – ukázková fotografie (v gitu)
-- Úložiště na Vercelu běží jen pro čtení
-
----
-
-## Krok 2 – Git repozitář
+## Krok 1 – Aktualizace kódu lokálně
 
 V terminálu ve složce projektu:
 
 ```bash
-git init
-git add .
-git commit -m "Příprava pro testovací deploy na Vercel"
+npm install
+npm run build
 ```
+
+Build musí skončit bez chyby.
 
 ---
 
-## Krok 3 – GitHub
-
-1. Otevřete [github.com/new](https://github.com/new)
-2. Název repozitáře: `trebon-po-cely-rok`
-3. **Private** nebo Public – dle preference
-4. **Nevytvářejte** README, .gitignore ani licenci (už existují)
-5. Po vytvoření spusťte (nahraďte `VASE-USERNAME`):
+## Krok 2 – Commit a push na GitHub
 
 ```bash
-git branch -M main
-git remote add origin https://github.com/VASE-USERNAME/trebon-po-cely-rok.git
-git push -u origin main
+git add .
+git commit -m "Trvalé ukládání fotografií přes Vercel Blob"
+git push
 ```
 
 ---
 
-## Krok 4 – Vercel
+## Krok 3 – Vytvoření Blob úložiště na Vercel
 
-1. [vercel.com](https://vercel.com) → přihlášení přes GitHub
-2. **Add New → Project**
-3. Import repozitáře `trebon-po-cely-rok`
-4. Nastavení nechte default (Next.js)
-
-### Environment Variables
-
-| Název | Hodnota |
-|---|---|
-| `ADMIN_HESLO` | vaše heslo pro /admin |
-| `SESSION_TAJEMSTVI` | náhodný řetěec min. 32 znaků |
-
-5. Klikněte **Deploy**
+1. Otevřete [vercel.com/dashboard](https://vercel.com/dashboard)
+2. V horní liště: **Storage** → **Create Database**
+3. Vyberte **Blob** → **Continue**
+4. Název: `trebon-fotografie` (libovolný)
+5. Region: nejbližší (např. Frankfurt)
+6. **Create**
 
 ---
 
-## Krok 5 – Test na mobilu
+## Krok 4 – Propojení Blob s projektem
 
-Po deployi (1–2 min) otevřete URL typu:
+1. Po vytvoření klikněte **Connect Project**
+2. Vyberte projekt **trebon-po-cely-rok**
+3. Zaškrtněte **Production**, **Preview**, **Development**
+4. **Connect**
+
+Vercel automaticky přidá proměnnou `BLOB_READ_WRITE_TOKEN` do projektu.
+
+---
+
+## Krok 5 – Redeploy
+
+1. V projektu → **Deployments**
+2. U posledního deploye: **⋯** → **Redeploy**
+3. Počkejte na dokončení (1–2 min)
+
+---
+
+## Krok 6 – Ověření v administraci
+
+1. Otevřete `https://vase-adresa.vercel.app/admin`
+2. Přihlaste se
+3. Mělo by být vidět: **„trvalé úložiště aktivní – fotografie a změny se ukládají"**
+4. Nahrajte testovací fotografii
+5. Obnovte stránku – fotografie musí zůstat
+
+---
+
+## Krok 7 – Nahrání 21 fotografií
+
+1. V administraci nahrajte fotografie **po jedné**
+2. U každé doplňte popis (malými písmeny, bez tečky)
+3. Šipkami ↑ ↓ nastavte pořadí
+4. Po nahrání všech otevřete galerii na mobilu a ověřte
+
+**Tip:** Fotografie zmenšete před nahráním (např. pod 2 MB), aby nahrávání bylo rychlé.
+
+---
+
+## Lokální vývoj s Blob (volitelné)
+
+Pro testování nahrávání i lokálně:
+
+1. Vercel dashboard → Blob store → **.env.local** tab → zkopírujte token
+2. Do `.env.local` přidejte:
 
 ```
-https://trebon-po-cely-rok.vercel.app
+BLOB_READ_WRITE_TOKEN=vercel_blob_rw_...
 ```
 
-Zkontrolujte tažení, popis pod fotografií a odkaz „chci se vracet".
+3. `npm run dev` – nahrávání půjde do stejného Blob úložiště
 
 ---
 
 ## Řešení problémů
 
-**Prázdná galerie** – zkontrolujte, že v repu jsou soubory `data/uloziste-deploy.json` a `public/uploads/vzorova-fotografie.svg`.
+**„trvalé úložiště není aktivní"** – Blob není propojený s projektem. Opakujte kroky 3–5.
 
-**Build selhal** – spusťte lokálně `npm run build` a opravte chyby před push.
+**Nahrávání selže (500)** – zkontrolujte Vercel → Project → Settings → Environment Variables, zda existuje `BLOB_READ_WRITE_TOKEN`.
 
-**Admin neukládá** – na Vercelu je to očekávané u testovací verze.
+**Fotografie se nenačte** – v prohlížeči zkontrolujte konzoli; URL musí směřovat na `*.public.blob.vercel-storage.com`.
+
+**Po redeployi data zmizí** – Blob není propojený, nebo nahrávání proběhlo před krokem 4.

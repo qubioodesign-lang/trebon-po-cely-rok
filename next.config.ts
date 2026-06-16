@@ -1,12 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // PWA a optimalizace médií
   images: {
     formats: ["image/avif", "image/webp"],
-    remotePatterns: [],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "*.public.blob.vercel-storage.com",
+      },
+    ],
   },
-  // Povolení nahrávání souborů v API routes
   experimental: {
     serverActions: {
       bodySizeLimit: "50mb",

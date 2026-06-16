@@ -8,7 +8,7 @@ export type TypObsahu = "fotografie" | "video";
 export interface Polozka {
   id: string;
   typ: TypObsahu;
-  /** Relativní cesta k souboru v /public/uploads */
+  /** URL souboru (Blob) nebo název souboru v /public/uploads */
   soubor: string;
   popis: string;
   datumPorizeni: string | null;
