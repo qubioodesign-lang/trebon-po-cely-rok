@@ -4,16 +4,16 @@ import { head, put } from "@vercel/blob";
 import fs from "fs";
 import path from "path";
 import type { UlozisteDat } from "./uloziste-dat";
-import { ziskatVolbyBlob } from "./env-blob";
+import { ziskatVolbyBlobAsync } from "./env-blob";
 
 /** Cesta k metadata JSON v Blob úložišti */
 export const BLOB_CESTA_METADATA = "data/uloziste.json";
 
 const CESTA_DEPLOY = path.join(process.cwd(), "data", "uloziste-deploy.json");
 
-/** Načte data z Vercel Blob (OIDC nebo read-write token) */
+/** Načte data z Vercel Blob */
 export async function nacistDataBlob(): Promise<UlozisteDat> {
-  const volby = ziskatVolbyBlob();
+  const volby = await ziskatVolbyBlobAsync();
 
   try {
     const meta = await head(BLOB_CESTA_METADATA, volby);
@@ -34,7 +34,7 @@ export async function nacistDataBlob(): Promise<UlozisteDat> {
 
 /** Uloží data do Vercel Blob */
 export async function ulozitDataBlob(data: UlozisteDat): Promise<void> {
-  const volby = ziskatVolbyBlob();
+  const volby = await ziskatVolbyBlobAsync();
 
   await put(BLOB_CESTA_METADATA, JSON.stringify(data, null, 2), {
     ...volby,
@@ -45,7 +45,7 @@ export async function ulozitDataBlob(data: UlozisteDat): Promise<void> {
   });
 }
 
-/** Načte výchozí seed z repozitáře pro první inicializaci Blob */
+/** Načte výchozí seed z repozitáře */
 function nacistDeploySeed(): UlozisteDat {
   if (fs.existsSync(CESTA_DEPLOY)) {
     const obsah = fs.readFileSync(CESTA_DEPLOY, "utf-8");

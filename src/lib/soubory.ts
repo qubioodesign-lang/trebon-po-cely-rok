@@ -3,7 +3,7 @@ import "server-only";
 import path from "path";
 import fs from "fs";
 import { put, del } from "@vercel/blob";
-import { pouzivaBlobUloziste, ziskatVolbyBlob } from "./env-blob";
+import { pouzivaBlobUloziste, ziskatVolbyBlobAsync } from "./env-blob";
 
 const UPLOADS_ADRESAR = path.join(process.cwd(), "public", "uploads");
 
@@ -35,8 +35,10 @@ export async function ulozitSoubor(
   const jeVideo = mimeTyp.startsWith("video/");
 
   if (pouzivaBlobUloziste()) {
+    const volby = await ziskatVolbyBlobAsync();
+
     const blob = await put(`uploads/${nazevSouboru}`, soubor, {
-      ...ziskatVolbyBlob(),
+      ...volby,
       access: "public",
       addRandomSuffix: false,
       contentType: mimeTyp,
@@ -65,7 +67,8 @@ export async function ulozitSoubor(
 /** Smaže soubor z Blob nebo lokálního úložiště */
 export async function smazatSoubor(cestaSouboru: string): Promise<void> {
   if (cestaSouboru.startsWith("http://") || cestaSouboru.startsWith("https://")) {
-    await del(cestaSouboru, ziskatVolbyBlob());
+    const volby = await ziskatVolbyBlobAsync();
+    await del(cestaSouboru, volby);
     return;
   }
 

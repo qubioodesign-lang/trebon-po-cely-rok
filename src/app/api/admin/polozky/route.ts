@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { headers } from "next/headers";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 import {
   ziskatVsechnyPolozky,
@@ -10,10 +11,17 @@ import {
 } from "@/lib/polozky";
 import { ulozitSoubor, smazatSoubor } from "@/lib/soubory";
 import { ziskatSouhrnMetrik } from "@/lib/metriky";
-import { pouzivaBlobUloziste, ziskatDiagnozuBlob } from "@/lib/env-blob";
+import {
+  pouzivaBlobUloziste,
+  ziskatDiagnozuBlob,
+} from "@/lib/env-blob";
 
-/** Vždy číst proměnné prostředí za běhu, ne z build cache */
 export const dynamic = "force-dynamic";
+
+async function ziskatOidcZHeaderu(): Promise<string | null> {
+  const hlavicky = await headers();
+  return hlavicky.get("x-vercel-oidc-token");
+}
 
 /** Seznam všech položek a metrik (pouze pro admina) */
 export async function GET() {
@@ -21,14 +29,15 @@ export async function GET() {
     return NextResponse.json({ chyba: "Neautorizováno" }, { status: 401 });
   }
 
+  const oidcHeader = await ziskatOidcZHeaderu();
   const polozky = await ziskatVsechnyPolozky();
   const metriky = await ziskatSouhrnMetrik();
-  const diagnoza = ziskatDiagnozuBlob();
+  const diagnoza = ziskatDiagnozuBlob(oidcHeader);
 
   return NextResponse.json({
     polozky,
     metriky,
-    trvaleUloziste: pouzivaBlobUloziste(),
+    trvaleUloziste: pouzivaBlobUloziste() && diagnoza.maAutentizaci,
     diagnoza,
   });
 }
@@ -38,6 +47,8 @@ export async function POST(request: NextRequest) {
   if (!(await jeAdminPrihlasen())) {
     return NextResponse.json({ chyba: "Neautorizováno" }, { status: 401 });
   }
+
+  const oidcHeader = await ziskatOidcZHeaderu();
 
   try {
     const formData = await request.formData();
@@ -57,11 +68,14 @@ export async function POST(request: NextRequest) {
       datumPorizeni,
     });
 
-    return NextResponse.json({ polozka, diagnoza: ziskatDiagnozuBlob() });
+    return NextResponse.json({
+      polozka,
+      diagnoza: ziskatDiagnozuBlob(oidcHeader),
+    });
   } catch (error) {
     const zprava = error instanceof Error ? error.message : "Chyba při nahrávání";
     return NextResponse.json(
-      { chyba: zprava, diagnoza: ziskatDiagnozuBlob() },
+      { chyba: zprava, diagnoza: ziskatDiagnozuBlob(oidcHeader) },
       { status: 500 }
     );
   }
