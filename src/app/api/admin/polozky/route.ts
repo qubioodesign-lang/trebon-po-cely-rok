@@ -30,8 +30,8 @@ export async function GET() {
   }
 
   const oidcHeader = await ziskatOidcZHeaderu();
-  const polozky = await ziskatVsechnyPolozky();
-  const metriky = await ziskatSouhrnMetrik();
+  const polozky = await ziskatVsechnyPolozky(oidcHeader);
+  const metriky = await ziskatSouhrnMetrik(oidcHeader);
   const diagnoza = ziskatDiagnozuBlob(oidcHeader);
 
   return NextResponse.json({
@@ -60,13 +60,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ chyba: "Soubor je povinný" }, { status: 400 });
     }
 
-    const { cestaSouboru, typ } = await ulozitSoubor(soubor);
-    const polozka = await vytvoritPolozku({
-      typ,
-      soubor: cestaSouboru,
-      popis,
-      datumPorizeni,
-    });
+    const { cestaSouboru, typ } = await ulozitSoubor(soubor, oidcHeader);
+    const polozka = await vytvoritPolozku(
+      {
+        typ,
+        soubor: cestaSouboru,
+        popis,
+        datumPorizeni,
+      },
+      oidcHeader
+    );
 
     return NextResponse.json({
       polozka,
@@ -87,11 +90,12 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ chyba: "Neautorizováno" }, { status: 401 });
   }
 
+  const oidcHeader = await ziskatOidcZHeaderu();
   const body = await request.json();
   const { id, popis, aktivni, poradiIds } = body;
 
   if (poradiIds && Array.isArray(poradiIds)) {
-    await zmenitPoradi(poradiIds);
+    await zmenitPoradi(poradiIds, oidcHeader);
     return NextResponse.json({ uspech: true });
   }
 
@@ -100,11 +104,11 @@ export async function PATCH(request: NextRequest) {
   }
 
   if (popis !== undefined) {
-    await aktualizovatPopis(id, popis);
+    await aktualizovatPopis(id, popis, oidcHeader);
   }
 
   if (aktivni !== undefined) {
-    await prepnoutAktivni(id, aktivni);
+    await prepnoutAktivni(id, aktivni, oidcHeader);
   }
 
   return NextResponse.json({ uspech: true });
@@ -116,14 +120,16 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ chyba: "Neautorizováno" }, { status: 401 });
   }
 
+  const oidcHeader = await ziskatOidcZHeaderu();
   const { id } = await request.json();
+
   if (!id) {
     return NextResponse.json({ chyba: "Chybí ID položky" }, { status: 400 });
   }
 
-  const smazana = await smazatPolozku(id);
+  const smazana = await smazatPolozku(id, oidcHeader);
   if (smazana) {
-    await smazatSoubor(smazana.soubor);
+    await smazatSoubor(smazana.soubor, oidcHeader);
   }
 
   return NextResponse.json({ uspech: true });

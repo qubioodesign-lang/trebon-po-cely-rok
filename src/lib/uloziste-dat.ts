@@ -9,18 +9,8 @@ import { pouzivaBlobUloziste } from "./env-blob";
 
 export { pouzivaBlobUloziste } from "./env-blob";
 
-/** Najde cestu k lokálnímu souboru */
-function ziskatCestuKeCteni(): string {
-  if (fs.existsSync(CESTA_LOKALNI)) return CESTA_LOKALNI;
-  if (fs.existsSync(CESTA_DEPLOY)) return CESTA_DEPLOY;
-  return CESTA_LOKALNI;
-}
-
 /** Lokální datový soubor (vývoj bez Blob tokenu) */
 const CESTA_LOKALNI = path.join(process.cwd(), "data", "uloziste.json");
-
-/** Seed data v repozitáři */
-const CESTA_DEPLOY = path.join(process.cwd(), "data", "uloziste-deploy.json");
 
 /** Záznam metriky v úložišti */
 export interface ZaznamMetriky {
@@ -53,22 +43,20 @@ const PRAZDNA_DATA: UlozisteDat = {
 };
 
 /** Načte data z Blob nebo lokálního souboru */
-export async function nacistData(): Promise<UlozisteDat> {
+export async function nacistData(oidcZHeaderu?: string | null): Promise<UlozisteDat> {
   if (pouzivaBlobUloziste()) {
-    return nacistDataBlob();
+    return nacistDataBlob(oidcZHeaderu);
   }
   return nacistDataLokalne();
 }
 
 function nacistDataLokalne(): UlozisteDat {
-  const cesta = ziskatCestuKeCteni();
-
-  if (!fs.existsSync(cesta)) {
+  if (!fs.existsSync(CESTA_LOKALNI)) {
     ulozitDataLokalne(PRAZDNA_DATA);
     return structuredClone(PRAZDNA_DATA);
   }
 
-  const obsah = fs.readFileSync(cesta, "utf-8");
+  const obsah = fs.readFileSync(CESTA_LOKALNI, "utf-8");
   const data = JSON.parse(obsah) as UlozisteDat;
 
   return {
@@ -79,9 +67,12 @@ function nacistDataLokalne(): UlozisteDat {
 }
 
 /** Uloží data */
-export async function ulozitData(data: UlozisteDat): Promise<void> {
+export async function ulozitData(
+  data: UlozisteDat,
+  oidcZHeaderu?: string | null
+): Promise<void> {
   if (pouzivaBlobUloziste()) {
-    await ulozitDataBlob(data);
+    await ulozitDataBlob(data, oidcZHeaderu);
     return;
   }
   ulozitDataLokalne(data);
@@ -100,11 +91,12 @@ function ulozitDataLokalne(data: UlozisteDat): void {
 
 /** Provede změnu dat a uloží je */
 export async function upravitData(
-  upravitel: (data: UlozisteDat) => void
+  upravitel: (data: UlozisteDat) => void,
+  oidcZHeaderu?: string | null
 ): Promise<UlozisteDat> {
-  const data = await nacistData();
+  const data = await nacistData(oidcZHeaderu);
   upravitel(data);
-  await ulozitData(data);
+  await ulozitData(data, oidcZHeaderu);
   return data;
 }
 

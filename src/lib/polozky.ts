@@ -7,8 +7,10 @@ import {
 import { sestavitUrlPolozky } from "./url-polozky";
 
 /** Vrátí všechny aktivní položky seřazené podle pořadí */
-export async function ziskatAktivniPolozky(): Promise<PolozkaVerejna[]> {
-  const { polozky } = await nacistData();
+export async function ziskatAktivniPolozky(
+  oidcZHeaderu?: string | null
+): Promise<PolozkaVerejna[]> {
+  const { polozky } = await nacistData(oidcZHeaderu);
 
   return seraditPolozky(polozky)
     .filter((p) => p.aktivni)
@@ -21,18 +23,23 @@ export async function ziskatAktivniPolozky(): Promise<PolozkaVerejna[]> {
 }
 
 /** Vrátí všechny položky včetně neaktivních (pro administraci) */
-export async function ziskatVsechnyPolozky(): Promise<Polozka[]> {
-  const { polozky } = await nacistData();
+export async function ziskatVsechnyPolozky(
+  oidcZHeaderu?: string | null
+): Promise<Polozka[]> {
+  const { polozky } = await nacistData(oidcZHeaderu);
   return seraditPolozky(polozky);
 }
 
 /** Vytvoří novou položku */
-export async function vytvoritPolozku(data: {
-  typ: TypObsahu;
-  soubor: string;
-  popis: string;
-  datumPorizeni?: string | null;
-}): Promise<Polozka> {
+export async function vytvoritPolozku(
+  data: {
+    typ: TypObsahu;
+    soubor: string;
+    popis: string;
+    datumPorizeni?: string | null;
+  },
+  oidcZHeaderu?: string | null
+): Promise<Polozka> {
   const id = crypto.randomUUID();
   const datumPublikace = new Date().toISOString();
 
@@ -56,29 +63,40 @@ export async function vytvoritPolozku(data: {
     };
 
     uloziste.polozky.push(novaPolozka);
-  });
+  }, oidcZHeaderu);
 
   return novaPolozka;
 }
 
 /** Aktualizuje popis položky */
-export async function aktualizovatPopis(id: string, popis: string): Promise<void> {
+export async function aktualizovatPopis(
+  id: string,
+  popis: string,
+  oidcZHeaderu?: string | null
+): Promise<void> {
   await upravitData((uloziste) => {
     const polozka = uloziste.polozky.find((p) => p.id === id);
     if (polozka) polozka.popis = popis;
-  });
+  }, oidcZHeaderu);
 }
 
 /** Přepne viditelnost položky */
-export async function prepnoutAktivni(id: string, aktivni: boolean): Promise<void> {
+export async function prepnoutAktivni(
+  id: string,
+  aktivni: boolean,
+  oidcZHeaderu?: string | null
+): Promise<void> {
   await upravitData((uloziste) => {
     const polozka = uloziste.polozky.find((p) => p.id === id);
     if (polozka) polozka.aktivni = aktivni;
-  });
+  }, oidcZHeaderu);
 }
 
 /** Smaže položku z úložiště */
-export async function smazatPolozku(id: string): Promise<Polozka | null> {
+export async function smazatPolozku(
+  id: string,
+  oidcZHeaderu?: string | null
+): Promise<Polozka | null> {
   let smazana: Polozka | null = null;
 
   await upravitData((uloziste) => {
@@ -86,17 +104,20 @@ export async function smazatPolozku(id: string): Promise<Polozka | null> {
     if (index === -1) return;
     smazana = uloziste.polozky[index];
     uloziste.polozky.splice(index, 1);
-  });
+  }, oidcZHeaderu);
 
   return smazana;
 }
 
 /** Změní pořadí položek podle pole ID */
-export async function zmenitPoradi(ids: string[]): Promise<void> {
+export async function zmenitPoradi(
+  ids: string[],
+  oidcZHeaderu?: string | null
+): Promise<void> {
   await upravitData((uloziste) => {
     ids.forEach((id, index) => {
       const polozka = uloziste.polozky.find((p) => p.id === id);
       if (polozka) polozka.poradi = index;
     });
-  });
+  }, oidcZHeaderu);
 }

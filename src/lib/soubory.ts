@@ -1,5 +1,3 @@
-import "server-only";
-
 import path from "path";
 import fs from "fs";
 import { put, del } from "@vercel/blob";
@@ -17,12 +15,10 @@ const POVOLENE_TYPY: Record<string, string> = {
   "video/webm": ".webm",
 };
 
-/**
- * Uloží nahraný soubor.
- * Na Vercelu do Blob úložiště, lokálně do /public/uploads.
- */
+/** Uloží nahraný soubor do Blob nebo lokálně */
 export async function ulozitSoubor(
-  soubor: File
+  soubor: File,
+  oidcZHeaderu?: string | null
 ): Promise<{ cestaSouboru: string; typ: "fotografie" | "video" }> {
   const mimeTyp = soubor.type;
   const pripona = POVOLENE_TYPY[mimeTyp];
@@ -35,7 +31,7 @@ export async function ulozitSoubor(
   const jeVideo = mimeTyp.startsWith("video/");
 
   if (pouzivaBlobUloziste()) {
-    const volby = await ziskatVolbyBlobAsync();
+    const volby = await ziskatVolbyBlobAsync(oidcZHeaderu);
 
     const blob = await put(`uploads/${nazevSouboru}`, soubor, {
       ...volby,
@@ -65,9 +61,12 @@ export async function ulozitSoubor(
 }
 
 /** Smaže soubor z Blob nebo lokálního úložiště */
-export async function smazatSoubor(cestaSouboru: string): Promise<void> {
+export async function smazatSoubor(
+  cestaSouboru: string,
+  oidcZHeaderu?: string | null
+): Promise<void> {
   if (cestaSouboru.startsWith("http://") || cestaSouboru.startsWith("https://")) {
-    const volby = await ziskatVolbyBlobAsync();
+    const volby = await ziskatVolbyBlobAsync(oidcZHeaderu);
     await del(cestaSouboru, volby);
     return;
   }

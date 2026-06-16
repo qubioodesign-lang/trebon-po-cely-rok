@@ -2,7 +2,10 @@ import type { MetrikySouhrn, PayloadMetriky } from "@/types";
 import { nacistData, upravitData } from "./uloziste-dat";
 
 /** Zaznamená událost do metrik */
-export async function zaznamenatMetriku(payload: PayloadMetriky): Promise<void> {
+export async function zaznamenatMetriku(
+  payload: PayloadMetriky,
+  oidcZHeaderu?: string | null
+): Promise<void> {
   await upravitData((uloziste) => {
     uloziste.metriky.push({
       id: crypto.randomUUID(),
@@ -11,12 +14,14 @@ export async function zaznamenatMetriku(payload: PayloadMetriky): Promise<void> 
       navstevnikId: payload.navstevnikId,
       vytvoreno: new Date().toISOString(),
     });
-  });
+  }, oidcZHeaderu);
 }
 
 /** Vrátí agregovaný souhrn všech metrik */
-export async function ziskatSouhrnMetrik(): Promise<MetrikySouhrn> {
-  const { metriky } = await nacistData();
+export async function ziskatSouhrnMetrik(
+  oidcZHeaderu?: string | null
+): Promise<MetrikySouhrn> {
+  const { metriky } = await nacistData(oidcZHeaderu);
 
   const pocetNavstev = metriky.filter((m) => m.typ === "navsteva").length;
 
@@ -67,11 +72,14 @@ export async function ziskatSouhrnMetrik(): Promise<MetrikySouhrn> {
 }
 
 /** Uloží push subscription pro budoucí notifikace */
-export async function ulozitPushOdber(data: {
-  endpoint: string;
-  klicP256dh: string;
-  klicAuth: string;
-}): Promise<void> {
+export async function ulozitPushOdber(
+  data: {
+    endpoint: string;
+    klicP256dh: string;
+    klicAuth: string;
+  },
+  oidcZHeaderu?: string | null
+): Promise<void> {
   await upravitData((uloziste) => {
     const existujici = uloziste.pushOdbery.findIndex(
       (o) => o.endpoint === data.endpoint
@@ -89,5 +97,5 @@ export async function ulozitPushOdber(data: {
     } else {
       uloziste.pushOdbery.push(zaznam);
     }
-  });
+  }, oidcZHeaderu);
 }

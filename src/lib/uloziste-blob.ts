@@ -1,40 +1,51 @@
 import "server-only";
 
-import { head, put } from "@vercel/blob";
-import fs from "fs";
-import path from "path";
+import { get, put, BlobNotFoundError } from "@vercel/blob";
 import type { UlozisteDat } from "./uloziste-dat";
 import { ziskatVolbyBlobAsync } from "./env-blob";
 
 /** Cesta k metadata JSON v Blob úložišti */
 export const BLOB_CESTA_METADATA = "data/uloziste.json";
 
-const CESTA_DEPLOY = path.join(process.cwd(), "data", "uloziste-deploy.json");
+const PRAZDNA_DATA: UlozisteDat = {
+  polozky: [],
+  metriky: [],
+  pushOdbery: [],
+};
 
-/** Načte data z Vercel Blob */
-export async function nacistDataBlob(): Promise<UlozisteDat> {
-  const volby = await ziskatVolbyBlobAsync();
+/** Načte data z Vercel Blob – nikdy nepřepisuje seedem při chybě */
+export async function nacistDataBlob(oidcZHeaderu?: string | null): Promise<UlozisteDat> {
+  const volby = await ziskatVolbyBlobAsync(oidcZHeaderu);
 
   try {
-    const meta = await head(BLOB_CESTA_METADATA, volby);
-    const odpoved = await fetch(meta.url);
+    const vysledek = await get(BLOB_CESTA_METADATA, {
+      ...volby,
+      access: "public",
+    });
 
-    if (!odpoved.ok) {
-      throw new Error("Metadata nejsou dostupná");
+    // Soubor metadata ještě neexistuje
+    if (!vysledek || vysledek.statusCode !== 200 || !vysledek.stream) {
+      return structuredClone(PRAZDNA_DATA);
     }
 
-    const data = (await odpoved.json()) as UlozisteDat;
-    return normalizovatData(data);
-  } catch {
-    const seed = nacistDeploySeed();
-    await ulozitDataBlob(seed);
-    return seed;
+    const text = await new Response(vysledek.stream).text();
+    return normalizovatData(JSON.parse(text) as UlozisteDat);
+  } catch (error) {
+    // Pouze skutečně chybějící soubor → prázdná galerie
+    if (error instanceof BlobNotFoundError) {
+      return structuredClone(PRAZDNA_DATA);
+    }
+    // Auth/síťová chyba – nevracet seed, nechat projít dál
+    throw error;
   }
 }
 
 /** Uloží data do Vercel Blob */
-export async function ulozitDataBlob(data: UlozisteDat): Promise<void> {
-  const volby = await ziskatVolbyBlobAsync();
+export async function ulozitDataBlob(
+  data: UlozisteDat,
+  oidcZHeaderu?: string | null
+): Promise<void> {
+  const volby = await ziskatVolbyBlobAsync(oidcZHeaderu);
 
   await put(BLOB_CESTA_METADATA, JSON.stringify(data, null, 2), {
     ...volby,
@@ -43,16 +54,6 @@ export async function ulozitDataBlob(data: UlozisteDat): Promise<void> {
     allowOverwrite: true,
     contentType: "application/json",
   });
-}
-
-/** Načte výchozí seed z repozitáře */
-function nacistDeploySeed(): UlozisteDat {
-  if (fs.existsSync(CESTA_DEPLOY)) {
-    const obsah = fs.readFileSync(CESTA_DEPLOY, "utf-8");
-    return normalizovatData(JSON.parse(obsah) as UlozisteDat);
-  }
-
-  return { polozky: [], metriky: [], pushOdbery: [] };
 }
 
 function normalizovatData(data: UlozisteDat): UlozisteDat {
