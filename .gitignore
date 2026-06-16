@@ -1,0 +1,40 @@
+# Závislosti
+/node_modules
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# Build
+/.next/
+/out/
+/build
+
+# Produkční soubory – lokální data zůstávají mimo git
+/data/uloziste.json
+/data/uloziste.json.tmp
+/public/uploads/*
+!/public/uploads/.gitkeep
+!/public/uploads/vzorova-fotografie.svg
+
+# Proměnné prostředí
+.env
+.env*.local
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

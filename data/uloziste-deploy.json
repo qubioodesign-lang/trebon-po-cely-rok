@@ -1,0 +1,16 @@
+{
+  "polozky": [
+    {
+      "id": "bd4873e9-0a42-4edf-9ca4-4662d250afc5",
+      "typ": "fotografie",
+      "soubor": "vzorova-fotografie.svg",
+      "popis": "podvečer na hrázi rybníka Svět",
+      "datumPorizeni": "2026-06-15T18:38:34.174Z",
+      "datumPublikace": "2026-06-15T18:38:34.174Z",
+      "poradi": 0,
+      "aktivni": true
+    }
+  ],
+  "metriky": [],
+  "pushOdbery": []
+}

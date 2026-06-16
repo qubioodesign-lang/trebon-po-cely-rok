@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Základní styly – klidná, minimalistická atmosféra */
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-krem text-text antialiased;
+    font-feature-settings: "kern" 1, "liga" 1;
+  }
+
+  /* Skrytí scrollbaru pro čistý vzhled */
+  ::-webkit-scrollbar {
+    display: none;
+  }
+
+  * {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+@layer components {
+  /* Nenápadný textový odkaz – bez rámečku, bez zvýraznění */
+  .odkaz-jemny {
+    @apply text-text-velmiJemny text-sm tracking-wide transition-colors duration-300;
+  }
+
+  .odkaz-jemny:hover,
+  .odkaz-jemny:focus-visible {
+    @apply text-text-jemny outline-none;
+  }
+
+  /* Klidné tlačítko pro povolení upozornění */
+  .tlacitko-klidne {
+    @apply inline-block px-8 py-3 text-sm text-text-jemny border border-text-velmiJemny/30
+           rounded-sm transition-colors duration-300 tracking-wide;
+  }
+
+  .tlacitko-klidne:hover,
+  .tlacitko-klidne:focus-visible {
+    @apply border-text-jemny/50 text-text outline-none;
+  }
+}
