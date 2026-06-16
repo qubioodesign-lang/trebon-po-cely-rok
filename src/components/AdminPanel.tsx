@@ -1,128 +1,101 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import type { Polozka, MetrikySouhrn } from "@/types";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import type { AdminData, Polozka } from "@/types";
 import { sestavitUrlPolozky } from "@/lib/url-polozky";
+import {
+  prihlasitAdmin,
+  odhlasitAdmin,
+  nahrátPolozku,
+  prepnoutAktivniPolozky,
+  smazatPolozkuAdmin,
+  zmenitPopisPolozky,
+  zmenitPoradiPolozek,
+} from "@/app/admin/actions";
 
-/** Diagnostika Blob úložiště z API */
-interface DiagnozaBlob {
-  trvaleUloziste: boolean;
-  maAutentizaci: boolean;
-  jeBuild: boolean;
-  prostredi: { vercel: boolean; nodeEnv: string };
-  promenne: {
-    BLOB_STORE_ID: boolean;
-    BLOB_READ_WRITE_TOKEN: boolean;
-    VERCEL_OIDC_TOKEN: boolean;
-    OIDC_Z_HEADERU: boolean;
-  };
-  nahledStoreId: string | null;
-  doporuceni: string | null;
+interface AdminPanelProps {
+  jePrihlasen: boolean;
+  data: AdminData | null;
+  chybaNacitani?: string | null;
 }
 
 /**
  * Jednoduchá administrace chráněná heslem.
- * Umožňuje správu fotografií, videí a zobrazení metrik.
+ * Data se načítají na serveru (Blob OIDC); mutace přes server actions.
  */
-export function AdminPanel() {
-  const [prihlasen, setPrihlasen] = useState<boolean | null>(null);
+export function AdminPanel({
+  jePrihlasen,
+  data,
+  chybaNacitani,
+}: AdminPanelProps) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
   const [heslo, setHeslo] = useState("");
   const [chyba, setChyba] = useState("");
-  const [polozky, setPolozky] = useState<Polozka[]>([]);
-  const [metriky, setMetriky] = useState<MetrikySouhrn | null>(null);
   const [nahrava, setNahrava] = useState(false);
-  const [trvaleUloziste, setTrvaleUloziste] = useState<boolean | null>(null);
-  const [diagnoza, setDiagnoza] = useState<DiagnozaBlob | null>(null);
 
-  const nacistData = useCallback(async () => {
-    const response = await fetch("/api/admin/polozky");
-    if (response.ok) {
-      const data = await response.json();
-      setPolozky(data.polozky);
-      setMetriky(data.metriky);
-      setTrvaleUloziste(data.trvaleUloziste ?? false);
-      setDiagnoza(data.diagnoza ?? null);
-    }
-  }, []);
+  const polozky = data?.polozky ?? [];
+  const metriky = data?.metriky ?? null;
+  const trvaleUloziste = data?.trvaleUloziste ?? null;
+  const diagnoza = data?.diagnoza ?? null;
 
-  useEffect(() => {
-    fetch("/api/admin/prihlaseni")
-      .then((r) => r.json())
-      .then((data) => {
-        setPrihlasen(data.prihlasen);
-        if (data.prihlasen) nacistData();
-      });
-  }, [nacistData]);
+  const obnovit = () => {
+    startTransition(() => {
+      router.refresh();
+    });
+  };
 
   const handlePrihlaseni = async (e: React.FormEvent) => {
     e.preventDefault();
     setChyba("");
 
-    const response = await fetch("/api/admin/prihlaseni", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ heslo }),
-    });
-
-    if (response.ok) {
-      setPrihlasen(true);
-      nacistData();
+    const vysledek = await prihlasitAdmin(heslo);
+    if ("uspech" in vysledek && vysledek.uspech) {
+      setHeslo("");
+      obnovit();
     } else {
-      setChyba("Neplatné heslo");
+      setChyba(vysledek.chyba ?? "Neplatné heslo");
     }
   };
 
   const handleOdhlaseni = async () => {
-    await fetch("/api/admin/prihlaseni", { method: "DELETE" });
-    setPrihlasen(false);
-    setPolozky([]);
-    setMetriky(null);
+    await odhlasitAdmin();
+    obnovit();
   };
 
   const handleNahrani = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setNahrava(true);
+    setChyba("");
 
     const formData = new FormData(e.currentTarget);
-    const response = await fetch("/api/admin/polozky", {
-      method: "POST",
-      body: formData,
-    });
+    const vysledek = await nahrátPolozku(formData);
 
-    if (response.ok) {
+    if ("uspech" in vysledek && vysledek.uspech) {
       e.currentTarget.reset();
-      await nacistData();
+      obnovit();
+    } else if ("chyba" in vysledek) {
+      setChyba(vysledek.chyba ?? "Chyba při nahrávání");
     }
 
     setNahrava(false);
   };
 
   const handlePrepnoutAktivni = async (id: string, aktivni: boolean) => {
-    await fetch("/api/admin/polozky", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, aktivni: !aktivni }),
-    });
-    await nacistData();
+    await prepnoutAktivniPolozky(id, !aktivni);
+    obnovit();
   };
 
   const handleSmazat = async (id: string) => {
     if (!confirm("Opravdu smazat tuto položku?")) return;
-
-    await fetch("/api/admin/polozky", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id }),
-    });
-    await nacistData();
+    await smazatPolozkuAdmin(id);
+    obnovit();
   };
 
   const handleZmenaPopisu = async (id: string, popis: string) => {
-    await fetch("/api/admin/polozky", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, popis }),
-    });
+    await zmenitPopisPolozky(id, popis);
+    obnovit();
   };
 
   const handlePosun = async (index: number, smer: "nahoru" | "dolu") => {
@@ -131,24 +104,11 @@ export function AdminPanel() {
     if (cil < 0 || cil >= noveIds.length) return;
 
     [noveIds[index], noveIds[cil]] = [noveIds[cil], noveIds[index]];
-
-    await fetch("/api/admin/polozky", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ poradiIds: noveIds }),
-    });
-    await nacistData();
+    await zmenitPoradiPolozek(noveIds);
+    obnovit();
   };
 
-  if (prihlasen === null) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center bg-krem">
-        <p className="text-sm text-text-jemny">načítání…</p>
-      </div>
-    );
-  }
-
-  if (!prihlasen) {
+  if (!jePrihlasen) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-krem px-6">
         <form onSubmit={handlePrihlaseni} className="w-full max-w-xs space-y-4">
@@ -181,19 +141,48 @@ export function AdminPanel() {
           </button>
         </div>
 
+        {(pending || nahrava) && (
+          <p className="text-center text-xs text-text-velmiJemny">obnovuji…</p>
+        )}
+
+        {chybaNacitani && (
+          <p className="text-center text-xs text-red-400">
+            chyba načtení: {chybaNacitani}
+          </p>
+        )}
+
+        {chyba && (
+          <p className="text-center text-xs text-red-400">{chyba}</p>
+        )}
+
         {trvaleUloziste === false && (
           <div className="space-y-2 text-center text-xs font-light text-amber-700/80">
-            <p>trvalé úložiště není aktivní – nastavte Vercel Blob (viz DEPLOY-VERCEL.md)</p>
+            <p>
+              trvalé úložiště není aktivní – nastavte Vercel Blob (viz
+              DEPLOY-VERCEL.md)
+            </p>
             {diagnoza && (
               <div className="mx-auto max-w-sm rounded border border-amber-700/20 p-3 text-left font-mono text-[10px] leading-relaxed text-text-jemny">
                 <p>diagnoza za běhu:</p>
                 <p>vercel: {diagnoza.prostredi.vercel ? "ano" : "ne"}</p>
                 <p>autentizace: {diagnoza.maAutentizaci ? "ano" : "ne"}</p>
                 <p>node: {diagnoza.prostredi.nodeEnv}</p>
-                <p>BLOB_STORE_ID: {diagnoza.promenne.BLOB_STORE_ID ? "ano" : "ne"}</p>
-                <p>BLOB_READ_WRITE_TOKEN: {diagnoza.promenne.BLOB_READ_WRITE_TOKEN ? "ano" : "ne"}</p>
-                <p>VERCEL_OIDC_TOKEN: {diagnoza.promenne.VERCEL_OIDC_TOKEN ? "ano" : "ne"}</p>
-                <p>OIDC z hlavičky: {diagnoza.promenne.OIDC_Z_HEADERU ? "ano" : "ne"}</p>
+                <p>
+                  BLOB_STORE_ID:{" "}
+                  {diagnoza.promenne.BLOB_STORE_ID ? "ano" : "ne"}
+                </p>
+                <p>
+                  BLOB_READ_WRITE_TOKEN:{" "}
+                  {diagnoza.promenne.BLOB_READ_WRITE_TOKEN ? "ano" : "ne"}
+                </p>
+                <p>
+                  VERCEL_OIDC_TOKEN:{" "}
+                  {diagnoza.promenne.VERCEL_OIDC_TOKEN ? "ano" : "ne"}
+                </p>
+                <p>
+                  OIDC z hlavičky:{" "}
+                  {diagnoza.promenne.OIDC_Z_HEADERU ? "ano" : "ne"}
+                </p>
                 {diagnoza.nahledStoreId && (
                   <p>store: {diagnoza.nahledStoreId}</p>
                 )}
@@ -211,7 +200,6 @@ export function AdminPanel() {
           </p>
         )}
 
-        {/* Metriky */}
         {metriky && (
           <section className="space-y-3 border border-text-velmiJemny/20 p-4">
             <h2 className="text-sm font-light text-text-jemny">metriky</h2>
@@ -222,13 +210,15 @@ export function AdminPanel() {
               <span>posuny vpřed: {metriky.pocetPosunuVpred}</span>
               <span>návraty zpět: {metriky.pocetNavratuZpet}</span>
               <span>procento návratů: {metriky.procentoNavratu}%</span>
-              <span>kliknutí &bdquo;chci se vracet&ldquo;: {metriky.pocetKliknutiChciSeVracet}</span>
+              <span>
+                kliknutí &bdquo;chci se vracet&ldquo;:{" "}
+                {metriky.pocetKliknutiChciSeVracet}
+              </span>
               <span>povolená upozornění: {metriky.pocetPovolenychUpozorneni}</span>
             </div>
           </section>
         )}
 
-        {/* Nahrání nové položky */}
         <section className="space-y-3 border border-text-velmiJemny/20 p-4">
           <h2 className="text-sm font-light text-text-jemny">nahrát položku</h2>
           <form onSubmit={handleNahrani} className="space-y-3">
@@ -256,12 +246,11 @@ export function AdminPanel() {
           </form>
         </section>
 
-        {/* Seznam položek */}
         <section className="space-y-3">
           <h2 className="text-sm font-light text-text-jemny">
             položky ({polozky.length})
           </h2>
-          {polozky.map((polozka, index) => (
+          {polozky.map((polozka: Polozka, index: number) => (
             <div
               key={polozka.id}
               className={`flex items-center gap-3 border border-text-velmiJemny/20 p-3 ${
@@ -309,7 +298,9 @@ export function AdminPanel() {
 
               <div className="flex flex-col gap-1">
                 <button
-                  onClick={() => handlePrepnoutAktivni(polozka.id, polozka.aktivni)}
+                  onClick={() =>
+                    handlePrepnoutAktivni(polozka.id, polozka.aktivni)
+                  }
                   className="text-xs text-text-velmiJemny"
                 >
                   {polozka.aktivni ? "skrýt" : "zobrazit"}

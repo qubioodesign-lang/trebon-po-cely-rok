@@ -52,3 +52,27 @@ export interface PayloadMetriky {
   polozkaId?: string;
   navstevnikId?: string;
 }
+
+/** Diagnostika Blob úložiště (serializovatelná pro klienta) */
+export interface DiagnozaBlob {
+  trvaleUloziste: boolean;
+  maAutentizaci: boolean;
+  jeBuild: boolean;
+  prostredi: { vercel: boolean; nodeEnv: string };
+  promenne: {
+    BLOB_STORE_ID: boolean;
+    BLOB_READ_WRITE_TOKEN: boolean;
+    VERCEL_OIDC_TOKEN: boolean;
+    OIDC_Z_HEADERU: boolean;
+  };
+  nahledStoreId: string | null;
+  doporuceni: string | null;
+}
+
+/** Data administrace načtená na serveru */
+export interface AdminData {
+  polozky: Polozka[];
+  metriky: MetrikySouhrn;
+  trvaleUloziste: boolean;
+  diagnoza: DiagnozaBlob;
+}

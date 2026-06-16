@@ -30,16 +30,23 @@ export async function GET() {
   }
 
   const oidcHeader = await ziskatOidcZHeaderu();
-  const polozky = await ziskatVsechnyPolozky(oidcHeader);
-  const metriky = await ziskatSouhrnMetrik(oidcHeader);
-  const diagnoza = ziskatDiagnozuBlob(oidcHeader);
 
-  return NextResponse.json({
-    polozky,
-    metriky,
-    trvaleUloziste: pouzivaBlobUloziste() && diagnoza.maAutentizaci,
-    diagnoza,
-  });
+  try {
+    const polozky = await ziskatVsechnyPolozky(oidcHeader);
+    const metriky = await ziskatSouhrnMetrik(oidcHeader);
+    const diagnoza = ziskatDiagnozuBlob(oidcHeader);
+
+    return NextResponse.json({
+      polozky,
+      metriky,
+      trvaleUloziste: pouzivaBlobUloziste() && diagnoza.maAutentizaci,
+      diagnoza,
+    });
+  } catch (error) {
+    const zprava =
+      error instanceof Error ? error.message : "Chyba při načítání dat";
+    return NextResponse.json({ chyba: zprava }, { status: 500 });
+  }
 }
 
 /** Nahrání nové položky */

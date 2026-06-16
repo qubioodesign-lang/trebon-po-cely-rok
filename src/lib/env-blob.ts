@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { DiagnozaBlob } from "@/types";
+
 /**
  * Načte proměnnou prostředí za běhu.
  * Dynamický přístup process.env[klic] zabrání Next.js inline při buildu.
@@ -88,23 +90,7 @@ export async function ziskatVolbyBlobAsync(oidcZHeaderu?: string | null): Promis
 }
 
 /** Bezpečná diagnostika – neobsahuje tajné hodnoty */
-export interface DiagnozaBlob {
-  trvaleUloziste: boolean;
-  maAutentizaci: boolean;
-  jeBuild: boolean;
-  prostredi: {
-    vercel: boolean;
-    nodeEnv: string;
-  };
-  promenne: {
-    BLOB_STORE_ID: boolean;
-    BLOB_READ_WRITE_TOKEN: boolean;
-    VERCEL_OIDC_TOKEN: boolean;
-    OIDC_Z_HEADERU: boolean;
-  };
-  nahledStoreId: string | null;
-  doporuceni: string | null;
-}
+export type { DiagnozaBlob } from "@/types";
 
 export function ziskatDiagnozuBlob(oidcZHeaderu?: string | null): DiagnozaBlob {
   const storeId = ziskatEnv("BLOB_STORE_ID");
