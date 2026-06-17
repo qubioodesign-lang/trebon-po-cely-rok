@@ -15,26 +15,39 @@ interface PropsGalerieHlavni {
 /** Práh tažení pro přepnutí fotografie (v pixelech) */
 const PRAH_TAZENI = 50;
 
-/** Vizuální šipka navigace – zatím bez funkčnosti */
-function SipkaNavigaceVzhled({ smer }: { smer: "vlevo" | "vpravo" }) {
+/** Navigační šipka – stejný vzhled, bez pozadí */
+function SipkaNavigace({
+  smer,
+  onClick,
+}: {
+  smer: "vlevo" | "vpravo";
+  onClick: () => void;
+}) {
   const cesta =
     smer === "vlevo" ? "M16 4L6 12L16 20" : "M8 4L18 12L8 20";
 
   return (
-    <svg
-      className="pointer-events-none h-[1.35rem] w-[1.35rem] shrink-0 text-white/75"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={smer === "vlevo" ? "Předchozí fotografie" : "Další fotografie"}
+      className="border-none bg-transparent p-0 outline-none"
     >
-      <path
-        d={cesta}
-        stroke="currentColor"
-        strokeWidth="1.25"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+      <svg
+        className="h-[1.35rem] w-[1.35rem] shrink-0 text-white/75"
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+      >
+        <path
+          d={cesta}
+          stroke="currentColor"
+          strokeWidth="1.25"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </button>
   );
 }
 
@@ -212,16 +225,20 @@ export function GalerieHlavni({ polozky }: PropsGalerieHlavni) {
               {aktualniPolozka.popis}
             </p>
             <div className="relative my-3 flex w-full items-center justify-center">
-              <div className="absolute left-[5%] top-1/2 -translate-y-1/2">
-                <SipkaNavigaceVzhled smer="vlevo" />
-              </div>
+              {aktualniIndex > 0 && (
+                <div className="absolute left-[5%] top-1/2 -translate-y-1/2">
+                  <SipkaNavigace smer="vlevo" onClick={posunZpet} />
+                </div>
+              )}
               <div
                 className="h-px w-[150px] max-w-[45%] bg-white/40"
                 aria-hidden="true"
               />
-              <div className="absolute right-[5%] top-1/2 -translate-y-1/2">
-                <SipkaNavigaceVzhled smer="vpravo" />
-              </div>
+              {aktualniIndex < polozky.length - 1 && (
+                <div className="absolute right-[5%] top-1/2 -translate-y-1/2">
+                  <SipkaNavigace smer="vpravo" onClick={posunVpred} />
+                </div>
+              )}
             </div>
             <div className="[&_.odkaz-jemny]:text-white/75 [&_.odkaz-jemny:hover]:text-white/95 [&_.odkaz-jemny:focus-visible]:text-white/95">
               <OdkazChciSeVracet aktualniIndex={aktualniIndex} />
