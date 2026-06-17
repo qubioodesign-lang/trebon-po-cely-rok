@@ -11,8 +11,8 @@ import { useMetriky } from "@/hooks/useMetriky";
 
 /**
  * Obrazovka „chci se vracet“ – klidná, centrovaná, teplé pozadí.
- * Android: žádost o push notifikace.
- * iPhone: návod pro přidání na plochu.
+ * Android: okamžitá systémová žádost o push, pak Děkujeme.
+ * iPhone bez PWA: krátký návod, pak Děkujeme.
  */
 export function ObrazovkaChciSeVracet() {
   const router = useRouter();
@@ -24,54 +24,34 @@ export function ObrazovkaChciSeVracet() {
     router.push("/dekujeme");
   };
 
-  const handlePovolitUpozorneni = async () => {
+  const handleDostavatUpozorneni = async () => {
     setNacita(true);
 
-    // iPhone bez PWA – zobrazit návod
-    if (jeIOS() && !jePWA()) {
-      setZobrazitNavodIOS(true);
-      setNacita(false);
-      return;
-    }
-
-    // Android / PWA – standardní push notifikace
+    // Android / PWA – rovnou systémová žádost, bez mezikroků
     if (podporujePushNotifikace()) {
       try {
         const permission = await Notification.requestPermission();
 
         if (permission === "granted") {
-          const registrace = await navigator.serviceWorker.ready;
-          const response = await fetch("/api/push/klic");
-          const { verejnyKlic } = await response.json();
-
-          if (verejnyKlic) {
-            const subscription = await registrace.pushManager.subscribe({
-              userVisibleOnly: true,
-              applicationServerKey: urlBase64ToUint8Array(verejnyKlic),
-            });
-
-            await fetch("/api/push/odber", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                subscription: subscription.toJSON(),
-                navstevnikId: localStorage.getItem("trebon_navstevnik_id"),
-              }),
-            });
-          } else {
-            odeslat("povoleno_upozorneni");
+          try {
+            await zaregistrovatPush();
+          } catch {
+            // Povolení už proběhlo – pokračujeme k poděkování
           }
-
+          odeslat("povoleno_upozorneni");
           prejitNaDekujeme();
           return;
         }
       } catch {
-        // Pokračovat i při chybě
+        // Pokračovat – na iPhonu zobrazíme návod, jinde zůstaneme na stránce
       }
     }
 
-    if (jeIOS()) {
+    // iPhone – notifikace nejdou aktivovat přímo v prohlížeči
+    if (jeIOS() && !jePWA()) {
       setZobrazitNavodIOS(true);
+      setNacita(false);
+      return;
     }
 
     setNacita(false);
@@ -111,7 +91,7 @@ export function ObrazovkaChciSeVracet() {
             </p>
             <button
               type="button"
-              onClick={handlePovolitUpozorneni}
+              onClick={handleDostavatUpozorneni}
               disabled={nacita}
               className="tlacitko-klidne !px-6 !py-2.5 !text-xs"
             >
@@ -131,7 +111,7 @@ export function ObrazovkaChciSeVracet() {
             <button
               type="button"
               onClick={handleHotovoIOS}
-              className="tlacitko-klidne"
+              className="tlacitko-klidne !px-6 !py-2.5 !text-xs"
             >
               Hotovo
             </button>
@@ -140,6 +120,29 @@ export function ObrazovkaChciSeVracet() {
       </div>
     </div>
   );
+}
+
+/** Zaregistruje push odběr po uděleném povolení */
+async function zaregistrovatPush(): Promise<void> {
+  const registrace = await navigator.serviceWorker.ready;
+  const response = await fetch("/api/push/klic");
+  const { verejnyKlic } = await response.json();
+
+  if (!verejnyKlic) return;
+
+  const subscription = await registrace.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(verejnyKlic),
+  });
+
+  await fetch("/api/push/odber", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      subscription: subscription.toJSON(),
+      navstevnikId: localStorage.getItem("trebon_navstevnik_id"),
+    }),
+  });
 }
 
 /** Převod VAPID klíče z base64 na Uint8Array */
