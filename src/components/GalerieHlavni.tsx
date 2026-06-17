@@ -18,7 +18,7 @@ const PRAH_TAZENI = 50;
 /** Vizuální šipka navigace – zatím bez funkčnosti */
 function SipkaNavigaceVzhled({ smer }: { smer: "vlevo" | "vpravo" }) {
   const cesta =
-    smer === "vlevo" ? "M15 5L7 12L15 19" : "M9 5L17 12L9 19";
+    smer === "vlevo" ? "M16 4L6 12L16 20" : "M8 4L18 12L8 20";
 
   return (
     <svg
@@ -212,14 +212,14 @@ export function GalerieHlavni({ polozky }: PropsGalerieHlavni) {
               {aktualniPolozka.popis}
             </p>
             <div className="relative my-3 flex w-full items-center justify-center">
-              <div className="absolute left-[15%] top-1/2 -translate-y-1/2">
+              <div className="absolute left-[9%] top-1/2 -translate-y-1/2">
                 <SipkaNavigaceVzhled smer="vlevo" />
               </div>
               <div
                 className="h-px w-[150px] max-w-[45%] bg-white/40"
                 aria-hidden="true"
               />
-              <div className="absolute right-[15%] top-1/2 -translate-y-1/2">
+              <div className="absolute right-[9%] top-1/2 -translate-y-1/2">
                 <SipkaNavigaceVzhled smer="vpravo" />
               </div>
             </div>
