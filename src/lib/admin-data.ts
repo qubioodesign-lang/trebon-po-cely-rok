@@ -3,7 +3,7 @@ import "server-only";
 import { headers } from "next/headers";
 import type { AdminVysledek } from "@/types";
 import { seraditPolozky, nacistData } from "./uloziste-dat";
-import { agregovatSouhrnMetrik, prazdnySouhrnMetrik } from "./metriky";
+import { prazdnySouhrnMetrik, ziskatSouhrnZUloziste } from "./metriky";
 import { pouzivaBlobUloziste, ziskatDiagnozuBlob } from "./env-blob";
 
 export async function ziskatOidcZRequestu(): Promise<string | null> {
@@ -26,7 +26,7 @@ export async function nacistAdminData(): Promise<AdminVysledek> {
   try {
     const uloziste = await nacistData(oidcHeader);
     polozky = seraditPolozky(uloziste.polozky);
-    metriky = agregovatSouhrnMetrik(uloziste.metriky);
+    metriky = ziskatSouhrnZUloziste(uloziste);
   } catch (error) {
     const zprava =
       error instanceof Error

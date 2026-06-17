@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ulozitPushOdber, zaznamenatMetriku } from "@/lib/metriky";
+import { ulozitPushOdber } from "@/lib/metriky";
 
-/** Uloží push subscription od klienta */
+/** Uloží push subscription od klienta včetně metriky povolení */
 export async function POST(request: NextRequest) {
   try {
     const { subscription, navstevnikId } = await request.json();
@@ -10,16 +10,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ chyba: "Neplatná subscription" }, { status: 400 });
     }
 
-    await ulozitPushOdber({
-      endpoint: subscription.endpoint,
-      klicP256dh: subscription.keys.p256dh,
-      klicAuth: subscription.keys.auth,
-    });
-
-    await zaznamenatMetriku({
-      typ: "povoleno_upozorneni",
-      navstevnikId,
-    });
+    await ulozitPushOdber(
+      {
+        endpoint: subscription.endpoint,
+        klicP256dh: subscription.keys.p256dh,
+        klicAuth: subscription.keys.auth,
+      },
+      undefined,
+      { zaznamenatPovoleni: true, navstevnikId }
+    );
 
     return NextResponse.json({ uspech: true });
   } catch {

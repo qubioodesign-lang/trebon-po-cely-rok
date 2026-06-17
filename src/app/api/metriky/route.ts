@@ -1,26 +1,47 @@
 import { NextRequest, NextResponse } from "next/server";
-import { zaznamenatMetriku } from "@/lib/metriky";
-import type { PayloadMetriky } from "@/types";
+import { zaznamenatMetrikyBatch } from "@/lib/metriky";
+import type { PayloadMetriky, PayloadMetrikyBatch, TypUdalostiMetriky } from "@/types";
 
-/** API pro záznam metrik – návštěvy, posuny, návraty */
+const POVOLENE_TYPY: TypUdalostiMetriky[] = [
+  "navsteva",
+  "zobrazeni_fotografie",
+  "posun_vpred",
+  "navrat_zpet",
+  "klik_chci_se_vracet",
+  "povoleno_upozorneni",
+];
+
+function jePlatnaUdalost(payload: PayloadMetriky): boolean {
+  return POVOLENE_TYPY.includes(payload.typ);
+}
+
+function normalizovatTeloo(body: PayloadMetriky | PayloadMetrikyBatch): PayloadMetriky[] {
+  if ("udalosti" in body && Array.isArray(body.udalosti)) {
+    return body.udalosti;
+  }
+
+  if ("typ" in body && typeof body.typ === "string") {
+    return [body as PayloadMetriky];
+  }
+
+  return [];
+}
+
+/** API pro záznam metrik – podporuje jednotlivou událost i dávku */
 export async function POST(request: NextRequest) {
   try {
-    const payload = (await request.json()) as PayloadMetriky;
+    const body = (await request.json()) as PayloadMetriky | PayloadMetrikyBatch;
+    const udalosti = normalizovatTeloo(body);
 
-    const povoleneTypy = [
-      "navsteva",
-      "zobrazeni_fotografie",
-      "posun_vpred",
-      "navrat_zpet",
-      "klik_chci_se_vracet",
-      "povoleno_upozorneni",
-    ];
+    if (udalosti.length === 0) {
+      return NextResponse.json({ chyba: "Neplatný payload metrik" }, { status: 400 });
+    }
 
-    if (!povoleneTypy.includes(payload.typ)) {
+    if (!udalosti.every(jePlatnaUdalost)) {
       return NextResponse.json({ chyba: "Neplatný typ události" }, { status: 400 });
     }
 
-    await zaznamenatMetriku(payload);
+    await zaznamenatMetrikyBatch(udalosti);
     return NextResponse.json({ uspech: true });
   } catch {
     return NextResponse.json({ chyba: "Chyba při záznamu metriky" }, { status: 500 });

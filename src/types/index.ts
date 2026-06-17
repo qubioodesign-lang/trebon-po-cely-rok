@@ -53,6 +53,11 @@ export interface PayloadMetriky {
   navstevnikId?: string;
 }
 
+/** Dávka metrik z klienta */
+export interface PayloadMetrikyBatch {
+  udalosti: PayloadMetriky[];
+}
+
 /** Diagnostika Blob úložiště (serializovatelná pro klienta) */
 export interface DiagnozaBlob {
   trvaleUloziste: boolean;

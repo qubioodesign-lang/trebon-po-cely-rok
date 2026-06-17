@@ -1,108 +1,175 @@
 import type { MetrikySouhrn, PayloadMetriky } from "@/types";
-import type { ZaznamMetriky } from "./uloziste-dat";
+import type { MetrikyAgregovane, UlozisteDat, ZaznamMetriky } from "./uloziste-dat";
 import { nacistData, upravitData } from "./uloziste-dat";
 
 /** Prázdný souhrn metrik – výchozí stav administrace */
 export function prazdnySouhrnMetrik(): MetrikySouhrn {
+  return souhrnZAgregovanych(prazdneMetrikyAgregovane());
+}
+
+/** Výchozí agregované countery */
+export function prazdneMetrikyAgregovane(): MetrikyAgregovane {
   return {
     pocetNavstev: 0,
-    pocetVracejicichSeNavstevniku: 0,
     pocetZobrazeniFotografii: 0,
     pocetPosunuVpred: 0,
     pocetNavratuZpet: 0,
-    procentoNavratu: 0,
     pocetKliknutiChciSeVracet: 0,
     pocetPovolenychUpozorneni: 0,
+    navstevyPodleNavstevnika: {},
   };
 }
 
-/** Zaznamená událost do metrik */
-export async function zaznamenatMetriku(
-  payload: PayloadMetriky,
+function pocitatVracejiciSe(navstevyPodleNavstevnika: Record<string, number>): number {
+  return Object.values(navstevyPodleNavstevnika).filter((pocet) => pocet > 1).length;
+}
+
+function vypocitatProcentoNavratu(pocetPosunuVpred: number, pocetNavratuZpet: number): number {
+  const celkemPosunu = pocetPosunuVpred + pocetNavratuZpet;
+  return celkemPosunu > 0
+    ? Math.round((pocetNavratuZpet / celkemPosunu) * 1000) / 10
+    : 0;
+}
+
+/** Převede agregované countery na souhrn pro administraci */
+export function souhrnZAgregovanych(agregovane: MetrikyAgregovane): MetrikySouhrn {
+  return {
+    pocetNavstev: agregovane.pocetNavstev,
+    pocetVracejicichSeNavstevniku: pocitatVracejiciSe(agregovane.navstevyPodleNavstevnika),
+    pocetZobrazeniFotografii: agregovane.pocetZobrazeniFotografii,
+    pocetPosunuVpred: agregovane.pocetPosunuVpred,
+    pocetNavratuZpet: agregovane.pocetNavratuZpet,
+    procentoNavratu: vypocitatProcentoNavratu(
+      agregovane.pocetPosunuVpred,
+      agregovane.pocetNavratuZpet
+    ),
+    pocetKliknutiChciSeVracet: agregovane.pocetKliknutiChciSeVracet,
+    pocetPovolenychUpozorneni: agregovane.pocetPovolenychUpozorneni,
+  };
+}
+
+/** Inkrementuje jeden counter podle typu události */
+export function aplikovatMetriku(
+  agregovane: MetrikyAgregovane,
+  payload: PayloadMetriky
+): void {
+  switch (payload.typ) {
+    case "navsteva":
+      agregovane.pocetNavstev += 1;
+      if (payload.navstevnikId) {
+        const { navstevnikId } = payload;
+        agregovane.navstevyPodleNavstevnika[navstevnikId] =
+          (agregovane.navstevyPodleNavstevnika[navstevnikId] ?? 0) + 1;
+      }
+      break;
+    case "zobrazeni_fotografie":
+      agregovane.pocetZobrazeniFotografii += 1;
+      break;
+    case "posun_vpred":
+      agregovane.pocetPosunuVpred += 1;
+      break;
+    case "navrat_zpet":
+      agregovane.pocetNavratuZpet += 1;
+      break;
+    case "klik_chci_se_vracet":
+      agregovane.pocetKliknutiChciSeVracet += 1;
+      break;
+    case "povoleno_upozorneni":
+      agregovane.pocetPovolenychUpozorneni += 1;
+      break;
+  }
+}
+
+/** Zajistí agregované metriky – migruje staré pole metriky[] pokud existuje */
+export function zajistitMetrikyAgregovane(uloziste: UlozisteDat): MetrikyAgregovane {
+  if (uloziste.metrikyAgregovane) {
+    if (uloziste.metriky.length > 0) {
+      for (const zaznam of uloziste.metriky) {
+        aplikovatMetriku(uloziste.metrikyAgregovane, {
+          typ: zaznam.typ,
+          polozkaId: zaznam.polozkaId,
+          navstevnikId: zaznam.navstevnikId,
+        });
+      }
+      uloziste.metriky = [];
+    }
+    return uloziste.metrikyAgregovane;
+  }
+
+  if (uloziste.metriky.length > 0) {
+    uloziste.metrikyAgregovane = migrovatLegacyMetriky(uloziste.metriky);
+  } else {
+    uloziste.metrikyAgregovane = prazdneMetrikyAgregovane();
+  }
+
+  uloziste.metriky = [];
+  return uloziste.metrikyAgregovane;
+}
+
+function migrovatLegacyMetriky(metriky: ZaznamMetriky[]): MetrikyAgregovane {
+  const agregovane = prazdneMetrikyAgregovane();
+  for (const zaznam of metriky) {
+    aplikovatMetriku(agregovane, {
+      typ: zaznam.typ,
+      polozkaId: zaznam.polozkaId,
+      navstevnikId: zaznam.navstevnikId,
+    });
+  }
+  return agregovane;
+}
+
+/** Agreguje surové záznamy metrik do souhrnu – pro migraci starých dat */
+export function agregovatSouhrnMetrik(metriky: ZaznamMetriky[]): MetrikySouhrn {
+  return souhrnZAgregovanych(migrovatLegacyMetriky(metriky));
+}
+
+/** Aplikuje dávku událostí na úložiště v paměti */
+export function aplikovatMetriky(uloziste: UlozisteDat, udalosti: PayloadMetriky[]): void {
+  const agregovane = zajistitMetrikyAgregovane(uloziste);
+  for (const udalost of udalosti) {
+    aplikovatMetriku(agregovane, udalost);
+  }
+}
+
+/** Souhrn metrik z načteného úložiště */
+export function ziskatSouhrnZUloziste(uloziste: UlozisteDat): MetrikySouhrn {
+  return souhrnZAgregovanych(zajistitMetrikyAgregovane(uloziste));
+}
+
+/** Zaznamená dávku událostí – jeden get + put na Blob */
+export async function zaznamenatMetrikyBatch(
+  udalosti: PayloadMetriky[],
   oidcZHeaderu?: string | null
 ): Promise<void> {
-  await upravitData((uloziste) => {
-    uloziste.metriky.push({
-      id: crypto.randomUUID(),
-      typ: payload.typ,
-      polozkaId: payload.polozkaId,
-      navstevnikId: payload.navstevnikId,
-      vytvoreno: new Date().toISOString(),
-    });
-  }, oidcZHeaderu);
-}
-
-/** Agreguje surové záznamy metrik do souhrnu pro administraci */
-export function agregovatSouhrnMetrik(metriky: ZaznamMetriky[]): MetrikySouhrn {
-  const pocetNavstev = metriky.filter((m) => m.typ === "navsteva").length;
-
-  const navstevyPodleNavstevnika = new Map<string, number>();
-  for (const m of metriky) {
-    if (m.typ === "navsteva" && m.navstevnikId) {
-      navstevyPodleNavstevnika.set(
-        m.navstevnikId,
-        (navstevyPodleNavstevnika.get(m.navstevnikId) ?? 0) + 1
-      );
-    }
+  if (udalosti.length === 0) {
+    return;
   }
-  const pocetVracejicichSeNavstevniku = [...navstevyPodleNavstevnika.values()].filter(
-    (pocet) => pocet > 1
-  ).length;
 
-  const pocetZobrazeniFotografii = metriky.filter(
-    (m) => m.typ === "zobrazeni_fotografie"
-  ).length;
-
-  const pocetPosunuVpred = metriky.filter((m) => m.typ === "posun_vpred").length;
-  const pocetNavratuZpet = metriky.filter((m) => m.typ === "navrat_zpet").length;
-
-  const celkemPosunu = pocetPosunuVpred + pocetNavratuZpet;
-  const procentoNavratu =
-    celkemPosunu > 0
-      ? Math.round((pocetNavratuZpet / celkemPosunu) * 1000) / 10
-      : 0;
-
-  const pocetKliknutiChciSeVracet = metriky.filter(
-    (m) => m.typ === "klik_chci_se_vracet"
-  ).length;
-
-  const pocetPovolenychUpozorneni = metriky.filter(
-    (m) => m.typ === "povoleno_upozorneni"
-  ).length;
-
-  return {
-    pocetNavstev,
-    pocetVracejicichSeNavstevniku,
-    pocetZobrazeniFotografii,
-    pocetPosunuVpred,
-    pocetNavratuZpet,
-    procentoNavratu,
-    pocetKliknutiChciSeVracet,
-    pocetPovolenychUpozorneni,
-  };
+  await upravitData((uloziste) => {
+    aplikovatMetriky(uloziste, udalosti);
+  }, oidcZHeaderu);
 }
 
 /** Vrátí agregovaný souhrn všech metrik */
 export async function ziskatSouhrnMetrik(
   oidcZHeaderu?: string | null
 ): Promise<MetrikySouhrn> {
-  const { metriky } = await nacistData(oidcZHeaderu);
-  return agregovatSouhrnMetrik(metriky);
+  const uloziste = await nacistData(oidcZHeaderu);
+  return ziskatSouhrnZUloziste(uloziste);
 }
 
-/** Uloží push subscription pro budoucí notifikace */
+/** Uloží push subscription a volitelně metriku povolení v jednom zápisu */
 export async function ulozitPushOdber(
   data: {
     endpoint: string;
     klicP256dh: string;
     klicAuth: string;
   },
-  oidcZHeaderu?: string | null
+  oidcZHeaderu?: string | null,
+  volby?: { zaznamenatPovoleni?: boolean; navstevnikId?: string }
 ): Promise<void> {
   await upravitData((uloziste) => {
-    const existujici = uloziste.pushOdbery.findIndex(
-      (o) => o.endpoint === data.endpoint
-    );
+    const existujici = uloziste.pushOdbery.findIndex((o) => o.endpoint === data.endpoint);
 
     const zaznam = {
       endpoint: data.endpoint,
@@ -115,6 +182,12 @@ export async function ulozitPushOdber(
       uloziste.pushOdbery[existujici] = zaznam;
     } else {
       uloziste.pushOdbery.push(zaznam);
+    }
+
+    if (volby?.zaznamenatPovoleni) {
+      aplikovatMetriky(uloziste, [
+        { typ: "povoleno_upozorneni", navstevnikId: volby.navstevnikId },
+      ]);
     }
   }, oidcZHeaderu);
 }

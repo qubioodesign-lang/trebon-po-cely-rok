@@ -33,12 +33,16 @@ export function ObrazovkaChciSeVracet() {
         const permission = await Notification.requestPermission();
 
         if (permission === "granted") {
+          let pushUlozen = false;
           try {
             await zaregistrovatPush();
+            pushUlozen = true;
           } catch {
             // Povolení už proběhlo – pokračujeme k poděkování
           }
-          odeslat("povoleno_upozorneni");
+          if (!pushUlozen) {
+            odeslat("povoleno_upozorneni");
+          }
           prejitNaDekujeme();
           return;
         }

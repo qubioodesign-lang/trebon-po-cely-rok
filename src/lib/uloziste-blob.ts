@@ -102,6 +102,7 @@ function normalizovatData(data: UlozisteDat): UlozisteDat {
   return {
     polozky: data.polozky ?? [],
     metriky: data.metriky ?? [],
+    metrikyAgregovane: data.metrikyAgregovane,
     pushOdbery: data.pushOdbery ?? [],
   };
 }

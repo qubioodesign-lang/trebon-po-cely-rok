@@ -30,10 +30,23 @@ export interface PushOdber {
   vytvoreno: string;
 }
 
+/** Agregované countery metrik – místo append-only logu */
+export interface MetrikyAgregovane {
+  pocetNavstev: number;
+  pocetZobrazeniFotografii: number;
+  pocetPosunuVpred: number;
+  pocetNavratuZpet: number;
+  pocetKliknutiChciSeVracet: number;
+  pocetPovolenychUpozorneni: number;
+  navstevyPodleNavstevnika: Record<string, number>;
+}
+
 /** Struktura celého úložiště */
 export interface UlozisteDat {
   polozky: Polozka[];
+  /** @deprecated Migrováno do metrikyAgregovane */
   metriky: ZaznamMetriky[];
+  metrikyAgregovane?: MetrikyAgregovane;
   pushOdbery: PushOdber[];
 }
 
@@ -65,6 +78,7 @@ function nacistDataLokalne(): UlozisteDat {
   return {
     polozky: data.polozky ?? [],
     metriky: data.metriky ?? [],
+    metrikyAgregovane: data.metrikyAgregovane,
     pushOdbery: data.pushOdbery ?? [],
   };
 }
