@@ -106,14 +106,14 @@ export function ObrazovkaChciSeVracet() {
 
         {!zobrazitNavodIOS ? (
           <>
-            <p className="text-pretty text-sm font-light text-text-jemny">
+            <p className="text-pretty px-2 py-8 text-[1.125rem] font-light leading-relaxed tracking-wide text-text/80">
               Chcete vědět, kdy přibude další malý kousek Třeboně?
             </p>
             <button
               type="button"
               onClick={handlePovolitUpozorneni}
               disabled={nacita}
-              className="tlacitko-klidne"
+              className="tlacitko-klidne !px-6 !py-2.5 !text-xs"
             >
               {nacita ? "…" : "Povolit upozornění"}
             </button>
