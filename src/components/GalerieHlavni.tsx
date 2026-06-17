@@ -15,6 +15,29 @@ interface PropsGalerieHlavni {
 /** Práh tažení pro přepnutí fotografie (v pixelech) */
 const PRAH_TAZENI = 50;
 
+/** Vizuální šipka navigace – zatím bez funkčnosti */
+function SipkaNavigaceVzhled({ smer }: { smer: "vlevo" | "vpravo" }) {
+  const cesta =
+    smer === "vlevo" ? "M15 5L7 12L15 19" : "M9 5L17 12L9 19";
+
+  return (
+    <svg
+      className="pointer-events-none h-[1.35rem] w-[1.35rem] shrink-0 text-white/75"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        d={cesta}
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 /**
  * Hlavní galerie – procházení tažením a šipkami.
  * Jedna fotografie najednou, plynulé přechody.
@@ -188,10 +211,18 @@ export function GalerieHlavni({ polozky }: PropsGalerieHlavni) {
             <p className="text-sm font-light tracking-wide text-white/90">
               {aktualniPolozka.popis}
             </p>
-            <div
-              className="my-3 h-px w-[150px] max-w-[45%] bg-white/40"
-              aria-hidden="true"
-            />
+            <div className="relative my-3 flex w-full items-center justify-center">
+              <div className="absolute left-[15%] top-1/2 -translate-y-1/2">
+                <SipkaNavigaceVzhled smer="vlevo" />
+              </div>
+              <div
+                className="h-px w-[150px] max-w-[45%] bg-white/40"
+                aria-hidden="true"
+              />
+              <div className="absolute right-[15%] top-1/2 -translate-y-1/2">
+                <SipkaNavigaceVzhled smer="vpravo" />
+              </div>
+            </div>
             <div className="[&_.odkaz-jemny]:text-white/75 [&_.odkaz-jemny:hover]:text-white/95 [&_.odkaz-jemny:focus-visible]:text-white/95">
               <OdkazChciSeVracet aktualniIndex={aktualniIndex} />
             </div>
