@@ -111,12 +111,12 @@ export function GalerieHlavni({ polozky }: PropsGalerieHlavni) {
   const aktualniPolozka = polozky[aktualniIndex];
 
   return (
-    <div className="relative min-h-dvh overflow-hidden bg-krem-tmavsi">
+    <div className="relative h-dvh min-h-dvh overflow-hidden bg-krem-tmavsi md:h-auto md:min-h-dvh">
       <RegistracePWA />
 
-      {/* Oblast fotografie s podporou tažení */}
+      {/* Fotografie – na mobilu celý displej, na desktopu 70dvh */}
       <div
-        className="relative h-[70dvh] w-full touch-pan-y"
+        className="relative h-dvh w-full touch-pan-y md:h-[70dvh]"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -129,11 +129,21 @@ export function GalerieHlavni({ polozky }: PropsGalerieHlavni) {
         >
           <ZobrazeniPolozky polozka={aktualniPolozka} jeAktivni={true} />
 
-          {/* Název přes fotografií – jediný viditelný prvek navigace */}
-          <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/30 to-transparent px-6 pb-16 pt-8">
+          {/* Název přes fotografií */}
+          <div className="absolute inset-x-0 top-0 z-10 px-6 pt-8 md:bg-gradient-to-b md:from-black/30 md:to-transparent md:pb-16">
             <h1 className="text-center text-lg font-light tracking-[0.15em] text-white/90">
               Třeboň po celý rok
             </h1>
+          </div>
+
+          {/* Popis a odkaz přes fotografií – pouze mobil */}
+          <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col items-center px-6 pb-8 text-center md:hidden">
+            <p className="text-sm font-light tracking-wide text-white/90">
+              {aktualniPolozka.popis}
+            </p>
+            <div className="mt-3 [&_.odkaz-jemny]:text-white/75 [&_.odkaz-jemny:hover]:text-white/95 [&_.odkaz-jemny:focus-visible]:text-white/95">
+              <OdkazChciSeVracet aktualniIndex={aktualniIndex} />
+            </div>
           </div>
         </div>
 
@@ -154,8 +164,8 @@ export function GalerieHlavni({ polozky }: PropsGalerieHlavni) {
         />
       </div>
 
-      {/* Popis a odkaz pod fotografií */}
-      <div className="flex flex-col items-center px-6 py-8 text-center">
+      {/* Popis a odkaz pod fotografií – pouze desktop */}
+      <div className="hidden flex-col items-center px-6 py-8 text-center md:flex">
         <p className="text-sm font-light tracking-wide text-text-jemny">
           {aktualniPolozka.popis}
         </p>
