@@ -212,14 +212,14 @@ export function GalerieHlavni({ polozky }: PropsGalerieHlavni) {
               {aktualniPolozka.popis}
             </p>
             <div className="relative my-3 flex w-full items-center justify-center">
-              <div className="absolute left-[9%] top-1/2 -translate-y-1/2">
+              <div className="absolute left-[5%] top-1/2 -translate-y-1/2">
                 <SipkaNavigaceVzhled smer="vlevo" />
               </div>
               <div
                 className="h-px w-[150px] max-w-[45%] bg-white/40"
                 aria-hidden="true"
               />
-              <div className="absolute right-[9%] top-1/2 -translate-y-1/2">
+              <div className="absolute right-[5%] top-1/2 -translate-y-1/2">
                 <SipkaNavigaceVzhled smer="vpravo" />
               </div>
             </div>
