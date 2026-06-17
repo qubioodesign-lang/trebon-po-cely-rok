@@ -1,7 +1,6 @@
 import { AdminPanel } from "@/components/AdminPanel";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 import { nacistAdminData } from "@/lib/admin-data";
-import type { AdminData } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -9,25 +8,11 @@ export const dynamic = "force-dynamic";
 export default async function StrankaAdmin() {
   const prihlasen = await jeAdminPrihlasen();
 
-  let data: AdminData | null = null;
-  let chybaNacitani: string | null = null;
-
-  if (prihlasen) {
-    try {
-      data = await nacistAdminData();
-    } catch (error) {
-      chybaNacitani =
-        error instanceof Error
-          ? error.message
-          : "Nepodařilo se načíst data administrace";
-    }
+  if (!prihlasen) {
+    return <AdminPanel jePrihlasen={false} data={null} chyby={{}} />;
   }
 
-  return (
-    <AdminPanel
-      jePrihlasen={prihlasen}
-      data={data}
-      chybaNacitani={chybaNacitani}
-    />
-  );
+  const { data, chyby } = await nacistAdminData();
+
+  return <AdminPanel jePrihlasen data={data} chyby={chyby} />;
 }

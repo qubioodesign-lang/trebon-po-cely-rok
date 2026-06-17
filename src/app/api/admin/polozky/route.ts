@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
+import { nacistAdminData } from "@/lib/admin-data";
 import {
-  ziskatVsechnyPolozky,
   vytvoritPolozku,
   aktualizovatPopis,
   prepnoutAktivni,
@@ -10,11 +10,7 @@ import {
   zmenitPoradi,
 } from "@/lib/polozky";
 import { ulozitSoubor, smazatSoubor } from "@/lib/soubory";
-import { ziskatSouhrnMetrik } from "@/lib/metriky";
-import {
-  pouzivaBlobUloziste,
-  ziskatDiagnozuBlob,
-} from "@/lib/env-blob";
+import { ziskatDiagnozuBlob } from "@/lib/env-blob";
 
 export const dynamic = "force-dynamic";
 
@@ -32,16 +28,16 @@ export async function GET() {
   const oidcHeader = await ziskatOidcZHeaderu();
 
   try {
-    const polozky = await ziskatVsechnyPolozky(oidcHeader);
-    const metriky = await ziskatSouhrnMetrik(oidcHeader);
-    const diagnoza = ziskatDiagnozuBlob(oidcHeader);
+    const { data, chyby } = await nacistAdminData();
+    const status = chyby.polozky || chyby.metriky ? 207 : 200;
 
-    return NextResponse.json({
-      polozky,
-      metriky,
-      trvaleUloziste: pouzivaBlobUloziste() && diagnoza.maAutentizaci,
-      diagnoza,
-    });
+    return NextResponse.json(
+      {
+        ...data,
+        chyby,
+      },
+      { status }
+    );
   } catch (error) {
     const zprava =
       error instanceof Error ? error.message : "Chyba při načítání dat";

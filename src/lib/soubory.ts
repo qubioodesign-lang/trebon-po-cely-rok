@@ -33,6 +33,12 @@ export async function ulozitSoubor(
   if (pouzivaBlobUloziste()) {
     const volby = await ziskatVolbyBlobAsync(oidcZHeaderu);
 
+    if (!volby.token && !volby.oidcToken) {
+      throw new Error(
+        "Nelze nahrát soubor: chybí autentizace k Blob. Nastavte BLOB_READ_WRITE_TOKEN ve Vercel → Storage → Blob → Tokens."
+      );
+    }
+
     const blob = await put(`uploads/${nazevSouboru}`, soubor, {
       ...volby,
       access: "public",

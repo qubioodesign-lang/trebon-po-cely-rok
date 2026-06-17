@@ -29,13 +29,11 @@ export function pouzivaBlobUloziste(): boolean {
   return maBlobKonfiguraci();
 }
 
-/** Má k dispozici alespoň jeden způsob autentizace */
+/** Má k dispozici alespoň jeden způsob autentizace (skutečný token, ne jen store ID) */
 export function maBlobAutentizaci(oidcZHeaderu?: string | null): boolean {
   if (ziskatEnv("BLOB_READ_WRITE_TOKEN")) return true;
   if (oidcZHeaderu) return true;
   if (ziskatEnv("VERCEL_OIDC_TOKEN")) return true;
-  // Na Vercelu s propojeným store SDK autentizuje přes x-vercel-oidc-token
-  if (ziskatEnv("VERCEL") === "1" && ziskatEnv("BLOB_STORE_ID")) return true;
   return false;
 }
 

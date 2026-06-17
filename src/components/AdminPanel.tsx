@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import type { AdminData, Polozka } from "@/types";
+import type { AdminChyby, AdminData, DiagnozaBlob, Polozka } from "@/types";
 import { sestavitUrlPolozky } from "@/lib/url-polozky";
 import {
   prihlasitAdmin,
   odhlasitAdmin,
-  nahrátPolozku,
+  nahratPolozku,
   prepnoutAktivniPolozky,
   smazatPolozkuAdmin,
   zmenitPopisPolozky,
@@ -17,27 +17,64 @@ import {
 interface AdminPanelProps {
   jePrihlasen: boolean;
   data: AdminData | null;
-  chybaNacitani?: string | null;
+  chyby: AdminChyby;
+}
+
+function BlokDiagnozy({ diagnoza }: { diagnoza: DiagnozaBlob }) {
+  return (
+    <div className="mx-auto max-w-sm rounded border border-amber-700/20 p-3 text-left font-mono text-[10px] leading-relaxed text-text-jemny">
+      <p>diagnoza za běhu:</p>
+      <p>vercel: {diagnoza.prostredi.vercel ? "ano" : "ne"}</p>
+      <p>autentizace: {diagnoza.maAutentizaci ? "ano" : "ne"}</p>
+      <p>node: {diagnoza.prostredi.nodeEnv}</p>
+      <p>BLOB_STORE_ID: {diagnoza.promenne.BLOB_STORE_ID ? "ano" : "ne"}</p>
+      <p>
+        BLOB_READ_WRITE_TOKEN:{" "}
+        {diagnoza.promenne.BLOB_READ_WRITE_TOKEN ? "ano" : "ne"}
+      </p>
+      <p>
+        VERCEL_OIDC_TOKEN:{" "}
+        {diagnoza.promenne.VERCEL_OIDC_TOKEN ? "ano" : "ne"}
+      </p>
+      <p>
+        OIDC z hlavičky: {diagnoza.promenne.OIDC_Z_HEADERU ? "ano" : "ne"}
+      </p>
+      {diagnoza.nahledStoreId && <p>store: {diagnoza.nahledStoreId}</p>}
+      {diagnoza.doporuceni && (
+        <p className="mt-2 text-amber-700/90">{diagnoza.doporuceni}</p>
+      )}
+    </div>
+  );
 }
 
 /**
  * Jednoduchá administrace chráněná heslem.
- * Data se načítají na serveru (Blob OIDC); mutace přes server actions.
+ * Data se načítají na serveru; metriky a stav úložiště se zobrazují vždy.
  */
-export function AdminPanel({
-  jePrihlasen,
-  data,
-  chybaNacitani,
-}: AdminPanelProps) {
+export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [heslo, setHeslo] = useState("");
-  const [chyba, setChyba] = useState("");
+  const [chybaAkce, setChybaAkce] = useState("");
   const [nahrava, setNahrava] = useState(false);
+  const posledniPlnePolozky = useRef<Polozka[]>([]);
 
-  const polozky = data?.polozky ?? [];
+  useEffect(() => {
+    if (data?.polozky && data.polozky.length > 0) {
+      posledniPlnePolozky.current = data.polozky;
+    }
+  }, [data?.polozky]);
+
+  const maChybuNacitani = Boolean(chyby.uloziste || chyby.polozky);
+  const polozkyZeServeru = data?.polozky ?? [];
+  const polozky =
+    polozkyZeServeru.length > 0
+      ? polozkyZeServeru
+      : maChybuNacitani
+        ? posledniPlnePolozky.current
+        : polozkyZeServeru;
   const metriky = data?.metriky ?? null;
-  const trvaleUloziste = data?.trvaleUloziste ?? null;
+  const trvaleUloziste = data?.trvaleUloziste ?? false;
   const diagnoza = data?.diagnoza ?? null;
 
   const obnovit = () => {
@@ -46,16 +83,25 @@ export function AdminPanel({
     });
   };
 
+  const zpracovatChybuAkce = (vysledek: { chyba?: string; uspech?: boolean }) => {
+    if ("chyba" in vysledek && vysledek.chyba) {
+      setChybaAkce(vysledek.chyba);
+      return false;
+    }
+    setChybaAkce("");
+    return true;
+  };
+
   const handlePrihlaseni = async (e: React.FormEvent) => {
     e.preventDefault();
-    setChyba("");
+    setChybaAkce("");
 
     const vysledek = await prihlasitAdmin(heslo);
     if ("uspech" in vysledek && vysledek.uspech) {
       setHeslo("");
       obnovit();
     } else {
-      setChyba(vysledek.chyba ?? "Neplatné heslo");
+      setChybaAkce(vysledek.chyba ?? "Neplatné heslo");
     }
   };
 
@@ -67,34 +113,45 @@ export function AdminPanel({
   const handleNahrani = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setNahrava(true);
-    setChyba("");
+    setChybaAkce("");
 
-    const formData = new FormData(e.currentTarget);
-    const vysledek = await nahrátPolozku(formData);
+    const form = e.currentTarget;
+    const formData = new FormData(form);
 
-    if ("uspech" in vysledek && vysledek.uspech) {
-      e.currentTarget.reset();
-      obnovit();
-    } else if ("chyba" in vysledek) {
-      setChyba(vysledek.chyba ?? "Chyba při nahrávání");
+    try {
+      const vysledek = await nahratPolozku(formData);
+      if ("uspech" in vysledek && vysledek.uspech) {
+        setChybaAkce("");
+        form.reset();
+        obnovit();
+      } else if ("chyba" in vysledek && vysledek.chyba) {
+        setChybaAkce(vysledek.chyba);
+      }
+    } catch (error) {
+      setChybaAkce(
+        error instanceof Error
+          ? error.message
+          : "Neočekávaná chyba server action při nahrávání"
+      );
     }
 
     setNahrava(false);
   };
 
   const handlePrepnoutAktivni = async (id: string, aktivni: boolean) => {
-    await prepnoutAktivniPolozky(id, !aktivni);
-    obnovit();
+    const vysledek = await prepnoutAktivniPolozky(id, !aktivni);
+    if (zpracovatChybuAkce(vysledek)) obnovit();
   };
 
   const handleSmazat = async (id: string) => {
     if (!confirm("Opravdu smazat tuto položku?")) return;
-    await smazatPolozkuAdmin(id);
-    obnovit();
+    const vysledek = await smazatPolozkuAdmin(id);
+    if (zpracovatChybuAkce(vysledek)) obnovit();
   };
 
   const handleZmenaPopisu = async (id: string, popis: string) => {
-    await zmenitPopisPolozky(id, popis);
+    const vysledek = await zmenitPopisPolozky(id, popis);
+    if (!zpracovatChybuAkce(vysledek)) return;
     obnovit();
   };
 
@@ -104,8 +161,8 @@ export function AdminPanel({
     if (cil < 0 || cil >= noveIds.length) return;
 
     [noveIds[index], noveIds[cil]] = [noveIds[cil], noveIds[index]];
-    await zmenitPoradiPolozek(noveIds);
-    obnovit();
+    const vysledek = await zmenitPoradiPolozek(noveIds);
+    if (zpracovatChybuAkce(vysledek)) obnovit();
   };
 
   if (!jePrihlasen) {
@@ -122,7 +179,9 @@ export function AdminPanel({
             placeholder="heslo"
             className="w-full border border-text-velmiJemny/30 bg-transparent px-4 py-2 text-sm text-text outline-none focus:border-text-jemny/50"
           />
-          {chyba && <p className="text-center text-xs text-red-400">{chyba}</p>}
+          {chybaAkce && (
+            <p className="text-center text-xs text-red-400">{chybaAkce}</p>
+          )}
           <button type="submit" className="tlacitko-klidne w-full">
             přihlásit se
           </button>
@@ -145,64 +204,53 @@ export function AdminPanel({
           <p className="text-center text-xs text-text-velmiJemny">obnovuji…</p>
         )}
 
-        {chybaNacitani && (
-          <p className="text-center text-xs text-red-400">
-            chyba načtení: {chybaNacitani}
-          </p>
+        {chybaAkce && (
+          <div className="rounded border border-red-400/30 bg-red-50/50 p-3 text-center text-xs text-red-500">
+            <p className="font-medium">chyba operace</p>
+            <p className="mt-1">{chybaAkce}</p>
+          </div>
         )}
 
-        {chyba && (
-          <p className="text-center text-xs text-red-400">{chyba}</p>
-        )}
-
-        {trvaleUloziste === false && (
-          <div className="space-y-2 text-center text-xs font-light text-amber-700/80">
-            <p>
-              trvalé úložiště není aktivní – nastavte Vercel Blob (viz
-              DEPLOY-VERCEL.md)
-            </p>
-            {diagnoza && (
-              <div className="mx-auto max-w-sm rounded border border-amber-700/20 p-3 text-left font-mono text-[10px] leading-relaxed text-text-jemny">
-                <p>diagnoza za běhu:</p>
-                <p>vercel: {diagnoza.prostredi.vercel ? "ano" : "ne"}</p>
-                <p>autentizace: {diagnoza.maAutentizaci ? "ano" : "ne"}</p>
-                <p>node: {diagnoza.prostredi.nodeEnv}</p>
-                <p>
-                  BLOB_STORE_ID:{" "}
-                  {diagnoza.promenne.BLOB_STORE_ID ? "ano" : "ne"}
-                </p>
-                <p>
-                  BLOB_READ_WRITE_TOKEN:{" "}
-                  {diagnoza.promenne.BLOB_READ_WRITE_TOKEN ? "ano" : "ne"}
-                </p>
-                <p>
-                  VERCEL_OIDC_TOKEN:{" "}
-                  {diagnoza.promenne.VERCEL_OIDC_TOKEN ? "ano" : "ne"}
-                </p>
-                <p>
-                  OIDC z hlavičky:{" "}
-                  {diagnoza.promenne.OIDC_Z_HEADERU ? "ano" : "ne"}
-                </p>
-                {diagnoza.nahledStoreId && (
-                  <p>store: {diagnoza.nahledStoreId}</p>
-                )}
-                {diagnoza.doporuceni && (
-                  <p className="mt-2 text-amber-700/90">{diagnoza.doporuceni}</p>
-                )}
-              </div>
+        {(chyby.uloziste || chyby.polozky) && (
+          <div className="rounded border border-red-400/30 bg-red-50/50 p-3 text-xs text-red-500">
+            <p className="font-medium text-center">chyba načtení dat</p>
+            {chyby.uloziste && <p className="mt-1">{chyby.uloziste}</p>}
+            {chyby.polozky && chyby.polozky !== chyby.uloziste && (
+              <p className="mt-1">{chyby.polozky}</p>
+            )}
+            {polozky.length > 0 && polozkyZeServeru.length === 0 && (
+              <p className="mt-2 text-center text-text-jemny">
+                zobrazen poslední známý seznam ({polozky.length} položek) – obnovte
+                stránku po opravě
+              </p>
             )}
           </div>
         )}
 
-        {trvaleUloziste === true && (
-          <p className="text-center text-xs font-light text-text-velmiJemny">
-            trvalé úložiště aktivní – fotografie a změny se ukládají
-          </p>
-        )}
+        {/* Stav úložiště – vždy viditelný */}
+        <section className="space-y-2 text-center text-xs font-light">
+          {trvaleUloziste ? (
+            <p className="text-text-velmiJemny">
+              trvalé úložiště aktivní – fotografie a změny se ukládají
+            </p>
+          ) : (
+            <p className="text-amber-700/80">
+              trvalé úložiště není plně aktivní – zápisy z administrace mohou
+              selhat (viz diagnostika)
+            </p>
+          )}
+          {diagnoza && <BlokDiagnozy diagnoza={diagnoza} />}
+        </section>
 
-        {metriky && (
-          <section className="space-y-3 border border-text-velmiJemny/20 p-4">
-            <h2 className="text-sm font-light text-text-jemny">metriky</h2>
+        {/* Metriky – vždy viditelné */}
+        <section className="space-y-3 border border-text-velmiJemny/20 p-4">
+          <h2 className="text-sm font-light text-text-jemny">metriky</h2>
+          {chyby.metriky && (
+            <p className="text-xs text-red-400">
+              chyba načtení metrik: {chyby.metriky}
+            </p>
+          )}
+          {metriky ? (
             <div className="grid grid-cols-2 gap-2 text-xs text-text-velmiJemny">
               <span>návštěvy: {metriky.pocetNavstev}</span>
               <span>vracející se: {metriky.pocetVracejicichSeNavstevniku}</span>
@@ -216,8 +264,10 @@ export function AdminPanel({
               </span>
               <span>povolená upozornění: {metriky.pocetPovolenychUpozorneni}</span>
             </div>
-          </section>
-        )}
+          ) : (
+            <p className="text-xs text-text-velmiJemny">data metrik nejsou k dispozici</p>
+          )}
+        </section>
 
         <section className="space-y-3 border border-text-velmiJemny/20 p-4">
           <h2 className="text-sm font-light text-text-jemny">nahrát položku</h2>
@@ -250,6 +300,14 @@ export function AdminPanel({
           <h2 className="text-sm font-light text-text-jemny">
             položky ({polozky.length})
           </h2>
+          {chyby.polozky && !chyby.uloziste && (
+            <p className="text-xs text-red-400">
+              chyba načtení položek: {chyby.polozky}
+            </p>
+          )}
+          {polozky.length === 0 && !maChybuNacitani && (
+            <p className="text-xs text-text-velmiJemny">žádné položky v galerii</p>
+          )}
           {polozky.map((polozka: Polozka, index: number) => (
             <div
               key={polozka.id}

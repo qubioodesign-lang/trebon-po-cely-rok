@@ -2,6 +2,7 @@ import "server-only";
 
 import fs from "fs";
 import path from "path";
+import { cache } from "react";
 import type { Polozka } from "@/types";
 import type { TypUdalostiMetriky } from "@/types";
 import { nacistDataBlob, ulozitDataBlob } from "./uloziste-blob";
@@ -42,13 +43,15 @@ const PRAZDNA_DATA: UlozisteDat = {
   pushOdbery: [],
 };
 
-/** Načte data z Blob nebo lokálního souboru */
-export async function nacistData(oidcZHeaderu?: string | null): Promise<UlozisteDat> {
+/** Načte data z Blob nebo lokálního souboru – v rámci jednoho requestu jen jednou */
+export const nacistData = cache(async function nacistData(
+  oidcZHeaderu?: string | null
+): Promise<UlozisteDat> {
   if (pouzivaBlobUloziste()) {
     return nacistDataBlob(oidcZHeaderu);
   }
   return nacistDataLokalne();
-}
+});
 
 function nacistDataLokalne(): UlozisteDat {
   if (!fs.existsSync(CESTA_LOKALNI)) {

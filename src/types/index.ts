@@ -76,3 +76,16 @@ export interface AdminData {
   trvaleUloziste: boolean;
   diagnoza: DiagnozaBlob;
 }
+
+/** Chyby při načítání jednotlivých částí administrace */
+export interface AdminChyby {
+  uloziste?: string;
+  polozky?: string;
+  metriky?: string;
+}
+
+/** Výsledek načtení administrace – data jsou vždy k dispozici, chyby odděleně */
+export interface AdminVysledek {
+  data: AdminData;
+  chyby: AdminChyby;
+}

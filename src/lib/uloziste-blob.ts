@@ -1,6 +1,7 @@
 import "server-only";
 
-import { get, put, BlobNotFoundError } from "@vercel/blob";
+import { get, put, BlobNotFoundError, type GetBlobResult } from "@vercel/blob";
+import { unstable_noStore as noStore } from "next/cache";
 import type { UlozisteDat } from "./uloziste-dat";
 import { ziskatVolbyBlobAsync } from "./env-blob";
 
@@ -13,8 +14,33 @@ const PRAZDNA_DATA: UlozisteDat = {
   pushOdbery: [],
 };
 
-/** Načte data z Vercel Blob – nikdy nepřepisuje seedem při chybě */
+/** Stáhne text metadata – HTTP 304 nemá stream, použije veřejnou URL */
+async function stahnoutTextMetadata(vysledek: GetBlobResult): Promise<string> {
+  if (vysledek.statusCode === 200 && vysledek.stream) {
+    return new Response(vysledek.stream).text();
+  }
+
+  if (vysledek.statusCode === 304) {
+    const odpoved = await fetch(vysledek.blob.url, {
+      cache: "no-store",
+      headers: { "Cache-Control": "no-cache" },
+    });
+
+    if (!odpoved.ok) {
+      throw new Error(
+        `Metadata Blob vrátily 304, ale stažení z URL selhalo (HTTP ${odpoved.status})`
+      );
+    }
+
+    return odpoved.text();
+  }
+
+  throw new Error("Nepodařilo se načíst tělo metadata z Blob");
+}
+
+/** Načte data z Vercel Blob – správně zpracuje HTTP 304 (Not Modified) */
 export async function nacistDataBlob(oidcZHeaderu?: string | null): Promise<UlozisteDat> {
+  noStore();
   const volby = await ziskatVolbyBlobAsync(oidcZHeaderu);
 
   try {
@@ -23,20 +49,30 @@ export async function nacistDataBlob(oidcZHeaderu?: string | null): Promise<Uloz
       access: "public",
     });
 
-    // Soubor metadata ještě neexistuje
-    if (!vysledek || vysledek.statusCode !== 200 || !vysledek.stream) {
+    if (!vysledek) {
       return structuredClone(PRAZDNA_DATA);
     }
 
-    const text = await new Response(vysledek.stream).text();
-    return normalizovatData(JSON.parse(text) as UlozisteDat);
+    const text = await stahnoutTextMetadata(vysledek);
+    if (!text.trim()) {
+      return structuredClone(PRAZDNA_DATA);
+    }
+
+    try {
+      return normalizovatData(JSON.parse(text) as UlozisteDat);
+    } catch {
+      throw new Error(
+        "Metadata v Blob jsou poškozená (neplatný JSON). Obnovte zálohu nebo opravte soubor data/uloziste.json."
+      );
+    }
   } catch (error) {
-    // Pouze skutečně chybějící soubor → prázdná galerie
     if (error instanceof BlobNotFoundError) {
       return structuredClone(PRAZDNA_DATA);
     }
-    // Auth/síťová chyba – nevracet seed, nechat projít dál
-    throw error;
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error("Nepodařilo se načíst data z Blob úložiště");
   }
 }
 
@@ -46,6 +82,12 @@ export async function ulozitDataBlob(
   oidcZHeaderu?: string | null
 ): Promise<void> {
   const volby = await ziskatVolbyBlobAsync(oidcZHeaderu);
+
+  if (!volby.token && !volby.oidcToken) {
+    throw new Error(
+      "Nelze uložit do Blob: chybí autentizace. Nastavte BLOB_READ_WRITE_TOKEN ve Vercel → Storage → Blob → Tokens."
+    );
+  }
 
   await put(BLOB_CESTA_METADATA, JSON.stringify(data, null, 2), {
     ...volby,
