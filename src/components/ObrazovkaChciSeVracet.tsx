@@ -86,10 +86,9 @@ export function ObrazovkaChciSeVracet() {
     <div className="flex min-h-dvh flex-col items-center justify-center bg-krem px-8 py-16">
       <div className="max-w-sm space-y-8 text-center">
         <div className="space-y-6 text-sm font-light leading-relaxed tracking-wide text-text-jemny">
-          <p>
-            Třeboň po celý rok je pro všechny,
-            <br />
-            kterým se po Třeboni občas zasteskne.
+          <p className="text-pretty">
+            Třeboň po celý rok je pro všechny, kterým se po Třeboni občas
+            zasteskne.
           </p>
           <p>
             Pro chvíle mezi návštěvami.
@@ -107,7 +106,7 @@ export function ObrazovkaChciSeVracet() {
 
         {!zobrazitNavodIOS ? (
           <>
-            <p className="text-sm font-light text-text-jemny">
+            <p className="text-pretty text-sm font-light text-text-jemny">
               Chcete vědět, kdy přibude další malý kousek Třeboně?
             </p>
             <button
