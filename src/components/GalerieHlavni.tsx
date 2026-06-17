@@ -155,6 +155,18 @@ export function GalerieHlavni({ polozky }: PropsGalerieHlavni) {
         >
           <ZobrazeniPolozky polozka={aktualniPolozka} jeAktivni={true} />
 
+          {/* Jemný gradient nahoře – pouze mobil, za textem */}
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 z-[5] h-32 bg-gradient-to-b from-black/25 via-black/5 to-transparent md:hidden"
+            aria-hidden="true"
+          />
+
+          {/* Jemný gradient dole – pouze mobil, za textem */}
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-44 bg-gradient-to-t from-black/30 via-black/8 to-transparent md:hidden"
+            aria-hidden="true"
+          />
+
           {/* Název přes fotografií */}
           <div className="absolute inset-x-0 top-0 z-10 px-6 pt-8 md:bg-gradient-to-b md:from-black/30 md:to-transparent md:pb-16">
             <h1 className="text-center text-lg font-light tracking-[0.15em] text-white/90">
