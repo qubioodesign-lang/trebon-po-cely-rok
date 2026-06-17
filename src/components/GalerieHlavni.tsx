@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { PolozkaVerejna } from "@/types";
-import { nacistPoziciGalerie, ulozitPoziciGalerie } from "@/lib/uloziste";
+import { ziskatPlatnouPoziciGalerie, ulozitPoziciGalerie } from "@/lib/uloziste";
 import { useMetriky } from "@/hooks/useMetriky";
 import { ZobrazeniPolozky } from "./ZobrazeniPolozky";
 import { OdkazChciSeVracet } from "./OdkazChciSeVracet";
@@ -56,21 +56,41 @@ function SipkaNavigace({
  * Jedna fotografie najednou, plynulé přechody.
  */
 export function GalerieHlavni({ polozky }: PropsGalerieHlavni) {
-  const [aktualniIndex, setAktualniIndex] = useState(0);
+  const [aktualniIndex, setAktualniIndex] = useState(() =>
+    ziskatPlatnouPoziciGalerie(polozky.length)
+  );
   const [jePripraveno, setJePripraveno] = useState(false);
   const [posunX, setPosunX] = useState(0);
   const [jeTazeni, setJeTazeni] = useState(false);
 
   const zacatekX = useRef(0);
+  const aktualniIndexRef = useRef(aktualniIndex);
   const { odeslat } = useMetriky();
 
-  // Obnovení pozice po návratu z jiných obrazovek
+  aktualniIndexRef.current = aktualniIndex;
+
+  // Obnovení pozice po návratu (odkaz, systémové Zpět, gesto na iPhonu)
   useEffect(() => {
-    const ulozenaPozice = nacistPoziciGalerie();
-    if (ulozenaPozice > 0 && ulozenaPozice < polozky.length) {
-      setAktualniIndex(ulozenaPozice);
-    }
+    const obnovitPozici = () => {
+      const platna = ziskatPlatnouPoziciGalerie(polozky.length);
+      setAktualniIndex((predchozi) =>
+        predchozi === platna ? predchozi : platna
+      );
+    };
+
+    obnovitPozici();
     setJePripraveno(true);
+
+    window.addEventListener("pageshow", obnovitPozici);
+    const priViditelnosti = () => {
+      if (document.visibilityState === "visible") obnovitPozici();
+    };
+    document.addEventListener("visibilitychange", priViditelnosti);
+
+    return () => {
+      window.removeEventListener("pageshow", obnovitPozici);
+      document.removeEventListener("visibilitychange", priViditelnosti);
+    };
   }, [polozky.length]);
 
   // Ukládání pozice při každé změně
@@ -79,6 +99,13 @@ export function GalerieHlavni({ polozky }: PropsGalerieHlavni) {
       ulozitPoziciGalerie(aktualniIndex);
     }
   }, [aktualniIndex, jePripraveno]);
+
+  // Poslední jistota při odchodu z galerie
+  useEffect(() => {
+    return () => {
+      ulozitPoziciGalerie(aktualniIndexRef.current);
+    };
+  }, []);
 
   // Záznam zobrazení fotografie
   useEffect(() => {

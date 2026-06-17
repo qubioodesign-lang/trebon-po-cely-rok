@@ -19,6 +19,17 @@ export function nacistPoziciGalerie(): number {
   return isNaN(index) ? 0 : index;
 }
 
+/**
+ * Vrátí uloženou pozici, pokud je v rozsahu galerie.
+ * Index 0 je platný – uživatel nesmí skončit na začátku omylem.
+ */
+export function ziskatPlatnouPoziciGalerie(pocetPolozek: number): number {
+  if (pocetPolozek <= 0) return 0;
+  const ulozena = nacistPoziciGalerie();
+  if (ulozena >= 0 && ulozena < pocetPolozek) return ulozena;
+  return 0;
+}
+
 /** Získá nebo vytvoří unikátní ID návštěvníka */
 export function ziskatNavstevnikId(): string {
   if (typeof window === "undefined") return "";

@@ -21,7 +21,7 @@ export function ObrazovkaChciSeVracet() {
   const [nacita, setNacita] = useState(false);
 
   const prejitNaDekujeme = () => {
-    router.push("/dekujeme");
+    router.replace("/dekujeme");
   };
 
   const handleDostavatUpozorneni = async () => {
