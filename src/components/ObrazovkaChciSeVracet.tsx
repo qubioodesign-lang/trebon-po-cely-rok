@@ -115,7 +115,7 @@ export function ObrazovkaChciSeVracet() {
               disabled={nacita}
               className="tlacitko-klidne !px-6 !py-2.5 !text-xs"
             >
-              {nacita ? "…" : "Povolit upozornění"}
+              {nacita ? "…" : "Dostávat upozornění"}
             </button>
           </>
         ) : (
