@@ -148,34 +148,43 @@ export function GalerieHlavni({ polozky }: PropsGalerieHlavni) {
         onTouchEnd={handleTouchEnd}
       >
         <div
-          className="relative h-full w-full transition-transform duration-300 ease-klidny"
+          className="relative isolate h-full w-full transition-transform duration-300 ease-klidny"
           style={{
             transform: jeTazeni ? `translateX(${posunX * 0.3}px)` : "translateX(0)",
           }}
         >
-          <ZobrazeniPolozky polozka={aktualniPolozka} jeAktivni={true} />
+          {/* Fotografie – nejnižší vrstva */}
+          <div className="absolute inset-0 z-0">
+            <ZobrazeniPolozky polozka={aktualniPolozka} jeAktivni={true} />
+          </div>
 
-          {/* Jemný gradient nahoře – pouze mobil, za textem */}
+          {/* DOČASNĚ výrazné gradienty pro ověření viditelnosti – pouze mobil, nad fotografií (z-8) */}
           <div
-            className="pointer-events-none absolute inset-x-0 top-0 z-[5] h-32 bg-gradient-to-b from-black/25 via-black/5 to-transparent md:hidden"
+            className="pointer-events-none absolute inset-x-0 top-0 z-[8] h-40 md:hidden"
+            style={{
+              background:
+                "linear-gradient(to bottom, rgba(0, 0, 0, 0.65) 0%, rgba(0, 0, 0, 0.35) 50%, rgba(0, 0, 0, 0) 100%)",
+            }}
+            aria-hidden="true"
+          />
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 z-[8] h-52 md:hidden"
+            style={{
+              background:
+                "linear-gradient(to top, rgba(0, 0, 0, 0.65) 0%, rgba(0, 0, 0, 0.35) 50%, rgba(0, 0, 0, 0) 100%)",
+            }}
             aria-hidden="true"
           />
 
-          {/* Jemný gradient dole – pouze mobil, za textem */}
-          <div
-            className="pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-44 bg-gradient-to-t from-black/30 via-black/8 to-transparent md:hidden"
-            aria-hidden="true"
-          />
-
-          {/* Název přes fotografií */}
-          <div className="absolute inset-x-0 top-0 z-10 px-6 pt-8 md:bg-gradient-to-b md:from-black/30 md:to-transparent md:pb-16">
+          {/* Název přes fotografií – nad gradientem (z-20) */}
+          <div className="absolute inset-x-0 top-0 z-20 px-6 pt-8 md:bg-gradient-to-b md:from-black/30 md:to-transparent md:pb-16">
             <h1 className="text-center text-lg font-light tracking-[0.15em] text-white/90">
               Třeboň po celý rok
             </h1>
           </div>
 
-          {/* Popis a odkaz přes fotografií – pouze mobil */}
-          <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col items-center px-6 pb-[calc(2.75rem+env(safe-area-inset-bottom,0px))] text-center md:hidden">
+          {/* Popis a odkaz přes fotografií – pouze mobil, nad gradientem (z-20) */}
+          <div className="absolute inset-x-0 bottom-0 z-20 flex flex-col items-center px-6 pb-[calc(2.75rem+env(safe-area-inset-bottom,0px))] text-center md:hidden">
             <p className="text-sm font-light tracking-wide text-white/90">
               {aktualniPolozka.popis}
             </p>
