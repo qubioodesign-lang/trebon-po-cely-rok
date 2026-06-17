@@ -137,11 +137,15 @@ export function GalerieHlavni({ polozky }: PropsGalerieHlavni) {
           </div>
 
           {/* Popis a odkaz přes fotografií – pouze mobil */}
-          <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col items-center px-6 pb-8 text-center md:hidden">
+          <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col items-center px-6 pb-[calc(2.75rem+env(safe-area-inset-bottom,0px))] text-center md:hidden">
             <p className="text-sm font-light tracking-wide text-white/90">
               {aktualniPolozka.popis}
             </p>
-            <div className="mt-3 [&_.odkaz-jemny]:text-white/75 [&_.odkaz-jemny:hover]:text-white/95 [&_.odkaz-jemny:focus-visible]:text-white/95">
+            <div
+              className="my-3 h-px w-10 bg-white/25"
+              aria-hidden="true"
+            />
+            <div className="[&_.odkaz-jemny]:text-white/75 [&_.odkaz-jemny:hover]:text-white/95 [&_.odkaz-jemny:focus-visible]:text-white/95">
               <OdkazChciSeVracet aktualniIndex={aktualniIndex} />
             </div>
           </div>
