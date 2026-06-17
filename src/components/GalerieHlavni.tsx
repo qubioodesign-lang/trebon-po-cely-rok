@@ -189,7 +189,7 @@ export function GalerieHlavni({ polozky }: PropsGalerieHlavni) {
               {aktualniPolozka.popis}
             </p>
             <div
-              className="my-3 h-px w-10 bg-white/25"
+              className="my-3 h-px w-[150px] max-w-[45%] bg-white/40"
               aria-hidden="true"
             />
             <div className="[&_.odkaz-jemny]:text-white/75 [&_.odkaz-jemny:hover]:text-white/95 [&_.odkaz-jemny:focus-visible]:text-white/95">
