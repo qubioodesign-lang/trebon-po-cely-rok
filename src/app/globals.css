@@ -23,6 +23,19 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  /* Hlavní galerie na mobilu – bez vertikálního scrollu */
+  @media (max-width: 767px) {
+    html.galerie-bez-scrollu,
+    body.galerie-bez-scrollu {
+      height: 100dvh;
+      max-height: 100dvh;
+      overflow: hidden;
+      overscroll-behavior: none;
+      position: fixed;
+      width: 100%;
+    }
+  }
 }
 
 @layer components {

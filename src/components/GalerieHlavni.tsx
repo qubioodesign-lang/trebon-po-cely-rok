@@ -94,6 +94,32 @@ export function GalerieHlavni({ polozky }: PropsGalerieHlavni) {
     setJeTazeni(false);
   };
 
+  // Mobil: zákaz vertikálního scrollování – jedna obrazovka bez posunu
+  useEffect(() => {
+    if (polozky.length === 0) return;
+
+    const jeMobil = () => window.matchMedia("(max-width: 767px)").matches;
+
+    const zamknoutScroll = () => {
+      if (!jeMobil()) return;
+      document.documentElement.classList.add("galerie-bez-scrollu");
+      document.body.classList.add("galerie-bez-scrollu");
+    };
+
+    const odemknoutScroll = () => {
+      document.documentElement.classList.remove("galerie-bez-scrollu");
+      document.body.classList.remove("galerie-bez-scrollu");
+    };
+
+    zamknoutScroll();
+    window.addEventListener("resize", zamknoutScroll);
+
+    return () => {
+      window.removeEventListener("resize", zamknoutScroll);
+      odemknoutScroll();
+    };
+  }, [polozky.length]);
+
   if (polozky.length === 0) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center bg-krem px-6 text-center">
@@ -111,12 +137,12 @@ export function GalerieHlavni({ polozky }: PropsGalerieHlavni) {
   const aktualniPolozka = polozky[aktualniIndex];
 
   return (
-    <div className="relative h-dvh min-h-dvh overflow-hidden bg-krem-tmavsi md:h-auto md:min-h-dvh">
+    <div className="fixed inset-0 z-0 h-dvh max-h-dvh w-full overflow-hidden overscroll-none bg-krem-tmavsi md:static md:z-auto md:h-auto md:max-h-none md:min-h-dvh">
       <RegistracePWA />
 
       {/* Fotografie – na mobilu celý displej, na desktopu 70dvh */}
       <div
-        className="relative h-dvh w-full touch-pan-y md:h-[70dvh]"
+        className="relative h-full w-full touch-none md:h-[70dvh] md:touch-auto"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
