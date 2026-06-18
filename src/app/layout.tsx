@@ -10,8 +10,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "Třeboň po celý rok",
-  description:
-    "Digitální místo pro návraty. Pro chvíle mezi návštěvami Třeboně.",
+  description: "Na chvíli zpátky do Třeboně.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

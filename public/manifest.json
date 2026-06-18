@@ -1,7 +1,7 @@
 {
   "name": "Třeboň po celý rok",
   "short_name": "Třeboň",
-  "description": "Digitální místo pro návraty. Pro chvíle mezi návštěvami Třeboně.",
+  "description": "Na chvíli zpátky do Třeboně.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#FAF8F5",
