@@ -1,14 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   jeIOS,
   jePWA,
   podporujePushNotifikace,
-  nacistPolozkuGalerie,
 } from "@/lib/uloziste";
-import { sdiletPolozku } from "@/lib/sdileni";
 import { useMetriky } from "@/hooks/useMetriky";
 
 /**
@@ -18,14 +16,9 @@ import { useMetriky } from "@/hooks/useMetriky";
  */
 export function ObrazovkaChciSeVracet() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { odeslat } = useMetriky();
   const [zobrazitNavodIOS, setZobrazitNavodIOS] = useState(false);
   const [nacita, setNacita] = useState(false);
-  const [potvrzeniSdileni, setPotvrzeniSdileni] = useState("");
-
-  const polozkaId =
-    searchParams.get("polozka") ?? nacistPolozkuGalerie() ?? null;
 
   const prejitNaDekujeme = () => {
     router.replace("/dekujeme");
@@ -73,22 +66,6 @@ export function ObrazovkaChciSeVracet() {
     prejitNaDekujeme();
   };
 
-  const handleSdilet = async () => {
-    if (!polozkaId) return;
-    setPotvrzeniSdileni("");
-
-    try {
-      const vysledek = await sdiletPolozku(polozkaId);
-      if (vysledek === "zkopirovano") {
-        setPotvrzeniSdileni("odkaz zkopírován");
-      }
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        return;
-      }
-    }
-  };
-
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-krem px-8 py-16">
       <div className="max-w-sm space-y-8 text-center">
@@ -124,22 +101,6 @@ export function ObrazovkaChciSeVracet() {
             >
               {nacita ? "…" : "Dostávat upozornění"}
             </button>
-            {polozkaId && (
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  onClick={handleSdilet}
-                  className="odkaz-jemny inline-block"
-                >
-                  sdílet
-                </button>
-                {potvrzeniSdileni && (
-                  <p className="text-xs text-text-velmiJemny">
-                    {potvrzeniSdileni}
-                  </p>
-                )}
-              </div>
-            )}
           </>
         ) : (
           <div className="space-y-6">

@@ -11,6 +11,7 @@ import {
 import { useMetriky } from "@/hooks/useMetriky";
 import { ZobrazeniPolozky } from "./ZobrazeniPolozky";
 import { OdkazChciSeVracet } from "./OdkazChciSeVracet";
+import { OdkazSdilet } from "./OdkazSdilet";
 import { RegistracePWA } from "./RegistracePWA";
 
 interface PropsGalerieHlavni {
@@ -284,6 +285,10 @@ export function GalerieHlavni({
                 aktualniIndex={aktualniIndex}
                 polozkaId={aktualniPolozka.id}
               />
+              <OdkazSdilet
+                polozkaId={aktualniPolozka.id}
+                potvrzeniClassName="text-xs text-white/60"
+              />
             </div>
           </div>
         </div>
@@ -314,6 +319,7 @@ export function GalerieHlavni({
           aktualniIndex={aktualniIndex}
           polozkaId={aktualniPolozka.id}
         />
+        <OdkazSdilet polozkaId={aktualniPolozka.id} />
       </div>
     </div>
   );
