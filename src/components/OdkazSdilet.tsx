@@ -10,7 +10,7 @@ interface PropsOdkazSdilet {
 }
 
 const TRIDA_ODKAZ =
-  "inline-block text-[0.6875rem] font-light tracking-wide transition-colors duration-300 mt-2.5 focus-visible:outline-none";
+  "inline-block text-[0.6875rem] font-light tracking-wide transition-colors duration-300 focus-visible:outline-none";
 
 /** Nenápadný odkaz „sdílet“ – systémové sdílení nebo kopie odkazu do schránky */
 export function OdkazSdilet({ polozkaId, nadFotkou = false }: PropsOdkazSdilet) {
@@ -32,8 +32,8 @@ export function OdkazSdilet({ polozkaId, nadFotkou = false }: PropsOdkazSdilet) 
   };
 
   const tridaTlacitko = nadFotkou
-    ? `${TRIDA_ODKAZ} text-white/45 hover:text-white/60 focus-visible:text-white/60`
-    : `${TRIDA_ODKAZ} text-text-velmiJemny/55 hover:text-text-jemny/75 focus-visible:text-text-jemny/75`;
+    ? `${TRIDA_ODKAZ} mt-11 text-white/60 hover:text-white/75 focus-visible:text-white/75`
+    : `${TRIDA_ODKAZ} mt-2.5 text-text-velmiJemny/55 hover:text-text-jemny/75 focus-visible:text-text-jemny/75`;
 
   const tridaPotvrzeni = nadFotkou
     ? "text-[0.625rem] text-white/40"
