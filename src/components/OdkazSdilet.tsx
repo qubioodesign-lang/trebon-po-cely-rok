@@ -32,7 +32,7 @@ export function OdkazSdilet({ polozkaId, nadFotkou = false }: PropsOdkazSdilet) 
   };
 
   const tridaTlacitko = nadFotkou
-    ? `${TRIDA_ODKAZ} mt-11 text-white/60 hover:text-white/75 focus-visible:text-white/75`
+    ? `${TRIDA_ODKAZ} text-white/60 hover:text-white/75 focus-visible:text-white/75`
     : `${TRIDA_ODKAZ} mt-2.5 text-text-velmiJemny/55 hover:text-text-jemny/75 focus-visible:text-text-jemny/75`;
 
   const tridaPotvrzeni = nadFotkou
