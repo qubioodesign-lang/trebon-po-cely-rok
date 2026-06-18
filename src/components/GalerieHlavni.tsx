@@ -289,7 +289,7 @@ export function GalerieHlavni({
           </div>
 
           {/* sdílet – absolutně ve spodním paddingu, neovlivňuje overlay */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-[calc((2.75rem+env(safe-area-inset-bottom,0px))/2)] z-20 flex justify-center md:hidden">
+          <div className="pointer-events-none absolute inset-x-0 bottom-[calc((2.75rem+env(safe-area-inset-bottom,0px))/2-0.6875rem)] z-20 flex justify-center md:hidden">
             <div className="pointer-events-auto -translate-y-1/2">
               <OdkazSdilet polozkaId={aktualniPolozka.id} nadFotkou />
             </div>
