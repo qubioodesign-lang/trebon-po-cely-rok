@@ -8,11 +8,13 @@ import {
   nastavitSessionCookie,
   smazatSessionCookie,
 } from "@/lib/autentizace";
+import { BlobNotFoundError } from "@vercel/blob";
 import {
   vytvoritPolozku,
   aktualizovatPopis,
   prepnoutAktivni,
   smazatPolozku,
+  ziskatPolozku,
   zmenitPoradi,
 } from "@/lib/polozky";
 import { ulozitSoubor, smazatSoubor } from "@/lib/soubory";
@@ -47,6 +49,19 @@ async function overitAdmina(): Promise<
   }
 
   return { oidcHeader, diagnoza };
+}
+
+/** Smaže soubor; chybějící soubor neblokuje dokončení mazání položky */
+async function smazatSouborBezpecne(
+  cestaSouboru: string,
+  oidcHeader: string | null
+): Promise<void> {
+  try {
+    await smazatSoubor(cestaSouboru, oidcHeader);
+  } catch (error) {
+    if (error instanceof BlobNotFoundError) return;
+    throw error;
+  }
 }
 
 export async function prihlasitAdmin(heslo: string) {
@@ -142,10 +157,14 @@ export async function smazatPolozkuAdmin(id: string): Promise<AkceVysledek> {
   if ("chyba" in admin) return { chyba: admin.chyba, diagnoza: admin.diagnoza };
 
   try {
-    const smazana = await smazatPolozku(id, admin.oidcHeader);
-    if (smazana) {
-      await smazatSoubor(smazana.soubor, admin.oidcHeader);
+    const polozka = await ziskatPolozku(id, admin.oidcHeader);
+    if (!polozka) {
+      return { chyba: "Položka nebyla nalezena", diagnoza: admin.diagnoza };
     }
+
+    await smazatSouborBezpecne(polozka.soubor, admin.oidcHeader);
+    await smazatPolozku(id, admin.oidcHeader);
+
     revalidatePath("/admin");
     revalidatePath("/");
     return { uspech: true };
@@ -167,6 +186,7 @@ export async function zmenitPopisPolozky(
   try {
     await aktualizovatPopis(id, popis, admin.oidcHeader);
     revalidatePath("/admin");
+    revalidatePath("/");
     return { uspech: true };
   } catch (error) {
     return {

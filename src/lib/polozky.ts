@@ -69,6 +69,15 @@ export async function vytvoritPolozku(
   return novaPolozka;
 }
 
+/** Vrátí jednu položku podle ID (bez mazání) */
+export async function ziskatPolozku(
+  id: string,
+  oidcZHeaderu?: string | null
+): Promise<Polozka | null> {
+  const { polozky } = await nacistData(oidcZHeaderu);
+  return polozky.find((p) => p.id === id) ?? null;
+}
+
 /** Aktualizuje popis položky */
 export async function aktualizovatPopis(
   id: string,

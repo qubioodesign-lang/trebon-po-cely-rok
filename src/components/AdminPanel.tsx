@@ -57,6 +57,8 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
   const [heslo, setHeslo] = useState("");
   const [chybaAkce, setChybaAkce] = useState("");
   const [nahrava, setNahrava] = useState(false);
+  const [popisy, setPopisy] = useState<Record<string, string>>({});
+  const [ukladaPopisId, setUkladaPopisId] = useState<string | null>(null);
   const posledniPlnePolozky = useRef<Polozka[]>([]);
 
   useEffect(() => {
@@ -74,6 +76,20 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
         ? posledniPlnePolozky.current
         : polozkyZeServeru;
   const metriky = data?.metriky ?? null;
+
+  useEffect(() => {
+    const zeServeru = data?.polozky;
+    if (!zeServeru || zeServeru.length === 0) return;
+
+    setPopisy((predchozi) => {
+      const nove: Record<string, string> = {};
+      for (const polozka of zeServeru) {
+        nove[polozka.id] = predchozi[polozka.id] ?? polozka.popis;
+      }
+      return nove;
+    });
+  }, [data?.polozky]);
+
   const trvaleUloziste = data?.trvaleUloziste ?? false;
   const diagnoza = data?.diagnoza ?? null;
 
@@ -145,14 +161,37 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
 
   const handleSmazat = async (id: string) => {
     if (!confirm("Opravdu smazat tuto položku?")) return;
-    const vysledek = await smazatPolozkuAdmin(id);
-    if (zpracovatChybuAkce(vysledek)) obnovit();
+    setChybaAkce("");
+
+    try {
+      const vysledek = await smazatPolozkuAdmin(id);
+      if (zpracovatChybuAkce(vysledek)) obnovit();
+    } catch (error) {
+      setChybaAkce(
+        error instanceof Error
+          ? error.message
+          : "Neočekávaná chyba server action při mazání"
+      );
+    }
   };
 
-  const handleZmenaPopisu = async (id: string, popis: string) => {
-    const vysledek = await zmenitPopisPolozky(id, popis);
-    if (!zpracovatChybuAkce(vysledek)) return;
-    obnovit();
+  const handleUlozitPopis = async (id: string) => {
+    const popis = popisy[id] ?? "";
+    setUkladaPopisId(id);
+    setChybaAkce("");
+
+    try {
+      const vysledek = await zmenitPopisPolozky(id, popis);
+      if (zpracovatChybuAkce(vysledek)) obnovit();
+    } catch (error) {
+      setChybaAkce(
+        error instanceof Error
+          ? error.message
+          : "Neočekávaná chyba server action při ukládání popisu"
+      );
+    } finally {
+      setUkladaPopisId(null);
+    }
   };
 
   const handlePosun = async (index: number, smer: "nahoru" | "dolu") => {
@@ -195,7 +234,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
       <div className="mx-auto max-w-2xl space-y-8">
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-light text-text">administrace</h1>
-          <button onClick={handleOdhlaseni} className="odkaz-jemny">
+          <button type="button" onClick={handleOdhlaseni} className="odkaz-jemny">
             odhlásit se
           </button>
         </div>
@@ -308,7 +347,11 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
           {polozky.length === 0 && !maChybuNacitani && (
             <p className="text-xs text-text-velmiJemny">žádné položky v galerii</p>
           )}
-          {polozky.map((polozka: Polozka, index: number) => (
+          {polozky.map((polozka: Polozka, index: number) => {
+            const aktualniPopis = popisy[polozka.id] ?? polozka.popis;
+            const popisZmenen = aktualniPopis !== polozka.popis;
+
+            return (
             <div
               key={polozka.id}
               className={`flex items-center gap-3 border border-text-velmiJemny/20 p-3 ${
@@ -317,6 +360,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
             >
               <div className="flex flex-col gap-1">
                 <button
+                  type="button"
                   onClick={() => handlePosun(index, "nahoru")}
                   disabled={index === 0}
                   className="text-xs text-text-velmiJemny disabled:opacity-30"
@@ -324,6 +368,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
                   ↑
                 </button>
                 <button
+                  type="button"
                   onClick={() => handlePosun(index, "dolu")}
                   disabled={index === polozky.length - 1}
                   className="text-xs text-text-velmiJemny disabled:opacity-30"
@@ -349,13 +394,29 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
 
               <input
                 type="text"
-                defaultValue={polozka.popis}
-                onBlur={(e) => handleZmenaPopisu(polozka.id, e.target.value)}
+                value={aktualniPopis}
+                onChange={(e) =>
+                  setPopisy((predchozi) => ({
+                    ...predchozi,
+                    [polozka.id]: e.target.value,
+                  }))
+                }
                 className="flex-1 border-none bg-transparent text-sm text-text outline-none"
               />
 
               <div className="flex flex-col gap-1">
                 <button
+                  type="button"
+                  onClick={() => handleUlozitPopis(polozka.id)}
+                  disabled={
+                    !popisZmenen || ukladaPopisId === polozka.id
+                  }
+                  className="text-xs text-text-velmiJemny disabled:opacity-30"
+                >
+                  {ukladaPopisId === polozka.id ? "ukládám…" : "uložit"}
+                </button>
+                <button
+                  type="button"
                   onClick={() =>
                     handlePrepnoutAktivni(polozka.id, polozka.aktivni)
                   }
@@ -364,6 +425,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
                   {polozka.aktivni ? "skrýt" : "zobrazit"}
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleSmazat(polozka.id)}
                   className="text-xs text-red-400/70"
                 >
@@ -371,7 +433,8 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
                 </button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </section>
       </div>
     </div>
