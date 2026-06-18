@@ -46,9 +46,9 @@ export async function vytvoritPolozku(
   let novaPolozka!: Polozka;
 
   await upravitData((uloziste) => {
-    const maxPoradi = uloziste.polozky.reduce(
-      (max, p) => Math.max(max, p.poradi),
-      -1
+    const minPoradi = uloziste.polozky.reduce(
+      (min, p) => Math.min(min, p.poradi),
+      Infinity
     );
 
     novaPolozka = {
@@ -58,7 +58,8 @@ export async function vytvoritPolozku(
       popis: data.popis,
       datumPorizeni: data.datumPorizeni ?? null,
       datumPublikace,
-      poradi: maxPoradi + 1,
+      // Záporné poradi = před stávající fotky bez změny jejich hodnot
+      poradi: minPoradi === Infinity ? 0 : minPoradi - 1,
       aktivni: true,
     };
 
