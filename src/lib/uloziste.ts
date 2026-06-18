@@ -1,5 +1,10 @@
+import type { PolozkaVerejna } from "@/types";
+
 /** Klíč pro uložení pozice v sessionStorage */
 export const KLIC_POZICE_GALERIE = "trebon_pozice_galerie";
+
+/** Klíč pro ID právě prohlížené položky (záloha pro sdílení) */
+export const KLIC_POLOZKA_GALERIE = "trebon_polozka_galerie";
 
 /** Klíč pro identifikaci návštěvníka v localStorage */
 export const KLIC_NAVSTEVNIK_ID = "trebon_navstevnik_id";
@@ -8,6 +13,40 @@ export const KLIC_NAVSTEVNIK_ID = "trebon_navstevnik_id";
 export function ulozitPoziciGalerie(index: number): void {
   if (typeof window === "undefined") return;
   sessionStorage.setItem(KLIC_POZICE_GALERIE, String(index));
+}
+
+/** Uloží ID aktuální položky galerie */
+export function ulozitPolozkuGalerie(polozkaId: string): void {
+  if (typeof window === "undefined") return;
+  sessionStorage.setItem(KLIC_POLOZKA_GALERIE, polozkaId);
+}
+
+/** Načte uložené ID položky galerie */
+export function nacistPolozkuGalerie(): string | null {
+  if (typeof window === "undefined") return null;
+  return sessionStorage.getItem(KLIC_POLOZKA_GALERIE);
+}
+
+/**
+ * Vrátí startovní index galerie.
+ * Priorita: sdílecí odkaz (?polozka=) → sessionStorage → 0.
+ */
+export function ziskatPocatecniIndexGalerie(
+  polozky: PolozkaVerejna[],
+  pocatecniPolozkaId?: string
+): number {
+  if (pocatecniPolozkaId) {
+    const zOdkazu = polozky.findIndex((p) => p.id === pocatecniPolozkaId);
+    if (zOdkazu >= 0) return zOdkazu;
+  }
+
+  const ulozeneId = nacistPolozkuGalerie();
+  if (ulozeneId) {
+    const zUloziste = polozky.findIndex((p) => p.id === ulozeneId);
+    if (zUloziste >= 0) return zUloziste;
+  }
+
+  return ziskatPlatnouPoziciGalerie(polozky.length);
 }
 
 /** Načte uloženou pozici galerie ze sessionStorage */

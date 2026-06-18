@@ -2,7 +2,12 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { PolozkaVerejna } from "@/types";
-import { ziskatPlatnouPoziciGalerie, ulozitPoziciGalerie } from "@/lib/uloziste";
+import {
+  ziskatPocatecniIndexGalerie,
+  ziskatPlatnouPoziciGalerie,
+  ulozitPoziciGalerie,
+  ulozitPolozkuGalerie,
+} from "@/lib/uloziste";
 import { useMetriky } from "@/hooks/useMetriky";
 import { ZobrazeniPolozky } from "./ZobrazeniPolozky";
 import { OdkazChciSeVracet } from "./OdkazChciSeVracet";
@@ -10,6 +15,7 @@ import { RegistracePWA } from "./RegistracePWA";
 
 interface PropsGalerieHlavni {
   polozky: PolozkaVerejna[];
+  pocatecniPolozkaId?: string;
 }
 
 /** Práh tažení pro přepnutí fotografie (v pixelech) */
@@ -55,9 +61,12 @@ function SipkaNavigace({
  * Hlavní galerie – procházení tažením a šipkami.
  * Jedna fotografie najednou, plynulé přechody.
  */
-export function GalerieHlavni({ polozky }: PropsGalerieHlavni) {
+export function GalerieHlavni({
+  polozky,
+  pocatecniPolozkaId,
+}: PropsGalerieHlavni) {
   const [aktualniIndex, setAktualniIndex] = useState(() =>
-    ziskatPlatnouPoziciGalerie(polozky.length)
+    ziskatPocatecniIndexGalerie(polozky, pocatecniPolozkaId)
   );
   const [jePripraveno, setJePripraveno] = useState(false);
   const [posunX, setPosunX] = useState(0);
@@ -72,9 +81,11 @@ export function GalerieHlavni({ polozky }: PropsGalerieHlavni) {
   // Obnovení pozice po návratu (odkaz, systémové Zpět, gesto na iPhonu)
   useEffect(() => {
     const obnovitPozici = () => {
-      const platna = ziskatPlatnouPoziciGalerie(polozky.length);
+      const index = pocatecniPolozkaId
+        ? ziskatPocatecniIndexGalerie(polozky, pocatecniPolozkaId)
+        : ziskatPlatnouPoziciGalerie(polozky.length);
       setAktualniIndex((predchozi) =>
-        predchozi === platna ? predchozi : platna
+        predchozi === index ? predchozi : index
       );
     };
 
@@ -91,14 +102,15 @@ export function GalerieHlavni({ polozky }: PropsGalerieHlavni) {
       window.removeEventListener("pageshow", obnovitPozici);
       document.removeEventListener("visibilitychange", priViditelnosti);
     };
-  }, [polozky.length]);
+  }, [polozky, pocatecniPolozkaId]);
 
-  // Ukládání pozice při každé změně
+  // Ukládání pozice a ID položky při každé změně
   useEffect(() => {
-    if (jePripraveno) {
+    if (jePripraveno && polozky[aktualniIndex]) {
       ulozitPoziciGalerie(aktualniIndex);
+      ulozitPolozkuGalerie(polozky[aktualniIndex].id);
     }
-  }, [aktualniIndex, jePripraveno]);
+  }, [aktualniIndex, jePripraveno, polozky]);
 
   // Poslední jistota při odchodu z galerie
   useEffect(() => {
@@ -268,7 +280,10 @@ export function GalerieHlavni({ polozky }: PropsGalerieHlavni) {
               )}
             </div>
             <div className="[&_.odkaz-jemny]:text-white/75 [&_.odkaz-jemny:hover]:text-white/95 [&_.odkaz-jemny:focus-visible]:text-white/95">
-              <OdkazChciSeVracet aktualniIndex={aktualniIndex} />
+              <OdkazChciSeVracet
+                aktualniIndex={aktualniIndex}
+                polozkaId={aktualniPolozka.id}
+              />
             </div>
           </div>
         </div>
@@ -295,7 +310,10 @@ export function GalerieHlavni({ polozky }: PropsGalerieHlavni) {
         <p className="text-sm font-light tracking-wide text-text-jemny">
           {aktualniPolozka.popis}
         </p>
-        <OdkazChciSeVracet aktualniIndex={aktualniIndex} />
+        <OdkazChciSeVracet
+          aktualniIndex={aktualniIndex}
+          polozkaId={aktualniPolozka.id}
+        />
       </div>
     </div>
   );
