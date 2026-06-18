@@ -15,9 +15,11 @@ import {
   prepnoutAktivni,
   smazatPolozku,
   ziskatPolozku,
+  ziskatVsechnyPolozky,
   zmenitPoradi,
 } from "@/lib/polozky";
 import { ulozitSoubor, smazatSoubor } from "@/lib/soubory";
+import { odeslatPushNotifikaceVsem } from "@/lib/push-notifikace";
 import {
   ziskatOidcZRequestu,
   zpravaChybejiciBlobAutentizace,
@@ -31,6 +33,11 @@ import type { DiagnozaBlob } from "@/types";
 
 type AkceVysledek =
   | { uspech: true }
+  | { chyba: string; diagnoza?: DiagnozaBlob };
+
+export type PushAkceVysledek =
+  | { uspech: true; pocetOdeslano: number; pocetSelhalo: number }
+  | { zadniOdberatele: true }
   | { chyba: string; diagnoza?: DiagnozaBlob };
 
 async function overitAdmina(): Promise<
@@ -210,6 +217,46 @@ export async function zmenitPoradiPolozek(
   } catch (error) {
     return {
       chyba: error instanceof Error ? error.message : "Chyba při změně pořadí",
+      diagnoza: admin.diagnoza,
+    };
+  }
+}
+
+export async function odeslatPushUpozorneni(
+  polozkaId: string
+): Promise<PushAkceVysledek> {
+  const admin = await overitAdmina();
+  if ("chyba" in admin) return { chyba: admin.chyba, diagnoza: admin.diagnoza };
+
+  try {
+    const polozky = await ziskatVsechnyPolozky(admin.oidcHeader);
+    const nejnovejsiAktivni = polozky.find((p) => p.aktivni);
+
+    if (!nejnovejsiAktivni) {
+      return {
+        chyba: "V galerii není žádná aktivní fotografie",
+        diagnoza: admin.diagnoza,
+      };
+    }
+
+    if (nejnovejsiAktivni.id !== polozkaId) {
+      return {
+        chyba: "Upozornění lze odeslat pouze u nejnovější aktivní fotografie",
+        diagnoza: admin.diagnoza,
+      };
+    }
+
+    const vysledek = await odeslatPushNotifikaceVsem(admin.oidcHeader);
+
+    if ("chyba" in vysledek) {
+      return { chyba: vysledek.chyba, diagnoza: admin.diagnoza };
+    }
+
+    return vysledek;
+  } catch (error) {
+    return {
+      chyba:
+        error instanceof Error ? error.message : "Chyba při odesílání upozornění",
       diagnoza: admin.diagnoza,
     };
   }

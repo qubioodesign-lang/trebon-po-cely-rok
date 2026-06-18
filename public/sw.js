@@ -47,7 +47,7 @@ self.addEventListener("fetch", (event) => {
 self.addEventListener("push", (event) => {
   const data = event.data?.json() ?? {};
   const titulek = data.titulek ?? "Třeboň po celý rok";
-  const text = data.text ?? "Na vás čeká další malý kousek Třeboně.";
+  const text = data.text ?? "Na chvíli zpátky do Třeboně.";
 
   event.waitUntil(
     self.registration.showNotification(titulek, {

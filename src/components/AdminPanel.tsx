@@ -12,6 +12,7 @@ import {
   smazatPolozkuAdmin,
   zmenitPopisPolozky,
   zmenitPoradiPolozek,
+  odeslatPushUpozorneni,
 } from "@/app/admin/actions";
 
 interface AdminPanelProps {
@@ -59,6 +60,8 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
   const [nahrava, setNahrava] = useState(false);
   const [popisy, setPopisy] = useState<Record<string, string>>({});
   const [ukladaPopisId, setUkladaPopisId] = useState<string | null>(null);
+  const [potvrzeniAkce, setPotvrzeniAkce] = useState("");
+  const [odesilaPush, setOdesilaPush] = useState(false);
   const posledniPlnePolozky = useRef<Polozka[]>([]);
 
   useEffect(() => {
@@ -92,6 +95,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
 
   const trvaleUloziste = data?.trvaleUloziste ?? false;
   const diagnoza = data?.diagnoza ?? null;
+  const nejnovejsiAktivniId = polozky.find((p) => p.aktivni)?.id ?? null;
 
   const obnovit = () => {
     startTransition(() => {
@@ -102,6 +106,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
   const zpracovatChybuAkce = (vysledek: { chyba?: string; uspech?: boolean }) => {
     if ("chyba" in vysledek && vysledek.chyba) {
       setChybaAkce(vysledek.chyba);
+      setPotvrzeniAkce("");
       return false;
     }
     setChybaAkce("");
@@ -204,6 +209,49 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
     if (zpracovatChybuAkce(vysledek)) obnovit();
   };
 
+  const handleOdeslatPush = async (id: string) => {
+    setOdesilaPush(true);
+    setChybaAkce("");
+    setPotvrzeniAkce("");
+
+    try {
+      const vysledek = await odeslatPushUpozorneni(id);
+
+      if ("zadniOdberatele" in vysledek && vysledek.zadniOdberatele) {
+        setPotvrzeniAkce("Žádní odběratelé push upozornění.");
+        return;
+      }
+
+      if ("chyba" in vysledek && vysledek.chyba) {
+        setChybaAkce(vysledek.chyba);
+        return;
+      }
+
+      if ("uspech" in vysledek && vysledek.uspech) {
+        const { pocetOdeslano, pocetSelhalo } = vysledek;
+        if (pocetSelhalo > 0) {
+          setPotvrzeniAkce(
+            `Upozornění odesláno ${pocetOdeslano} odběratelům (${pocetSelhalo} se nepodařilo).`
+          );
+        } else {
+          setPotvrzeniAkce(
+            `Upozornění odesláno ${pocetOdeslano} ${
+              pocetOdeslano === 1 ? "odběrateli" : "odběratelům"
+            }.`
+          );
+        }
+      }
+    } catch (error) {
+      setChybaAkce(
+        error instanceof Error
+          ? error.message
+          : "Neočekávaná chyba server action při odesílání upozornění"
+      );
+    } finally {
+      setOdesilaPush(false);
+    }
+  };
+
   if (!jePrihlasen) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-krem px-6">
@@ -247,6 +295,12 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
           <div className="rounded border border-red-400/30 bg-red-50/50 p-3 text-center text-xs text-red-500">
             <p className="font-medium">chyba operace</p>
             <p className="mt-1">{chybaAkce}</p>
+          </div>
+        )}
+
+        {potvrzeniAkce && (
+          <div className="rounded border border-text-velmiJemny/30 bg-krem-tmavsi/30 p-3 text-center text-xs text-text-jemny">
+            {potvrzeniAkce}
           </div>
         )}
 
@@ -350,6 +404,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
           {polozky.map((polozka: Polozka, index: number) => {
             const aktualniPopis = popisy[polozka.id] ?? polozka.popis;
             const popisZmenen = aktualniPopis !== polozka.popis;
+            const jeNejnovejsiAktivni = polozka.id === nejnovejsiAktivniId;
 
             return (
             <div
@@ -405,6 +460,16 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
               />
 
               <div className="flex flex-col gap-1">
+                {jeNejnovejsiAktivni && (
+                  <button
+                    type="button"
+                    onClick={() => handleOdeslatPush(polozka.id)}
+                    disabled={odesilaPush}
+                    className="text-xs text-text-velmiJemny disabled:opacity-30"
+                  >
+                    {odesilaPush ? "odesílám…" : "Odeslat upozornění"}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => handleUlozitPopis(polozka.id)}
