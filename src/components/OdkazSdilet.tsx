@@ -5,14 +5,15 @@ import { sdiletPolozku } from "@/lib/sdileni";
 
 interface PropsOdkazSdilet {
   polozkaId: string;
-  potvrzeniClassName?: string;
+  /** Nad fotografií na mobilu – světlejší, méně kontrastní text */
+  nadFotkou?: boolean;
 }
 
+const TRIDA_ODKAZ =
+  "inline-block text-[0.6875rem] font-light tracking-wide transition-colors duration-300 mt-2.5 focus-visible:outline-none";
+
 /** Nenápadný odkaz „sdílet“ – systémové sdílení nebo kopie odkazu do schránky */
-export function OdkazSdilet({
-  polozkaId,
-  potvrzeniClassName = "text-xs text-text-velmiJemny",
-}: PropsOdkazSdilet) {
+export function OdkazSdilet({ polozkaId, nadFotkou = false }: PropsOdkazSdilet) {
   const [potvrzeni, setPotvrzeni] = useState("");
 
   const handleSdilet = async () => {
@@ -30,16 +31,20 @@ export function OdkazSdilet({
     }
   };
 
+  const tridaTlacitko = nadFotkou
+    ? `${TRIDA_ODKAZ} text-white/45 hover:text-white/60 focus-visible:text-white/60`
+    : `${TRIDA_ODKAZ} text-text-velmiJemny/55 hover:text-text-jemny/75 focus-visible:text-text-jemny/75`;
+
+  const tridaPotvrzeni = nadFotkou
+    ? "text-[0.625rem] text-white/40"
+    : "text-[0.625rem] text-text-velmiJemny/50";
+
   return (
-    <div className="space-y-1">
-      <button
-        type="button"
-        onClick={handleSdilet}
-        className="odkaz-jemny inline-block"
-      >
+    <div className="flex flex-col items-center">
+      <button type="button" onClick={handleSdilet} className={tridaTlacitko}>
         sdílet
       </button>
-      {potvrzeni && <p className={potvrzeniClassName}>{potvrzeni}</p>}
+      {potvrzeni && <p className={`mt-1 ${tridaPotvrzeni}`}>{potvrzeni}</p>}
     </div>
   );
 }

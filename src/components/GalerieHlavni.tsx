@@ -285,10 +285,7 @@ export function GalerieHlavni({
                 aktualniIndex={aktualniIndex}
                 polozkaId={aktualniPolozka.id}
               />
-              <OdkazSdilet
-                polozkaId={aktualniPolozka.id}
-                potvrzeniClassName="text-xs text-white/60"
-              />
+              <OdkazSdilet polozkaId={aktualniPolozka.id} nadFotkou />
             </div>
           </div>
         </div>
