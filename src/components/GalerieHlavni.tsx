@@ -285,16 +285,11 @@ export function GalerieHlavni({
                 aktualniIndex={aktualniIndex}
                 polozkaId={aktualniPolozka.id}
               />
-              {/* Rezervuje místo sdílet v layoutu – samotný odkaz je absolutně níže */}
-              <div
-                className="mt-2.5 h-[0.6875rem] shrink-0"
-                aria-hidden="true"
-              />
             </div>
           </div>
 
-          {/* sdílet – absolutně, neovlivňuje spodní overlay */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-[calc((2.75rem+0.625rem+0.6875rem+env(safe-area-inset-bottom,0px))/2)] z-20 flex justify-center md:hidden">
+          {/* sdílet – absolutně ve spodním paddingu, neovlivňuje overlay */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-[calc((2.75rem+env(safe-area-inset-bottom,0px))/2)] z-20 flex justify-center md:hidden">
             <div className="pointer-events-auto -translate-y-1/2">
               <OdkazSdilet polozkaId={aktualniPolozka.id} nadFotkou />
             </div>
