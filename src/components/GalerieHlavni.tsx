@@ -178,10 +178,8 @@ export function GalerieHlavni({
   }, [aktualniIndex, polozky, odeslat]);
 
   const skokNaNejnovejsi = useCallback(() => {
-    if (aktualniIndex > 0) {
-      setAktualniIndex(0);
-    }
-  }, [aktualniIndex]);
+    setAktualniIndex((index) => (index > 0 ? 0 : index));
+  }, []);
 
   // Klávesové ovládání šipkami
   useEffect(() => {
@@ -348,14 +346,14 @@ export function GalerieHlavni({
           type="button"
           aria-label="Předchozí fotografie"
           onClick={posunZpet}
-          className="absolute left-0 top-0 z-10 h-full w-1/4 cursor-pointer opacity-0"
+          className="absolute left-0 top-0 z-10 h-full w-1/4 cursor-pointer opacity-0 pointer-events-none md:pointer-events-auto"
           disabled={aktualniIndex === 0}
         />
         <button
           type="button"
           aria-label="Další fotografie"
           onClick={posunVpred}
-          className="absolute right-0 top-0 z-10 h-full w-1/4 cursor-pointer opacity-0"
+          className="absolute right-0 top-0 z-10 h-full w-1/4 cursor-pointer opacity-0 pointer-events-none md:pointer-events-auto"
           disabled={aktualniIndex === polozky.length - 1}
         />
       </div>
