@@ -38,7 +38,7 @@ function SipkaNavigace({
       type="button"
       onClick={onClick}
       aria-label={smer === "vlevo" ? "Předchozí fotografie" : "Další fotografie"}
-      className="border-none bg-transparent p-0 outline-none"
+      className="border-none bg-transparent p-2 outline-none -m-2"
     >
       <svg
         className="h-[1.35rem] w-[1.35rem] shrink-0 text-white/75"
@@ -49,6 +49,42 @@ function SipkaNavigace({
         <path
           d={cesta}
           stroke="currentColor"
+          strokeWidth="1.25"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </button>
+  );
+}
+
+/** Skok na nejnovější fotografii – |←, vizuálně odlišné od kroku zpět */
+function SipkaNavigaceNaZacatek({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Nejnovější fotografie"
+      className="border-none bg-transparent p-2 outline-none -m-2"
+    >
+      <svg
+        className="h-[1.35rem] w-[1.75rem] shrink-0"
+        viewBox="0 0 32 24"
+        fill="none"
+        aria-hidden="true"
+      >
+        <line
+          x1="5"
+          y1="5"
+          x2="5"
+          y2="19"
+          stroke="rgba(255,255,255,0.45)"
+          strokeWidth="1.25"
+          strokeLinecap="round"
+        />
+        <path
+          d="M24 4L14 12L24 20"
+          stroke="rgba(255,255,255,0.7)"
           strokeWidth="1.25"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -140,6 +176,12 @@ export function GalerieHlavni({
       odeslat("navrat_zpet", polozky[aktualniIndex]?.id);
     }
   }, [aktualniIndex, polozky, odeslat]);
+
+  const skokNaNejnovejsi = useCallback(() => {
+    if (aktualniIndex > 0) {
+      setAktualniIndex(0);
+    }
+  }, [aktualniIndex]);
 
   // Klávesové ovládání šipkami
   useEffect(() => {
@@ -265,8 +307,13 @@ export function GalerieHlavni({
               {aktualniPolozka.popis}
             </p>
             <div className="relative my-3 flex w-full items-center justify-center">
+              {aktualniIndex >= 1 && (
+                <div className="absolute left-[2%] top-1/2 -translate-y-1/2">
+                  <SipkaNavigaceNaZacatek onClick={skokNaNejnovejsi} />
+                </div>
+              )}
               {aktualniIndex > 0 && (
-                <div className="absolute left-[5%] top-1/2 -translate-y-1/2">
+                <div className="absolute left-[14%] top-1/2 -translate-y-1/2">
                   <SipkaNavigace smer="vlevo" onClick={posunZpet} />
                 </div>
               )}
