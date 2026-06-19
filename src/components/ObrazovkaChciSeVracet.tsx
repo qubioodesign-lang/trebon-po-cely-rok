@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   jeIOS,
   jePWA,
+  maAktivniPushOdber,
   podporujePushNotifikace,
 } from "@/lib/uloziste";
 import { useMetriky } from "@/hooks/useMetriky";
@@ -19,6 +20,13 @@ export function ObrazovkaChciSeVracet() {
   const { odeslat } = useMetriky();
   const [zobrazitNavodIOS, setZobrazitNavodIOS] = useState(false);
   const [nacita, setNacita] = useState(false);
+  const [jeUpozorneniAktivni, setJeUpozorneniAktivni] = useState<boolean | null>(
+    null
+  );
+
+  useEffect(() => {
+    maAktivniPushOdber().then(setJeUpozorneniAktivni);
+  }, []);
 
   const prejitNaDekujeme = () => {
     router.replace("/dekujeme");
@@ -93,14 +101,20 @@ export function ObrazovkaChciSeVracet() {
             <p className="text-pretty px-2 py-8 text-[1.125rem] font-light leading-relaxed tracking-wide text-text/80">
               Chcete vědět, kdy přibude další malý kousek Třeboně?
             </p>
-            <button
-              type="button"
-              onClick={handleDostavatUpozorneni}
-              disabled={nacita}
-              className="tlacitko-klidne !px-6 !py-2.5 !text-xs"
-            >
-              {nacita ? "…" : "Dostávat upozornění"}
-            </button>
+            {jeUpozorneniAktivni ? (
+              <p className="text-xs font-light tracking-wide text-text-velmiJemny">
+                upozornění aktivní
+              </p>
+            ) : (
+              <button
+                type="button"
+                onClick={handleDostavatUpozorneni}
+                disabled={nacita || jeUpozorneniAktivni === null}
+                className="tlacitko-klidne !px-6 !py-2.5 !text-xs"
+              >
+                {nacita ? "…" : "Dostávat upozornění"}
+              </button>
+            )}
           </>
         ) : (
           <div className="space-y-6">

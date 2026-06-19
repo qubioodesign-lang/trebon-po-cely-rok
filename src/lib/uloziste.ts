@@ -105,3 +105,18 @@ export function podporujePushNotifikace(): boolean {
   if (typeof window === "undefined") return false;
   return "serviceWorker" in navigator && "PushManager" in window;
 }
+
+/** Má uživatel aktivní push odběr (povolení + subscription u service workeru) */
+export async function maAktivniPushOdber(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  if (!podporujePushNotifikace()) return false;
+  if (Notification.permission !== "granted") return false;
+
+  try {
+    const registrace = await navigator.serviceWorker.ready;
+    const subscription = await registrace.pushManager.getSubscription();
+    return subscription !== null;
+  } catch {
+    return false;
+  }
+}
