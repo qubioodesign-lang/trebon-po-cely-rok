@@ -68,23 +68,20 @@ function SipkaNavigaceNaZacatek({ onClick }: { onClick: () => void }) {
       className="border-none bg-transparent p-2 outline-none -m-2"
     >
       <svg
-        className="h-[1.35rem] w-[1.75rem] shrink-0"
-        viewBox="0 0 32 24"
+        className="h-[1.35rem] w-[1.625rem] shrink-0 text-white/75"
+        viewBox="0 0 20 24"
         fill="none"
         aria-hidden="true"
       >
-        <line
-          x1="5"
-          y1="5"
-          x2="5"
-          y2="19"
-          stroke="rgba(255,255,255,0.45)"
+        <path
+          d="M5 4V20"
+          stroke="currentColor"
           strokeWidth="1.25"
           strokeLinecap="round"
         />
         <path
-          d="M24 4L14 12L24 20"
-          stroke="rgba(255,255,255,0.7)"
+          d="M16 4L6 12L16 20"
+          stroke="currentColor"
           strokeWidth="1.25"
           strokeLinecap="round"
           strokeLinejoin="round"
