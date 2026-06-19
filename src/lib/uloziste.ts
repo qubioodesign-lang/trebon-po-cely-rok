@@ -9,6 +9,9 @@ export const KLIC_POLOZKA_GALERIE = "trebon_polozka_galerie";
 /** Klíč pro identifikaci návštěvníka v localStorage */
 export const KLIC_NAVSTEVNIK_ID = "trebon_navstevnik_id";
 
+/** Klíč pro dokončené povolení upozornění na stránce chci se vracet */
+export const KLIC_UPOZORNENI_AKTIVNI = "trebon_upozorneni_aktivni";
+
 /** Uloží aktuální pozici galerie do sessionStorage */
 export function ulozitPoziciGalerie(index: number): void {
   if (typeof window === "undefined") return;
@@ -81,6 +84,18 @@ export function ziskatNavstevnikId(): string {
   return id;
 }
 
+/** Uloží příznak dokončeného flow „Dostávat upozornění“ */
+export function ulozitUpozorneniAktivni(): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(KLIC_UPOZORNENI_AKTIVNI, "1");
+}
+
+/** Načte příznak dokončeného flow „Dostávat upozornění“ */
+export function maUlozeneUpozorneniAktivni(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(KLIC_UPOZORNENI_AKTIVNI) === "1";
+}
+
 /** Detekce iOS zařízení pro návod k PWA */
 export function jeIOS(): boolean {
   if (typeof window === "undefined") return false;
@@ -104,19 +119,4 @@ export function jePWA(): boolean {
 export function podporujePushNotifikace(): boolean {
   if (typeof window === "undefined") return false;
   return "serviceWorker" in navigator && "PushManager" in window;
-}
-
-/** Má uživatel aktivní push odběr (povolení + subscription u service workeru) */
-export async function maAktivniPushOdber(): Promise<boolean> {
-  if (typeof window === "undefined") return false;
-  if (!podporujePushNotifikace()) return false;
-  if (Notification.permission !== "granted") return false;
-
-  try {
-    const registrace = await navigator.serviceWorker.ready;
-    const subscription = await registrace.pushManager.getSubscription();
-    return subscription !== null;
-  } catch {
-    return false;
-  }
 }

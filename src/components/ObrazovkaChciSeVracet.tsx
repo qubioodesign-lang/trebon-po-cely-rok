@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import {
   jeIOS,
   jePWA,
-  maAktivniPushOdber,
+  maUlozeneUpozorneniAktivni,
   podporujePushNotifikace,
+  ulozitUpozorneniAktivni,
 } from "@/lib/uloziste";
 import { useMetriky } from "@/hooks/useMetriky";
 
@@ -20,12 +21,10 @@ export function ObrazovkaChciSeVracet() {
   const { odeslat } = useMetriky();
   const [zobrazitNavodIOS, setZobrazitNavodIOS] = useState(false);
   const [nacita, setNacita] = useState(false);
-  const [jeUpozorneniAktivni, setJeUpozorneniAktivni] = useState<boolean | null>(
-    null
-  );
+  const [jeUpozorneniAktivni, setJeUpozorneniAktivni] = useState(false);
 
   useEffect(() => {
-    maAktivniPushOdber().then(setJeUpozorneniAktivni);
+    setJeUpozorneniAktivni(maUlozeneUpozorneniAktivni());
   }, []);
 
   const prejitNaDekujeme = () => {
@@ -51,6 +50,7 @@ export function ObrazovkaChciSeVracet() {
           if (!pushUlozen) {
             odeslat("povoleno_upozorneni");
           }
+          ulozitUpozorneniAktivni();
           prejitNaDekujeme();
           return;
         }
@@ -71,6 +71,7 @@ export function ObrazovkaChciSeVracet() {
 
   const handleHotovoIOS = () => {
     odeslat("povoleno_upozorneni");
+    ulozitUpozorneniAktivni();
     prejitNaDekujeme();
   };
 
@@ -109,7 +110,7 @@ export function ObrazovkaChciSeVracet() {
               <button
                 type="button"
                 onClick={handleDostavatUpozorneni}
-                disabled={nacita || jeUpozorneniAktivni === null}
+                disabled={nacita}
                 className="tlacitko-klidne !px-6 !py-2.5 !text-xs"
               >
                 {nacita ? "…" : "Dostávat upozornění"}
