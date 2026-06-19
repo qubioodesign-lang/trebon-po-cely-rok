@@ -74,13 +74,13 @@ function SipkaNavigaceNaZacatek({ onClick }: { onClick: () => void }) {
         aria-hidden="true"
       >
         <path
-          d="M5 4V20"
+          d="M3 4V20"
           stroke="currentColor"
           strokeWidth="1.25"
           strokeLinecap="round"
         />
         <path
-          d="M16 4L6 12L16 20"
+          d="M16 4L7 12L16 20"
           stroke="currentColor"
           strokeWidth="1.25"
           strokeLinecap="round"
