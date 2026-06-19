@@ -17,11 +17,7 @@ export async function sdiletPolozku(
 
   if (typeof navigator !== "undefined" && navigator.share) {
     try {
-      await navigator.share({
-        title: SDILENI_TITULEK,
-        text: SDILENI_TEXT,
-        url,
-      });
+      await navigator.share({ url });
       return "sdileno";
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
