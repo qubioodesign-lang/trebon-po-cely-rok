@@ -15,6 +15,7 @@ import {
   prepnoutAktivni,
   smazatPolozku,
   ziskatPolozku,
+  ziskatPolozkuCerstve,
   ziskatVsechnyPolozky,
   zmenitPoradi,
   nahraditSouborPolozky,
@@ -236,9 +237,21 @@ export async function nahraditFotografiiPolozky(
       oidcHeader
     );
 
-    const overena = await ziskatPolozku(id, oidcHeader);
-    if (!overena || overena.soubor !== vysledek.cestaSouboru) {
-      await smazatSouborBezpecne(vysledek.cestaSouboru, oidcHeader);
+    const novaUrl = vysledek.cestaSouboru;
+    const overena = await ziskatPolozkuCerstve(id, oidcHeader);
+
+    if (overena?.soubor === novaUrl) {
+      await smazatSouborBezpecne(starySoubor, oidcHeader);
+
+      revalidatePath("/admin");
+      revalidatePath("/");
+      return { uspech: true, novaUrlSouboru: overena.soubor };
+    }
+
+    const skutecnaUrl = overena?.soubor ?? null;
+
+    if (skutecnaUrl === starySoubor) {
+      await smazatSouborBezpecne(novaUrl, oidcHeader);
       return {
         chyba:
           "Metadata se nepodařilo uložit. Starý soubor zůstal zachován – zkuste znovu.",
@@ -246,17 +259,26 @@ export async function nahraditFotografiiPolozky(
       };
     }
 
-    await smazatSouborBezpecne(starySoubor, oidcHeader);
-
-    revalidatePath("/admin");
-    revalidatePath("/");
-    return { uspech: true, novaUrlSouboru: overena.soubor };
+    return {
+      chyba: skutecnaUrl
+        ? `Metadata obsahují jinou URL (${skutecnaUrl}). Nový soubor nebyl smazán – ověřte stav v administraci.`
+        : "Položka v metadatech chybí. Nový soubor nebyl smazán – ověřte stav v administraci.",
+      diagnoza,
+    };
   } catch (error) {
     if (novaCestaSouboru) {
-      try {
-        await smazatSoubor(novaCestaSouboru, oidcHeader);
-      } catch {
-        // metadata zůstala beze změny
+      const poChybe = await ziskatPolozkuCerstve(id, oidcHeader);
+      if (poChybe?.soubor === novaCestaSouboru) {
+        revalidatePath("/admin");
+        revalidatePath("/");
+        return { uspech: true, novaUrlSouboru: poChybe.soubor };
+      }
+      if (poChybe?.soubor !== novaCestaSouboru) {
+        try {
+          await smazatSouborBezpecne(novaCestaSouboru, oidcHeader);
+        } catch {
+          // metadata neukazují na nový soubor – orphan je bezpečnější než ztráta dat
+        }
       }
     }
 

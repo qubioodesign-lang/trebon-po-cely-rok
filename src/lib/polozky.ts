@@ -1,6 +1,7 @@
 import type { Polozka, PolozkaVerejna, TypObsahu } from "@/types";
 import {
   nacistData,
+  nacistDataCerstve,
   upravitData,
   seraditPolozky,
 } from "./uloziste-dat";
@@ -87,6 +88,15 @@ export async function ziskatPolozku(
   oidcZHeaderu?: string | null
 ): Promise<Polozka | null> {
   const { polozky } = await nacistData(oidcZHeaderu);
+  return polozky.find((p) => p.id === id) ?? null;
+}
+
+/** Vrátí položku podle ID – vždy čerstvě z úložiště, bez React cache */
+export async function ziskatPolozkuCerstve(
+  id: string,
+  oidcZHeaderu?: string | null
+): Promise<Polozka | null> {
+  const { polozky } = await nacistDataCerstve(oidcZHeaderu);
   return polozky.find((p) => p.id === id) ?? null;
 }
 

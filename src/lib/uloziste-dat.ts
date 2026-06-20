@@ -129,6 +129,13 @@ async function nacistDataProZapis(
   return nacistDataLokalne();
 }
 
+/** Veřejné API pro čtení metadat mimo React cache (např. po zápisu) */
+export async function nacistDataCerstve(
+  oidcZHeaderu?: string | null
+): Promise<UlozisteDat> {
+  return nacistDataProZapis(oidcZHeaderu);
+}
+
 /**
  * Provede změnu dat a uloží je.
  * Zápisy jsou serializované; při kolizi se znovu načte aktuální stav a operace se opakuje.
