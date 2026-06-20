@@ -73,6 +73,29 @@ async function smazatSouborBezpecne(
   }
 }
 
+/** Dokončí náhradu, pokud metadata už ukazují na novou URL – bez mazání nového blobu */
+async function dokoncitNahrazeniJeLiUlozeno(
+  id: string,
+  novaUrl: string,
+  starySoubor: string,
+  oidcHeader: string | null
+): Promise<Extract<AkceVysledek, { uspech: true }> | null> {
+  const overena = await ziskatPolozkuCerstve(id, oidcHeader, {
+    bypassCache: true,
+  });
+  if (overena?.soubor !== novaUrl) {
+    return null;
+  }
+
+  if (starySoubor !== novaUrl) {
+    await smazatSouborBezpecne(starySoubor, oidcHeader);
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/");
+  return { uspech: true, novaUrlSouboru: overena.soubor };
+}
+
 export async function prihlasitAdmin(heslo: string) {
   if (!overitHeslo(heslo)) {
     return { chyba: "Neplatné heslo" as const };
@@ -196,6 +219,7 @@ export async function nahraditFotografiiPolozky(
 
   const { oidcHeader, diagnoza } = admin;
   let novaCestaSouboru: string | null = null;
+  let starySoubor: string | null = null;
 
   try {
     const polozka = await ziskatPolozku(id, oidcHeader);
@@ -218,7 +242,7 @@ export async function nahraditFotografiiPolozky(
       };
     }
 
-    const starySoubor = polozka.soubor;
+    starySoubor = polozka.soubor;
     const vysledek = await ulozitSoubor(soubor, oidcHeader);
     novaCestaSouboru = vysledek.cestaSouboru;
 
@@ -238,23 +262,25 @@ export async function nahraditFotografiiPolozky(
     );
 
     const novaUrl = vysledek.cestaSouboru;
-    const overena = await ziskatPolozkuCerstve(id, oidcHeader);
-
-    if (overena?.soubor === novaUrl) {
-      await smazatSouborBezpecne(starySoubor, oidcHeader);
-
-      revalidatePath("/admin");
-      revalidatePath("/");
-      return { uspech: true, novaUrlSouboru: overena.soubor };
+    const uspech = await dokoncitNahrazeniJeLiUlozeno(
+      id,
+      novaUrl,
+      starySoubor,
+      oidcHeader
+    );
+    if (uspech) {
+      return uspech;
     }
 
+    const overena = await ziskatPolozkuCerstve(id, oidcHeader, {
+      bypassCache: true,
+    });
     const skutecnaUrl = overena?.soubor ?? null;
 
     if (skutecnaUrl === starySoubor) {
-      await smazatSouborBezpecne(novaUrl, oidcHeader);
       return {
         chyba:
-          "Metadata se nepodařilo uložit. Starý soubor zůstal zachován – zkuste znovu.",
+          "Metadata se nepodařilo uložit. Nový soubor nebyl smazán – zkuste znovu.",
         diagnoza,
       };
     }
@@ -266,19 +292,15 @@ export async function nahraditFotografiiPolozky(
       diagnoza,
     };
   } catch (error) {
-    if (novaCestaSouboru) {
-      const poChybe = await ziskatPolozkuCerstve(id, oidcHeader);
-      if (poChybe?.soubor === novaCestaSouboru) {
-        revalidatePath("/admin");
-        revalidatePath("/");
-        return { uspech: true, novaUrlSouboru: poChybe.soubor };
-      }
-      if (poChybe?.soubor !== novaCestaSouboru) {
-        try {
-          await smazatSouborBezpecne(novaCestaSouboru, oidcHeader);
-        } catch {
-          // metadata neukazují na nový soubor – orphan je bezpečnější než ztráta dat
-        }
+    if (novaCestaSouboru && starySoubor) {
+      const uspechPoChybe = await dokoncitNahrazeniJeLiUlozeno(
+        id,
+        novaCestaSouboru,
+        starySoubor,
+        oidcHeader
+      );
+      if (uspechPoChybe) {
+        return uspechPoChybe;
       }
     }
 

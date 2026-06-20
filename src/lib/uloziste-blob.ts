@@ -38,8 +38,32 @@ async function stahnoutTextMetadata(vysledek: GetBlobResult): Promise<string> {
   throw new Error("Nepodařilo se načíst tělo metadata z Blob");
 }
 
+/** Stáhne metadata přes veřejnou URL s vynuceným obejitím cache */
+async function stahnoutTextMetadataBezCache(url: string): Promise<string> {
+  const odpoved = await fetch(`${url}${url.includes("?") ? "&" : "?"}_=${Date.now()}`, {
+    cache: "no-store",
+    headers: { "Cache-Control": "no-cache" },
+  });
+
+  if (!odpoved.ok) {
+    throw new Error(
+      `Metadata Blob se nepodařilo načíst bez cache (HTTP ${odpoved.status})`
+    );
+  }
+
+  return odpoved.text();
+}
+
+export interface VolbyCteniBlob {
+  /** Po zápisu – obejde CDN/SDK cache pro spolehlivé ověření */
+  bypassCache?: boolean;
+}
+
 /** Načte data z Vercel Blob – správně zpracuje HTTP 304 (Not Modified) */
-export async function nacistDataBlob(oidcZHeaderu?: string | null): Promise<UlozisteDat> {
+export async function nacistDataBlob(
+  oidcZHeaderu?: string | null,
+  volbyCteni?: VolbyCteniBlob
+): Promise<UlozisteDat> {
   noStore();
   const volby = await ziskatVolbyBlobAsync(oidcZHeaderu);
 
@@ -53,7 +77,9 @@ export async function nacistDataBlob(oidcZHeaderu?: string | null): Promise<Uloz
       return structuredClone(PRAZDNA_DATA);
     }
 
-    const text = await stahnoutTextMetadata(vysledek);
+    const text = volbyCteni?.bypassCache
+      ? await stahnoutTextMetadataBezCache(vysledek.blob.url)
+      : await stahnoutTextMetadata(vysledek);
     if (!text.trim()) {
       return structuredClone(PRAZDNA_DATA);
     }

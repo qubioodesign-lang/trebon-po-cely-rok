@@ -94,9 +94,10 @@ export async function ziskatPolozku(
 /** Vrátí položku podle ID – vždy čerstvě z úložiště, bez React cache */
 export async function ziskatPolozkuCerstve(
   id: string,
-  oidcZHeaderu?: string | null
+  oidcZHeaderu?: string | null,
+  volbyCteni?: { bypassCache?: boolean }
 ): Promise<Polozka | null> {
-  const { polozky } = await nacistDataCerstve(oidcZHeaderu);
+  const { polozky } = await nacistDataCerstve(oidcZHeaderu, volbyCteni);
   return polozky.find((p) => p.id === id) ?? null;
 }
 

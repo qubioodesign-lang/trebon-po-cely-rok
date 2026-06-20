@@ -57,7 +57,17 @@ export interface VolbyUpravyDat {
   overitPoUlozeni?: (data: UlozisteDat) => boolean;
 }
 
-const MAX_POKUSY_ZAPISU = 5;
+/** Volby pro čtení metadat mimo React cache */
+export interface VolbyCteniDat {
+  bypassCache?: boolean;
+}
+
+const MAX_POKUSY_ZAPISU = 8;
+
+function cekatPredOpakovanim(pokus: number): Promise<void> {
+  const ms = 75 * (pokus + 1);
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /** Fronta zápisů – serializuje upravitData v rámci instance */
 let radZapisu: Promise<unknown> = Promise.resolve();
@@ -121,19 +131,21 @@ function ulozitDataLokalne(data: UlozisteDat): void {
 
 /** Načte aktuální data pro zápis – vždy čerstvě z úložiště, bez React cache */
 async function nacistDataProZapis(
-  oidcZHeaderu?: string | null
+  oidcZHeaderu?: string | null,
+  volbyCteni?: VolbyCteniDat
 ): Promise<UlozisteDat> {
   if (pouzivaBlobUloziste()) {
-    return nacistDataBlob(oidcZHeaderu);
+    return nacistDataBlob(oidcZHeaderu, volbyCteni);
   }
   return nacistDataLokalne();
 }
 
 /** Veřejné API pro čtení metadat mimo React cache (např. po zápisu) */
 export async function nacistDataCerstve(
-  oidcZHeaderu?: string | null
+  oidcZHeaderu?: string | null,
+  volbyCteni?: VolbyCteniDat
 ): Promise<UlozisteDat> {
-  return nacistDataProZapis(oidcZHeaderu);
+  return nacistDataProZapis(oidcZHeaderu, volbyCteni);
 }
 
 /**
@@ -151,21 +163,29 @@ export async function upravitData(
     for (let pokus = 0; pokus < MAX_POKUSY_ZAPISU; pokus++) {
       try {
         const data = await nacistDataProZapis(oidcZHeaderu);
+        const predVerze = data.verzeUloziste ?? 0;
         upravitel(data);
-        data.verzeUloziste = (data.verzeUloziste ?? 0) + 1;
+        data.verzeUloziste = predVerze + 1;
         await ulozitData(data, oidcZHeaderu);
 
-        if (volby?.overitPoUlozeni) {
-          const kontrola = await nacistDataProZapis(oidcZHeaderu);
-          if (!volby.overitPoUlozeni(kontrola)) {
-            continue;
-          }
-          return kontrola;
+        const kontrola = await nacistDataProZapis(oidcZHeaderu, {
+          bypassCache: true,
+        });
+        const ocekavanaVerze = predVerze + 1;
+        const verzeSouhlasi = (kontrola.verzeUloziste ?? 0) === ocekavanaVerze;
+        const obsahSouhlasi = volby?.overitPoUlozeni
+          ? volby.overitPoUlozeni(kontrola)
+          : true;
+
+        if (!verzeSouhlasi || !obsahSouhlasi) {
+          await cekatPredOpakovanim(pokus);
+          continue;
         }
 
-        return data;
+        return kontrola;
       } catch (error) {
         posledniChyba = error;
+        await cekatPredOpakovanim(pokus);
       }
     }
 
