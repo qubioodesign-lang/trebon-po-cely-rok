@@ -15,16 +15,19 @@ export function jeBuildFaze(): boolean {
   return ziskatEnv("NEXT_PHASE") === "phase-production-build";
 }
 
-/** ID Blob store – z env nebo z konce read-write tokenu (Vercel formát …_<storeId>) */
+/** ID Blob store – z env nebo z read-write tokenu (formát vercel_blob_rw_<storeId>_<suffix>) */
 export function ziskatBlobStoreId(): string | undefined {
   const storeId = ziskatEnv("BLOB_STORE_ID");
-  if (storeId) return storeId;
+  if (storeId) {
+    return storeId.startsWith("store_") ? storeId.slice("store_".length) : storeId;
+  }
 
   const token = ziskatEnv("BLOB_READ_WRITE_TOKEN");
-  if (!token) return undefined;
+  if (!token?.startsWith("vercel_blob_rw_")) return undefined;
 
-  const match = token.match(/_([a-z0-9]{10,32})$/i);
-  return match?.[1];
+  const casti = token.split("_");
+  const zTokenu = casti[3];
+  return zTokenu && /^[a-z0-9]+$/i.test(zTokenu) ? zTokenu : undefined;
 }
 
 /** Má projekt nakonfigurované Blob úložiště (store ID nebo read-write token) */
