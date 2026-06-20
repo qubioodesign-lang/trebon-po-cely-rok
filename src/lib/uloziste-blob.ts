@@ -37,12 +37,15 @@ async function stahnoutMetadataVerejne(
   bypassCache: boolean
 ): Promise<string | null> {
   const fetchUrl = bypassCache
-    ? `${url}${url.includes("?") ? "&" : "?"}_=${Date.now()}`
+    ? `${url}${url.includes("?") ? "&" : "?"}_=${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
     : url;
 
   const odpoved = await fetch(fetchUrl, {
     cache: "no-store",
-    headers: { "Cache-Control": "no-cache" },
+    headers: {
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      Pragma: "no-cache",
+    },
   });
 
   if (odpoved.status === 404) {

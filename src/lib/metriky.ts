@@ -158,7 +158,19 @@ export async function ziskatSouhrnMetrik(
   return ziskatSouhrnZUloziste(uloziste);
 }
 
-/** Uloží push subscription a volitelně metriku povolení v jednom zápisu */
+function pushOdberJeUlozen(
+  uloziste: UlozisteDat,
+  data: { endpoint: string; klicP256dh: string; klicAuth: string }
+): boolean {
+  return uloziste.pushOdbery.some(
+    (odber) =>
+      odber.endpoint === data.endpoint &&
+      odber.klicP256dh === data.klicP256dh &&
+      odber.klicAuth === data.klicAuth
+  );
+}
+
+/** Uloží push subscription – metrika povolení je volitelná a best-effort */
 export async function ulozitPushOdber(
   data: {
     endpoint: string;
@@ -168,26 +180,40 @@ export async function ulozitPushOdber(
   oidcZHeaderu?: string | null,
   volby?: { zaznamenatPovoleni?: boolean; navstevnikId?: string }
 ): Promise<void> {
-  await upravitData((uloziste) => {
-    const existujici = uloziste.pushOdbery.findIndex((o) => o.endpoint === data.endpoint);
+  await upravitData(
+    (uloziste) => {
+      const existujici = uloziste.pushOdbery.findIndex((o) => o.endpoint === data.endpoint);
 
-    const zaznam = {
-      endpoint: data.endpoint,
-      klicP256dh: data.klicP256dh,
-      klicAuth: data.klicAuth,
-      vytvoreno: new Date().toISOString(),
-    };
+      const zaznam = {
+        endpoint: data.endpoint,
+        klicP256dh: data.klicP256dh,
+        klicAuth: data.klicAuth,
+        vytvoreno: new Date().toISOString(),
+      };
 
-    if (existujici >= 0) {
-      uloziste.pushOdbery[existujici] = zaznam;
-    } else {
-      uloziste.pushOdbery.push(zaznam);
+      if (existujici >= 0) {
+        uloziste.pushOdbery[existujici] = zaznam;
+      } else {
+        uloziste.pushOdbery.push(zaznam);
+      }
+    },
+    oidcZHeaderu,
+    {
+      maxPokusu: 16,
+      overitPoUlozeni: (uloziste) => pushOdberJeUlozen(uloziste, data),
+      chybovaZprava:
+        "Push odběr se nepodařilo uložit – souběžné zápisy metrik přepsaly změnu. Zkuste registraci znovu.",
     }
+  );
 
-    if (volby?.zaznamenatPovoleni) {
-      aplikovatMetriky(uloziste, [
-        { typ: "povoleno_upozorneni", navstevnikId: volby.navstevnikId },
-      ]);
+  if (volby?.zaznamenatPovoleni) {
+    try {
+      await zaznamenatMetrikyBatch(
+        [{ typ: "povoleno_upozorneni", navstevnikId: volby.navstevnikId }],
+        oidcZHeaderu
+      );
+    } catch {
+      // Metrika nesmí zablokovat úspěšně uložený push odběr
     }
-  }, oidcZHeaderu);
+  }
 }

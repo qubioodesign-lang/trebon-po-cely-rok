@@ -55,6 +55,10 @@ export interface UlozisteDat {
 /** Volby pro bezpečný zápis s ověřením po uložení */
 export interface VolbyUpravyDat {
   overitPoUlozeni?: (data: UlozisteDat) => boolean;
+  /** Vlastní chyba po vyčerpání pokusů (jen s overitPoUlozeni) */
+  chybovaZprava?: string;
+  /** Počet pokusů při kolizi – výchozí 8 */
+  maxPokusu?: number;
 }
 
 /** Volby pro čtení metadat mimo React cache */
@@ -159,8 +163,9 @@ export async function upravitData(
 ): Promise<UlozisteDat> {
   const spustit = async (): Promise<UlozisteDat> => {
     let posledniChyba: unknown;
+    const maxPokusu = volby?.maxPokusu ?? MAX_POKUSY_ZAPISU;
 
-    for (let pokus = 0; pokus < MAX_POKUSY_ZAPISU; pokus++) {
+    for (let pokus = 0; pokus < maxPokusu; pokus++) {
       try {
         const data = await nacistDataProZapis(oidcZHeaderu);
         const predVerze = data.verzeUloziste ?? 0;
@@ -173,16 +178,21 @@ export async function upravitData(
         });
         const ocekavanaVerze = predVerze + 1;
         const verzeSouhlasi = (kontrola.verzeUloziste ?? 0) === ocekavanaVerze;
-        const obsahSouhlasi = volby?.overitPoUlozeni
-          ? volby.overitPoUlozeni(kontrola)
+        const maOvereniObsahu = Boolean(volby?.overitPoUlozeni);
+        const obsahSouhlasi = maOvereniObsahu
+          ? volby!.overitPoUlozeni!(kontrola)
           : true;
 
-        if (!verzeSouhlasi || !obsahSouhlasi) {
-          await cekatPredOpakovanim(pokus);
-          continue;
+        // U kritických zápisů stačí ověřit obsah – verze může během CDN prodlevy běžet dál
+        if (maOvereniObsahu && obsahSouhlasi) {
+          return kontrola;
         }
 
-        return kontrola;
+        if (verzeSouhlasi && obsahSouhlasi) {
+          return kontrola;
+        }
+
+        await cekatPredOpakovanim(pokus);
       } catch (error) {
         posledniChyba = error;
         await cekatPredOpakovanim(pokus);
@@ -191,7 +201,8 @@ export async function upravitData(
 
     if (volby?.overitPoUlozeni) {
       throw new Error(
-        "Nepodařilo se uložit data – souběžný zápis přepsal změnu. Zkuste akci znovu."
+        volby.chybovaZprava ??
+          "Nepodařilo se uložit data – souběžný zápis přepsal změnu. Zkuste akci znovu."
       );
     }
 
