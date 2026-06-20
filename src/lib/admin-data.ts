@@ -1,14 +1,12 @@
 import "server-only";
 
-import { headers } from "next/headers";
 import type { AdminVysledek } from "@/types";
 import { seraditPolozky, nacistData } from "./uloziste-dat";
 import { prazdnySouhrnMetrik, ziskatSouhrnZUloziste } from "./metriky";
-import { pouzivaBlobUloziste, ziskatDiagnozuBlob } from "./env-blob";
+import { pouzivaBlobUloziste, ziskatDiagnozuBlob, ziskatOidcZHlavicek } from "./env-blob";
 
 export async function ziskatOidcZRequestu(): Promise<string | null> {
-  const hlavicky = await headers();
-  return hlavicky.get("x-vercel-oidc-token");
+  return ziskatOidcZHlavicek();
 }
 
 /**

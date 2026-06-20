@@ -87,19 +87,24 @@ export async function ziskatVolbyBlobAsync(oidcZHeaderu?: string | null): Promis
     volby.oidcToken = oidcZHeaderu;
   }
 
-  // Dynamicky načti hlavičku, pokud nebyla předána
-  if (!volby.oidcToken && !volby.token && ziskatEnv("BLOB_STORE_ID")) {
-    try {
-      const { headers } = await import("next/headers");
-      const hlavicky = await headers();
-      const oidc = hlavicky.get("x-vercel-oidc-token");
-      if (oidc) volby.oidcToken = oidc;
-    } catch {
-      // Mimo request kontext
-    }
+  // Bez BLOB_READ_WRITE_TOKEN spoléháme na OIDC z hlavičky (API routes, server actions)
+  if (!volby.oidcToken && !volby.token && maBlobKonfiguraci()) {
+    const oidc = oidcZHeaderu ?? (await ziskatOidcZHlavicek());
+    if (oidc) volby.oidcToken = oidc;
   }
 
   return volby;
+}
+
+/** OIDC token z Vercel hlavičky požadavku (stejně jako administrace). */
+export async function ziskatOidcZHlavicek(): Promise<string | null> {
+  try {
+    const { headers } = await import("next/headers");
+    const hlavicky = await headers();
+    return hlavicky.get("x-vercel-oidc-token");
+  } catch {
+    return null;
+  }
 }
 
 /** Bezpečná diagnostika – neobsahuje tajné hodnoty */

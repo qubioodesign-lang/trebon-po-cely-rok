@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ulozitPushOdber } from "@/lib/metriky";
+import { ziskatOidcZHlavicek } from "@/lib/env-blob";
+
+export const dynamic = "force-dynamic";
 
 /** Uloží push subscription od klienta včetně metriky povolení */
 export async function POST(request: NextRequest) {
@@ -10,18 +13,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ chyba: "Neplatná subscription" }, { status: 400 });
     }
 
+    const oidcHeader = await ziskatOidcZHlavicek();
+
     await ulozitPushOdber(
       {
         endpoint: subscription.endpoint,
         klicP256dh: subscription.keys.p256dh,
         klicAuth: subscription.keys.auth,
       },
-      undefined,
+      oidcHeader,
       { zaznamenatPovoleni: true, navstevnikId }
     );
 
     return NextResponse.json({ uspech: true });
-  } catch {
-    return NextResponse.json({ chyba: "Chyba při ukládání subscription" }, { status: 500 });
+  } catch (error) {
+    const zprava =
+      error instanceof Error ? error.message : "Chyba při ukládání subscription";
+    return NextResponse.json({ chyba: zprava }, { status: 500 });
   }
 }

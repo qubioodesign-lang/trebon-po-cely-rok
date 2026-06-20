@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { zaznamenatMetrikyBatch } from "@/lib/metriky";
+import { ziskatOidcZHlavicek } from "@/lib/env-blob";
 import type { PayloadMetriky, PayloadMetrikyBatch, TypUdalostiMetriky } from "@/types";
+
+export const dynamic = "force-dynamic";
 
 const POVOLENE_TYPY: TypUdalostiMetriky[] = [
   "navsteva",
@@ -41,9 +44,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ chyba: "Neplatný typ události" }, { status: 400 });
     }
 
-    await zaznamenatMetrikyBatch(udalosti);
+    const oidcHeader = await ziskatOidcZHlavicek();
+    await zaznamenatMetrikyBatch(udalosti, oidcHeader);
     return NextResponse.json({ uspech: true });
-  } catch {
-    return NextResponse.json({ chyba: "Chyba při záznamu metriky" }, { status: 500 });
+  } catch (error) {
+    const zprava =
+      error instanceof Error ? error.message : "Chyba při záznamu metriky";
+    return NextResponse.json({ chyba: zprava }, { status: 500 });
   }
 }
