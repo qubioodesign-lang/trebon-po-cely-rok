@@ -31,6 +31,45 @@ function jeNeplatnyOdber(chyba: unknown): boolean {
   return statusCode === 404 || statusCode === 410;
 }
 
+function zkratiEndpoint(endpoint: string): string {
+  try {
+    const url = new URL(endpoint);
+    const token = url.pathname.split("/").pop() ?? "";
+    const nahled =
+      token.length > 12 ? `${token.slice(0, 8)}…${token.slice(-4)}` : token;
+    return `${url.host}/…${nahled}`;
+  } catch {
+    return endpoint.length > 24
+      ? `${endpoint.slice(0, 16)}…${endpoint.slice(-4)}`
+      : endpoint;
+  }
+}
+
+function extrahovatPushOdpoved(chyba: unknown): {
+  statusCode: number | null;
+  body: string | null;
+} {
+  if (!chyba || typeof chyba !== "object") {
+    return {
+      statusCode: null,
+      body: chyba instanceof Error ? chyba.message : String(chyba),
+    };
+  }
+
+  const pushChyba = chyba as { statusCode?: number; body?: string };
+  const body =
+    typeof pushChyba.body === "string"
+      ? pushChyba.body
+      : chyba instanceof Error
+        ? chyba.message
+        : null;
+
+  return {
+    statusCode: pushChyba.statusCode ?? null,
+    body,
+  };
+}
+
 /** Odešle push notifikaci všem uloženým odběratelům */
 export async function odeslatPushNotifikaceVsem(
   oidcZHeaderu?: string | null
@@ -40,8 +79,11 @@ export async function odeslatPushNotifikaceVsem(
 
   const { pushOdbery } = await nacistData(oidcZHeaderu);
   if (pushOdbery.length === 0) {
+    console.info("[push] odesílání přeskočeno – žádní odběratelé");
     return { zadniOdberatele: true };
   }
+
+  console.info("[push] start odesílání", { pocetOdberu: pushOdbery.length });
 
   const payload = JSON.stringify({
     titulek: PUSH_TITULEK,
@@ -53,7 +95,9 @@ export async function odeslatPushNotifikaceVsem(
   let pocetSelhalo = 0;
 
   await Promise.all(
-    pushOdbery.map(async (odber) => {
+    pushOdbery.map(async (odber, index) => {
+      const endpointZkraceny = zkratiEndpoint(odber.endpoint);
+
       try {
         await webpush.sendNotification(
           {
@@ -66,12 +110,31 @@ export async function odeslatPushNotifikaceVsem(
           payload
         );
         pocetOdeslano += 1;
+        console.info("[push] odběr", {
+          poradi: index + 1,
+          endpoint: endpointZkraceny,
+          vysledek: "success",
+          status: 201,
+          body: null,
+        });
       } catch (error) {
-        if (jeNeplatnyOdber(error)) {
+        const { statusCode, body } = extrahovatPushOdpoved(error);
+        const neplatny = jeNeplatnyOdber(error);
+
+        if (neplatny) {
           neplatneEndpointy.push(odber.endpoint);
-          return;
+        } else {
+          pocetSelhalo += 1;
         }
-        pocetSelhalo += 1;
+
+        console.error("[push] odběr", {
+          poradi: index + 1,
+          endpoint: endpointZkraceny,
+          vysledek: "fail",
+          status: statusCode,
+          body,
+          neplatnyOdber: neplatny,
+        });
       }
     })
   );
@@ -83,10 +146,21 @@ export async function odeslatPushNotifikaceVsem(
           (odber) => !neplatneEndpointy.includes(odber.endpoint)
         );
       }, oidcZHeaderu);
+      console.info("[push] odstraněny neplatné odběry", {
+        pocet: neplatneEndpointy.length,
+        endpointy: neplatneEndpointy.map(zkratiEndpoint),
+      });
     } catch {
       // Úklid mrtvých odběrů nesmí shodit odeslání ostatním
     }
   }
+
+  console.info("[push] souhrn odesílání", {
+    celkem: pushOdbery.length,
+    uspech: pocetOdeslano,
+    neuspech: pocetSelhalo,
+    odstranenoNeplatnych: neplatneEndpointy.length,
+  });
 
   return { uspech: true, pocetOdeslano, pocetSelhalo };
 }
