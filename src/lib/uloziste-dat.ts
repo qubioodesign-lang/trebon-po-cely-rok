@@ -48,7 +48,19 @@ export interface UlozisteDat {
   metriky: ZaznamMetriky[];
   metrikyAgregovane?: MetrikyAgregovane;
   pushOdbery: PushOdber[];
+  /** Interní čítač – detekce ztráty souběžného zápisu */
+  verzeUloziste?: number;
 }
+
+/** Volby pro bezpečný zápis s ověřením po uložení */
+export interface VolbyUpravyDat {
+  overitPoUlozeni?: (data: UlozisteDat) => boolean;
+}
+
+const MAX_POKUSY_ZAPISU = 5;
+
+/** Fronta zápisů – serializuje upravitData v rámci instance */
+let radZapisu: Promise<unknown> = Promise.resolve();
 
 const PRAZDNA_DATA: UlozisteDat = {
   polozky: [],
@@ -80,6 +92,7 @@ function nacistDataLokalne(): UlozisteDat {
     metriky: data.metriky ?? [],
     metrikyAgregovane: data.metrikyAgregovane,
     pushOdbery: data.pushOdbery ?? [],
+    verzeUloziste: data.verzeUloziste,
   };
 }
 
@@ -106,15 +119,63 @@ function ulozitDataLokalne(data: UlozisteDat): void {
   fs.renameSync(docasny, CESTA_LOKALNI);
 }
 
-/** Provede změnu dat a uloží je */
-export async function upravitData(
-  upravitel: (data: UlozisteDat) => void,
+/** Načte aktuální data pro zápis – vždy čerstvě z úložiště, bez React cache */
+async function nacistDataProZapis(
   oidcZHeaderu?: string | null
 ): Promise<UlozisteDat> {
-  const data = await nacistData(oidcZHeaderu);
-  upravitel(data);
-  await ulozitData(data, oidcZHeaderu);
-  return data;
+  if (pouzivaBlobUloziste()) {
+    return nacistDataBlob(oidcZHeaderu);
+  }
+  return nacistDataLokalne();
+}
+
+/**
+ * Provede změnu dat a uloží je.
+ * Zápisy jsou serializované; při kolizi se znovu načte aktuální stav a operace se opakuje.
+ */
+export async function upravitData(
+  upravitel: (data: UlozisteDat) => void,
+  oidcZHeaderu?: string | null,
+  volby?: VolbyUpravyDat
+): Promise<UlozisteDat> {
+  const spustit = async (): Promise<UlozisteDat> => {
+    let posledniChyba: unknown;
+
+    for (let pokus = 0; pokus < MAX_POKUSY_ZAPISU; pokus++) {
+      try {
+        const data = await nacistDataProZapis(oidcZHeaderu);
+        upravitel(data);
+        data.verzeUloziste = (data.verzeUloziste ?? 0) + 1;
+        await ulozitData(data, oidcZHeaderu);
+
+        if (volby?.overitPoUlozeni) {
+          const kontrola = await nacistDataProZapis(oidcZHeaderu);
+          if (!volby.overitPoUlozeni(kontrola)) {
+            continue;
+          }
+          return kontrola;
+        }
+
+        return data;
+      } catch (error) {
+        posledniChyba = error;
+      }
+    }
+
+    if (volby?.overitPoUlozeni) {
+      throw new Error(
+        "Nepodařilo se uložit data – souběžný zápis přepsal změnu. Zkuste akci znovu."
+      );
+    }
+
+    throw posledniChyba instanceof Error
+      ? posledniChyba
+      : new Error("Nepodařilo se uložit data");
+  };
+
+  const vysledek = radZapisu.then(spustit, spustit);
+  radZapisu = vysledek.catch(() => undefined);
+  return vysledek;
 }
 
 /** Seřadí položky podle pořadí a data publikace */

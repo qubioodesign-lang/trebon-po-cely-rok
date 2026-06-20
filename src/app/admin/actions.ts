@@ -235,6 +235,17 @@ export async function nahraditFotografiiPolozky(
       vysledek.typ,
       oidcHeader
     );
+
+    const overena = await ziskatPolozku(id, oidcHeader);
+    if (!overena || overena.soubor !== vysledek.cestaSouboru) {
+      await smazatSouborBezpecne(vysledek.cestaSouboru, oidcHeader);
+      return {
+        chyba:
+          "Metadata se nepodařilo uložit. Starý soubor zůstal zachován – zkuste znovu.",
+        diagnoza,
+      };
+    }
+
     await smazatSouborBezpecne(starySoubor, oidcHeader);
 
     revalidatePath("/admin");

@@ -45,26 +45,38 @@ export async function vytvoritPolozku(
 
   let novaPolozka!: Polozka;
 
-  await upravitData((uloziste) => {
-    const minPoradi = uloziste.polozky.reduce(
-      (min, p) => Math.min(min, p.poradi),
-      Infinity
-    );
+  await upravitData(
+    (uloziste) => {
+      if (uloziste.polozky.some((p) => p.id === id)) {
+        novaPolozka = uloziste.polozky.find((p) => p.id === id)!;
+        return;
+      }
 
-    novaPolozka = {
-      id,
-      typ: data.typ,
-      soubor: data.soubor,
-      popis: data.popis,
-      datumPorizeni: data.datumPorizeni ?? null,
-      datumPublikace,
-      // Záporné poradi = před stávající fotky bez změny jejich hodnot
-      poradi: minPoradi === Infinity ? 0 : minPoradi - 1,
-      aktivni: true,
-    };
+      const minPoradi = uloziste.polozky.reduce(
+        (min, p) => Math.min(min, p.poradi),
+        Infinity
+      );
 
-    uloziste.polozky.push(novaPolozka);
-  }, oidcZHeaderu);
+      novaPolozka = {
+        id,
+        typ: data.typ,
+        soubor: data.soubor,
+        popis: data.popis,
+        datumPorizeni: data.datumPorizeni ?? null,
+        datumPublikace,
+        // Záporné poradi = před stávající fotky bez změny jejich hodnot
+        poradi: minPoradi === Infinity ? 0 : minPoradi - 1,
+        aktivni: true,
+      };
+
+      uloziste.polozky.push(novaPolozka);
+    },
+    oidcZHeaderu,
+    {
+      overitPoUlozeni: (uloziste) =>
+        uloziste.polozky.some((p) => p.id === id),
+    }
+  );
 
   return novaPolozka;
 }
@@ -87,16 +99,23 @@ export async function nahraditSouborPolozky(
 ): Promise<Polozka> {
   let nahrazena!: Polozka;
 
-  await upravitData((uloziste) => {
-    const polozka = uloziste.polozky.find((p) => p.id === id);
-    if (!polozka) {
-      throw new Error("Položka nebyla nalezena");
-    }
+  await upravitData(
+    (uloziste) => {
+      const polozka = uloziste.polozky.find((p) => p.id === id);
+      if (!polozka) {
+        throw new Error("Položka nebyla nalezena");
+      }
 
-    polozka.soubor = novySoubor;
-    polozka.typ = typ;
-    nahrazena = polozka;
-  }, oidcZHeaderu);
+      polozka.soubor = novySoubor;
+      polozka.typ = typ;
+      nahrazena = polozka;
+    },
+    oidcZHeaderu,
+    {
+      overitPoUlozeni: (uloziste) =>
+        uloziste.polozky.find((p) => p.id === id)?.soubor === novySoubor,
+    }
+  );
 
   return nahrazena;
 }

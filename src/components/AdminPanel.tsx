@@ -100,6 +100,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
   const trvaleUloziste = data?.trvaleUloziste ?? false;
   const diagnoza = data?.diagnoza ?? null;
   const nejnovejsiAktivniId = polozky.find((p) => p.aktivni)?.id ?? null;
+  const probihaNahradiFotografii = nahrazujeId !== null;
 
   const obnovit = () => {
     startTransition(() => {
@@ -204,6 +205,8 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
   };
 
   const handleNahraditFotografii = (id: string) => {
+    if (probihaNahradiFotografii) return;
+
     setChybaAkce("");
     setPotvrzeniAkce("");
     setNahrazujeId(id);
@@ -338,10 +341,14 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
           </button>
         </div>
 
-        {(pending || nahrava || nahrazujeId) && (
-          <p className="text-center text-xs text-text-velmiJemny">
-            {nahrazujeId ? "nahrazuji fotografii…" : "obnovuji…"}
+        {probihaNahradiFotografii && (
+          <p className="text-center text-xs text-text-jemny">
+            Probíhá nahrávání...
           </p>
+        )}
+
+        {(pending || nahrava) && !probihaNahradiFotografii && (
+          <p className="text-center text-xs text-text-velmiJemny">obnovuji…</p>
         )}
 
         <input
@@ -545,11 +552,11 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
                   <button
                     type="button"
                     onClick={() => handleNahraditFotografii(polozka.id)}
-                    disabled={nahrazujeId === polozka.id}
+                    disabled={probihaNahradiFotografii}
                     className="text-xs text-text-velmiJemny disabled:opacity-30"
                   >
                     {nahrazujeId === polozka.id
-                      ? "nahrazuji…"
+                      ? "Probíhá nahrávání..."
                       : "nahradit fotografii"}
                   </button>
                 )}
