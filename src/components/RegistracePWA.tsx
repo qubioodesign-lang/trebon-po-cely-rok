@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useMetriky } from "@/hooks/useMetriky";
+import { ziskatNeboRegistrovatServiceWorker } from "@/lib/service-worker";
 
 /** Registruje service worker pro PWA a push notifikace */
 export function RegistracePWA() {
@@ -13,7 +14,7 @@ export function RegistracePWA() {
 
     // Registrace service workeru
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => {
+      void ziskatNeboRegistrovatServiceWorker().catch(() => {
         // Service worker není kritický pro základní funkčnost
       });
     }

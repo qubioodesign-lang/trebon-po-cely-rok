@@ -22,11 +22,13 @@ export async function nacistAdminData(): Promise<AdminVysledek> {
 
   let polozky: AdminVysledek["data"]["polozky"] = [];
   let metriky = prazdnySouhrnMetrik();
+  let pocetPushOdberu = 0;
 
   try {
     const uloziste = await nacistData(oidcHeader);
     polozky = seraditPolozky(uloziste.polozky);
     metriky = ziskatSouhrnZUloziste(uloziste);
+    pocetPushOdberu = uloziste.pushOdbery?.length ?? 0;
   } catch (error) {
     const zprava =
       error instanceof Error
@@ -41,6 +43,7 @@ export async function nacistAdminData(): Promise<AdminVysledek> {
     data: {
       polozky,
       metriky,
+      pocetPushOdberu,
       trvaleUloziste: pouzivaBlobUloziste() && diagnoza.maAutentizaci,
       diagnoza,
     },

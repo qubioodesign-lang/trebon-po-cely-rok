@@ -77,11 +77,15 @@ export async function odeslatPushNotifikaceVsem(
   );
 
   if (neplatneEndpointy.length > 0) {
-    await upravitData((uloziste) => {
-      uloziste.pushOdbery = uloziste.pushOdbery.filter(
-        (odber) => !neplatneEndpointy.includes(odber.endpoint)
-      );
-    }, oidcZHeaderu);
+    try {
+      await upravitData((uloziste) => {
+        uloziste.pushOdbery = uloziste.pushOdbery.filter(
+          (odber) => !neplatneEndpointy.includes(odber.endpoint)
+        );
+      }, oidcZHeaderu);
+    } catch {
+      // Úklid mrtvých odběrů nesmí shodit odeslání ostatním
+    }
   }
 
   return { uspech: true, pocetOdeslano, pocetSelhalo };

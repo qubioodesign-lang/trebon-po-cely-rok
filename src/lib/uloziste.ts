@@ -96,6 +96,12 @@ export function maUlozeneUpozorneniAktivni(): boolean {
   return localStorage.getItem(KLIC_UPOZORNENI_AKTIVNI) === "1";
 }
 
+/** Smaže lokální příznak – např. když chybí skutečná push subscription */
+export function vymazatUpozorneniAktivni(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(KLIC_UPOZORNENI_AKTIVNI);
+}
+
 /** Detekce iOS zařízení pro návod k PWA */
 export function jeIOS(): boolean {
   if (typeof window === "undefined") return false;

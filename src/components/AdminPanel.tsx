@@ -439,6 +439,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
                 {metriky.pocetKliknutiChciSeVracet}
               </span>
               <span>povolená upozornění: {metriky.pocetPovolenychUpozorneni}</span>
+              <span>push odběratelé: {data?.pocetPushOdberu ?? 0}</span>
             </div>
           ) : (
             <p className="text-xs text-text-velmiJemny">data metrik nejsou k dispozici</p>

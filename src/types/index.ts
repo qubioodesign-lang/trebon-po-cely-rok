@@ -78,6 +78,7 @@ export interface DiagnozaBlob {
 export interface AdminData {
   polozky: Polozka[];
   metriky: MetrikySouhrn;
+  pocetPushOdberu: number;
   trvaleUloziste: boolean;
   diagnoza: DiagnozaBlob;
 }

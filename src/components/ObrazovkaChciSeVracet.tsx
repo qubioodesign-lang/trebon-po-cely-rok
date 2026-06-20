@@ -8,7 +8,10 @@ import {
   maUlozeneUpozorneniAktivni,
   podporujePushNotifikace,
   ulozitUpozorneniAktivni,
+  vymazatUpozorneniAktivni,
+  ziskatNavstevnikId,
 } from "@/lib/uloziste";
+import { ziskatNeboRegistrovatServiceWorker } from "@/lib/service-worker";
 import { useMetriky } from "@/hooks/useMetriky";
 
 /**
@@ -22,9 +25,10 @@ export function ObrazovkaChciSeVracet() {
   const [zobrazitNavodIOS, setZobrazitNavodIOS] = useState(false);
   const [nacita, setNacita] = useState(false);
   const [jeUpozorneniAktivni, setJeUpozorneniAktivni] = useState(false);
+  const [chybaRegistrace, setChybaRegistrace] = useState("");
 
   useEffect(() => {
-    setJeUpozorneniAktivni(maUlozeneUpozorneniAktivni());
+    void overitAktivniPush().then(setJeUpozorneniAktivni);
   }, []);
 
   const prejitNaDekujeme = () => {
@@ -33,33 +37,43 @@ export function ObrazovkaChciSeVracet() {
 
   const handleDostavatUpozorneni = async () => {
     setNacita(true);
+    setChybaRegistrace("");
 
-    // Android / PWA – rovnou systémová žádost, bez mezikroků
     if (podporujePushNotifikace()) {
       try {
         const permission = await Notification.requestPermission();
 
         if (permission === "granted") {
-          let pushUlozen = false;
           try {
             await zaregistrovatPush();
-            pushUlozen = true;
-          } catch {
-            // Povolení už proběhlo – pokračujeme k poděkování
+            ulozitUpozorneniAktivni();
+            setJeUpozorneniAktivni(true);
+            prejitNaDekujeme();
+          } catch (error) {
+            const zprava =
+              error instanceof Error
+                ? error.message
+                : "Nepodařilo se uložit push odběr na server";
+            setChybaRegistrace(zprava);
+            await odeslatMetrikuOkamzite("povoleno_upozorneni");
+          } finally {
+            setNacita(false);
           }
-          if (!pushUlozen) {
-            odeslat("povoleno_upozorneni");
-          }
-          ulozitUpozorneniAktivni();
-          prejitNaDekujeme();
+          return;
+        }
+
+        if (permission === "denied") {
+          setChybaRegistrace(
+            "Upozornění jsou v prohlížeči zablokovaná. Povolte je v nastavení stránky."
+          );
+          setNacita(false);
           return;
         }
       } catch {
-        // Pokračovat – na iPhonu zobrazíme návod, jinde zůstaneme na stránce
+        // Pokračovat – na iPhonu zobrazíme návod
       }
     }
 
-    // iPhone – notifikace nejdou aktivovat přímo v prohlížeči
     if (jeIOS() && !jePWA()) {
       setZobrazitNavodIOS(true);
       setNacita(false);
@@ -69,9 +83,13 @@ export function ObrazovkaChciSeVracet() {
     setNacita(false);
   };
 
-  const handleHotovoIOS = () => {
+  const handleHotovoIOS = async () => {
+    setNacita(true);
+    await odeslatMetrikuOkamzite("povoleno_upozorneni");
     odeslat("povoleno_upozorneni");
     ulozitUpozorneniAktivni();
+    setJeUpozorneniAktivni(true);
+    setNacita(false);
     prejitNaDekujeme();
   };
 
@@ -116,6 +134,11 @@ export function ObrazovkaChciSeVracet() {
                 {nacita ? "…" : "Dostávat upozornění"}
               </button>
             )}
+            {chybaRegistrace && (
+              <p className="text-xs font-light leading-relaxed text-red-500/90">
+                {chybaRegistrace}
+              </p>
+            )}
           </>
         ) : (
           <div className="space-y-6">
@@ -130,9 +153,10 @@ export function ObrazovkaChciSeVracet() {
             <button
               type="button"
               onClick={handleHotovoIOS}
+              disabled={nacita}
               className="tlacitko-klidne !px-6 !py-2.5 !text-xs"
             >
-              Hotovo
+              {nacita ? "…" : "Hotovo"}
             </button>
           </div>
         )}
@@ -141,27 +165,88 @@ export function ObrazovkaChciSeVracet() {
   );
 }
 
-/** Zaregistruje push odběr po uděleném povolení */
+/** Ověří skutečnou push subscription; zruší zastaralý localStorage příznak */
+async function overitAktivniPush(): Promise<boolean> {
+  if (!podporujePushNotifikace()) {
+    return maUlozeneUpozorneniAktivni();
+  }
+
+  try {
+    const registrace = await ziskatNeboRegistrovatServiceWorker();
+    const subscription = await registrace.pushManager.getSubscription();
+    if (subscription) {
+      return true;
+    }
+  } catch {
+    // SW nedostupný – spadni na localStorage
+    return maUlozeneUpozorneniAktivni();
+  }
+
+  if (maUlozeneUpozorneniAktivni()) {
+    vymazatUpozorneniAktivni();
+  }
+
+  return false;
+}
+
+/** Zaregistruje push odběr a uloží ho na server */
 async function zaregistrovatPush(): Promise<void> {
-  const registrace = await navigator.serviceWorker.ready;
-  const response = await fetch("/api/push/klic");
-  const { verejnyKlic } = await response.json();
+  const registrace = await ziskatNeboRegistrovatServiceWorker();
 
-  if (!verejnyKlic) return;
+  const klicResponse = await fetch("/api/push/klic");
+  if (!klicResponse.ok) {
+    throw new Error("Nepodařilo se načíst VAPID klíč pro push");
+  }
 
-  const subscription = await registrace.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(verejnyKlic),
-  });
+  const { verejnyKlic } = (await klicResponse.json()) as {
+    verejnyKlic?: string;
+  };
 
-  await fetch("/api/push/odber", {
+  if (!verejnyKlic) {
+    throw new Error("VAPID klíč není na serveru nakonfigurovaný");
+  }
+
+  let subscription = await registrace.pushManager.getSubscription();
+  if (!subscription) {
+    subscription = await registrace.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(verejnyKlic),
+    });
+  }
+
+  const odberResponse = await fetch("/api/push/odber", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       subscription: subscription.toJSON(),
-      navstevnikId: localStorage.getItem("trebon_navstevnik_id"),
+      navstevnikId: ziskatNavstevnikId(),
     }),
   });
+
+  if (!odberResponse.ok) {
+    const telo = (await odberResponse.json().catch(() => ({}))) as {
+      chyba?: string;
+    };
+    throw new Error(
+      telo.chyba ?? `Server odmítl uložení push odběru (HTTP ${odberResponse.status})`
+    );
+  }
+}
+
+async function odeslatMetrikuOkamzite(
+  typ: "povoleno_upozorneni"
+): Promise<void> {
+  try {
+    await fetch("/api/metriky", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        udalosti: [{ typ, navstevnikId: ziskatNavstevnikId() }],
+      }),
+    });
+  } catch {
+    // Metriky nesmí blokovat UI
+  }
 }
 
 /** Převod VAPID klíče z base64 na Uint8Array */
