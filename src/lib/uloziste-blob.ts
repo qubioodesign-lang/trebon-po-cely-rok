@@ -3,7 +3,7 @@ import "server-only";
 import { put } from "@vercel/blob";
 import { unstable_noStore as noStore } from "next/cache";
 import type { UlozisteDat } from "./uloziste-dat";
-import { ziskatEnv, ziskatVolbyBlobAsync } from "./env-blob";
+import { ziskatBlobStoreId, ziskatVolbyBlobAsync } from "./env-blob";
 
 /** Cesta k metadata JSON v Blob úložišti */
 export const BLOB_CESTA_METADATA = "data/uloziste.json";
@@ -21,7 +21,7 @@ export interface VolbyCteniBlob {
 
 /** Veřejná URL metadat – čtení bez autentizovaného Blob get() */
 function sestavitVerejneUrlMetadata(): string {
-  const storeId = ziskatEnv("BLOB_STORE_ID");
+  const storeId = ziskatBlobStoreId();
   if (!storeId) {
     throw new Error(
       "Chybí BLOB_STORE_ID – nelze načíst metadata z Blob. Nastavte ji ve Vercel → Storage → Blob."

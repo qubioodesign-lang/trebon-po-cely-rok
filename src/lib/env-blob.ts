@@ -15,9 +15,21 @@ export function jeBuildFaze(): boolean {
   return ziskatEnv("NEXT_PHASE") === "phase-production-build";
 }
 
+/** ID Blob store – z env nebo z konce read-write tokenu (Vercel formát …_<storeId>) */
+export function ziskatBlobStoreId(): string | undefined {
+  const storeId = ziskatEnv("BLOB_STORE_ID");
+  if (storeId) return storeId;
+
+  const token = ziskatEnv("BLOB_READ_WRITE_TOKEN");
+  if (!token) return undefined;
+
+  const match = token.match(/_([a-z0-9]{10,32})$/i);
+  return match?.[1];
+}
+
 /** Má projekt nakonfigurované Blob úložiště (store ID nebo read-write token) */
 export function maBlobKonfiguraci(): boolean {
-  return Boolean(ziskatEnv("BLOB_STORE_ID") || ziskatEnv("BLOB_READ_WRITE_TOKEN"));
+  return Boolean(ziskatBlobStoreId() || ziskatEnv("BLOB_READ_WRITE_TOKEN"));
 }
 
 /**
@@ -45,7 +57,7 @@ export function ziskatVolbyBlob(): {
 } {
   const volby: { storeId?: string; token?: string; oidcToken?: string } = {};
 
-  const storeId = ziskatEnv("BLOB_STORE_ID");
+  const storeId = ziskatBlobStoreId();
   if (storeId) volby.storeId = storeId;
 
   const readWrite = ziskatEnv("BLOB_READ_WRITE_TOKEN");
