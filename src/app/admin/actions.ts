@@ -17,6 +17,7 @@ import {
   ziskatPolozku,
   ziskatVsechnyPolozky,
   zmenitPoradi,
+  nahraditSouborPolozky,
 } from "@/lib/polozky";
 import { ulozitSoubor, smazatSoubor } from "@/lib/soubory";
 import { odeslatPushNotifikaceVsem } from "@/lib/push-notifikace";
@@ -180,6 +181,77 @@ export async function smazatPolozkuAdmin(id: string): Promise<AkceVysledek> {
       chyba: error instanceof Error ? error.message : "Chyba při mazání",
       diagnoza: admin.diagnoza,
     };
+  }
+}
+
+export async function nahraditFotografiiPolozky(
+  id: string,
+  formData: FormData
+): Promise<AkceVysledek> {
+  const admin = await overitAdmina();
+  if ("chyba" in admin) {
+    return { chyba: admin.chyba, diagnoza: admin.diagnoza };
+  }
+
+  const { oidcHeader, diagnoza } = admin;
+  let novaCestaSouboru: string | null = null;
+
+  try {
+    const polozka = await ziskatPolozku(id, oidcHeader);
+    if (!polozka) {
+      return { chyba: "Položka nebyla nalezena", diagnoza };
+    }
+
+    if (polozka.typ !== "fotografie") {
+      return {
+        chyba: "Nahradit lze pouze fotografii",
+        diagnoza,
+      };
+    }
+
+    const soubor = formData.get("soubor") as File | null;
+    if (!soubor || soubor.size === 0) {
+      return {
+        chyba: "Soubor je prázdný nebo se nepodařilo přenést z formuláře",
+        diagnoza,
+      };
+    }
+
+    const starySoubor = polozka.soubor;
+    const vysledek = await ulozitSoubor(soubor, oidcHeader);
+    novaCestaSouboru = vysledek.cestaSouboru;
+
+    if (vysledek.typ !== "fotografie") {
+      await smazatSouborBezpecne(novaCestaSouboru, oidcHeader);
+      return {
+        chyba: "Nahradit lze pouze fotografii (JPEG, PNG, WebP, AVIF)",
+        diagnoza,
+      };
+    }
+
+    await nahraditSouborPolozky(
+      id,
+      vysledek.cestaSouboru,
+      vysledek.typ,
+      oidcHeader
+    );
+    await smazatSouborBezpecne(starySoubor, oidcHeader);
+
+    revalidatePath("/admin");
+    revalidatePath("/");
+    return { uspech: true };
+  } catch (error) {
+    if (novaCestaSouboru) {
+      try {
+        await smazatSoubor(novaCestaSouboru, oidcHeader);
+      } catch {
+        // metadata zůstala beze změny
+      }
+    }
+
+    const zprava =
+      error instanceof Error ? error.message : "Chyba při nahrazování fotografie";
+    return { chyba: zprava, diagnoza: ziskatDiagnozuBlob(oidcHeader) };
   }
 }
 

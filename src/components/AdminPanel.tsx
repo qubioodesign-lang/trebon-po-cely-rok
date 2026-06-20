@@ -13,6 +13,7 @@ import {
   zmenitPopisPolozky,
   zmenitPoradiPolozek,
   odeslatPushUpozorneni,
+  nahraditFotografiiPolozky,
 } from "@/app/admin/actions";
 
 interface AdminPanelProps {
@@ -62,7 +63,10 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
   const [ukladaPopisId, setUkladaPopisId] = useState<string | null>(null);
   const [potvrzeniAkce, setPotvrzeniAkce] = useState("");
   const [odesilaPush, setOdesilaPush] = useState(false);
+  const [nahrazujeId, setNahrazujeId] = useState<string | null>(null);
   const posledniPlnePolozky = useRef<Polozka[]>([]);
+  const vstupNahraditFotografii = useRef<HTMLInputElement>(null);
+  const idKNahrazeni = useRef<string | null>(null);
 
   useEffect(() => {
     if (data?.polozky && data.polozky.length > 0) {
@@ -199,6 +203,53 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
     }
   };
 
+  const handleNahraditFotografii = (id: string) => {
+    setChybaAkce("");
+    setPotvrzeniAkce("");
+    setNahrazujeId(id);
+    idKNahrazeni.current = id;
+    vstupNahraditFotografii.current?.click();
+  };
+
+  const handleVybranNahradniSoubor = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const id = idKNahrazeni.current;
+    const soubor = e.target.files?.[0];
+    e.target.value = "";
+
+    if (!id || !soubor) {
+      idKNahrazeni.current = null;
+      setNahrazujeId(null);
+      return;
+    }
+
+    setChybaAkce("");
+    setPotvrzeniAkce("");
+
+    const formData = new FormData();
+    formData.set("soubor", soubor);
+
+    try {
+      const vysledek = await nahraditFotografiiPolozky(id, formData);
+      if ("uspech" in vysledek && vysledek.uspech) {
+        setPotvrzeniAkce("Fotografie byla nahrazena.");
+        obnovit();
+      } else if ("chyba" in vysledek && vysledek.chyba) {
+        setChybaAkce(vysledek.chyba);
+      }
+    } catch (error) {
+      setChybaAkce(
+        error instanceof Error
+          ? error.message
+          : "Neočekávaná chyba server action při nahrazování fotografie"
+      );
+    } finally {
+      idKNahrazeni.current = null;
+      setNahrazujeId(null);
+    }
+  };
+
   const handlePosun = async (index: number, smer: "nahoru" | "dolu") => {
     const noveIds = polozky.map((p) => p.id);
     const cil = smer === "nahoru" ? index - 1 : index + 1;
@@ -287,9 +338,19 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
           </button>
         </div>
 
-        {(pending || nahrava) && (
-          <p className="text-center text-xs text-text-velmiJemny">obnovuji…</p>
+        {(pending || nahrava || nahrazujeId) && (
+          <p className="text-center text-xs text-text-velmiJemny">
+            {nahrazujeId ? "nahrazuji fotografii…" : "obnovuji…"}
+          </p>
         )}
+
+        <input
+          ref={vstupNahraditFotografii}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/avif"
+          className="hidden"
+          onChange={handleVybranNahradniSoubor}
+        />
 
         {chybaAkce && (
           <div className="rounded border border-red-400/30 bg-red-50/50 p-3 text-center text-xs text-red-500">
@@ -480,6 +541,18 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
                 >
                   {ukladaPopisId === polozka.id ? "ukládám…" : "uložit"}
                 </button>
+                {polozka.typ === "fotografie" && (
+                  <button
+                    type="button"
+                    onClick={() => handleNahraditFotografii(polozka.id)}
+                    disabled={nahrazujeId === polozka.id}
+                    className="text-xs text-text-velmiJemny disabled:opacity-30"
+                  >
+                    {nahrazujeId === polozka.id
+                      ? "nahrazuji…"
+                      : "nahradit fotografii"}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() =>

@@ -78,6 +78,29 @@ export async function ziskatPolozku(
   return polozky.find((p) => p.id === id) ?? null;
 }
 
+/** Nahradí soubor existující položky – ostatní metadata zůstanou */
+export async function nahraditSouborPolozky(
+  id: string,
+  novySoubor: string,
+  typ: TypObsahu,
+  oidcZHeaderu?: string | null
+): Promise<Polozka> {
+  let nahrazena!: Polozka;
+
+  await upravitData((uloziste) => {
+    const polozka = uloziste.polozky.find((p) => p.id === id);
+    if (!polozka) {
+      throw new Error("Položka nebyla nalezena");
+    }
+
+    polozka.soubor = novySoubor;
+    polozka.typ = typ;
+    nahrazena = polozka;
+  }, oidcZHeaderu);
+
+  return nahrazena;
+}
+
 /** Aktualizuje popis položky */
 export async function aktualizovatPopis(
   id: string,
