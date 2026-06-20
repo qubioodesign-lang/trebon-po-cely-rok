@@ -62,6 +62,9 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
   const [popisy, setPopisy] = useState<Record<string, string>>({});
   const [ukladaPopisId, setUkladaPopisId] = useState<string | null>(null);
   const [potvrzeniAkce, setPotvrzeniAkce] = useState("");
+  const [potvrzeniUrlSouboru, setPotvrzeniUrlSouboru] = useState<string | null>(
+    null
+  );
   const [odesilaPush, setOdesilaPush] = useState(false);
   const [nahrazujeId, setNahrazujeId] = useState<string | null>(null);
   const posledniPlnePolozky = useRef<Polozka[]>([]);
@@ -112,6 +115,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
     if ("chyba" in vysledek && vysledek.chyba) {
       setChybaAkce(vysledek.chyba);
       setPotvrzeniAkce("");
+      setPotvrzeniUrlSouboru(null);
       return false;
     }
     setChybaAkce("");
@@ -209,6 +213,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
 
     setChybaAkce("");
     setPotvrzeniAkce("");
+    setPotvrzeniUrlSouboru(null);
     setNahrazujeId(id);
     idKNahrazeni.current = id;
     vstupNahraditFotografii.current?.click();
@@ -229,6 +234,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
 
     setChybaAkce("");
     setPotvrzeniAkce("");
+    setPotvrzeniUrlSouboru(null);
 
     const formData = new FormData();
     formData.set("soubor", soubor);
@@ -236,7 +242,10 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
     try {
       const vysledek = await nahraditFotografiiPolozky(id, formData);
       if ("uspech" in vysledek && vysledek.uspech) {
-        setPotvrzeniAkce("Fotografie byla nahrazena.");
+        setPotvrzeniAkce(
+          "Fotografie byla nahrazena. Metadata v úložišti byla přepsána."
+        );
+        setPotvrzeniUrlSouboru(vysledek.novaUrlSouboru ?? null);
         obnovit();
       } else if ("chyba" in vysledek && vysledek.chyba) {
         setChybaAkce(vysledek.chyba);
@@ -267,6 +276,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
     setOdesilaPush(true);
     setChybaAkce("");
     setPotvrzeniAkce("");
+    setPotvrzeniUrlSouboru(null);
 
     try {
       const vysledek = await odeslatPushUpozorneni(id);
@@ -368,7 +378,12 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
 
         {potvrzeniAkce && (
           <div className="rounded border border-text-velmiJemny/30 bg-krem-tmavsi/30 p-3 text-center text-xs text-text-jemny">
-            {potvrzeniAkce}
+            <p>{potvrzeniAkce}</p>
+            {potvrzeniUrlSouboru && (
+              <p className="mt-2 break-all font-mono text-[10px] leading-relaxed text-text-velmiJemny">
+                {potvrzeniUrlSouboru}
+              </p>
+            )}
           </div>
         )}
 

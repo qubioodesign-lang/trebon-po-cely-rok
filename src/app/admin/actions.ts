@@ -33,7 +33,7 @@ import {
 import type { DiagnozaBlob } from "@/types";
 
 type AkceVysledek =
-  | { uspech: true }
+  | { uspech: true; novaUrlSouboru?: string }
   | { chyba: string; diagnoza?: DiagnozaBlob };
 
 export type PushAkceVysledek =
@@ -250,7 +250,7 @@ export async function nahraditFotografiiPolozky(
 
     revalidatePath("/admin");
     revalidatePath("/");
-    return { uspech: true };
+    return { uspech: true, novaUrlSouboru: overena.soubor };
   } catch (error) {
     if (novaCestaSouboru) {
       try {
