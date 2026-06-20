@@ -1,9 +1,9 @@
 import "server-only";
 
-import { get, put, BlobNotFoundError, type GetBlobResult } from "@vercel/blob";
+import { put } from "@vercel/blob";
 import { unstable_noStore as noStore } from "next/cache";
 import type { UlozisteDat } from "./uloziste-dat";
-import { ziskatVolbyBlobAsync } from "./env-blob";
+import { ziskatEnv, ziskatVolbyBlobAsync } from "./env-blob";
 
 /** Cesta k metadata JSON v Blob úložišti */
 export const BLOB_CESTA_METADATA = "data/uloziste.json";
@@ -14,73 +14,65 @@ const PRAZDNA_DATA: UlozisteDat = {
   pushOdbery: [],
 };
 
-/** Stáhne text metadata – HTTP 304 nemá stream, použije veřejnou URL */
-async function stahnoutTextMetadata(vysledek: GetBlobResult): Promise<string> {
-  if (vysledek.statusCode === 200 && vysledek.stream) {
-    return new Response(vysledek.stream).text();
-  }
-
-  if (vysledek.statusCode === 304) {
-    const odpoved = await fetch(vysledek.blob.url, {
-      cache: "no-store",
-      headers: { "Cache-Control": "no-cache" },
-    });
-
-    if (!odpoved.ok) {
-      throw new Error(
-        `Metadata Blob vrátily 304, ale stažení z URL selhalo (HTTP ${odpoved.status})`
-      );
-    }
-
-    return odpoved.text();
-  }
-
-  throw new Error("Nepodařilo se načíst tělo metadata z Blob");
+export interface VolbyCteniBlob {
+  /** Po zápisu – obejde CDN cache pro spolehlivé ověření */
+  bypassCache?: boolean;
 }
 
-/** Stáhne metadata přes veřejnou URL s vynuceným obejitím cache */
-async function stahnoutTextMetadataBezCache(url: string): Promise<string> {
-  const odpoved = await fetch(`${url}${url.includes("?") ? "&" : "?"}_=${Date.now()}`, {
+/** Veřejná URL metadat – čtení bez autentizovaného Blob get() */
+function sestavitVerejneUrlMetadata(): string {
+  const storeId = ziskatEnv("BLOB_STORE_ID");
+  if (!storeId) {
+    throw new Error(
+      "Chybí BLOB_STORE_ID – nelze načíst metadata z Blob. Nastavte ji ve Vercel → Storage → Blob."
+    );
+  }
+
+  return `https://${storeId}.public.blob.vercel-storage.com/${BLOB_CESTA_METADATA}`;
+}
+
+/** Stáhne metadata přes veřejnou URL (bez Bearer tokenu) */
+async function stahnoutMetadataVerejne(
+  url: string,
+  bypassCache: boolean
+): Promise<string | null> {
+  const fetchUrl = bypassCache
+    ? `${url}${url.includes("?") ? "&" : "?"}_=${Date.now()}`
+    : url;
+
+  const odpoved = await fetch(fetchUrl, {
     cache: "no-store",
     headers: { "Cache-Control": "no-cache" },
   });
 
+  if (odpoved.status === 404) {
+    return null;
+  }
+
   if (!odpoved.ok) {
     throw new Error(
-      `Metadata Blob se nepodařilo načíst bez cache (HTTP ${odpoved.status})`
+      `Metadata Blob se nepodařilo načíst (HTTP ${odpoved.status})`
     );
   }
 
   return odpoved.text();
 }
 
-export interface VolbyCteniBlob {
-  /** Po zápisu – obejde CDN/SDK cache pro spolehlivé ověření */
-  bypassCache?: boolean;
-}
-
-/** Načte data z Vercel Blob – správně zpracuje HTTP 304 (Not Modified) */
+/** Načte data z Vercel Blob – pouze veřejný fetch, bez autentizovaného get() */
 export async function nacistDataBlob(
-  oidcZHeaderu?: string | null,
+  _oidcZHeaderu?: string | null,
   volbyCteni?: VolbyCteniBlob
 ): Promise<UlozisteDat> {
   noStore();
-  const volby = await ziskatVolbyBlobAsync(oidcZHeaderu);
 
   try {
-    const vysledek = await get(BLOB_CESTA_METADATA, {
-      ...volby,
-      access: "public",
-    });
+    const url = sestavitVerejneUrlMetadata();
+    const text = await stahnoutMetadataVerejne(
+      url,
+      volbyCteni?.bypassCache ?? false
+    );
 
-    if (!vysledek) {
-      return structuredClone(PRAZDNA_DATA);
-    }
-
-    const text = volbyCteni?.bypassCache
-      ? await stahnoutTextMetadataBezCache(vysledek.blob.url)
-      : await stahnoutTextMetadata(vysledek);
-    if (!text.trim()) {
+    if (!text?.trim()) {
       return structuredClone(PRAZDNA_DATA);
     }
 
@@ -92,9 +84,6 @@ export async function nacistDataBlob(
       );
     }
   } catch (error) {
-    if (error instanceof BlobNotFoundError) {
-      return structuredClone(PRAZDNA_DATA);
-    }
     if (error instanceof Error) {
       throw error;
     }
@@ -102,7 +91,7 @@ export async function nacistDataBlob(
   }
 }
 
-/** Uloží data do Vercel Blob */
+/** Uloží data do Vercel Blob (autentizovaný put) */
 export async function ulozitDataBlob(
   data: UlozisteDat,
   oidcZHeaderu?: string | null
