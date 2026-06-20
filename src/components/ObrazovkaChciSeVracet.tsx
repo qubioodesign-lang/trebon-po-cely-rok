@@ -28,7 +28,30 @@ export function ObrazovkaChciSeVracet() {
   const [chybaRegistrace, setChybaRegistrace] = useState("");
 
   useEffect(() => {
-    void overitAktivniPush().then(setJeUpozorneniAktivni);
+    void (async () => {
+      const aktivni = await overitAktivniPush();
+      setJeUpozorneniAktivni(aktivni);
+
+      if (
+        !aktivni ||
+        !podporujePushNotifikace() ||
+        Notification.permission !== "granted"
+      ) {
+        return;
+      }
+
+      try {
+        const registrace = await ziskatNeboRegistrovatServiceWorker();
+        const subscription = await registrace.pushManager.getSubscription();
+        if (subscription) {
+          await ulozitSubscriptionNaServer(subscription, {
+            zaznamenatPovoleni: false,
+          });
+        }
+      } catch {
+        // Tichá synchronizace nesmí rozbít stránku ani skrýt stav „aktivní“
+      }
+    })();
   }, []);
 
   const prejitNaDekujeme = () => {
@@ -214,12 +237,21 @@ async function zaregistrovatPush(): Promise<void> {
     });
   }
 
+  await ulozitSubscriptionNaServer(subscription, { zaznamenatPovoleni: true });
+}
+
+/** Odešle push subscription na server (upsert podle endpointu) */
+async function ulozitSubscriptionNaServer(
+  subscription: PushSubscription,
+  volby?: { zaznamenatPovoleni?: boolean }
+): Promise<void> {
   const odberResponse = await fetch("/api/push/odber", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       subscription: subscription.toJSON(),
       navstevnikId: ziskatNavstevnikId(),
+      zaznamenatPovoleni: volby?.zaznamenatPovoleni ?? true,
     }),
   });
 

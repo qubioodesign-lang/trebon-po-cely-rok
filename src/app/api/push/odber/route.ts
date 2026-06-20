@@ -33,7 +33,8 @@ function normalizovatChybuPush(error: unknown): string {
 /** Uloží push subscription od klienta; metrika povolení je best-effort */
 export async function POST(request: NextRequest) {
   try {
-    const { subscription, navstevnikId } = await request.json();
+    const { subscription, navstevnikId, zaznamenatPovoleni = true } =
+      await request.json();
 
     if (!subscription?.endpoint) {
       return NextResponse.json(
@@ -71,7 +72,10 @@ export async function POST(request: NextRequest) {
         klicAuth,
       },
       oidcHeader,
-      { zaznamenatPovoleni: true, navstevnikId }
+      {
+        zaznamenatPovoleni: zaznamenatPovoleni !== false,
+        navstevnikId,
+      }
     );
 
     return NextResponse.json({ uspech: true });
