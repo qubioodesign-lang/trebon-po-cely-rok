@@ -7,6 +7,7 @@ import type { Polozka } from "@/types";
 import type { TypUdalostiMetriky } from "@/types";
 import { nacistDataBlob, ulozitDataBlob } from "./uloziste-blob";
 import { pouzivaBlobUloziste } from "./env-blob";
+import type { AnalyticsAgregovane } from "./analytics";
 
 export { pouzivaBlobUloziste } from "./env-blob";
 
@@ -47,6 +48,7 @@ export interface UlozisteDat {
   /** @deprecated Migrováno do metrikyAgregovane */
   metriky: ZaznamMetriky[];
   metrikyAgregovane?: MetrikyAgregovane;
+  analyticsAgregovane?: AnalyticsAgregovane;
   pushOdbery: PushOdber[];
   /** Interní čítač – detekce ztráty souběžného zápisu */
   verzeUloziste?: number;

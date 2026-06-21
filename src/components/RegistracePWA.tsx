@@ -1,24 +1,17 @@
 "use client";
 
 import { useEffect } from "react";
-import { useMetriky } from "@/hooks/useMetriky";
 import { ziskatNeboRegistrovatServiceWorker } from "@/lib/service-worker";
 
 /** Registruje service worker pro PWA a push notifikace */
 export function RegistracePWA() {
-  const { odeslat } = useMetriky();
-
   useEffect(() => {
-    // Zaznamenání návštěvy
-    odeslat("navsteva");
-
-    // Registrace service workeru
     if ("serviceWorker" in navigator) {
       void ziskatNeboRegistrovatServiceWorker().catch(() => {
         // Service worker není kritický pro základní funkčnost
       });
     }
-  }, [odeslat]);
+  }, []);
 
   return null;
 }

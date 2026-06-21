@@ -2,6 +2,9 @@
  * Typy obsahu – architektura připravena pro budoucí video.
  * První verze používá pouze fotografie.
  */
+import type { ZdrojNavstevnika } from "@/lib/zdroj-navstev";
+
+export type { ZdrojNavstevnika };
 export type TypObsahu = "fotografie" | "video";
 
 /** Položka galerie – fotografie nebo video */
@@ -37,10 +40,25 @@ export interface MetrikySouhrn {
   pocetPovolenychUpozorneni: number;
 }
 
+/** Souhrn analytics pro administraci */
+export interface AnalyticsSouhrn {
+  zdroje: Record<ZdrojNavstevnika, number>;
+  fotografie: AnalyticsFotografieRadek[];
+}
+
+/** Řádek tabulky fotografií v analytics */
+export interface AnalyticsFotografieRadek {
+  polozkaId: string;
+  popis: string;
+  zobrazeni: number;
+  sdileni: number;
+}
+
 /** Typy událostí pro měření návratů */
 export type TypUdalostiMetriky =
   | "navsteva"
   | "zobrazeni_fotografie"
+  | "sdileni_fotografie"
   | "posun_vpred"
   | "navrat_zpet"
   | "klik_chci_se_vracet"
@@ -51,6 +69,7 @@ export interface PayloadMetriky {
   typ: TypUdalostiMetriky;
   polozkaId?: string;
   navstevnikId?: string;
+  zdroj?: ZdrojNavstevnika;
 }
 
 /** Dávka metrik z klienta */
@@ -78,6 +97,7 @@ export interface DiagnozaBlob {
 export interface AdminData {
   polozky: Polozka[];
   metriky: MetrikySouhrn;
+  analytics: AnalyticsSouhrn;
   pocetPushOdberu: number;
   trvaleUloziste: boolean;
   diagnoza: DiagnozaBlob;

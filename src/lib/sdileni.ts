@@ -4,9 +4,9 @@ export const SDILENI_TEXT = "Na chvíli zpátky do Třeboně.";
 /** Sestaví trvalý sdílecí odkaz na konkrétní položku galerie */
 export function sestavitSdileciUrl(polozkaId: string): string {
   if (typeof window === "undefined") {
-    return `/?polozka=${polozkaId}`;
+    return `/?polozka=${polozkaId}&z=sdileni`;
   }
-  return `${window.location.origin}/?polozka=${encodeURIComponent(polozkaId)}`;
+  return `${window.location.origin}/?polozka=${encodeURIComponent(polozkaId)}&z=sdileni`;
 }
 
 /** Systémové sdílení, nebo zkopírování odkazu do schránky */

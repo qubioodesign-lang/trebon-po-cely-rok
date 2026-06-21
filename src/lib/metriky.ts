@@ -1,5 +1,6 @@
 import type { MetrikySouhrn, PayloadMetriky } from "@/types";
 import type { MetrikyAgregovane, UlozisteDat, ZaznamMetriky } from "./uloziste-dat";
+import { aplikovatAnalyticsBatch } from "./analytics";
 import { nacistData, upravitData } from "./uloziste-dat";
 
 /** Prázdný souhrn metrik – výchozí stav administrace */
@@ -129,6 +130,7 @@ export function aplikovatMetriky(uloziste: UlozisteDat, udalosti: PayloadMetriky
   for (const udalost of udalosti) {
     aplikovatMetriku(agregovane, udalost);
   }
+  aplikovatAnalyticsBatch(uloziste, udalosti);
 }
 
 /** Souhrn metrik z načteného úložiště */

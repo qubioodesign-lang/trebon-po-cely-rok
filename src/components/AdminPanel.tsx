@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { AdminChyby, AdminData, DiagnozaBlob, Polozka } from "@/types";
 import { sestavitUrlPolozky } from "@/lib/url-polozky";
+import { POPISY_ZDROJU, ZDROJE_NAVSTEV } from "@/lib/zdroj-navstev";
 import {
   prihlasitAdmin,
   odhlasitAdmin,
@@ -95,6 +96,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
         ? posledniPlnePolozky.current
         : polozkyZeServeru;
   const metriky = data?.metriky ?? null;
+  const analytics = data?.analytics ?? null;
 
   useEffect(() => {
     const zeServeru = data?.polozky;
@@ -554,6 +556,101 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
             </div>
           ) : (
             <p className="text-xs text-text-velmiJemny">data metrik nejsou k dispozici</p>
+          )}
+        </section>
+
+        <section className="space-y-3 border border-text-velmiJemny/20 p-4">
+          <h2 className="text-sm font-light text-text-jemny">analytics</h2>
+          {analytics ? (
+            <>
+              <div className="space-y-2">
+                <h3 className="text-xs font-light text-text-velmiJemny">
+                  zdroje návštěv
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-text-velmiJemny">
+                    <thead>
+                      <tr className="border-b border-text-velmiJemny/20">
+                        <th className="py-1 pr-3 font-light">zdroj</th>
+                        <th className="py-1 font-light">návštěvy</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ZDROJE_NAVSTEV.map((zdroj) => (
+                        <tr
+                          key={zdroj}
+                          className="border-b border-text-velmiJemny/10"
+                        >
+                          <td className="py-1.5 pr-3 text-text">
+                            {POPISY_ZDROJU[zdroj]}
+                          </td>
+                          <td className="py-1.5">{analytics.zdroje[zdroj] ?? 0}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-xs font-light text-text-velmiJemny">
+                  fotografie
+                </h3>
+                {analytics.fotografie.length === 0 ? (
+                  <p className="text-xs text-text-velmiJemny">žádné položky</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs text-text-velmiJemny">
+                      <thead>
+                        <tr className="border-b border-text-velmiJemny/20">
+                          <th className="py-1 pr-3 font-light">fotka</th>
+                          <th className="py-1 pr-3 font-light">zobrazení</th>
+                          <th className="py-1 font-light">sdílení</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {analytics.fotografie.map((radek) => {
+                          const polozka = polozky.find(
+                            (p) => p.id === radek.polozkaId
+                          );
+
+                          return (
+                            <tr
+                              key={radek.polozkaId}
+                              className="border-b border-text-velmiJemny/10"
+                            >
+                              <td className="py-1.5 pr-3">
+                                <div className="flex items-center gap-2">
+                                  {polozka?.typ === "fotografie" ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={sestavitUrlPolozky(polozka.soubor)}
+                                      alt=""
+                                      className="h-8 w-8 flex-shrink-0 object-cover bg-krem-tmavsi"
+                                    />
+                                  ) : (
+                                    <span className="flex h-8 w-8 items-center justify-center bg-krem-tmavsi text-[10px]">
+                                      video
+                                    </span>
+                                  )}
+                                  <span className="text-text">{radek.popis}</span>
+                                </div>
+                              </td>
+                              <td className="py-1.5 pr-3">{radek.zobrazeni}</td>
+                              <td className="py-1.5">{radek.sdileni}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-text-velmiJemny">
+              data analytics nejsou k dispozici
+            </p>
           )}
         </section>
 

@@ -9,6 +9,7 @@ import {
   ulozitPolozkuGalerie,
 } from "@/lib/uloziste";
 import { useMetriky } from "@/hooks/useMetriky";
+import { useAnalytics } from "@/hooks/useAnalytics";
 import { ZobrazeniPolozky } from "./ZobrazeniPolozky";
 import { OdkazChciSeVracet } from "./OdkazChciSeVracet";
 import { OdkazSdilet } from "./OdkazSdilet";
@@ -109,6 +110,7 @@ export function GalerieHlavni({
   const zacatekX = useRef(0);
   const aktualniIndexRef = useRef(aktualniIndex);
   const { odeslat } = useMetriky();
+  useAnalytics();
 
   aktualniIndexRef.current = aktualniIndex;
 

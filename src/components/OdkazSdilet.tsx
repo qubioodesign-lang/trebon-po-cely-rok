@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { sdiletPolozku } from "@/lib/sdileni";
+import { useMetriky } from "@/hooks/useMetriky";
 
 interface PropsOdkazSdilet {
   polozkaId: string;
@@ -15,12 +16,14 @@ const TRIDA_ODKAZ =
 /** Nenápadný odkaz „sdílet“ – systémové sdílení nebo kopie odkazu do schránky */
 export function OdkazSdilet({ polozkaId, nadFotkou = false }: PropsOdkazSdilet) {
   const [potvrzeni, setPotvrzeni] = useState("");
+  const { odeslat } = useMetriky();
 
   const handleSdilet = async () => {
     setPotvrzeni("");
 
     try {
       const vysledek = await sdiletPolozku(polozkaId);
+      odeslat("sdileni_fotografie", polozkaId);
       if (vysledek === "zkopirovano") {
         setPotvrzeni("odkaz zkopírován");
       }

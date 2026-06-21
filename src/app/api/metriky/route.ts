@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 const POVOLENE_TYPY: TypUdalostiMetriky[] = [
   "navsteva",
   "zobrazeni_fotografie",
+  "sdileni_fotografie",
   "posun_vpred",
   "navrat_zpet",
   "klik_chci_se_vracet",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect } from "react";
-import type { PayloadMetriky, TypUdalostiMetriky } from "@/types";
+import type { PayloadMetriky, TypUdalostiMetriky, ZdrojNavstevnika } from "@/types";
 import { ziskatNavstevnikId } from "@/lib/uloziste";
 
 const MAX_FRONTA = 10;
@@ -82,20 +82,24 @@ export function useMetriky() {
     registrovatPoslouchace();
   }, []);
 
-  const odeslat = useCallback((typ: TypUdalostiMetriky, polozkaId?: string) => {
-    fronta.push({
-      typ,
-      polozkaId,
-      navstevnikId: ziskatNavstevnikId(),
-    });
+  const odeslat = useCallback(
+    (typ: TypUdalostiMetriky, polozkaId?: string, zdroj?: ZdrojNavstevnika) => {
+      fronta.push({
+        typ,
+        polozkaId,
+        navstevnikId: ziskatNavstevnikId(),
+        zdroj,
+      });
 
-    if (fronta.length >= MAX_FRONTA) {
-      void odeslatFrontu();
-      return;
-    }
+      if (fronta.length >= MAX_FRONTA) {
+        void odeslatFrontu();
+        return;
+      }
 
-    naplanovatFlush();
-  }, []);
+      naplanovatFlush();
+    },
+    []
+  );
 
   return { odeslat };
 }

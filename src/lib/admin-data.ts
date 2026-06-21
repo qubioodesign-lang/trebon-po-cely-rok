@@ -3,6 +3,7 @@ import "server-only";
 import type { AdminVysledek } from "@/types";
 import { seraditPolozky, nacistData } from "./uloziste-dat";
 import { prazdnySouhrnMetrik, ziskatSouhrnZUloziste } from "./metriky";
+import { prazdnySouhrnAnalytics, ziskatSouhrnAnalytics } from "./analytics";
 import { pouzivaBlobUloziste, ziskatDiagnozuBlob, ziskatOidcZHlavicek } from "./env-blob";
 
 export async function ziskatOidcZRequestu(): Promise<string | null> {
@@ -20,12 +21,14 @@ export async function nacistAdminData(): Promise<AdminVysledek> {
 
   let polozky: AdminVysledek["data"]["polozky"] = [];
   let metriky = prazdnySouhrnMetrik();
+  let analytics = prazdnySouhrnAnalytics();
   let pocetPushOdberu = 0;
 
   try {
     const uloziste = await nacistData(oidcHeader);
     polozky = seraditPolozky(uloziste.polozky);
     metriky = ziskatSouhrnZUloziste(uloziste);
+    analytics = ziskatSouhrnAnalytics(uloziste, polozky);
     pocetPushOdberu = uloziste.pushOdbery?.length ?? 0;
   } catch (error) {
     const zprava =
@@ -41,6 +44,7 @@ export async function nacistAdminData(): Promise<AdminVysledek> {
     data: {
       polozky,
       metriky,
+      analytics,
       pocetPushOdberu,
       trvaleUloziste: pouzivaBlobUloziste() && diagnoza.maAutentizaci,
       diagnoza,
