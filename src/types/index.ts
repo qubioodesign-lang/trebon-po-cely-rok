@@ -3,8 +3,9 @@
  * První verze používá pouze fotografie.
  */
 import type { ZdrojNavstevnika } from "@/lib/zdroj-navstev";
+import type { TypZarizeni } from "@/lib/zarizeni-navstevnika";
 
-export type { ZdrojNavstevnika };
+export type { ZdrojNavstevnika, TypZarizeni };
 export type TypObsahu = "fotografie" | "video";
 
 /** Položka galerie – fotografie nebo video */
@@ -43,6 +44,8 @@ export interface MetrikySouhrn {
 /** Souhrn analytics pro administraci */
 export interface AnalyticsSouhrn {
   zdroje: Record<ZdrojNavstevnika, number>;
+  navstevyPodleZarizeni: Record<TypZarizeni, number>;
+  pushOdberyPodleZarizeni: Record<TypZarizeni, number>;
   fotografie: AnalyticsFotografieRadek[];
 }
 
@@ -70,6 +73,7 @@ export interface PayloadMetriky {
   polozkaId?: string;
   navstevnikId?: string;
   zdroj?: ZdrojNavstevnika;
+  zarizeni?: TypZarizeni;
 }
 
 /** Dávka metrik z klienta */

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect } from "react";
-import type { PayloadMetriky, TypUdalostiMetriky, ZdrojNavstevnika } from "@/types";
+import type { PayloadMetriky, TypUdalostiMetriky, ZdrojNavstevnika, TypZarizeni } from "@/types";
 import { ziskatNavstevnikId } from "@/lib/uloziste";
 
 const MAX_FRONTA = 10;
@@ -83,12 +83,18 @@ export function useMetriky() {
   }, []);
 
   const odeslat = useCallback(
-    (typ: TypUdalostiMetriky, polozkaId?: string, zdroj?: ZdrojNavstevnika) => {
+    (
+      typ: TypUdalostiMetriky,
+      polozkaId?: string,
+      zdroj?: ZdrojNavstevnika,
+      zarizeni?: TypZarizeni
+    ) => {
       fronta.push({
         typ,
         polozkaId,
         navstevnikId: ziskatNavstevnikId(),
         zdroj,
+        zarizeni,
       });
 
       if (fronta.length >= MAX_FRONTA) {

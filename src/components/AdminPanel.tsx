@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { AdminChyby, AdminData, DiagnozaBlob, Polozka } from "@/types";
 import { sestavitUrlPolozky } from "@/lib/url-polozky";
 import { POPISY_ZDROJU, ZDROJE_NAVSTEV } from "@/lib/zdroj-navstev";
+import { POPISY_ZARIZENI, ZARIZENI_NAVSTEV } from "@/lib/zarizeni-navstevnika";
 import {
   prihlasitAdmin,
   odhlasitAdmin,
@@ -585,6 +586,68 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
                             {POPISY_ZDROJU[zdroj]}
                           </td>
                           <td className="py-1.5">{analytics.zdroje[zdroj] ?? 0}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-xs font-light text-text-velmiJemny">
+                  zařízení návštěvníků
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-text-velmiJemny">
+                    <thead>
+                      <tr className="border-b border-text-velmiJemny/20">
+                        <th className="py-1 pr-3 font-light">zařízení</th>
+                        <th className="py-1 font-light">návštěvy</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ZARIZENI_NAVSTEV.map((zarizeni) => (
+                        <tr
+                          key={zarizeni}
+                          className="border-b border-text-velmiJemny/10"
+                        >
+                          <td className="py-1.5 pr-3 text-text">
+                            {POPISY_ZARIZENI[zarizeni]}
+                          </td>
+                          <td className="py-1.5">
+                            {analytics.navstevyPodleZarizeni[zarizeni] ?? 0}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-xs font-light text-text-velmiJemny">
+                  zařízení push odběratelů
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-text-velmiJemny">
+                    <thead>
+                      <tr className="border-b border-text-velmiJemny/20">
+                        <th className="py-1 pr-3 font-light">zařízení</th>
+                        <th className="py-1 font-light">odběratelé</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ZARIZENI_NAVSTEV.map((zarizeni) => (
+                        <tr
+                          key={`push-${zarizeni}`}
+                          className="border-b border-text-velmiJemny/10"
+                        >
+                          <td className="py-1.5 pr-3 text-text">
+                            {POPISY_ZARIZENI[zarizeni]}
+                          </td>
+                          <td className="py-1.5">
+                            {analytics.pushOdberyPodleZarizeni[zarizeni] ?? 0}
+                          </td>
                         </tr>
                       ))}
                     </tbody>

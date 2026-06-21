@@ -8,6 +8,12 @@ import {
   type ZdrojNavstevnika,
   ZDROJE_NAVSTEV,
 } from "./zdroj-navstev";
+import {
+  jePlatneZarizeni,
+  prazdnaPocitadlaZarizeni,
+  type TypZarizeni,
+  ZARIZENI_NAVSTEV,
+} from "./zarizeni-navstevnika";
 
 /** Countery u jedné fotografie */
 export interface AnalyticsFotografie {
@@ -18,6 +24,8 @@ export interface AnalyticsFotografie {
 /** Agregovaná analytics v uloziste.json */
 export interface AnalyticsAgregovane {
   navstevyPodleZdroje: Record<ZdrojNavstevnika, number>;
+  navstevyPodleZarizeni: Record<TypZarizeni, number>;
+  pushOdberyPodleZarizeni: Record<TypZarizeni, number>;
   fotografie: Record<string, AnalyticsFotografie>;
 }
 
@@ -30,14 +38,19 @@ export function prazdneAnalytics(): AnalyticsAgregovane {
       primy: 0,
       ostatni: 0,
     },
+    navstevyPodleZarizeni: prazdnaPocitadlaZarizeni(),
+    pushOdberyPodleZarizeni: prazdnaPocitadlaZarizeni(),
     fotografie: {},
   };
 }
 
 /** Prázdný souhrn pro administraci při chybě načtení */
 export function prazdnySouhrnAnalytics(): AnalyticsSouhrn {
+  const prazdne = prazdneAnalytics();
   return {
-    zdroje: { ...prazdneAnalytics().navstevyPodleZdroje },
+    zdroje: { ...prazdne.navstevyPodleZdroje },
+    navstevyPodleZarizeni: { ...prazdne.navstevyPodleZarizeni },
+    pushOdberyPodleZarizeni: { ...prazdne.pushOdberyPodleZarizeni },
     fotografie: [],
   };
 }
@@ -52,11 +65,26 @@ function zajistitFotografii(
   return analytics.fotografie[polozkaId];
 }
 
+function zajistitPocitadlaZarizeni(analytics: AnalyticsAgregovane): void {
+  if (!analytics.navstevyPodleZarizeni) {
+    analytics.navstevyPodleZarizeni = prazdnaPocitadlaZarizeni();
+  }
+  if (!analytics.pushOdberyPodleZarizeni) {
+    analytics.pushOdberyPodleZarizeni = prazdnaPocitadlaZarizeni();
+  }
+
+  for (const zarizeni of ZARIZENI_NAVSTEV) {
+    analytics.navstevyPodleZarizeni[zarizeni] ??= 0;
+    analytics.pushOdberyPodleZarizeni[zarizeni] ??= 0;
+  }
+}
+
 /** Zajistí analytics blok v úložišti */
 export function zajistitAnalytics(uloziste: UlozisteDat): AnalyticsAgregovane {
   if (!uloziste.analyticsAgregovane) {
     uloziste.analyticsAgregovane = prazdneAnalytics();
   }
+  zajistitPocitadlaZarizeni(uloziste.analyticsAgregovane);
   return uloziste.analyticsAgregovane;
 }
 
@@ -71,6 +99,14 @@ export function aplikovatAnalytics(
     case "navsteva":
       if (payload.zdroj && jePlatnyZdrojNavstevy(payload.zdroj)) {
         analytics.navstevyPodleZdroje[payload.zdroj] += 1;
+      }
+      if (payload.zarizeni && jePlatneZarizeni(payload.zarizeni)) {
+        analytics.navstevyPodleZarizeni[payload.zarizeni] += 1;
+      }
+      break;
+    case "povoleno_upozorneni":
+      if (payload.zarizeni && jePlatneZarizeni(payload.zarizeni)) {
+        analytics.pushOdberyPodleZarizeni[payload.zarizeni] += 1;
       }
       break;
     case "zobrazeni_fotografie":
@@ -124,5 +160,12 @@ export function ziskatSouhrnAnalytics(
     zdroje[zdroj] ??= 0;
   }
 
-  return { zdroje, fotografie };
+  const navstevyPodleZarizeni = { ...analytics.navstevyPodleZarizeni };
+  const pushOdberyPodleZarizeni = { ...analytics.pushOdberyPodleZarizeni };
+  for (const zarizeni of ZARIZENI_NAVSTEV) {
+    navstevyPodleZarizeni[zarizeni] ??= 0;
+    pushOdberyPodleZarizeni[zarizeni] ??= 0;
+  }
+
+  return { zdroje, navstevyPodleZarizeni, pushOdberyPodleZarizeni, fotografie };
 }

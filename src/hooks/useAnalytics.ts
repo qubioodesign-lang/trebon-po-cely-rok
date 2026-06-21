@@ -7,6 +7,7 @@ import {
   oznacitNavstevuVSession,
   urcitZdrojNavstevy,
 } from "@/lib/zdroj-navstev";
+import { urcitZarizeniNavstevnika } from "@/lib/zarizeni-navstevnika";
 
 /**
  * Zaznamená zdroj návštěvy jednou za relaci prohlížeče.
@@ -21,6 +22,11 @@ export function useAnalytics() {
     }
 
     oznacitNavstevuVSession();
-    odeslat("navsteva", undefined, urcitZdrojNavstevy());
+    odeslat(
+      "navsteva",
+      undefined,
+      urcitZdrojNavstevy(),
+      urcitZarizeniNavstevnika()
+    );
   }, [odeslat]);
 }

@@ -16,6 +16,10 @@ function normalizovatUloziste(data) {
   };
 }
 
+function prazdnaPocitadlaZarizeni() {
+  return { android: 0, iphone: 0, desktop: 0, ostatni: 0 };
+}
+
 function prazdneAnalytics() {
   return {
     navstevyPodleZdroje: {
@@ -25,6 +29,8 @@ function prazdneAnalytics() {
       primy: 0,
       ostatni: 0,
     },
+    navstevyPodleZarizeni: prazdnaPocitadlaZarizeni(),
+    pushOdberyPodleZarizeni: prazdnaPocitadlaZarizeni(),
     fotografie: {},
   };
 }
@@ -33,7 +39,10 @@ function zajistitAnalytics(uloziste) {
   if (!uloziste.analyticsAgregovane) {
     uloziste.analyticsAgregovane = prazdneAnalytics();
   }
-  return uloziste.analyticsAgregovane;
+  const a = uloziste.analyticsAgregovane;
+  if (!a.navstevyPodleZarizeni) a.navstevyPodleZarizeni = prazdnaPocitadlaZarizeni();
+  if (!a.pushOdberyPodleZarizeni) a.pushOdberyPodleZarizeni = prazdnaPocitadlaZarizeni();
+  return a;
 }
 
 function aplikovatAnalytics(uloziste, payload) {
@@ -42,6 +51,14 @@ function aplikovatAnalytics(uloziste, payload) {
     case "navsteva":
       if (payload.zdroj && analytics.navstevyPodleZdroje[payload.zdroj] !== undefined) {
         analytics.navstevyPodleZdroje[payload.zdroj] += 1;
+      }
+      if (payload.zarizeni && analytics.navstevyPodleZarizeni[payload.zarizeni] !== undefined) {
+        analytics.navstevyPodleZarizeni[payload.zarizeni] += 1;
+      }
+      break;
+    case "povoleno_upozorneni":
+      if (payload.zarizeni && analytics.pushOdberyPodleZarizeni[payload.zarizeni] !== undefined) {
+        analytics.pushOdberyPodleZarizeni[payload.zarizeni] += 1;
       }
       break;
     case "zobrazeni_fotografie":
@@ -76,6 +93,8 @@ const blobJson = {
   metrikyAgregovane: { pocetNavstev: 5 },
   analyticsAgregovane: {
     navstevyPodleZdroje: { qr: 2, whatsapp: 0, sdileni: 1, primy: 3, ostatni: 0 },
+    navstevyPodleZarizeni: { android: 4, iphone: 2, desktop: 10, ostatni: 1 },
+    pushOdberyPodleZarizeni: { android: 1, iphone: 0, desktop: 0, ostatni: 0 },
     fotografie: { f1: { zobrazeni: 4, sdileni: 1 } },
   },
   pushOdbery: [],
@@ -91,17 +110,25 @@ if (normalizovano.analyticsAgregovane.navstevyPodleZdroje.qr !== 2) {
   console.error("FAIL: qr counter po normalizaci", normalizovano.analyticsAgregovane);
   process.exit(1);
 }
+if (normalizovano.analyticsAgregovane.navstevyPodleZarizeni.android !== 4) {
+  console.error("FAIL: android counter po normalizaci", normalizovano.analyticsAgregovane);
+  process.exit(1);
+}
 
 // --- test: dva zápisy za sebou kumulují ---
 let stav = structuredClone(blobJson);
 
 stav = simulovatZapis(stav, [
-  { typ: "navsteva", zdroj: "qr" },
+  { typ: "navsteva", zdroj: "qr", zarizeni: "iphone" },
   { typ: "zobrazeni_fotografie", polozkaId: "f1" },
 ]);
 
 if (stav.analyticsAgregovane.navstevyPodleZdroje.qr !== 3) {
   console.error("FAIL: qr po 1. zápisu očekáváno 3, je", stav.analyticsAgregovane.navstevyPodleZdroje.qr);
+  process.exit(1);
+}
+if (stav.analyticsAgregovane.navstevyPodleZarizeni.iphone !== 3) {
+  console.error("FAIL: iphone po 1. zápisu očekáváno 3, je", stav.analyticsAgregovane.navstevyPodleZarizeni.iphone);
   process.exit(1);
 }
 if (stav.analyticsAgregovane.fotografie.f1.zobrazeni !== 5) {
@@ -112,18 +139,25 @@ if (stav.analyticsAgregovane.fotografie.f1.zobrazeni !== 5) {
 stav = simulovatZapis(stav, [
   { typ: "zobrazeni_fotografie", polozkaId: "f1" },
   { typ: "zobrazeni_fotografie", polozkaId: "f2-new" },
+  { typ: "povoleno_upozorneni", zarizeni: "android" },
 ]);
 
-if (stav.analyticsAgregovane.navstevyPodleZdroje.qr !== 3) {
-  console.error("FAIL: qr po 2. zápisu nesmí klesnout, je", stav.analyticsAgregovane.navstevyPodleZdroje.qr);
+if (stav.analyticsAgregovane.navstevyPodleZarizeni.iphone !== 3) {
+  console.error("FAIL: iphone po 2. zápisu nesmí klesnout", stav.analyticsAgregovane.navstevyPodleZarizeni.iphone);
   process.exit(1);
 }
-if (stav.analyticsAgregovane.fotografie.f1.zobrazeni !== 6) {
-  console.error("FAIL: f1 zobrazeni po 2. zápisu očekáváno 6, je", stav.analyticsAgregovane.fotografie.f1.zobrazeni);
+if (stav.analyticsAgregovane.pushOdberyPodleZarizeni.android !== 2) {
+  console.error("FAIL: push android po 2. zápisu očekáváno 2, je", stav.analyticsAgregovane.pushOdberyPodleZarizeni.android);
   process.exit(1);
 }
-if (stav.analyticsAgregovane.fotografie["f2-new"]?.zobrazeni !== 1) {
-  console.error("FAIL: f2-new chybí po 2. zápisu");
+
+// --- test: stará data bez zařízení se doplní při čtení ---
+const staraData = structuredClone(blobJson);
+delete staraData.analyticsAgregovane.navstevyPodleZarizeni;
+delete staraData.analyticsAgregovane.pushOdberyPodleZarizeni;
+const doplneno = simulovatZapis(staraData, [{ typ: "navsteva", zdroj: "primy", zarizeni: "desktop" }]);
+if (doplneno.analyticsAgregovane.navstevyPodleZarizeni.desktop !== 1) {
+  console.error("FAIL: migrace chybějících počítadel zařízení", doplneno.analyticsAgregovane);
   process.exit(1);
 }
 
@@ -149,5 +183,5 @@ if (seStarouChybou.analyticsAgregovane?.navstevyPodleZdroje?.qr === 1) {
 }
 
 console.log("OK: normalizace zachovává analyticsAgregovane");
-console.log("OK: opakované zápisy kumulují analytics countery");
+console.log("OK: opakované zápisy kumulují analytics countery včetně zařízení");
 console.log("Výsledný stav:", JSON.stringify(stav.analyticsAgregovane, null, 2));

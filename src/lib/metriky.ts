@@ -1,5 +1,6 @@
 import type { MetrikySouhrn, PayloadMetriky } from "@/types";
 import type { MetrikyAgregovane, UlozisteDat, ZaznamMetriky } from "./uloziste-dat";
+import type { TypZarizeni } from "./zarizeni-navstevnika";
 import { aplikovatAnalyticsBatch } from "./analytics";
 import { nacistData, upravitData } from "./uloziste-dat";
 
@@ -180,7 +181,7 @@ export async function ulozitPushOdber(
     klicAuth: string;
   },
   oidcZHeaderu?: string | null,
-  volby?: { zaznamenatPovoleni?: boolean; navstevnikId?: string }
+  volby?: { zaznamenatPovoleni?: boolean; navstevnikId?: string; zarizeni?: TypZarizeni }
 ): Promise<void> {
   await upravitData(
     (uloziste) => {
@@ -211,7 +212,13 @@ export async function ulozitPushOdber(
   if (volby?.zaznamenatPovoleni) {
     try {
       await zaznamenatMetrikyBatch(
-        [{ typ: "povoleno_upozorneni", navstevnikId: volby.navstevnikId }],
+        [
+          {
+            typ: "povoleno_upozorneni",
+            navstevnikId: volby.navstevnikId,
+            zarizeni: volby.zarizeni,
+          },
+        ],
         oidcZHeaderu
       );
     } catch {

@@ -13,6 +13,7 @@ import {
 } from "@/lib/uloziste";
 import { ziskatNeboRegistrovatServiceWorker } from "@/lib/service-worker";
 import { useMetriky } from "@/hooks/useMetriky";
+import { urcitZarizeniNavstevnika } from "@/lib/zarizeni-navstevnika";
 
 /**
  * Obrazovka „chci se vracet“ – klidná, centrovaná, teplé pozadí.
@@ -78,7 +79,7 @@ export function ObrazovkaChciSeVracet() {
                 ? error.message
                 : "Nepodařilo se uložit push odběr na server";
             setChybaRegistrace(zprava);
-            await odeslatMetrikuOkamzite("povoleno_upozorneni");
+            await odeslatMetrikuOkamzite("povoleno_upozorneni", urcitZarizeniNavstevnika());
           } finally {
             setNacita(false);
           }
@@ -108,8 +109,8 @@ export function ObrazovkaChciSeVracet() {
 
   const handleHotovoIOS = async () => {
     setNacita(true);
-    await odeslatMetrikuOkamzite("povoleno_upozorneni");
-    odeslat("povoleno_upozorneni");
+    await odeslatMetrikuOkamzite("povoleno_upozorneni", urcitZarizeniNavstevnika());
+    odeslat("povoleno_upozorneni", undefined, undefined, urcitZarizeniNavstevnika());
     ulozitUpozorneniAktivni();
     setJeUpozorneniAktivni(true);
     setNacita(false);
@@ -252,6 +253,7 @@ async function ulozitSubscriptionNaServer(
       subscription: subscription.toJSON(),
       navstevnikId: ziskatNavstevnikId(),
       zaznamenatPovoleni: volby?.zaznamenatPovoleni ?? true,
+      zarizeni: urcitZarizeniNavstevnika(),
     }),
   });
 
@@ -266,14 +268,15 @@ async function ulozitSubscriptionNaServer(
 }
 
 async function odeslatMetrikuOkamzite(
-  typ: "povoleno_upozorneni"
+  typ: "povoleno_upozorneni",
+  zarizeni?: ReturnType<typeof urcitZarizeniNavstevnika>
 ): Promise<void> {
   try {
     await fetch("/api/metriky", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        udalosti: [{ typ, navstevnikId: ziskatNavstevnikId() }],
+        udalosti: [{ typ, navstevnikId: ziskatNavstevnikId(), zarizeni }],
       }),
     });
   } catch {
