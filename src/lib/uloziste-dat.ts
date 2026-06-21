@@ -6,6 +6,7 @@ import { cache } from "react";
 import type { Polozka } from "@/types";
 import type { TypUdalostiMetriky } from "@/types";
 import { nacistDataBlob, ulozitDataBlob } from "./uloziste-blob";
+import { normalizovatUloziste } from "./uloziste-normalizace";
 import { pouzivaBlobUloziste } from "./env-blob";
 import type { AnalyticsAgregovane } from "./analytics";
 
@@ -103,13 +104,7 @@ function nacistDataLokalne(): UlozisteDat {
   const obsah = fs.readFileSync(CESTA_LOKALNI, "utf-8");
   const data = JSON.parse(obsah) as UlozisteDat;
 
-  return {
-    polozky: data.polozky ?? [],
-    metriky: data.metriky ?? [],
-    metrikyAgregovane: data.metrikyAgregovane,
-    pushOdbery: data.pushOdbery ?? [],
-    verzeUloziste: data.verzeUloziste,
-  };
+  return normalizovatUloziste(data);
 }
 
 /** Uloží data */

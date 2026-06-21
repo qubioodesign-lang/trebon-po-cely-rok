@@ -3,6 +3,7 @@ import "server-only";
 import { put } from "@vercel/blob";
 import { unstable_noStore as noStore } from "next/cache";
 import type { UlozisteDat } from "./uloziste-dat";
+import { normalizovatUloziste } from "./uloziste-normalizace";
 import { ziskatBlobStoreId, ziskatVolbyBlobAsync } from "./env-blob";
 
 /** Cesta k metadata JSON v Blob úložišti */
@@ -80,7 +81,7 @@ export async function nacistDataBlob(
     }
 
     try {
-      return normalizovatData(JSON.parse(text) as UlozisteDat);
+      return normalizovatUloziste(JSON.parse(text) as UlozisteDat);
     } catch {
       throw new Error(
         "Metadata v Blob jsou poškozená (neplatný JSON). Obnovte zálohu nebo opravte soubor data/uloziste.json."
@@ -116,12 +117,4 @@ export async function ulozitDataBlob(
   });
 }
 
-function normalizovatData(data: UlozisteDat): UlozisteDat {
-  return {
-    polozky: data.polozky ?? [],
-    metriky: data.metriky ?? [],
-    metrikyAgregovane: data.metrikyAgregovane,
-    pushOdbery: data.pushOdbery ?? [],
-    verzeUloziste: data.verzeUloziste,
-  };
-}
+export { normalizovatUloziste } from "./uloziste-normalizace";

@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "db:init": "node scripts/inicializace-databaze.mjs",
-    "seed": "node scripts/seed-vzor.mjs"
+    "seed": "node scripts/seed-vzor.mjs",
+    "test:analytics": "node scripts/verify-analytics-normalizace.mjs"
   },
   "dependencies": {
     "@vercel/blob": "^2.4.0",
