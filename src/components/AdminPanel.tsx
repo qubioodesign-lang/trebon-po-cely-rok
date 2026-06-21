@@ -14,7 +14,12 @@ import {
   zmenitPoradiPolozek,
   odeslatPushUpozorneni,
   nahraditFotografiiPolozky,
+  vytvoritZalohu,
+  nacistSeznamZaloh,
+  obnovitZalohuAdmin,
 } from "@/app/admin/actions";
+import type { ZalohaInfo } from "@/lib/zaloha/typy";
+import { formatovatVelikost } from "@/lib/zaloha/pomocne";
 
 interface AdminPanelProps {
   jePrihlasen: boolean;
@@ -67,6 +72,10 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
   );
   const [odesilaPush, setOdesilaPush] = useState(false);
   const [nahrazujeId, setNahrazujeId] = useState<string | null>(null);
+  const [zalohy, setZalohy] = useState<ZalohaInfo[]>([]);
+  const [nacitaZalohy, setNacitaZalohy] = useState(false);
+  const [vytvariZalohu, setVytvariZalohu] = useState(false);
+  const [obnovujeZalohu, setObnovujeZalohu] = useState<string | null>(null);
   const posledniPlnePolozky = useRef<Polozka[]>([]);
   const vstupNahraditFotografii = useRef<HTMLInputElement>(null);
   const idKNahrazeni = useRef<string | null>(null);
@@ -99,6 +108,32 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
       return nove;
     });
   }, [data?.polozky]);
+
+  const nacistZalohy = async () => {
+    setNacitaZalohy(true);
+    try {
+      const vysledek = await nacistSeznamZaloh();
+      if ("uspech" in vysledek && vysledek.uspech) {
+        setZalohy(vysledek.zalohy);
+      } else if ("chyba" in vysledek && vysledek.chyba) {
+        setChybaAkce(vysledek.chyba);
+      }
+    } catch (error) {
+      setChybaAkce(
+        error instanceof Error
+          ? error.message
+          : "Neočekávaná chyba při načtení seznamu záloh"
+      );
+    } finally {
+      setNacitaZalohy(false);
+    }
+  };
+
+  useEffect(() => {
+    if (jePrihlasen) {
+      void nacistZalohy();
+    }
+  }, [jePrihlasen]);
 
   const trvaleUloziste = data?.trvaleUloziste ?? false;
   const diagnoza = data?.diagnoza ?? null;
@@ -316,6 +351,82 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
     }
   };
 
+  const handleVytvoritZalohu = async () => {
+    setVytvariZalohu(true);
+    setChybaAkce("");
+    setPotvrzeniAkce("");
+    setPotvrzeniUrlSouboru(null);
+
+    try {
+      const vysledek = await vytvoritZalohu();
+      if ("uspech" in vysledek && vysledek.uspech) {
+        setPotvrzeniAkce(
+          `Záloha vytvořena (${formatovatVelikost(vysledek.zaloha.velikost)}).`
+        );
+        await nacistZalohy();
+      } else if ("chyba" in vysledek && vysledek.chyba) {
+        setChybaAkce(vysledek.chyba);
+      }
+    } catch (error) {
+      setChybaAkce(
+        error instanceof Error
+          ? error.message
+          : "Neočekávaná chyba při vytváření zálohy"
+      );
+    } finally {
+      setVytvariZalohu(false);
+    }
+  };
+
+  const handleStahnoutZalohu = (pathname: string) => {
+    const url = `/api/admin/zaloha/stahnout?pathname=${encodeURIComponent(pathname)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const handleObnovitZalohu = async (zaloha: ZalohaInfo) => {
+    const potvrzeni = [
+      "Obnovit galerii ze zálohy?",
+      "",
+      `Záloha: ${zaloha.nazev}`,
+      `Vytvořeno: ${new Date(zaloha.vytvoreno).toLocaleString("cs-CZ")}`,
+      "",
+      "Aktuální metadata, fotografie, push odběratelé a metriky budou přepsány.",
+    ].join("\n");
+
+    if (!confirm(potvrzeni)) return;
+
+    setObnovujeZalohu(zaloha.pathname);
+    setChybaAkce("");
+    setPotvrzeniAkce("");
+    setPotvrzeniUrlSouboru(null);
+
+    try {
+      const vysledek = await obnovitZalohuAdmin(zaloha.pathname);
+      if ("uspech" in vysledek && vysledek.uspech) {
+        setPotvrzeniAkce(
+          `Obnova dokončena: ${vysledek.polozky} položek, ${vysledek.soubory} souborů, ${vysledek.pushOdbery} push odběratelů.`
+        );
+        obnovit();
+      } else if ("chyba" in vysledek && vysledek.chyba) {
+        setChybaAkce(vysledek.chyba);
+      }
+    } catch (error) {
+      setChybaAkce(
+        error instanceof Error
+          ? error.message
+          : "Neočekávaná chyba při obnově ze zálohy"
+      );
+    } finally {
+      setObnovujeZalohu(null);
+    }
+  };
+
+  const formatovatDatumZalohy = (iso: string) =>
+    new Date(iso).toLocaleString("cs-CZ", {
+      dateStyle: "short",
+      timeStyle: "medium",
+    });
+
   if (!jePrihlasen) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-krem px-6">
@@ -443,6 +554,79 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
             </div>
           ) : (
             <p className="text-xs text-text-velmiJemny">data metrik nejsou k dispozici</p>
+          )}
+        </section>
+
+        <section className="space-y-3 border border-text-velmiJemny/20 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-light text-text-jemny">zálohy</h2>
+            <button
+              type="button"
+              onClick={() => void nacistZalohy()}
+              disabled={nacitaZalohy || vytvariZalohu}
+              className="text-xs text-text-velmiJemny disabled:opacity-30"
+            >
+              {nacitaZalohy ? "načítám…" : "obnovit seznam"}
+            </button>
+          </div>
+          <p className="text-xs text-text-velmiJemny">
+            Ruční záloha obsahuje fotografie, metadata galerie, push odběratele,
+            metriky návštěvnosti a netajná nastavení projektu.
+          </p>
+          <button
+            type="button"
+            onClick={() => void handleVytvoritZalohu()}
+            disabled={!trvaleUloziste || vytvariZalohu || obnovujeZalohu !== null}
+            className="tlacitko-klidne"
+          >
+            {vytvariZalohu ? "vytvářím zálohu…" : "vytvořit zálohu"}
+          </button>
+          {!trvaleUloziste && (
+            <p className="text-xs text-amber-700/80">
+              Zálohování vyžaduje aktivní Blob úložiště.
+            </p>
+          )}
+          {zalohy.length === 0 && !nacitaZalohy && trvaleUloziste && (
+            <p className="text-xs text-text-velmiJemny">žádné zálohy</p>
+          )}
+          {zalohy.length > 0 && (
+            <ul className="space-y-2">
+              {zalohy.map((zaloha) => (
+                <li
+                  key={zaloha.pathname}
+                  className="flex flex-col gap-2 border border-text-velmiJemny/20 p-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0 text-xs text-text-velmiJemny">
+                    <p className="truncate font-mono text-[11px] text-text">
+                      {zaloha.nazev}
+                    </p>
+                    <p>
+                      {formatovatDatumZalohy(zaloha.vytvoreno)} ·{" "}
+                      {formatovatVelikost(zaloha.velikost)}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => handleStahnoutZalohu(zaloha.pathname)}
+                      className="text-xs text-text-velmiJemny"
+                    >
+                      stáhnout
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleObnovitZalohu(zaloha)}
+                      disabled={obnovujeZalohu === zaloha.pathname || vytvariZalohu}
+                      className="text-xs text-red-400/70 disabled:opacity-30"
+                    >
+                      {obnovujeZalohu === zaloha.pathname
+                        ? "obnovuji…"
+                        : "obnovit"}
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
           )}
         </section>
 

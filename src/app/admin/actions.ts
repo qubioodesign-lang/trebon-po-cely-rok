@@ -32,6 +32,12 @@ import {
   ziskatDiagnozuBlob,
 } from "@/lib/env-blob";
 import type { DiagnozaBlob } from "@/types";
+import {
+  vytvoritZalohu as vytvoritZalohuSoubor,
+  seznamZaloh,
+  obnovitZeZalohy,
+  type ZalohaInfo,
+} from "@/lib/zaloha";
 
 type AkceVysledek =
   | { uspech: true; novaUrlSouboru?: string }
@@ -40,6 +46,24 @@ type AkceVysledek =
 export type PushAkceVysledek =
   | { uspech: true; pocetOdeslano: number; pocetSelhalo: number }
   | { zadniOdberatele: true }
+  | { chyba: string; diagnoza?: DiagnozaBlob };
+
+export type ZalohaAkceVysledek =
+  | { uspech: true; zaloha: ZalohaInfo }
+  | { chyba: string; diagnoza?: DiagnozaBlob };
+
+export type SeznamZalohVysledek =
+  | { uspech: true; zalohy: ZalohaInfo[] }
+  | { chyba: string; diagnoza?: DiagnozaBlob };
+
+export type ObnovaZalohyVysledek =
+  | {
+      uspech: true;
+      polozky: number;
+      pushOdbery: number;
+      soubory: number;
+      vytvoreno: string;
+    }
   | { chyba: string; diagnoza?: DiagnozaBlob };
 
 async function overitAdmina(): Promise<
@@ -384,6 +408,80 @@ export async function odeslatPushUpozorneni(
     return {
       chyba:
         error instanceof Error ? error.message : "Chyba při odesílání upozornění",
+      diagnoza: admin.diagnoza,
+    };
+  }
+}
+
+export async function vytvoritZalohu(): Promise<ZalohaAkceVysledek> {
+  const admin = await overitAdmina();
+  if ("chyba" in admin) return { chyba: admin.chyba, diagnoza: admin.diagnoza };
+
+  if (!pouzivaBlobUloziste()) {
+    return {
+      chyba: "Zálohování vyžaduje aktivní Blob úložiště.",
+      diagnoza: admin.diagnoza,
+    };
+  }
+
+  if (!maBlobAutentizaci(admin.oidcHeader)) {
+    return {
+      chyba: zpravaChybejiciBlobAutentizace(),
+      diagnoza: admin.diagnoza,
+    };
+  }
+
+  try {
+    const zaloha = await vytvoritZalohuSoubor(admin.oidcHeader);
+    return { uspech: true, zaloha };
+  } catch (error) {
+    return {
+      chyba: error instanceof Error ? error.message : "Chyba při vytváření zálohy",
+      diagnoza: admin.diagnoza,
+    };
+  }
+}
+
+export async function nacistSeznamZaloh(): Promise<SeznamZalohVysledek> {
+  const admin = await overitAdmina();
+  if ("chyba" in admin) return { chyba: admin.chyba, diagnoza: admin.diagnoza };
+
+  if (!pouzivaBlobUloziste()) {
+    return { uspech: true, zalohy: [] };
+  }
+
+  try {
+    const zalohy = await seznamZaloh(admin.oidcHeader);
+    return { uspech: true, zalohy };
+  } catch (error) {
+    return {
+      chyba: error instanceof Error ? error.message : "Chyba při načtení seznamu záloh",
+      diagnoza: admin.diagnoza,
+    };
+  }
+}
+
+export async function obnovitZalohuAdmin(
+  pathname: string
+): Promise<ObnovaZalohyVysledek> {
+  const admin = await overitAdmina();
+  if ("chyba" in admin) return { chyba: admin.chyba, diagnoza: admin.diagnoza };
+
+  if (!maBlobAutentizaci(admin.oidcHeader)) {
+    return {
+      chyba: zpravaChybejiciBlobAutentizace(),
+      diagnoza: admin.diagnoza,
+    };
+  }
+
+  try {
+    const vysledek = await obnovitZeZalohy(pathname, admin.oidcHeader);
+    revalidatePath("/admin");
+    revalidatePath("/");
+    return { uspech: true, ...vysledek };
+  } catch (error) {
+    return {
+      chyba: error instanceof Error ? error.message : "Chyba při obnově ze zálohy",
       diagnoza: admin.diagnoza,
     };
   }
