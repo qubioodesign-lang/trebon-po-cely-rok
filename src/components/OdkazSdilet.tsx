@@ -20,10 +20,10 @@ export function OdkazSdilet({ polozkaId, nadFotkou = false }: PropsOdkazSdilet) 
 
   const handleSdilet = async () => {
     setPotvrzeni("");
+    odeslat("sdileni_fotografie", polozkaId);
 
     try {
       const vysledek = await sdiletPolozku(polozkaId);
-      odeslat("sdileni_fotografie", polozkaId);
       if (vysledek === "zkopirovano") {
         setPotvrzeni("odkaz zkopírován");
       }
