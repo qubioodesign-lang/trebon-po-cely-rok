@@ -11,6 +11,7 @@ import {
 import { BlobNotFoundError } from "@vercel/blob";
 import {
   vytvoritPolozku,
+  vytvoritProlnuti,
   aktualizovatPopis,
   prepnoutAktivni,
   smazatPolozku,
@@ -21,6 +22,8 @@ import {
   nahraditSouborPolozky,
 } from "@/lib/polozky";
 import { ulozitSoubor, smazatSoubor } from "@/lib/soubory";
+import { ziskatSouboryPolozky } from "@/lib/polozka-soubory";
+import { jePlatnyPocetSnimkuProlnuti } from "@/lib/prolnuti-snimky";
 import { odeslatPushNotifikaceVsem } from "@/lib/push-notifikace";
 import {
   ziskatOidcZRequestu,
@@ -40,8 +43,33 @@ import {
 } from "@/lib/zaloha";
 
 type AkceVysledek =
-  | { uspech: true; novaUrlSouboru?: string }
-  | { chyba: string; diagnoza?: DiagnozaBlob };
+  | { uspech: true; novaUrlSouboru?: string; diagProlnuti?: DiagProlnutiNahrani }
+  | { chyba: string; diagnoza?: DiagnozaBlob; diagProlnuti?: DiagProlnutiNahrani };
+
+/** Diagnostika nahrání prolnutí – zobrazení v adminu po uploadu */
+export type DiagProlnutiNahrani = {
+  maA: boolean;
+  maB: boolean;
+  maC: boolean;
+  pocetUlozenychSouboru: number;
+  pocetSouboruVMeta: number;
+};
+
+function sestavitDiagProlnuti(
+  souborA: FormDataEntryValue | null,
+  souborB: FormDataEntryValue | null,
+  souborC: FormDataEntryValue | null,
+  pocetUlozenychSouboru = 0,
+  pocetSouboruVMeta = 0
+): DiagProlnutiNahrani {
+  return {
+    maA: souborA instanceof File && souborA.size > 0,
+    maB: souborB instanceof File && souborB.size > 0,
+    maC: souborC instanceof File && souborC.size > 0,
+    pocetUlozenychSouboru,
+    pocetSouboruVMeta,
+  };
+}
 
 export type PushAkceVysledek =
   | { uspech: true; pocetOdeslano: number; pocetSelhalo: number }
@@ -117,7 +145,7 @@ async function dokoncitNahrazeniJeLiUlozeno(
 
   revalidatePath("/admin");
   revalidatePath("/");
-  return { uspech: true, novaUrlSouboru: overena.soubor };
+    return { uspech: true, novaUrlSouboru: overena.soubor ?? undefined };
 }
 
 export async function prihlasitAdmin(heslo: string) {
@@ -188,6 +216,125 @@ export async function nahratPolozku(formData: FormData): Promise<AkceVysledek> {
   }
 }
 
+export async function nahratProlnuti(formData: FormData): Promise<AkceVysledek> {
+  const admin = await overitAdmina();
+  if ("chyba" in admin) {
+    return { chyba: admin.chyba, diagnoza: admin.diagnoza };
+  }
+
+  const { oidcHeader, diagnoza } = admin;
+  const nahrateCesty: string[] = [];
+
+  try {
+    const souborA = formData.get("souborA");
+    const souborB = formData.get("souborB");
+    const souborC = formData.get("souborC");
+    const popis = (formData.get("popis") as string) ?? "";
+    const datumPorizeni = (formData.get("datumPorizeni") as string) || null;
+
+    if (!(souborA instanceof File) || souborA.size === 0) {
+      return {
+        chyba: "Pro prolnutí chybí první fotografie (A)",
+        diagnoza,
+        diagProlnuti: sestavitDiagProlnuti(souborA, souborB, souborC),
+      };
+    }
+
+    if (!(souborB instanceof File) || souborB.size === 0) {
+      return {
+        chyba: "Pro prolnutí chybí druhá fotografie (B)",
+        diagnoza,
+        diagProlnuti: sestavitDiagProlnuti(souborA, souborB, souborC),
+      };
+    }
+
+    const souboryKNahrani: File[] = [souborA, souborB];
+    if (souborC instanceof File && souborC.size > 0) {
+      souboryKNahrani.push(souborC);
+    }
+
+    if (!jePlatnyPocetSnimkuProlnuti(souboryKNahrani.length)) {
+      return {
+        chyba: "Pro prolnutí jsou potřeba 2 nebo 3 fotografie (A a B povinné)",
+        diagnoza,
+        diagProlnuti: sestavitDiagProlnuti(souborA, souborB, souborC),
+      };
+    }
+
+    // Paralelně načíst všechny buffery hned po validaci – před jakýmkoli uploadem.
+    const souboryProUpload = await Promise.all(
+      souboryKNahrani.map(async (soubor, index) => {
+        const buffer = Buffer.from(await soubor.arrayBuffer());
+        return new File([buffer], soubor.name || `snimek-${index + 1}`, {
+          type: soubor.type,
+        });
+      })
+    );
+
+    for (const soubor of souboryProUpload) {
+      const vysledek = await ulozitSoubor(soubor, oidcHeader);
+      if (vysledek.typ !== "fotografie") {
+        for (const cesta of nahrateCesty) {
+          await smazatSouborBezpecne(cesta, oidcHeader);
+        }
+        return {
+          chyba: "Prolnutí podporuje pouze fotografie (JPEG, PNG, WebP, AVIF)",
+          diagnoza,
+          diagProlnuti: sestavitDiagProlnuti(
+            souborA,
+            souborB,
+            souborC,
+            nahrateCesty.length
+          ),
+        };
+      }
+      nahrateCesty.push(vysledek.cestaSouboru);
+    }
+
+    const novaPolozka = await vytvoritProlnuti(
+      {
+        soubory: nahrateCesty,
+        popis,
+        datumPorizeni,
+      },
+      oidcHeader
+    );
+
+    const diagProlnuti = sestavitDiagProlnuti(
+      souborA,
+      souborB,
+      souborC,
+      nahrateCesty.length,
+      novaPolozka.soubory?.length ?? 0
+    );
+
+    revalidatePath("/admin");
+    revalidatePath("/");
+    return { uspech: true, diagProlnuti };
+  } catch (error) {
+    for (const cesta of nahrateCesty) {
+      try {
+        await smazatSouborBezpecne(cesta, oidcHeader);
+      } catch {
+        // metadata zůstala beze změny
+      }
+    }
+
+    const zprava =
+      error instanceof Error ? error.message : "Chyba při nahrávání prolnutí";
+    return {
+      chyba: zprava,
+      diagnoza: ziskatDiagnozuBlob(oidcHeader),
+      diagProlnuti: sestavitDiagProlnuti(
+        formData.get("souborA"),
+        formData.get("souborB"),
+        formData.get("souborC"),
+        nahrateCesty.length
+      ),
+    };
+  }
+}
+
 export async function prepnoutAktivniPolozky(
   id: string,
   aktivni: boolean
@@ -218,8 +365,11 @@ export async function smazatPolozkuAdmin(id: string): Promise<AkceVysledek> {
       return { chyba: "Položka nebyla nalezena", diagnoza: admin.diagnoza };
     }
 
-    await smazatSouborBezpecne(polozka.soubor, admin.oidcHeader);
     await smazatPolozku(id, admin.oidcHeader);
+
+    for (const cesta of ziskatSouboryPolozky(polozka)) {
+      await smazatSouborBezpecne(cesta, admin.oidcHeader);
+    }
 
     revalidatePath("/admin");
     revalidatePath("/");
@@ -254,6 +404,13 @@ export async function nahraditFotografiiPolozky(
     if (polozka.typ !== "fotografie") {
       return {
         chyba: "Nahradit lze pouze fotografii",
+        diagnoza,
+      };
+    }
+
+    if (!polozka.soubor) {
+      return {
+        chyba: "Položka nemá soubor k nahrazení",
         diagnoza,
       };
     }

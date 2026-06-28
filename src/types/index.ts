@@ -1,19 +1,21 @@
 /**
- * Typy obsahu – architektura připravena pro budoucí video.
- * První verze používá pouze fotografie.
+ * Typy obsahu galerie.
+ * Fotografie – jeden snímek; prolnutí – 2–3 snímky (postupné prolínání); video – rezervováno.
  */
 import type { ZdrojNavstevnika } from "@/lib/zdroj-navstev";
 import type { TypZarizeni } from "@/lib/zarizeni-navstevnika";
 
 export type { ZdrojNavstevnika, TypZarizeni };
-export type TypObsahu = "fotografie" | "video";
+export type TypObsahu = "fotografie" | "prolnuti" | "video";
 
-/** Položka galerie – fotografie nebo video */
+/** Položka galerie */
 export interface Polozka {
   id: string;
   typ: TypObsahu;
-  /** URL souboru (Blob) nebo název souboru v /public/uploads */
-  soubor: string;
+  /** Jeden soubor – fotografie nebo video */
+  soubor?: string;
+  /** Dva až tři soubory – prolnutí (postupné prolínání) */
+  soubory?: string[];
   popis: string;
   datumPorizeni: string | null;
   datumPublikace: string;
@@ -25,7 +27,10 @@ export interface Polozka {
 export interface PolozkaVerejna {
   id: string;
   typ: TypObsahu;
-  url: string;
+  /** URL jednoho souboru – fotografie / video */
+  url?: string;
+  /** URL více souborů – prolnutí */
+  urls?: string[];
   popis: string;
 }
 

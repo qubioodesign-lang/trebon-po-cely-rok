@@ -6,6 +6,7 @@ import { zipSync, strToU8 } from "fflate";
 import { nacistDataCerstve } from "@/lib/uloziste-dat";
 import { pouzivaBlobUloziste } from "@/lib/env-blob";
 import { PUSH_TITULEK, PUSH_TEXT } from "@/lib/push-notifikace";
+import { ziskatSouboryPolozky } from "@/lib/polozka-soubory";
 import {
   ZALOHA_SCHEMA,
   ZALOHA_VERZE,
@@ -66,16 +67,18 @@ export async function sestavitZalohuZip(
   let pocetSouboru = 0;
 
   for (const polozka of uloziste.polozky) {
-    const uploadCesta = extrahovatUploadCestu(polozka.soubor);
-    if (!uploadCesta) {
-      throw new Error(
-        `Položka „${polozka.popis}“ nemá rozpoznatelnou cestu souboru.`
-      );
-    }
+    for (const soubor of ziskatSouboryPolozky(polozka)) {
+      const uploadCesta = extrahovatUploadCestu(soubor);
+      if (!uploadCesta) {
+        throw new Error(
+          `Položka „${polozka.popis}“ nemá rozpoznatelnou cestu souboru.`
+        );
+      }
 
-    const obsah = await stahnoutSouborPolozky(polozka.soubor);
-    souboryZip[cestaSouboruVZip(uploadCesta)] = obsah;
-    pocetSouboru += 1;
+      const obsah = await stahnoutSouborPolozky(soubor);
+      souboryZip[cestaSouboruVZip(uploadCesta)] = obsah;
+      pocetSouboru += 1;
+    }
   }
 
   const manifest: ManifestZalohy = {

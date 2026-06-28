@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ziskatAktivniPolozky, ziskatPolozku } from "@/lib/polozky";
+import { ziskatHlavniSouborPolozky } from "@/lib/polozka-soubory";
 import { SDILENI_TEXT, SDILENI_TITULEK } from "@/lib/sdileni";
 import { sestavitUrlPolozky } from "@/lib/url-polozky";
 
@@ -53,19 +54,25 @@ export async function ziskatMetadataGalerie(
   if (polozkaId) {
     const polozka = await ziskatPolozku(polozkaId, oidcZHeaderu);
     if (polozka?.aktivni) {
-      const obrazekUrl = sestavitAbsolutniUrl(
-        sestavitUrlPolozky(polozka.soubor),
-        zakladUrl
-      );
-      const strankaUrl = `${zakladUrl}/?polozka=${encodeURIComponent(polozkaId)}`;
-      return metadataProObrazek(obrazekUrl, strankaUrl);
+      const hlavniSoubor = ziskatHlavniSouborPolozky(polozka);
+      if (hlavniSoubor) {
+        const obrazekUrl = sestavitAbsolutniUrl(
+          sestavitUrlPolozky(hlavniSoubor),
+          zakladUrl
+        );
+        const strankaUrl = `${zakladUrl}/?polozka=${encodeURIComponent(polozkaId)}`;
+        return metadataProObrazek(obrazekUrl, strankaUrl);
+      }
     }
   }
 
   const polozky = await ziskatAktivniPolozky(oidcZHeaderu);
   if (polozky.length > 0) {
-    const obrazekUrl = sestavitAbsolutniUrl(polozky[0].url, zakladUrl);
-    return metadataProObrazek(obrazekUrl, zakladUrl);
+    const prvniUrl = polozky[0].url ?? polozky[0].urls?.[0];
+    if (prvniUrl) {
+      const obrazekUrl = sestavitAbsolutniUrl(prvniUrl, zakladUrl);
+      return metadataProObrazek(obrazekUrl, zakladUrl);
+    }
   }
 
   return metadataProObrazek(`${zakladUrl}/apple-icon`, zakladUrl);

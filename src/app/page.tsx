@@ -1,44 +1,126 @@
 import type { Metadata } from "next";
+
 import { headers } from "next/headers";
+
 import { GalerieHlavni } from "@/components/GalerieHlavni";
+
+import { GaleriePocatecniServer } from "@/components/GaleriePocatecniServer";
+
+import { PreloadPocatecniFotografie } from "@/components/PreloadPocatecniFotografie";
+
+import { ziskatPocatecniIndexServer } from "@/lib/pocatecni-polozka-server";
+
 import { ziskatMetadataGalerie } from "@/lib/og-metadata";
+
 import { ziskatAktivniPolozky } from "@/lib/polozky";
 
+
+
 /** Galerie načítá data za běhu z Blob – ne při buildu */
+
 export const dynamic = "force-dynamic";
 
+
+
 export async function generateMetadata({
+
   searchParams,
+
 }: {
+
   searchParams: Promise<{ polozka?: string }>;
+
 }): Promise<Metadata> {
+
   const { polozka } = await searchParams;
+
   const hlavicky = await headers();
+
   return ziskatMetadataGalerie(
+
     polozka,
+
     hlavicky.get("x-vercel-oidc-token"),
+
     hlavicky
+
   );
+
 }
+
+
 
 /**
+
  * Úvodní obrazovka – data vždy z Blob (ne ze seed souboru).
+
  * Volitelný parametr ?polozka=<id> otevře konkrétní sdílenou položku.
+
  */
+
 export default async function HlavniStranka({
+
   searchParams,
+
 }: {
+
   searchParams: Promise<{ polozka?: string }>;
+
 }) {
+
   const { polozka: pocatecniPolozkaId } = await searchParams;
+
   const hlavicky = await headers();
+
   const oidcHeader = hlavicky.get("x-vercel-oidc-token");
+
+
+
   const polozky = await ziskatAktivniPolozky(oidcHeader);
 
+  const pocatecniIndex = ziskatPocatecniIndexServer(polozky, pocatecniPolozkaId);
+
+  const pocatecniPolozka = polozky[pocatecniIndex];
+
+
+
   return (
-    <GalerieHlavni
-      polozky={polozky}
-      pocatecniPolozkaId={pocatecniPolozkaId}
-    />
+
+    <>
+
+      {pocatecniPolozka ? (
+
+        <PreloadPocatecniFotografie polozka={pocatecniPolozka} />
+
+      ) : null}
+
+      {pocatecniPolozka ? (
+
+        <GaleriePocatecniServer
+
+          polozka={pocatecniPolozka}
+
+          aktualniIndex={pocatecniIndex}
+
+          pocetPolozek={polozky.length}
+
+        />
+
+      ) : null}
+
+      <GalerieHlavni
+
+        polozky={polozky}
+
+        pocatecniPolozkaId={pocatecniPolozkaId}
+
+        pocatecniIndex={pocatecniIndex}
+
+      />
+
+    </>
+
   );
+
 }
+

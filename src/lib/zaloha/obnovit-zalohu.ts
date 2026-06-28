@@ -13,6 +13,7 @@ import {
   parsovatManifest,
   prectiTextZZip,
 } from "./pomocne";
+import { ziskatSouboryPolozky } from "@/lib/polozka-soubory";
 
 const POVOLENE_TYPY: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -76,30 +77,43 @@ export async function obnovitZeZalohy(
   let pocetSouboru = 0;
 
   for (const polozka of uloziste.polozky) {
-    const uploadCesta = extrahovatUploadCestu(polozka.soubor);
-    if (!uploadCesta) {
-      throw new Error(
-        `Metadata obsahují neplatnou cestu souboru u položky „${polozka.popis}“.`
-      );
+    const cestySouboru = ziskatSouboryPolozky(polozka);
+    const obnoveneUrl: string[] = [];
+
+    for (const puvodniSoubor of cestySouboru) {
+      const uploadCesta = extrahovatUploadCestu(puvodniSoubor);
+      if (!uploadCesta) {
+        throw new Error(
+          `Metadata obsahují neplatnou cestu souboru u položky „${polozka.popis}“.`
+        );
+      }
+
+      const obsah = souboryVZip.get(uploadCesta);
+      if (!obsah) {
+        throw new Error(
+          `V záloze chybí soubor uploads/${uploadCesta} pro položku „${polozka.popis}“.`
+        );
+      }
+
+      const vysledek = await put(`uploads/${uploadCesta}`, Buffer.from(obsah), {
+        ...volby,
+        access: "public",
+        addRandomSuffix: false,
+        allowOverwrite: true,
+        contentType: ziskatContentType(uploadCesta),
+      });
+
+      obnoveneUrl.push(vysledek.url);
+      pocetSouboru += 1;
     }
 
-    const obsah = souboryVZip.get(uploadCesta);
-    if (!obsah) {
-      throw new Error(
-        `V záloze chybí soubor uploads/${uploadCesta} pro položku „${polozka.popis}“.`
-      );
+    if (polozka.typ === "prolnuti") {
+      polozka.soubory = obnoveneUrl;
+      polozka.soubor = undefined;
+    } else if (obnoveneUrl[0]) {
+      polozka.soubor = obnoveneUrl[0];
+      polozka.soubory = undefined;
     }
-
-    const vysledek = await put(`uploads/${uploadCesta}`, Buffer.from(obsah), {
-      ...volby,
-      access: "public",
-      addRandomSuffix: false,
-      allowOverwrite: true,
-      contentType: ziskatContentType(uploadCesta),
-    });
-
-    polozka.soubor = vysledek.url;
-    pocetSouboru += 1;
   }
 
   uloziste.pushOdbery = uloziste.pushOdbery ?? [];

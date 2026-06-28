@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from "react";
 import type { PolozkaVerejna } from "@/types";
+import { ZobrazeniProlnuti } from "./ZobrazeniProlnuti";
+import type { ProlnutiOvladani } from "./SipkaPrehratProlnuti";
 
 interface PropsZobrazeniPolozky {
   polozka: PolozkaVerejna;
   jeAktivni: boolean;
+  onProlnutiOvladani?: (ovladani: ProlnutiOvladani | null) => void;
 }
 
 function PlaceholderFotografie({ popis }: { popis: string }) {
@@ -26,12 +29,26 @@ function PlaceholderFotografie({ popis }: { popis: string }) {
  * Zobrazení jedné položky – fotografie nebo video.
  * Architektura připravena pro budoucí video obsah.
  */
-export function ZobrazeniPolozky({ polozka, jeAktivni }: PropsZobrazeniPolozky) {
+export function ZobrazeniPolozky({
+  polozka,
+  jeAktivni,
+  onProlnutiOvladani,
+}: PropsZobrazeniPolozky) {
   const [chybaObrazku, setChybaObrazku] = useState(false);
 
   useEffect(() => {
     setChybaObrazku(false);
-  }, [polozka.id, polozka.url]);
+  }, [polozka.id, polozka.url, polozka.urls]);
+
+  if (polozka.typ === "prolnuti") {
+    return (
+      <ZobrazeniProlnuti
+        polozka={polozka}
+        jeAktivni={jeAktivni}
+        onProlnutiOvladani={onProlnutiOvladani}
+      />
+    );
+  }
 
   if (polozka.typ === "video") {
     if (chybaObrazku) {
@@ -60,7 +77,7 @@ export function ZobrazeniPolozky({ polozka, jeAktivni }: PropsZobrazeniPolozky) 
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={polozka.url}
+      src={polozka.url!}
       alt={polozka.popis || "Třeboň"}
       className="absolute inset-0 h-full w-full object-cover"
       onError={() => setChybaObrazku(true)}

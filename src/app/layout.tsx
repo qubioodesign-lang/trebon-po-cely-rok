@@ -38,7 +38,9 @@ export default function KorenLayout({
 }) {
   return (
     <html lang="cs">
-      <body className={`${inter.variable} font-sans min-h-dvh`}>{children}</body>
+      <body className={`${inter.variable} font-sans min-h-dvh`}>
+        {children}
+      </body>
     </html>
   );
 }

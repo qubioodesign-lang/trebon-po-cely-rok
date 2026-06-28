@@ -1,7 +1,19 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useLayoutEffect,
+} from "react";
 import type { PolozkaVerejna } from "@/types";
+import { zaznamenatDiag } from "@/lib/diag-inicializace";
+import {
+  jsouGalerieFotkyPripravene,
+  odstranitSsrGalerieOkamzite,
+  zmizetSsrGalerie,
+} from "@/lib/galerie-ssr-prevzeti";
 import {
   ziskatPocatecniIndexGalerie,
   ziskatPlatnouPoziciGalerie,
@@ -14,10 +26,16 @@ import { ZobrazeniPolozky } from "./ZobrazeniPolozky";
 import { OdkazChciSeVracet } from "./OdkazChciSeVracet";
 import { OdkazSdilet } from "./OdkazSdilet";
 import { RegistracePWA } from "./RegistracePWA";
+import {
+  SipkaPrehratProlnuti,
+  type ProlnutiOvladani,
+} from "./SipkaPrehratProlnuti";
 
 interface PropsGalerieHlavni {
   polozky: PolozkaVerejna[];
   pocatecniPolozkaId?: string;
+  /** Index z SSR – pro synchronní převzetí bez bliknutí */
+  pocatecniIndex: number;
 }
 
 /** Práh tažení pro přepnutí fotografie (v pixelech) */
@@ -99,13 +117,41 @@ function SipkaNavigaceNaZacatek({ onClick }: { onClick: () => void }) {
 export function GalerieHlavni({
   polozky,
   pocatecniPolozkaId,
+  pocatecniIndex,
 }: PropsGalerieHlavni) {
+  const galerieDiagRef = useRef(false);
+  const ssrPrevzatoRef = useRef(false);
+  const fotoKontejnerRef = useRef<HTMLDivElement>(null);
+  const [ssrAktivni, setSsrAktivni] = useState(false);
+
+  useLayoutEffect(() => {
+    if (galerieDiagRef.current) return;
+    galerieDiagRef.current = true;
+    zaznamenatDiag("galerie");
+    setSsrAktivni(Boolean(document.getElementById("trebon-ssr-galerie")));
+  }, []);
+
+  const dokoncitPrevzetiSsr = useCallback(() => {
+    if (ssrPrevzatoRef.current) return;
+    ssrPrevzatoRef.current = true;
+    zmizetSsrGalerie(() => setSsrAktivni(false));
+  }, []);
+
+  const zrusitSsrGalerie = useCallback(() => {
+    if (ssrPrevzatoRef.current) return;
+    ssrPrevzatoRef.current = true;
+    odstranitSsrGalerieOkamzite();
+    setSsrAktivni(false);
+  }, []);
+
   const [aktualniIndex, setAktualniIndex] = useState(() =>
     ziskatPocatecniIndexGalerie(polozky, pocatecniPolozkaId)
   );
   const [jePripraveno, setJePripraveno] = useState(false);
   const [posunX, setPosunX] = useState(0);
   const [jeTazeni, setJeTazeni] = useState(false);
+  const [prolnutiOvladani, setProlnutiOvladani] =
+    useState<ProlnutiOvladani | null>(null);
 
   const zacatekX = useRef(0);
   const aktualniIndexRef = useRef(aktualniIndex);
@@ -139,6 +185,49 @@ export function GalerieHlavni({
       document.removeEventListener("visibilitychange", priViditelnosti);
     };
   }, [polozky, pocatecniPolozkaId]);
+
+  // Převzetí SSR → klient: klient pod SSR, fade až po načtení fotek
+  useEffect(() => {
+    if (!ssrAktivni || !jePripraveno) return;
+
+    if (aktualniIndex !== pocatecniIndex) {
+      zrusitSsrGalerie();
+      return;
+    }
+
+    const zkusitPrevzeti = () => {
+      if (ssrPrevzatoRef.current) return;
+      if (!jsouGalerieFotkyPripravene(fotoKontejnerRef.current)) return;
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => dokoncitPrevzetiSsr());
+      });
+    };
+
+    zkusitPrevzeti();
+
+    const kontejner = fotoKontejnerRef.current;
+    if (!kontejner) return;
+
+    kontejner.querySelectorAll("img").forEach((img) => {
+      img.addEventListener("load", zkusitPrevzeti);
+      img.addEventListener("error", zkusitPrevzeti);
+    });
+
+    return () => {
+      kontejner.querySelectorAll("img").forEach((img) => {
+        img.removeEventListener("load", zkusitPrevzeti);
+        img.removeEventListener("error", zkusitPrevzeti);
+      });
+    };
+  }, [
+    aktualniIndex,
+    dokoncitPrevzetiSsr,
+    jePripraveno,
+    pocatecniIndex,
+    ssrAktivni,
+    zrusitSsrGalerie,
+  ]);
 
   // Ukládání pozice a ID položky při každé změně
   useEffect(() => {
@@ -235,6 +324,12 @@ export function GalerieHlavni({
     };
   }, [polozky.length]);
 
+  const aktualniPolozkaId = polozky[aktualniIndex]?.id;
+
+  useEffect(() => {
+    setProlnutiOvladani(null);
+  }, [aktualniPolozkaId]);
+
   if (polozky.length === 0) {
     return (
       <div className="flex min-h-dvh flex-col items-center justify-center bg-krem px-6 text-center">
@@ -250,9 +345,13 @@ export function GalerieHlavni({
   }
 
   const aktualniPolozka = polozky[aktualniIndex];
+  const jeProlnuti = aktualniPolozka.typ === "prolnuti";
 
   return (
-    <div className="fixed inset-0 z-0 h-dvh max-h-dvh w-full overflow-hidden overscroll-none bg-krem-tmavsi md:static md:z-auto md:h-auto md:max-h-none md:min-h-dvh">
+    <div
+      className={`fixed inset-0 z-0 h-dvh max-h-dvh w-full overflow-hidden overscroll-none bg-krem-tmavsi md:static md:z-auto md:h-auto md:max-h-none md:min-h-dvh${ssrAktivni ? " pointer-events-none" : ""}`}
+      aria-hidden={ssrAktivni ? true : undefined}
+    >
       <RegistracePWA />
 
       {/* Fotografie – na mobilu celý displej, na desktopu 70dvh */}
@@ -269,8 +368,12 @@ export function GalerieHlavni({
           }}
         >
           {/* Fotografie – nejnižší vrstva */}
-          <div className="absolute inset-0 z-0">
-            <ZobrazeniPolozky polozka={aktualniPolozka} jeAktivni={true} />
+          <div ref={fotoKontejnerRef} className="absolute inset-0 z-0">
+            <ZobrazeniPolozky
+              polozka={aktualniPolozka}
+              jeAktivni={true}
+              onProlnutiOvladani={jeProlnuti ? setProlnutiOvladani : undefined}
+            />
           </div>
 
           {/* DOČASNĚ výrazné gradienty pro ověření viditelnosti – pouze mobil, nad fotografií (z-8) */}
@@ -290,6 +393,18 @@ export function GalerieHlavni({
             }}
             aria-hidden="true"
           />
+
+          {/* Šipka replay prolnutí – střed obrazovky, lehce pod geometrickým středem */}
+          {jeProlnuti && prolnutiOvladani && (
+            <div className="pointer-events-none absolute inset-x-0 top-[57%] z-[15] flex -translate-y-1/2 justify-center">
+              <div className="pointer-events-auto">
+                <SipkaPrehratProlnuti
+                  viditelna={prolnutiOvladani.zobrazitSipku}
+                  onClick={prolnutiOvladani.prehratZnovu}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Název přes fotografií – nad gradientem (z-20) */}
           <div className="absolute inset-x-0 top-0 z-20 px-6 pt-8 md:bg-gradient-to-b md:from-black/30 md:to-transparent md:pb-16">

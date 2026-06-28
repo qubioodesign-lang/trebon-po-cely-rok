@@ -5,7 +5,10 @@ import {
   upravitData,
   seraditPolozky,
 } from "./uloziste-dat";
-import { sestavitUrlPolozky } from "./url-polozky";
+import {
+  jePlatnaPolozkaGalerie,
+  mapovatPolozkuVerejnou,
+} from "./polozka-soubory";
 
 /** Vrátí všechny aktivní položky seřazené podle pořadí */
 export async function ziskatAktivniPolozky(
@@ -14,13 +17,8 @@ export async function ziskatAktivniPolozky(
   const { polozky } = await nacistData(oidcZHeaderu);
 
   return seraditPolozky(polozky)
-    .filter((p) => p.aktivni)
-    .map((p) => ({
-      id: p.id,
-      typ: p.typ,
-      url: sestavitUrlPolozky(p.soubor),
-      popis: p.popis,
-    }));
+    .filter(jePlatnaPolozkaGalerie)
+    .map(mapovatPolozkuVerejnou);
 }
 
 /** Vrátí všechny položky včetně neaktivních (pro administraci) */
@@ -31,7 +29,31 @@ export async function ziskatVsechnyPolozky(
   return seraditPolozky(polozky);
 }
 
-/** Vytvoří novou položku */
+function vytvoritZakladPolozky(
+  uloziste: { polozky: Polozka[] },
+  data: {
+    typ: TypObsahu;
+    popis: string;
+    datumPorizeni?: string | null;
+  }
+): Omit<Polozka, "soubor" | "soubory"> {
+  const minPoradi = uloziste.polozky.reduce(
+    (min, p) => Math.min(min, p.poradi),
+    Infinity
+  );
+
+  return {
+    id: crypto.randomUUID(),
+    typ: data.typ,
+    popis: data.popis,
+    datumPorizeni: data.datumPorizeni ?? null,
+    datumPublikace: new Date().toISOString(),
+    poradi: minPoradi === Infinity ? 0 : minPoradi - 1,
+    aktivni: true,
+  };
+}
+
+/** Vytvoří novou položku s jedním souborem */
 export async function vytvoritPolozku(
   data: {
     typ: TypObsahu;
@@ -41,41 +63,57 @@ export async function vytvoritPolozku(
   },
   oidcZHeaderu?: string | null
 ): Promise<Polozka> {
-  const id = crypto.randomUUID();
-  const datumPublikace = new Date().toISOString();
-
   let novaPolozka!: Polozka;
 
   await upravitData(
     (uloziste) => {
-      if (uloziste.polozky.some((p) => p.id === id)) {
-        novaPolozka = uloziste.polozky.find((p) => p.id === id)!;
-        return;
-      }
-
-      const minPoradi = uloziste.polozky.reduce(
-        (min, p) => Math.min(min, p.poradi),
-        Infinity
-      );
-
+      const zaklad = vytvoritZakladPolozky(uloziste, data);
       novaPolozka = {
-        id,
-        typ: data.typ,
+        ...zaklad,
         soubor: data.soubor,
-        popis: data.popis,
-        datumPorizeni: data.datumPorizeni ?? null,
-        datumPublikace,
-        // Záporné poradi = před stávající fotky bez změny jejich hodnot
-        poradi: minPoradi === Infinity ? 0 : minPoradi - 1,
-        aktivni: true,
       };
-
       uloziste.polozky.push(novaPolozka);
     },
     oidcZHeaderu,
     {
       overitPoUlozeni: (uloziste) =>
-        uloziste.polozky.some((p) => p.id === id),
+        uloziste.polozky.some((p) => p.id === novaPolozka.id),
+    }
+  );
+
+  return novaPolozka;
+}
+
+/** Vytvoří položku typu prolnutí se 2–3 soubory */
+export async function vytvoritProlnuti(
+  data: {
+    soubory: string[];
+    popis: string;
+    datumPorizeni?: string | null;
+    aktivni?: boolean;
+  },
+  oidcZHeaderu?: string | null
+): Promise<Polozka> {
+  let novaPolozka!: Polozka;
+
+  await upravitData(
+    (uloziste) => {
+      const zaklad = vytvoritZakladPolozky(uloziste, {
+        typ: "prolnuti",
+        popis: data.popis,
+        datumPorizeni: data.datumPorizeni,
+      });
+      novaPolozka = {
+        ...zaklad,
+        soubory: [...data.soubory],
+        aktivni: data.aktivni ?? true,
+      };
+      uloziste.polozky.push(novaPolozka);
+    },
+    oidcZHeaderu,
+    {
+      overitPoUlozeni: (uloziste) =>
+        uloziste.polozky.some((p) => p.id === novaPolozka.id),
     }
   );
 
@@ -119,6 +157,7 @@ export async function nahraditSouborPolozky(
 
       polozka.soubor = novySoubor;
       polozka.typ = typ;
+      polozka.soubory = undefined;
       nahrazena = polozka;
     },
     oidcZHeaderu,

@@ -9,6 +9,7 @@
     "lint": "next lint",
     "db:init": "node scripts/inicializace-databaze.mjs",
     "seed": "node scripts/seed-vzor.mjs",
+    "seed:prolnuti": "node scripts/seed-prolnuti.mjs",
     "test:analytics": "node scripts/verify-analytics-normalizace.mjs"
   },
   "dependencies": {

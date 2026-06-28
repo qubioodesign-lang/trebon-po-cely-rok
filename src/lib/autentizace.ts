@@ -5,15 +5,16 @@ const NAZEV_COOKIE = "admin_session";
 const PLATNOST_HODIN = 24;
 
 function ziskatTajemstvi(): Uint8Array {
-  const tajemstvi =
-    process.env.SESSION_TAJEMSTVI ?? "vychozi-tajemstvi-pro-vyvoj-min-32-zn";
+  const tajemstvi = (
+    process.env.SESSION_TAJEMSTVI ?? "vychozi-tajemstvi-pro-vyvoj-min-32-zn"
+  ).trim();
   return new TextEncoder().encode(tajemstvi);
 }
 
 /** Ověří heslo administrátora */
 export function overitHeslo(heslo: string): boolean {
-  const adminHeslo = process.env.ADMIN_HESLO ?? "admin";
-  return heslo === adminHeslo;
+  const adminHeslo = (process.env.ADMIN_HESLO ?? "admin").trim();
+  return heslo.trim() === adminHeslo;
 }
 
 /** Vytvoří JWT token pro admin session */

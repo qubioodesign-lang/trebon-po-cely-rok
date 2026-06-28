@@ -4,12 +4,15 @@ import { useState, useTransition, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { AdminChyby, AdminData, DiagnozaBlob, Polozka } from "@/types";
 import { sestavitUrlPolozky } from "@/lib/url-polozky";
+import { ziskatHlavniSouborPolozky } from "@/lib/polozka-soubory";
 import { POPISY_ZDROJU, ZDROJE_NAVSTEV } from "@/lib/zdroj-navstev";
 import { POPISY_ZARIZENI, ZARIZENI_NAVSTEV } from "@/lib/zarizeni-navstevnika";
 import {
   prihlasitAdmin,
   odhlasitAdmin,
   nahratPolozku,
+  nahratProlnuti,
+  type DiagProlnutiNahrani,
   prepnoutAktivniPolozky,
   smazatPolozkuAdmin,
   zmenitPopisPolozky,
@@ -22,6 +25,17 @@ import {
 } from "@/app/admin/actions";
 import type { ZalohaInfo } from "@/lib/zaloha/typy";
 import { formatovatVelikost } from "@/lib/zaloha/pomocne";
+
+function formatDiagProlnuti(diag: DiagProlnutiNahrani): string {
+  return [
+    "prolnutí – diagnostika:",
+    `A: ${diag.maA ? "ano" : "ne"}`,
+    `B: ${diag.maB ? "ano" : "ne"}`,
+    `C: ${diag.maC ? "ano" : "ne"}`,
+    `počet uložených souborů: ${diag.pocetUlozenychSouboru}`,
+    `počet v metadata: ${diag.pocetSouboruVMeta}`,
+  ].join("\n");
+}
 
 interface AdminPanelProps {
   jePrihlasen: boolean;
@@ -66,6 +80,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
   const [heslo, setHeslo] = useState("");
   const [chybaAkce, setChybaAkce] = useState("");
   const [nahrava, setNahrava] = useState(false);
+  const [nahravaProlnuti, setNahravaProlnuti] = useState(false);
   const [popisy, setPopisy] = useState<Record<string, string>>({});
   const [ukladaPopisId, setUkladaPopisId] = useState<string | null>(null);
   const [potvrzeniAkce, setPotvrzeniAkce] = useState("");
@@ -204,6 +219,56 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
     }
 
     setNahrava(false);
+  };
+
+  const handleNahraniProlnuti = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setNahravaProlnuti(true);
+    setChybaAkce("");
+    setPotvrzeniAkce("");
+
+    const form = e.currentTarget;
+    const formData = new FormData();
+
+    const popisInput = form.elements.namedItem("popis") as HTMLInputElement | null;
+    const datumInput = form.elements.namedItem(
+      "datumPorizeni"
+    ) as HTMLInputElement | null;
+    if (popisInput) formData.set("popis", popisInput.value);
+    if (datumInput) formData.set("datumPorizeni", datumInput.value);
+
+    const inputA = form.elements.namedItem("souborA") as HTMLInputElement | null;
+    const inputB = form.elements.namedItem("souborB") as HTMLInputElement | null;
+    const inputC = form.elements.namedItem("souborC") as HTMLInputElement | null;
+    const fileA = inputA?.files?.[0];
+    const fileB = inputB?.files?.[0];
+    const fileC = inputC?.files?.[0];
+
+    if (fileA) formData.append("souborA", fileA, fileA.name);
+    if (fileB) formData.append("souborB", fileB, fileB.name);
+    if (fileC?.size) formData.append("souborC", fileC, fileC.name);
+
+    try {
+      const vysledek = await nahratProlnuti(formData);
+      if ("diagProlnuti" in vysledek && vysledek.diagProlnuti) {
+        setPotvrzeniAkce(formatDiagProlnuti(vysledek.diagProlnuti));
+      }
+      if ("uspech" in vysledek && vysledek.uspech) {
+        setChybaAkce("");
+        form.reset();
+        obnovit();
+      } else if ("chyba" in vysledek && vysledek.chyba) {
+        setChybaAkce(vysledek.chyba);
+      }
+    } catch (error) {
+      setChybaAkce(
+        error instanceof Error
+          ? error.message
+          : "Neočekávaná chyba server action při nahrávání prolnutí"
+      );
+    }
+
+    setNahravaProlnuti(false);
   };
 
   const handlePrepnoutAktivni = async (id: string, aktivni: boolean) => {
@@ -492,7 +557,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
 
         {potvrzeniAkce && (
           <div className="rounded border border-text-velmiJemny/30 bg-krem-tmavsi/30 p-3 text-center text-xs text-text-jemny">
-            <p>{potvrzeniAkce}</p>
+            <p className="whitespace-pre-line">{potvrzeniAkce}</p>
             {potvrzeniUrlSouboru && (
               <p className="mt-2 break-all font-mono text-[10px] leading-relaxed text-text-velmiJemny">
                 {potvrzeniUrlSouboru}
@@ -684,16 +749,19 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
                             >
                               <td className="py-1.5 pr-3">
                                 <div className="flex items-center gap-2">
-                                  {polozka?.typ === "fotografie" ? (
+                                  {polozka &&
+                                  ziskatHlavniSouborPolozky(polozka) ? (
                                     // eslint-disable-next-line @next/next/no-img-element
                                     <img
-                                      src={sestavitUrlPolozky(polozka.soubor)}
+                                      src={sestavitUrlPolozky(
+                                        ziskatHlavniSouborPolozky(polozka)!
+                                      )}
                                       alt=""
                                       className="h-8 w-8 flex-shrink-0 object-cover bg-krem-tmavsi"
                                     />
                                   ) : (
                                     <span className="flex h-8 w-8 items-center justify-center bg-krem-tmavsi text-[10px]">
-                                      video
+                                      —
                                     </span>
                                   )}
                                   <span className="text-text">{radek.popis}</span>
@@ -812,7 +880,63 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
               className="w-full border border-text-velmiJemny/30 bg-transparent px-3 py-2 text-sm text-text outline-none"
             />
             <button type="submit" disabled={nahrava} className="tlacitko-klidne">
-              {nahrava ? "nahrávání…" : "nahrát"}
+              {nahrava ? "nahrávání…" : "nahrát fotografii"}
+            </button>
+          </form>
+        </section>
+
+        <section className="space-y-3 border border-text-velmiJemny/20 p-4">
+          <h2 className="text-sm font-light text-text-jemny">nahrát prolnutí</h2>
+          <p className="text-xs text-text-velmiJemny">
+            2–3 snímky stejného místa – první chvíli klid, pak postupné prolínání
+          </p>
+          <form onSubmit={handleNahraniProlnuti} className="space-y-3">
+            <label className="block text-xs text-text-velmiJemny">
+              první fotografie (A)
+              <input
+                type="file"
+                name="souborA"
+                accept="image/jpeg,image/png,image/webp,image/avif"
+                required
+                className="mt-1 w-full text-xs text-text-jemny"
+              />
+            </label>
+            <label className="block text-xs text-text-velmiJemny">
+              druhá fotografie (B)
+              <input
+                type="file"
+                name="souborB"
+                accept="image/jpeg,image/png,image/webp,image/avif"
+                required
+                className="mt-1 w-full text-xs text-text-jemny"
+              />
+            </label>
+            <label className="block text-xs text-text-velmiJemny">
+              třetí fotografie (C, volitelné)
+              <input
+                type="file"
+                name="souborC"
+                accept="image/jpeg,image/png,image/webp,image/avif"
+                className="mt-1 w-full text-xs text-text-jemny"
+              />
+            </label>
+            <input
+              type="text"
+              name="popis"
+              placeholder="popis (malými písmeny, bez tečky)"
+              className="w-full border border-text-velmiJemny/30 bg-transparent px-3 py-2 text-sm text-text outline-none"
+            />
+            <input
+              type="date"
+              name="datumPorizeni"
+              className="w-full border border-text-velmiJemny/30 bg-transparent px-3 py-2 text-sm text-text outline-none"
+            />
+            <button
+              type="submit"
+              disabled={nahravaProlnuti}
+              className="tlacitko-klidne"
+            >
+              {nahravaProlnuti ? "nahrávání…" : "nahrát prolnutí"}
             </button>
           </form>
         </section>
@@ -861,7 +985,21 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
               </div>
 
               <div className="h-12 w-12 flex-shrink-0 overflow-hidden bg-krem-tmavsi">
-                {polozka.typ === "fotografie" ? (
+                {polozka.typ === "prolnuti" ? (
+                  <div className="relative h-full w-full">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={sestavitUrlPolozky(
+                        polozka.soubory?.[0] ?? polozka.soubor ?? ""
+                      )}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                    <span className="absolute bottom-0 right-0 bg-krem/80 px-0.5 text-[8px] text-text-velmiJemny">
+                      A→B
+                    </span>
+                  </div>
+                ) : polozka.typ === "fotografie" && polozka.soubor ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={sestavitUrlPolozky(polozka.soubor)}

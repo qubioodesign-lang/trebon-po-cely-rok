@@ -10,6 +10,7 @@ import {
   zmenitPoradi,
 } from "@/lib/polozky";
 import { ulozitSoubor, smazatSoubor } from "@/lib/soubory";
+import { ziskatSouboryPolozky } from "@/lib/polozka-soubory";
 import { ziskatDiagnozuBlob } from "@/lib/env-blob";
 
 export const dynamic = "force-dynamic";
@@ -132,7 +133,9 @@ export async function DELETE(request: NextRequest) {
 
   const smazana = await smazatPolozku(id, oidcHeader);
   if (smazana) {
-    await smazatSoubor(smazana.soubor, oidcHeader);
+    for (const cesta of ziskatSouboryPolozky(smazana)) {
+      await smazatSoubor(cesta, oidcHeader);
+    }
   }
 
   return NextResponse.json({ uspech: true });
