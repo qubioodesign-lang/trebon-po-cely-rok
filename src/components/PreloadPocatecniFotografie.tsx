@@ -1,13 +1,14 @@
 import type { PolozkaVerejna } from "@/types";
+import { ziskatUrlsProlnuti } from "@/lib/polozka-soubory";
 
-/** Preload první snímku (a druhého u prolnutí) – v HTML hned, bez čekání na JS */
+/** Preload první snímku (a dalších u prolnutí) – v HTML hned, bez čekání na JS */
 export function PreloadPocatecniFotografie({
   polozka,
 }: {
   polozka: PolozkaVerejna;
 }) {
   if (polozka.typ === "prolnuti") {
-    const urls = polozka.urls ?? [];
+    const urls = ziskatUrlsProlnuti(polozka);
     if (urls.length === 0) return null;
     return (
       <>

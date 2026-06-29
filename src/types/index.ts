@@ -4,7 +4,9 @@
  */
 import type { ZdrojNavstevnika } from "@/lib/zdroj-navstev";
 import type { TypZarizeni } from "@/lib/zarizeni-navstevnika";
+import type { ProlnutiCasovaniNastaveni } from "@/lib/prolnuti-casovani";
 
+export type { ProlnutiCasovaniNastaveni } from "@/lib/prolnuti-casovani";
 export type { ZdrojNavstevnika, TypZarizeni };
 export type TypObsahu = "fotografie" | "prolnuti" | "video";
 
@@ -44,6 +46,7 @@ export interface MetrikySouhrn {
   procentoNavratu: number;
   pocetKliknutiChciSeVracet: number;
   pocetPovolenychUpozorneni: number;
+  pocetReplayProlnuti: number;
 }
 
 /** Souhrn analytics pro administraci */
@@ -60,6 +63,7 @@ export interface AnalyticsFotografieRadek {
   popis: string;
   zobrazeni: number;
   sdileni: number;
+  replay: number;
 }
 
 /** Typy událostí pro měření návratů */
@@ -70,7 +74,8 @@ export type TypUdalostiMetriky =
   | "posun_vpred"
   | "navrat_zpet"
   | "klik_chci_se_vracet"
-  | "povoleno_upozorneni";
+  | "povoleno_upozorneni"
+  | "replay_prolnuti";
 
 /** Payload pro záznam metriky */
 export interface PayloadMetriky {
@@ -110,6 +115,9 @@ export interface AdminData {
   pocetPushOdberu: number;
   trvaleUloziste: boolean;
   diagnoza: DiagnozaBlob;
+  prolnutiCasovani: ProlnutiCasovaniNastaveni;
+  desktopPozvankaFotografie: string | null;
+  desktopPozvankaFotografieUrl: string;
 }
 
 /** Chyby při načítání jednotlivých částí administrace */

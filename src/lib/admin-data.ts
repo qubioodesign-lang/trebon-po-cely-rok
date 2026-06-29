@@ -4,6 +4,10 @@ import type { AdminVysledek } from "@/types";
 import { seraditPolozky, nacistData } from "./uloziste-dat";
 import { prazdnySouhrnMetrik, ziskatSouhrnZUloziste } from "./metriky";
 import { prazdnySouhrnAnalytics, ziskatSouhrnAnalytics } from "./analytics";
+import { sloucitProlnutiCasovani, PROLNUTI_CASOVANI_VYCHOZI } from "./prolnuti-casovani";
+import {
+  sestavitUrlDesktopPozvankaFotografie,
+} from "./desktop-pozvanka-nastaveni";
 import { pouzivaBlobUloziste, ziskatDiagnozuBlob, ziskatOidcZHlavicek } from "./env-blob";
 
 export async function ziskatOidcZRequestu(): Promise<string | null> {
@@ -23,6 +27,8 @@ export async function nacistAdminData(): Promise<AdminVysledek> {
   let metriky = prazdnySouhrnMetrik();
   let analytics = prazdnySouhrnAnalytics();
   let pocetPushOdberu = 0;
+  let prolnutiCasovani = PROLNUTI_CASOVANI_VYCHOZI;
+  let desktopPozvankaFotografie: string | null = null;
 
   try {
     const uloziste = await nacistData(oidcHeader);
@@ -30,6 +36,8 @@ export async function nacistAdminData(): Promise<AdminVysledek> {
     metriky = ziskatSouhrnZUloziste(uloziste);
     analytics = ziskatSouhrnAnalytics(uloziste, polozky);
     pocetPushOdberu = uloziste.pushOdbery?.length ?? 0;
+    prolnutiCasovani = sloucitProlnutiCasovani(uloziste.prolnutiCasovani);
+    desktopPozvankaFotografie = uloziste.desktopPozvankaFotografie ?? null;
   } catch (error) {
     const zprava =
       error instanceof Error
@@ -48,6 +56,11 @@ export async function nacistAdminData(): Promise<AdminVysledek> {
       pocetPushOdberu,
       trvaleUloziste: pouzivaBlobUloziste() && diagnoza.maAutentizaci,
       diagnoza,
+      prolnutiCasovani,
+      desktopPozvankaFotografie,
+      desktopPozvankaFotografieUrl: sestavitUrlDesktopPozvankaFotografie(
+        desktopPozvankaFotografie
+      ),
     },
     chyby,
   };

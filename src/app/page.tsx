@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 
 import { headers } from "next/headers";
 
+import { DesktopPozvanka } from "@/components/DesktopPozvanka";
+
 import { GalerieHlavni } from "@/components/GalerieHlavni";
 
 import { GaleriePocatecniServer } from "@/components/GaleriePocatecniServer";
@@ -13,6 +15,8 @@ import { ziskatPocatecniIndexServer } from "@/lib/pocatecni-polozka-server";
 import { ziskatMetadataGalerie } from "@/lib/og-metadata";
 
 import { ziskatAktivniPolozky } from "@/lib/polozky";
+import { ziskatProlnutiCasovani } from "@/lib/prolnuti-nastaveni";
+import { ziskatDesktopPozvankaFotografii } from "@/lib/desktop-pozvanka-nastaveni";
 
 
 
@@ -78,6 +82,9 @@ export default async function HlavniStranka({
 
   const polozky = await ziskatAktivniPolozky(oidcHeader);
 
+  const prolnutiCasovani = await ziskatProlnutiCasovani(oidcHeader);
+  const desktopFotografieUrl = await ziskatDesktopPozvankaFotografii(oidcHeader);
+
   const pocatecniIndex = ziskatPocatecniIndexServer(polozky, pocatecniPolozkaId);
 
   const pocatecniPolozka = polozky[pocatecniIndex];
@@ -88,35 +95,43 @@ export default async function HlavniStranka({
 
     <>
 
-      {pocatecniPolozka ? (
+      <div className="md:hidden">
 
-        <PreloadPocatecniFotografie polozka={pocatecniPolozka} />
+        {pocatecniPolozka ? (
 
-      ) : null}
+          <PreloadPocatecniFotografie polozka={pocatecniPolozka} />
 
-      {pocatecniPolozka ? (
+        ) : null}
 
-        <GaleriePocatecniServer
+        {pocatecniPolozka ? (
 
-          polozka={pocatecniPolozka}
+          <GaleriePocatecniServer
 
-          aktualniIndex={pocatecniIndex}
+            polozka={pocatecniPolozka}
 
-          pocetPolozek={polozky.length}
+            aktualniIndex={pocatecniIndex}
+
+            pocetPolozek={polozky.length}
+
+          />
+
+        ) : null}
+
+        <GalerieHlavni
+
+          polozky={polozky}
+
+          pocatecniPolozkaId={pocatecniPolozkaId}
+
+          pocatecniIndex={pocatecniIndex}
+
+          prolnutiCasovani={prolnutiCasovani}
 
         />
 
-      ) : null}
+      </div>
 
-      <GalerieHlavni
-
-        polozky={polozky}
-
-        pocatecniPolozkaId={pocatecniPolozkaId}
-
-        pocatecniIndex={pocatecniIndex}
-
-      />
+      <DesktopPozvanka fotografieUrl={desktopFotografieUrl} />
 
     </>
 

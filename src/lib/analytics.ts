@@ -19,6 +19,7 @@ import {
 export interface AnalyticsFotografie {
   zobrazeni: number;
   sdileni: number;
+  replay: number;
 }
 
 /** Agregovaná analytics v uloziste.json */
@@ -55,14 +56,19 @@ export function prazdnySouhrnAnalytics(): AnalyticsSouhrn {
   };
 }
 
+function normalizovatFotografii(countery: AnalyticsFotografie): AnalyticsFotografie {
+  countery.replay ??= 0;
+  return countery;
+}
+
 function zajistitFotografii(
   analytics: AnalyticsAgregovane,
   polozkaId: string
 ): AnalyticsFotografie {
   if (!analytics.fotografie[polozkaId]) {
-    analytics.fotografie[polozkaId] = { zobrazeni: 0, sdileni: 0 };
+    analytics.fotografie[polozkaId] = { zobrazeni: 0, sdileni: 0, replay: 0 };
   }
-  return analytics.fotografie[polozkaId];
+  return normalizovatFotografii(analytics.fotografie[polozkaId]);
 }
 
 function zajistitPocitadlaZarizeni(analytics: AnalyticsAgregovane): void {
@@ -83,6 +89,9 @@ function zajistitPocitadlaZarizeni(analytics: AnalyticsAgregovane): void {
 export function zajistitAnalytics(uloziste: UlozisteDat): AnalyticsAgregovane {
   if (!uloziste.analyticsAgregovane) {
     uloziste.analyticsAgregovane = prazdneAnalytics();
+  }
+  for (const countery of Object.values(uloziste.analyticsAgregovane.fotografie)) {
+    countery.replay ??= 0;
   }
   zajistitPocitadlaZarizeni(uloziste.analyticsAgregovane);
   return uloziste.analyticsAgregovane;
@@ -119,6 +128,11 @@ export function aplikovatAnalytics(
         zajistitFotografii(analytics, payload.polozkaId).sdileni += 1;
       }
       break;
+    case "replay_prolnuti":
+      if (payload.polozkaId) {
+        zajistitFotografii(analytics, payload.polozkaId).replay += 1;
+      }
+      break;
   }
 }
 
@@ -145,6 +159,7 @@ export function ziskatSouhrnAnalytics(
       popis: polozka.popis,
       zobrazeni: countery?.zobrazeni ?? 0,
       sdileni: countery?.sdileni ?? 0,
+      replay: countery?.replay ?? 0,
     };
   });
 

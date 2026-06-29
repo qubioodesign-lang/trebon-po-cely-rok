@@ -13,6 +13,7 @@ import {
   vytvoritPolozku,
   vytvoritProlnuti,
   aktualizovatPopis,
+  aktualizovatPolozku,
   prepnoutAktivni,
   smazatPolozku,
   ziskatPolozku,
@@ -20,6 +21,7 @@ import {
   ziskatVsechnyPolozky,
   zmenitPoradi,
   nahraditSouborPolozky,
+  nahraditSnimekProlnuti,
 } from "@/lib/polozky";
 import { ulozitSoubor, smazatSoubor } from "@/lib/soubory";
 import { ziskatSouboryPolozky } from "@/lib/polozka-soubory";
@@ -35,6 +37,13 @@ import {
   ziskatDiagnozuBlob,
 } from "@/lib/env-blob";
 import type { DiagnozaBlob } from "@/types";
+import type { ProlnutiCasovaniNastaveni } from "@/lib/prolnuti-casovani";
+import { validovatProlnutiCasovani } from "@/lib/prolnuti-casovani";
+import { ulozitProlnutiCasovani } from "@/lib/prolnuti-nastaveni";
+import {
+  ulozitDesktopPozvankaFotografii,
+  ziskatCestuDesktopPozvankaFotografie,
+} from "@/lib/desktop-pozvanka-nastaveni";
 import {
   vytvoritZalohu as vytvoritZalohuSoubor,
   seznamZaloh,
@@ -146,6 +155,30 @@ async function dokoncitNahrazeniJeLiUlozeno(
   revalidatePath("/admin");
   revalidatePath("/");
     return { uspech: true, novaUrlSouboru: overena.soubor ?? undefined };
+}
+
+/** Dokončí náhradu snímku prolnutí, pokud metadata už ukazují na novou URL */
+async function dokoncitNahrazeniSnimkuProlnutiJeLiUlozeno(
+  id: string,
+  indexSnimku: number,
+  novaUrl: string,
+  starySoubor: string | null,
+  oidcHeader: string | null
+): Promise<Extract<AkceVysledek, { uspech: true }> | null> {
+  const overena = await ziskatPolozkuCerstve(id, oidcHeader, {
+    bypassCache: true,
+  });
+  if (overena?.soubory?.[indexSnimku] !== novaUrl) {
+    return null;
+  }
+
+  if (starySoubor && starySoubor !== novaUrl) {
+    await smazatSouborBezpecne(starySoubor, oidcHeader);
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/");
+  return { uspech: true, novaUrlSouboru: novaUrl };
 }
 
 export async function prihlasitAdmin(heslo: string) {
@@ -511,6 +544,175 @@ export async function zmenitPopisPolozky(
   }
 }
 
+export async function ulozitUpravyPolozky(
+  id: string,
+  data: {
+    popis: string;
+    datumPorizeni: string | null;
+    aktivni: boolean;
+  }
+): Promise<AkceVysledek> {
+  const admin = await overitAdmina();
+  if ("chyba" in admin) return { chyba: admin.chyba, diagnoza: admin.diagnoza };
+
+  try {
+    const polozka = await ziskatPolozku(id, admin.oidcHeader);
+    if (!polozka) {
+      return { chyba: "Položka nebyla nalezena", diagnoza: admin.diagnoza };
+    }
+
+    await aktualizovatPolozku(
+      id,
+      {
+        popis: data.popis,
+        datumPorizeni: data.datumPorizeni,
+        aktivni: data.aktivni,
+      },
+      admin.oidcHeader
+    );
+
+    revalidatePath("/admin");
+    revalidatePath("/");
+    return { uspech: true };
+  } catch (error) {
+    return {
+      chyba: error instanceof Error ? error.message : "Chyba při ukládání úprav",
+      diagnoza: admin.diagnoza,
+    };
+  }
+}
+
+type SnimekProlnuti = "A" | "B" | "C";
+
+function indexSnimkuProlnuti(snimek: SnimekProlnuti): number {
+  switch (snimek) {
+    case "A":
+      return 0;
+    case "B":
+      return 1;
+    case "C":
+      return 2;
+  }
+}
+
+export async function nahraditSnimekProlnutiPolozky(
+  id: string,
+  snimek: SnimekProlnuti,
+  formData: FormData
+): Promise<AkceVysledek> {
+  const admin = await overitAdmina();
+  if ("chyba" in admin) {
+    return { chyba: admin.chyba, diagnoza: admin.diagnoza };
+  }
+
+  const { oidcHeader, diagnoza } = admin;
+  const indexSnimku = indexSnimkuProlnuti(snimek);
+  let novaCestaSouboru: string | null = null;
+  let starySoubor: string | null = null;
+
+  try {
+    const polozka = await ziskatPolozku(id, oidcHeader);
+    if (!polozka) {
+      return { chyba: "Položka nebyla nalezena", diagnoza };
+    }
+
+    if (polozka.typ !== "prolnuti" || !polozka.soubory) {
+      return { chyba: "Nahradit lze pouze snímek prolnutí", diagnoza };
+    }
+
+    if (indexSnimku >= polozka.soubory.length) {
+      if (
+        snimek !== "C" ||
+        polozka.soubory.length !== 2 ||
+        indexSnimku !== 2
+      ) {
+        return {
+          chyba: `Snímek ${snimek} v této položce neexistuje`,
+          diagnoza,
+        };
+      }
+    } else {
+      starySoubor = polozka.soubory[indexSnimku];
+    }
+
+    const soubor = formData.get("soubor") as File | null;
+    if (!soubor || soubor.size === 0) {
+      return {
+        chyba: "Soubor je prázdný nebo se nepodařilo přenést z formuláře",
+        diagnoza,
+      };
+    }
+
+    const vysledek = await ulozitSoubor(soubor, oidcHeader);
+    novaCestaSouboru = vysledek.cestaSouboru;
+
+    if (vysledek.typ !== "fotografie") {
+      await smazatSouborBezpecne(novaCestaSouboru, oidcHeader);
+      return {
+        chyba: "Prolnutí podporuje pouze fotografie (JPEG, PNG, WebP, AVIF)",
+        diagnoza,
+      };
+    }
+
+    await nahraditSnimekProlnuti(
+      id,
+      indexSnimku,
+      vysledek.cestaSouboru,
+      oidcHeader
+    );
+
+    const uspech = await dokoncitNahrazeniSnimkuProlnutiJeLiUlozeno(
+      id,
+      indexSnimku,
+      vysledek.cestaSouboru,
+      starySoubor,
+      oidcHeader
+    );
+    if (uspech) {
+      return uspech;
+    }
+
+    const overena = await ziskatPolozkuCerstve(id, oidcHeader, {
+      bypassCache: true,
+    });
+    const skutecnaUrl = overena?.soubory?.[indexSnimku] ?? null;
+
+    if (skutecnaUrl === starySoubor) {
+      return {
+        chyba:
+          "Metadata se nepodařilo uložit. Nový soubor nebyl smazán – zkuste znovu.",
+        diagnoza,
+      };
+    }
+
+    return {
+      chyba: skutecnaUrl
+        ? `Metadata obsahují jinou URL (${skutecnaUrl}). Nový soubor nebyl smazán – ověřte stav v administraci.`
+        : "Položka v metadatech chybí. Nový soubor nebyl smazán – ověřte stav v administraci.",
+      diagnoza,
+    };
+  } catch (error) {
+    if (novaCestaSouboru && starySoubor) {
+      const uspechPoChybe = await dokoncitNahrazeniSnimkuProlnutiJeLiUlozeno(
+        id,
+        indexSnimku,
+        novaCestaSouboru,
+        starySoubor,
+        oidcHeader
+      );
+      if (uspechPoChybe) {
+        return uspechPoChybe;
+      }
+    }
+
+    const zprava =
+      error instanceof Error
+        ? error.message
+        : "Chyba při nahrazování snímku prolnutí";
+    return { chyba: zprava, diagnoza: ziskatDiagnozuBlob(oidcHeader) };
+  }
+}
+
 export async function zmenitPoradiPolozek(
   poradiIds: string[]
 ): Promise<AkceVysledek> {
@@ -641,5 +843,94 @@ export async function obnovitZalohuAdmin(
       chyba: error instanceof Error ? error.message : "Chyba při obnově ze zálohy",
       diagnoza: admin.diagnoza,
     };
+  }
+}
+
+export async function ulozitNastaveniProlnutiAdmin(
+  nastaveni: ProlnutiCasovaniNastaveni
+): Promise<AkceVysledek> {
+  const admin = await overitAdmina();
+  if ("chyba" in admin) return { chyba: admin.chyba, diagnoza: admin.diagnoza };
+
+  const validace = validovatProlnutiCasovani(nastaveni);
+  if ("chyba" in validace) {
+    return { chyba: validace.chyba, diagnoza: admin.diagnoza };
+  }
+
+  try {
+    await ulozitProlnutiCasovani(validace.data, admin.oidcHeader);
+    revalidatePath("/admin");
+    revalidatePath("/");
+    return { uspech: true };
+  } catch (error) {
+    return {
+      chyba:
+        error instanceof Error
+          ? error.message
+          : "Chyba při ukládání nastavení prolnutí",
+      diagnoza: admin.diagnoza,
+    };
+  }
+}
+
+export async function nahratDesktopPozvankaFotografii(
+  formData: FormData
+): Promise<AkceVysledek> {
+  const admin = await overitAdmina();
+  if ("chyba" in admin) {
+    return { chyba: admin.chyba, diagnoza: admin.diagnoza };
+  }
+
+  const { oidcHeader, diagnoza } = admin;
+  let cestaSouboru: string | null = null;
+
+  try {
+    const soubor = formData.get("soubor");
+    if (!(soubor instanceof File) || soubor.size === 0) {
+      return {
+        chyba: "Soubor je prázdný nebo se nepodařilo přenést z formuláře",
+        diagnoza,
+      };
+    }
+
+    const vysledek = await ulozitSoubor(soubor, oidcHeader);
+    if (vysledek.typ !== "fotografie") {
+      await smazatSoubor(vysledek.cestaSouboru, oidcHeader);
+      return {
+        chyba: "Desktopová pozvánka podporuje pouze fotografie (JPEG, PNG, WebP, AVIF)",
+        diagnoza,
+      };
+    }
+
+    cestaSouboru = vysledek.cestaSouboru;
+    const staraCesta = await ziskatCestuDesktopPozvankaFotografie(oidcHeader);
+
+    await ulozitDesktopPozvankaFotografii(cestaSouboru, oidcHeader);
+
+    if (staraCesta && staraCesta !== cestaSouboru) {
+      try {
+        await smazatSoubor(staraCesta, oidcHeader);
+      } catch {
+        // metadata jsou uložena – starý soubor může zůstat jako orphan
+      }
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/");
+    return { uspech: true };
+  } catch (error) {
+    if (cestaSouboru) {
+      try {
+        await smazatSoubor(cestaSouboru, oidcHeader);
+      } catch {
+        // metadata zůstala beze změny
+      }
+    }
+
+    const zprava =
+      error instanceof Error
+        ? error.message
+        : "Chyba při nahrávání desktopové fotografie";
+    return { chyba: zprava, diagnoza: ziskatDiagnozuBlob(oidcHeader) };
   }
 }

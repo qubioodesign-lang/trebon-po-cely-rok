@@ -59,4 +59,43 @@
   .tlacitko-klidne:focus-visible {
     @apply border-text-jemny/50 text-text outline-none;
   }
+
+  .prolnuti-linka-bod {
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.55);
+    box-shadow: 0 0 3px rgba(255, 255, 255, 0.22);
+    animation-name: prolnuti-linka-bod;
+    animation-timing-function: cubic-bezier(0.42, 0, 0.18, 1);
+    animation-fill-mode: forwards;
+  }
+}
+
+@keyframes prolnuti-linka-bod {
+  0% {
+    left: 18%;
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+
+  10% {
+    opacity: 0.52;
+    transform: translate(-50%, -50%) scale(0.92);
+  }
+
+  18% {
+    opacity: 0.62;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  82% {
+    opacity: 0.38;
+  }
+
+  100% {
+    left: 82%;
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.75);
+  }
 }

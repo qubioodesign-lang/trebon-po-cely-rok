@@ -15,18 +15,19 @@ import {
   ziskatZbyvajiciCekaniProlnuti,
 } from "@/lib/prolnuti-cas-otevreni";
 import { zaznamenatDiag } from "@/lib/diag-inicializace";
+import { PROLNUTI_EASING } from "@/lib/prolnuti-konstanty";
+import type { ProlnutiCasovaniNastaveni } from "@/lib/prolnuti-casovani";
 import {
-  PROLNUTI_CEKANI_MS,
-  PROLNUTI_DLOUHOTRVANI_MS,
-  PROLNUTI_EASING,
-  PROLNUTI_ZPOZDENI_SIPKA_MS,
-} from "@/lib/prolnuti-konstanty";
-import { jePlatnyPocetSnimkuProlnuti } from "@/lib/prolnuti-snimky";
+  jePlatnyPocetSnimkuProlnuti,
+  pocetKrokuProlnuti,
+} from "@/lib/prolnuti-snimky";
+import { ziskatUrlsProlnuti } from "@/lib/polozka-soubory";
 import type { ProlnutiOvladani } from "./SipkaPrehratProlnuti";
 
 interface PropsZobrazeniProlnuti {
   polozka: PolozkaVerejna;
   jeAktivni: boolean;
+  casovani: ProlnutiCasovaniNastaveni;
   onProlnutiOvladani?: (ovladani: ProlnutiOvladani | null) => void;
 }
 
@@ -57,11 +58,12 @@ function jeSnimekPripraven(img: HTMLImageElement | null | undefined): boolean {
 export function ZobrazeniProlnuti({
   polozka,
   jeAktivni,
+  casovani,
   onProlnutiOvladani,
 }: PropsZobrazeniProlnuti) {
-  const urls = polozka.urls ?? [];
+  const urls = ziskatUrlsProlnuti(polozka);
   const pocet = urls.length;
-  const pocetProlnuti = Math.max(0, pocet - 1);
+  const pocetProlnuti = pocetKrokuProlnuti(pocet);
   const urlsKlic = urls.join("\0");
 
   const [faze, setFaze] = useState<FazeProlnuti>("cekani");
@@ -69,6 +71,7 @@ export function ZobrazeniProlnuti({
   const [animujiciKrok, setAnimujiciKrok] = useState<number | null>(null);
   const [zobrazitSipku, setZobrazitSipku] = useState(false);
   const [chyba, setChyba] = useState(false);
+  const [behProlnuti, setBehProlnuti] = useState(0);
 
   const casovaceRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const behRef = useRef(0);
@@ -109,6 +112,9 @@ export function ZobrazeniProlnuti({
       flushSync(() => {
         setAnimujiciKrok(krok);
         setFaze("prolinuti");
+        if (krok === 0) {
+          setBehProlnuti((predchozi) => predchozi + 1);
+        }
       });
 
       const img = imgRefs.current[krok];
@@ -131,7 +137,7 @@ export function ZobrazeniProlnuti({
         if (behRef.current !== beh) return;
 
         if (krok < pocetProlnuti - 1) {
-          spustitKrokProlnuti(krok + 1, beh);
+          spustitKrokProlnutiRef.current(krok + 1, beh);
           return;
         }
 
@@ -140,11 +146,14 @@ export function ZobrazeniProlnuti({
         naplanovat(() => {
           if (behRef.current !== beh) return;
           setZobrazitSipku(true);
-        }, PROLNUTI_ZPOZDENI_SIPKA_MS);
-      }, PROLNUTI_DLOUHOTRVANI_MS + 80);
+        }, casovani.replayZpozdeniMs);
+      }, casovani.delkaProlnutiMs + 80);
     },
-    [naplanovat, pocetProlnuti]
+    [casovani.delkaProlnutiMs, casovani.replayZpozdeniMs, naplanovat, pocetProlnuti]
   );
+
+  const spustitKrokProlnutiRef = useRef(spustitKrokProlnuti);
+  spustitKrokProlnutiRef.current = spustitKrokProlnuti;
 
   const spustitProlinutiAnimaci = useCallback(() => {
     const beh = behRef.current;
@@ -161,12 +170,12 @@ export function ZobrazeniProlnuti({
       naplanovat(() => {
         if (behRef.current !== beh) return;
         setZobrazitSipku(true);
-      }, PROLNUTI_ZPOZDENI_SIPKA_MS);
+      }, casovani.replayZpozdeniMs);
       return;
     }
 
     spustitKrokProlnuti(0, beh);
-  }, [naplanovat, pocetProlnuti, spustitKrokProlnuti]);
+  }, [casovani.replayZpozdeniMs, naplanovat, pocetProlnuti, spustitKrokProlnuti]);
 
   const zkusitSpustitProlinuti = useCallback(() => {
     if (prolinutiZahajenoRef.current) return;
@@ -207,8 +216,8 @@ export function ZobrazeniProlnuti({
       }
 
       const cekaniMs = syncSeStrankou
-        ? ziskatZbyvajiciCekaniProlnuti()
-        : PROLNUTI_CEKANI_MS;
+        ? ziskatZbyvajiciCekaniProlnuti(casovani.cekaniPredStartemMs)
+        : casovani.cekaniPredStartemMs;
 
       naplanovat(() => {
         if (behRef.current !== beh) return;
@@ -216,7 +225,7 @@ export function ZobrazeniProlnuti({
         zkusitSpustitProlinutiRef.current();
       }, cekaniMs);
     },
-    [jeAktivni, naplanovat, pocet, resetVrstev, vycistitCasovace]
+    [casovani.cekaniPredStartemMs, jeAktivni, naplanovat, pocet, resetVrstev, vycistitCasovace]
   );
 
   const naplanovatCekaniRef = useRef(naplanovatCekani);
@@ -245,8 +254,8 @@ export function ZobrazeniProlnuti({
       if (behRef.current !== beh) return;
       casovacUplynulRef.current = true;
       zkusitSpustitProlinutiRef.current();
-    }, PROLNUTI_CEKANI_MS);
-  }, [naplanovat, pocet, vycistitCasovace]);
+    }, casovani.cekaniPredStartemMs);
+  }, [casovani.cekaniPredStartemMs, naplanovat, pocet, vycistitCasovace]);
 
   useLayoutEffect(() => {
     zaznamenatDiag("prolnuti");
@@ -256,9 +265,11 @@ export function ZobrazeniProlnuti({
     onProlnutiOvladani?.({
       zobrazitSipku,
       prehratZnovu,
+      faze,
+      behProlnuti,
     });
     return () => onProlnutiOvladani?.(null);
-  }, [onProlnutiOvladani, prehratZnovu, zobrazitSipku]);
+  }, [onProlnutiOvladani, prehratZnovu, zobrazitSipku, faze, behProlnuti]);
 
   useLayoutEffect(() => {
     setChyba(false);
@@ -303,7 +314,7 @@ export function ZobrazeniProlnuti({
 
         const transition =
           faze === "prolinuti" && index === animujiciKrok
-            ? `opacity ${PROLNUTI_DLOUHOTRVANI_MS}ms ${PROLNUTI_EASING}`
+            ? `opacity ${casovani.delkaProlnutiMs}ms ${PROLNUTI_EASING}`
             : "none";
 
         return (

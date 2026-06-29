@@ -8,6 +8,8 @@ export function normalizovatUloziste(data: UlozisteDat): UlozisteDat {
     metrikyAgregovane: data.metrikyAgregovane,
     analyticsAgregovane: data.analyticsAgregovane,
     pushOdbery: data.pushOdbery ?? [],
+    prolnutiCasovani: data.prolnutiCasovani,
+    desktopPozvankaFotografie: data.desktopPozvankaFotografie ?? null,
     verzeUloziste: data.verzeUloziste,
   };
 }

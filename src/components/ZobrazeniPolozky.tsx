@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { PolozkaVerejna } from "@/types";
+import type { PolozkaVerejna, ProlnutiCasovaniNastaveni } from "@/types";
 import { ZobrazeniProlnuti } from "./ZobrazeniProlnuti";
 import type { ProlnutiOvladani } from "./SipkaPrehratProlnuti";
 
 interface PropsZobrazeniPolozky {
   polozka: PolozkaVerejna;
   jeAktivni: boolean;
+  casovani: ProlnutiCasovaniNastaveni;
   onProlnutiOvladani?: (ovladani: ProlnutiOvladani | null) => void;
 }
 
@@ -32,6 +33,7 @@ function PlaceholderFotografie({ popis }: { popis: string }) {
 export function ZobrazeniPolozky({
   polozka,
   jeAktivni,
+  casovani,
   onProlnutiOvladani,
 }: PropsZobrazeniPolozky) {
   const [chybaObrazku, setChybaObrazku] = useState(false);
@@ -45,6 +47,7 @@ export function ZobrazeniPolozky({
       <ZobrazeniProlnuti
         polozka={polozka}
         jeAktivni={jeAktivni}
+        casovani={casovani}
         onProlnutiOvladani={onProlnutiOvladani}
       />
     );

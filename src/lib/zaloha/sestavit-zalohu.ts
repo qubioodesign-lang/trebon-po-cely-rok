@@ -81,6 +81,17 @@ export async function sestavitZalohuZip(
     }
   }
 
+  if (uloziste.desktopPozvankaFotografie) {
+    const uploadCesta = extrahovatUploadCestu(uloziste.desktopPozvankaFotografie);
+    if (!uploadCesta) {
+      throw new Error("Desktopová fotografie nemá rozpoznatelnou cestu souboru.");
+    }
+
+    const obsah = await stahnoutSouborPolozky(uloziste.desktopPozvankaFotografie);
+    souboryZip[cestaSouboruVZip(uploadCesta)] = obsah;
+    pocetSouboru += 1;
+  }
+
   const manifest: ManifestZalohy = {
     schema: ZALOHA_SCHEMA,
     version: ZALOHA_VERZE,

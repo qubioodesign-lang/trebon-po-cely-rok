@@ -116,6 +116,31 @@ export async function obnovitZeZalohy(
     }
   }
 
+  if (uloziste.desktopPozvankaFotografie) {
+    const uploadCesta = extrahovatUploadCestu(uloziste.desktopPozvankaFotografie);
+    if (!uploadCesta) {
+      throw new Error("Metadata obsahují neplatnou cestu desktopové fotografie.");
+    }
+
+    const obsah = souboryVZip.get(uploadCesta);
+    if (!obsah) {
+      throw new Error(
+        `V záloze chybí soubor uploads/${uploadCesta} pro desktopovou pozvánku.`
+      );
+    }
+
+    const vysledek = await put(`uploads/${uploadCesta}`, Buffer.from(obsah), {
+      ...volby,
+      access: "public",
+      addRandomSuffix: false,
+      allowOverwrite: true,
+      contentType: ziskatContentType(uploadCesta),
+    });
+
+    uloziste.desktopPozvankaFotografie = vysledek.url;
+    pocetSouboru += 1;
+  }
+
   uloziste.pushOdbery = uloziste.pushOdbery ?? [];
   uloziste.metriky = uloziste.metriky ?? [];
   uloziste.verzeUloziste = 0;

@@ -19,6 +19,7 @@
 # Proměnné prostředí
 .env
 .env*.local
+.env.vercel
 
 # Debug
 npm-debug.log*

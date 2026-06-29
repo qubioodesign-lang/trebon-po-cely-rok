@@ -18,6 +18,7 @@ export function prazdneMetrikyAgregovane(): MetrikyAgregovane {
     pocetNavratuZpet: 0,
     pocetKliknutiChciSeVracet: 0,
     pocetPovolenychUpozorneni: 0,
+    pocetReplayProlnuti: 0,
     navstevyPodleNavstevnika: {},
   };
 }
@@ -47,6 +48,7 @@ export function souhrnZAgregovanych(agregovane: MetrikyAgregovane): MetrikySouhr
     ),
     pocetKliknutiChciSeVracet: agregovane.pocetKliknutiChciSeVracet,
     pocetPovolenychUpozorneni: agregovane.pocetPovolenychUpozorneni,
+    pocetReplayProlnuti: agregovane.pocetReplayProlnuti ?? 0,
   };
 }
 
@@ -79,12 +81,16 @@ export function aplikovatMetriku(
     case "povoleno_upozorneni":
       agregovane.pocetPovolenychUpozorneni += 1;
       break;
+    case "replay_prolnuti":
+      agregovane.pocetReplayProlnuti = (agregovane.pocetReplayProlnuti ?? 0) + 1;
+      break;
   }
 }
 
 /** Zajistí agregované metriky – migruje staré pole metriky[] pokud existuje */
 export function zajistitMetrikyAgregovane(uloziste: UlozisteDat): MetrikyAgregovane {
   if (uloziste.metrikyAgregovane) {
+    uloziste.metrikyAgregovane.pocetReplayProlnuti ??= 0;
     if (uloziste.metriky.length > 0) {
       for (const zaznam of uloziste.metriky) {
         aplikovatMetriku(uloziste.metrikyAgregovane, {

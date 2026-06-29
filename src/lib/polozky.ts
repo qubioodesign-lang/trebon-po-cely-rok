@@ -8,7 +8,12 @@ import {
 import {
   jePlatnaPolozkaGalerie,
   mapovatPolozkuVerejnou,
+  normalizovatSouboryProlnuti,
 } from "./polozka-soubory";
+import {
+  jePlatnyPocetSnimkuProlnuti,
+  PROLNUTI_MAX_SNIMKU,
+} from "./prolnuti-snimky";
 
 /** Vrátí všechny aktivní položky seřazené podle pořadí */
 export async function ziskatAktivniPolozky(
@@ -94,6 +99,11 @@ export async function vytvoritProlnuti(
   },
   oidcZHeaderu?: string | null
 ): Promise<Polozka> {
+  const soubory = normalizovatSouboryProlnuti(data.soubory);
+  if (!jePlatnyPocetSnimkuProlnuti(soubory.length)) {
+    throw new Error("Prolnutí musí mít 2 nebo 3 fotografie");
+  }
+
   let novaPolozka!: Polozka;
 
   await upravitData(
@@ -105,7 +115,7 @@ export async function vytvoritProlnuti(
       });
       novaPolozka = {
         ...zaklad,
-        soubory: [...data.soubory],
+        soubory,
         aktivni: data.aktivni ?? true,
       };
       uloziste.polozky.push(novaPolozka);
@@ -180,6 +190,85 @@ export async function aktualizovatPopis(
     const polozka = uloziste.polozky.find((p) => p.id === id);
     if (polozka) polozka.popis = popis;
   }, oidcZHeaderu);
+}
+
+/** Aktualizuje metadata položky (popis, datum, viditelnost) */
+export async function aktualizovatPolozku(
+  id: string,
+  data: {
+    popis?: string;
+    datumPorizeni?: string | null;
+    aktivni?: boolean;
+  },
+  oidcZHeaderu?: string | null
+): Promise<void> {
+  await upravitData((uloziste) => {
+    const polozka = uloziste.polozky.find((p) => p.id === id);
+    if (!polozka) {
+      throw new Error("Položka nebyla nalezena");
+    }
+    if (data.popis !== undefined) polozka.popis = data.popis;
+    if (data.datumPorizeni !== undefined) {
+      polozka.datumPorizeni = data.datumPorizeni;
+    }
+    if (data.aktivni !== undefined) polozka.aktivni = data.aktivni;
+  }, oidcZHeaderu);
+}
+
+/** Nahradí jeden snímek prolnutí (A=0, B=1, C=2) */
+export async function nahraditSnimekProlnuti(
+  id: string,
+  indexSnimku: number,
+  novySoubor: string,
+  oidcZHeaderu?: string | null
+): Promise<Polozka> {
+  let nahrazena!: Polozka;
+
+  await upravitData(
+    (uloziste) => {
+      const polozka = uloziste.polozky.find((p) => p.id === id);
+      if (!polozka) {
+        throw new Error("Položka nebyla nalezena");
+      }
+      if (polozka.typ !== "prolnuti" || !polozka.soubory) {
+        throw new Error("Položka není prolnutí");
+      }
+
+      const soubory = normalizovatSouboryProlnuti(polozka.soubory);
+      const jeDoplneni =
+        indexSnimku === soubory.length && soubory.length < PROLNUTI_MAX_SNIMKU;
+
+      if (
+        indexSnimku < 0 ||
+        indexSnimku > soubory.length ||
+        (indexSnimku === soubory.length && !jeDoplneni)
+      ) {
+        throw new Error("Neplatný snímek prolnutí");
+      }
+
+      const noveSoubory = [...soubory];
+      if (jeDoplneni) {
+        noveSoubory.push(novySoubor);
+      } else {
+        noveSoubory[indexSnimku] = novySoubor;
+      }
+
+      if (!jePlatnyPocetSnimkuProlnuti(noveSoubory.length)) {
+        throw new Error("Prolnutí musí mít 2 nebo 3 fotografie");
+      }
+
+      polozka.soubory = noveSoubory;
+      nahrazena = polozka;
+    },
+    oidcZHeaderu,
+    {
+      overitPoUlozeni: (uloziste) =>
+        uloziste.polozky.find((p) => p.id === id)?.soubory?.[indexSnimku] ===
+        novySoubor,
+    }
+  );
+
+  return nahrazena;
 }
 
 /** Přepne viditelnost položky */

@@ -13,6 +13,7 @@ const POVOLENE_TYPY: TypUdalostiMetriky[] = [
   "navrat_zpet",
   "klik_chci_se_vracet",
   "povoleno_upozorneni",
+  "replay_prolnuti",
 ];
 
 function jePlatnaUdalost(payload: PayloadMetriky): boolean {

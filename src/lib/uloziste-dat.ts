@@ -9,6 +9,7 @@ import { nacistDataBlob, ulozitDataBlob } from "./uloziste-blob";
 import { normalizovatUloziste } from "./uloziste-normalizace";
 import { pouzivaBlobUloziste } from "./env-blob";
 import type { AnalyticsAgregovane } from "./analytics";
+import type { ProlnutiCasovaniUlozene } from "./prolnuti-casovani";
 
 export { pouzivaBlobUloziste } from "./env-blob";
 
@@ -40,6 +41,7 @@ export interface MetrikyAgregovane {
   pocetNavratuZpet: number;
   pocetKliknutiChciSeVracet: number;
   pocetPovolenychUpozorneni: number;
+  pocetReplayProlnuti: number;
   navstevyPodleNavstevnika: Record<string, number>;
 }
 
@@ -51,6 +53,10 @@ export interface UlozisteDat {
   metrikyAgregovane?: MetrikyAgregovane;
   analyticsAgregovane?: AnalyticsAgregovane;
   pushOdbery: PushOdber[];
+  /** Upravitelné časy prolnutí z administrace */
+  prolnutiCasovani?: ProlnutiCasovaniUlozene;
+  /** Fotografie desktopové pozvánky (mimo galerii) */
+  desktopPozvankaFotografie?: string | null;
   /** Interní čítač – detekce ztráty souběžného zápisu */
   verzeUloziste?: number;
 }

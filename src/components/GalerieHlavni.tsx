@@ -7,7 +7,7 @@ import {
   useRef,
   useLayoutEffect,
 } from "react";
-import type { PolozkaVerejna } from "@/types";
+import type { PolozkaVerejna, ProlnutiCasovaniNastaveni } from "@/types";
 import { zaznamenatDiag } from "@/lib/diag-inicializace";
 import {
   jsouGalerieFotkyPripravene,
@@ -22,6 +22,7 @@ import {
 } from "@/lib/uloziste";
 import { useMetriky } from "@/hooks/useMetriky";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { LinkaPodPopisem } from "./LinkaPodPopisem";
 import { ZobrazeniPolozky } from "./ZobrazeniPolozky";
 import { OdkazChciSeVracet } from "./OdkazChciSeVracet";
 import { OdkazSdilet } from "./OdkazSdilet";
@@ -36,6 +37,7 @@ interface PropsGalerieHlavni {
   pocatecniPolozkaId?: string;
   /** Index z SSR – pro synchronní převzetí bez bliknutí */
   pocatecniIndex: number;
+  prolnutiCasovani: ProlnutiCasovaniNastaveni;
 }
 
 /** Práh tažení pro přepnutí fotografie (v pixelech) */
@@ -118,6 +120,7 @@ export function GalerieHlavni({
   polozky,
   pocatecniPolozkaId,
   pocatecniIndex,
+  prolnutiCasovani,
 }: PropsGalerieHlavni) {
   const galerieDiagRef = useRef(false);
   const ssrPrevzatoRef = useRef(false);
@@ -269,6 +272,14 @@ export function GalerieHlavni({
     setAktualniIndex((index) => (index > 0 ? 0 : index));
   }, []);
 
+  const handleReplayProlnuti = useCallback(() => {
+    if (!prolnutiOvladani) return;
+    const polozkaId = polozky[aktualniIndex]?.id;
+    if (!polozkaId) return;
+    odeslat("replay_prolnuti", polozkaId);
+    prolnutiOvladani.prehratZnovu();
+  }, [aktualniIndex, odeslat, polozky, prolnutiOvladani]);
+
   // Klávesové ovládání šipkami
   useEffect(() => {
     const handleKlavesa = (e: KeyboardEvent) => {
@@ -372,6 +383,7 @@ export function GalerieHlavni({
             <ZobrazeniPolozky
               polozka={aktualniPolozka}
               jeAktivni={true}
+              casovani={prolnutiCasovani}
               onProlnutiOvladani={jeProlnuti ? setProlnutiOvladani : undefined}
             />
           </div>
@@ -400,7 +412,8 @@ export function GalerieHlavni({
               <div className="pointer-events-auto">
                 <SipkaPrehratProlnuti
                   viditelna={prolnutiOvladani.zobrazitSipku}
-                  onClick={prolnutiOvladani.prehratZnovu}
+                  onClick={handleReplayProlnuti}
+                  fadeMs={prolnutiCasovani.replayFadeMs}
                 />
               </div>
             </div>
@@ -429,10 +442,7 @@ export function GalerieHlavni({
                   <SipkaNavigace smer="vlevo" onClick={posunZpet} />
                 </div>
               )}
-              <div
-                className="h-px w-[150px] max-w-[45%] bg-white/40"
-                aria-hidden="true"
-              />
+              <LinkaPodPopisem />
               {aktualniIndex < polozky.length - 1 && (
                 <div className="absolute right-[5%] top-1/2 -translate-y-1/2">
                   <SipkaNavigace smer="vpravo" onClick={posunVpred} />

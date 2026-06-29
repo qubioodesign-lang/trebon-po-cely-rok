@@ -2,11 +2,7 @@
 
 import { useState, useTransition, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import type { AdminChyby, AdminData, DiagnozaBlob, Polozka } from "@/types";
-import { sestavitUrlPolozky } from "@/lib/url-polozky";
-import { ziskatHlavniSouborPolozky } from "@/lib/polozka-soubory";
-import { POPISY_ZDROJU, ZDROJE_NAVSTEV } from "@/lib/zdroj-navstev";
-import { POPISY_ZARIZENI, ZARIZENI_NAVSTEV } from "@/lib/zarizeni-navstevnika";
+import type { AdminChyby, AdminData, Polozka } from "@/types";
 import {
   prihlasitAdmin,
   odhlasitAdmin,
@@ -15,16 +11,32 @@ import {
   type DiagProlnutiNahrani,
   prepnoutAktivniPolozky,
   smazatPolozkuAdmin,
-  zmenitPopisPolozky,
   zmenitPoradiPolozek,
   odeslatPushUpozorneni,
   nahraditFotografiiPolozky,
+  ulozitUpravyPolozky,
+  nahraditSnimekProlnutiPolozky,
   vytvoritZalohu,
   nacistSeznamZaloh,
   obnovitZalohuAdmin,
 } from "@/app/admin/actions";
 import type { ZalohaInfo } from "@/lib/zaloha/typy";
 import { formatovatVelikost } from "@/lib/zaloha/pomocne";
+import { BlokDiagnozy } from "./admin/BlokDiagnozy";
+import { AdminPrehled } from "./admin/AdminPrehled";
+import { AdminSeznamPolozek } from "./admin/AdminSeznamPolozek";
+import type { UpravaPolozkyStav } from "./admin/AdminFormularUpravy";
+import { AdminPanelUpravy } from "./admin/AdminPanelUpravy";
+import { AdminAnalyticsDetail } from "./admin/AdminAnalyticsDetail";
+import { AdminNastaveniProlnuti } from "./admin/AdminNastaveniProlnuti";
+import { AdminDesktopPozvanka } from "./admin/AdminDesktopPozvanka";
+import { AdminPotvrzeniSmazani } from "./admin/AdminPotvrzeniSmazani";
+import { PROLNUTI_CASOVANI_VYCHOZI } from "@/lib/prolnuti-casovani";
+import { DESKTOP_POZVANKA_VYCHOZI_FOTOGRAFIE } from "@/lib/desktop-pozvanka";
+import {
+  AdminPosledniPublikace,
+  KLIC_SESSION_PUSH_ODESLANO,
+} from "./admin/AdminPosledniPublikace";
 
 function formatDiagProlnuti(diag: DiagProlnutiNahrani): string {
   return [
@@ -37,37 +49,18 @@ function formatDiagProlnuti(diag: DiagProlnutiNahrani): string {
   ].join("\n");
 }
 
+function vytvoritPocatecniUpravu(polozka: Polozka): UpravaPolozkyStav {
+  return {
+    popis: polozka.popis,
+    datumPorizeni: polozka.datumPorizeni?.slice(0, 10) ?? "",
+    aktivni: polozka.aktivni,
+  };
+}
+
 interface AdminPanelProps {
   jePrihlasen: boolean;
   data: AdminData | null;
   chyby: AdminChyby;
-}
-
-function BlokDiagnozy({ diagnoza }: { diagnoza: DiagnozaBlob }) {
-  return (
-    <div className="mx-auto max-w-sm rounded border border-amber-700/20 p-3 text-left font-mono text-[10px] leading-relaxed text-text-jemny">
-      <p>diagnoza za běhu:</p>
-      <p>vercel: {diagnoza.prostredi.vercel ? "ano" : "ne"}</p>
-      <p>autentizace: {diagnoza.maAutentizaci ? "ano" : "ne"}</p>
-      <p>node: {diagnoza.prostredi.nodeEnv}</p>
-      <p>BLOB_STORE_ID: {diagnoza.promenne.BLOB_STORE_ID ? "ano" : "ne"}</p>
-      <p>
-        BLOB_READ_WRITE_TOKEN:{" "}
-        {diagnoza.promenne.BLOB_READ_WRITE_TOKEN ? "ano" : "ne"}
-      </p>
-      <p>
-        VERCEL_OIDC_TOKEN:{" "}
-        {diagnoza.promenne.VERCEL_OIDC_TOKEN ? "ano" : "ne"}
-      </p>
-      <p>
-        OIDC z hlavičky: {diagnoza.promenne.OIDC_Z_HEADERU ? "ano" : "ne"}
-      </p>
-      {diagnoza.nahledStoreId && <p>store: {diagnoza.nahledStoreId}</p>}
-      {diagnoza.doporuceni && (
-        <p className="mt-2 text-amber-700/90">{diagnoza.doporuceni}</p>
-      )}
-    </div>
-  );
 }
 
 /**
@@ -81,18 +74,33 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
   const [chybaAkce, setChybaAkce] = useState("");
   const [nahrava, setNahrava] = useState(false);
   const [nahravaProlnuti, setNahravaProlnuti] = useState(false);
-  const [popisy, setPopisy] = useState<Record<string, string>>({});
-  const [ukladaPopisId, setUkladaPopisId] = useState<string | null>(null);
+  const [upravyPolozek, setUpravyPolozek] = useState<
+    Record<string, UpravaPolozkyStav>
+  >({});
+  const [ukladaUpravyId, setUkladaUpravyId] = useState<string | null>(null);
+  const [nahravaSnimekProlnuti, setNahravaSnimekProlnuti] = useState<{
+    id: string;
+    snimek: "A" | "B" | "C";
+  } | null>(null);
   const [potvrzeniAkce, setPotvrzeniAkce] = useState("");
   const [potvrzeniUrlSouboru, setPotvrzeniUrlSouboru] = useState<string | null>(
     null
   );
   const [odesilaPush, setOdesilaPush] = useState(false);
+  const [pushOdeslanoPolozkaId, setPushOdeslanoPolozkaId] = useState<
+    string | null
+  >(null);
   const [nahrazujeId, setNahrazujeId] = useState<string | null>(null);
   const [zalohy, setZalohy] = useState<ZalohaInfo[]>([]);
   const [nacitaZalohy, setNacitaZalohy] = useState(false);
   const [vytvariZalohu, setVytvariZalohu] = useState(false);
   const [obnovujeZalohu, setObnovujeZalohu] = useState<string | null>(null);
+  const [upravovanyId, setUpravovanyId] = useState<string | null>(null);
+  const [potvrzeniSmazani, setPotvrzeniSmazani] = useState<{
+    id: string;
+    popis: string;
+  } | null>(null);
+  const [mazePolozkuId, setMazePolozkuId] = useState<string | null>(null);
   const posledniPlnePolozky = useRef<Polozka[]>([]);
   const vstupNahraditFotografii = useRef<HTMLInputElement>(null);
   const idKNahrazeni = useRef<string | null>(null);
@@ -113,19 +121,6 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
         : polozkyZeServeru;
   const metriky = data?.metriky ?? null;
   const analytics = data?.analytics ?? null;
-
-  useEffect(() => {
-    const zeServeru = data?.polozky;
-    if (!zeServeru || zeServeru.length === 0) return;
-
-    setPopisy((predchozi) => {
-      const nove: Record<string, string> = {};
-      for (const polozka of zeServeru) {
-        nove[polozka.id] = predchozi[polozka.id] ?? polozka.popis;
-      }
-      return nove;
-    });
-  }, [data?.polozky]);
 
   const nacistZalohy = async () => {
     setNacitaZalohy(true);
@@ -153,9 +148,26 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
     }
   }, [jePrihlasen]);
 
+  useEffect(() => {
+    if (!jePrihlasen) return;
+    const ulozeno = sessionStorage.getItem(KLIC_SESSION_PUSH_ODESLANO);
+    if (ulozeno) {
+      setPushOdeslanoPolozkaId(ulozeno);
+    }
+  }, [jePrihlasen]);
+
   const trvaleUloziste = data?.trvaleUloziste ?? false;
   const diagnoza = data?.diagnoza ?? null;
-  const nejnovejsiAktivniId = polozky.find((p) => p.aktivni)?.id ?? null;
+  const posledniAktivniPolozka = polozky.find((p) => p.aktivni) ?? null;
+  const upravovanaPolozka = upravovanyId
+    ? (polozky.find((p) => p.id === upravovanyId) ?? null)
+    : null;
+  const upravaPolozky = upravovanyId
+    ? (upravyPolozek[upravovanyId] ?? null)
+    : null;
+  const pushOdeslano =
+    posledniAktivniPolozka !== null &&
+    pushOdeslanoPolozkaId === posledniAktivniPolozka.id;
   const probihaNahradiFotografii = nahrazujeId !== null;
 
   const obnovit = () => {
@@ -276,38 +288,102 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
     if (zpracovatChybuAkce(vysledek)) obnovit();
   };
 
-  const handleSmazat = async (id: string) => {
-    if (!confirm("Opravdu smazat tuto položku?")) return;
+  const handlePozadavekSmazani = (id: string) => {
+    const polozka = polozky.find((p) => p.id === id);
+    setPotvrzeniSmazani({
+      id,
+      popis: polozka?.popis || "bez názvu",
+    });
+  };
+
+  const handlePotvrditSmazani = async () => {
+    if (!potvrzeniSmazani) return;
+
+    const { id } = potvrzeniSmazani;
+    setMazePolozkuId(id);
     setChybaAkce("");
 
     try {
       const vysledek = await smazatPolozkuAdmin(id);
-      if (zpracovatChybuAkce(vysledek)) obnovit();
+      if (zpracovatChybuAkce(vysledek)) {
+        setPotvrzeniSmazani(null);
+        if (upravovanyId === id) {
+          setUpravovanyId(null);
+        }
+        obnovit();
+      }
     } catch (error) {
       setChybaAkce(
         error instanceof Error
           ? error.message
           : "Neočekávaná chyba server action při mazání"
       );
+    } finally {
+      setMazePolozkuId(null);
     }
   };
 
-  const handleUlozitPopis = async (id: string) => {
-    const popis = popisy[id] ?? "";
-    setUkladaPopisId(id);
+  const handleUlozitUpravy = async (id: string) => {
+    const uprava = upravyPolozek[id];
+    if (!uprava) return;
+
+    setUkladaUpravyId(id);
     setChybaAkce("");
 
     try {
-      const vysledek = await zmenitPopisPolozky(id, popis);
-      if (zpracovatChybuAkce(vysledek)) obnovit();
+      const vysledek = await ulozitUpravyPolozky(id, {
+        popis: uprava.popis,
+        datumPorizeni: uprava.datumPorizeni || null,
+        aktivni: uprava.aktivni,
+      });
+      if (zpracovatChybuAkce(vysledek)) {
+        setPotvrzeniAkce("Změny položky byly uloženy.");
+        setUpravovanyId(null);
+        obnovit();
+      }
     } catch (error) {
       setChybaAkce(
         error instanceof Error
           ? error.message
-          : "Neočekávaná chyba server action při ukládání popisu"
+          : "Neočekávaná chyba server action při ukládání úprav"
       );
     } finally {
-      setUkladaPopisId(null);
+      setUkladaUpravyId(null);
+    }
+  };
+
+  const handleNahraditSnimekProlnuti = async (
+    id: string,
+    snimek: "A" | "B" | "C",
+    soubor: File
+  ) => {
+    setNahravaSnimekProlnuti({ id, snimek });
+    setChybaAkce("");
+    setPotvrzeniAkce("");
+    setPotvrzeniUrlSouboru(null);
+
+    const formData = new FormData();
+    formData.set("soubor", soubor);
+
+    try {
+      const vysledek = await nahraditSnimekProlnutiPolozky(id, snimek, formData);
+      if ("uspech" in vysledek && vysledek.uspech) {
+        setPotvrzeniAkce(
+          `Snímek ${snimek} prolnutí byl nahrazen. Metadata v úložišti byla přepsána.`
+        );
+        setPotvrzeniUrlSouboru(vysledek.novaUrlSouboru ?? null);
+        obnovit();
+      } else if ("chyba" in vysledek && vysledek.chyba) {
+        setChybaAkce(vysledek.chyba);
+      }
+    } catch (error) {
+      setChybaAkce(
+        error instanceof Error
+          ? error.message
+          : "Neočekávaná chyba server action při nahrazování snímku prolnutí"
+      );
+    } finally {
+      setNahravaSnimekProlnuti(null);
     }
   };
 
@@ -395,6 +471,9 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
       }
 
       if ("uspech" in vysledek && vysledek.uspech) {
+        setPushOdeslanoPolozkaId(id);
+        sessionStorage.setItem(KLIC_SESSION_PUSH_ODESLANO, id);
+
         const { pocetOdeslano, pocetSelhalo } = vysledek;
         if (pocetSelhalo > 0) {
           setPotvrzeniAkce(
@@ -489,6 +568,34 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
     }
   };
 
+  const handleUpravit = (id: string) => {
+    const polozka = polozky.find((p) => p.id === id);
+    if (polozka) {
+      setUpravyPolozek((u) => ({
+        ...u,
+        [id]: vytvoritPocatecniUpravu(polozka),
+      }));
+    }
+    setUpravovanyId(id);
+  };
+
+  const handleZrusitUpravy = () => {
+    setUpravovanyId(null);
+  };
+
+  const handleZmenaUpravy = (
+    id: string,
+    zmena: Partial<UpravaPolozkyStav>
+  ) => {
+    setUpravyPolozek((predchozi) => ({
+      ...predchozi,
+      [id]: {
+        ...predchozi[id],
+        ...zmena,
+      },
+    }));
+  };
+
   const formatovatDatumZalohy = (iso: string) =>
     new Date(iso).toLocaleString("cs-CZ", {
       dateStyle: "short",
@@ -522,7 +629,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
 
   return (
     <div className="min-h-dvh bg-krem px-4 py-8">
-      <div className="mx-auto max-w-2xl space-y-8">
+      <div className="mx-auto max-w-5xl space-y-8">
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-light text-text">administrace</h1>
           <button type="button" onClick={handleOdhlaseni} className="odkaz-jemny">
@@ -566,6 +673,13 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
           </div>
         )}
 
+        <AdminPosledniPublikace
+          polozka={posledniAktivniPolozka}
+          pushOdeslano={pushOdeslano}
+          odesilaPush={odesilaPush}
+          onOdeslatPush={handleOdeslatPush}
+        />
+
         {(chyby.uloziste || chyby.polozky) && (
           <div className="rounded border border-red-400/30 bg-red-50/50 p-3 text-xs text-red-500">
             <p className="font-medium text-center">chyba načtení dat</p>
@@ -597,266 +711,51 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
           {diagnoza && <BlokDiagnozy diagnoza={diagnoza} />}
         </section>
 
-        {/* Metriky – vždy viditelné */}
-        <section className="space-y-3 border border-text-velmiJemny/20 p-4">
-          <h2 className="text-sm font-light text-text-jemny">metriky</h2>
-          {chyby.metriky && (
-            <p className="text-xs text-red-400">
-              chyba načtení metrik: {chyby.metriky}
-            </p>
-          )}
-          {metriky ? (
-            <div className="grid grid-cols-2 gap-2 text-xs text-text-velmiJemny">
-              <span>návštěvy: {metriky.pocetNavstev}</span>
-              <span>vracející se: {metriky.pocetVracejicichSeNavstevniku}</span>
-              <span>zobrazení fotografií: {metriky.pocetZobrazeniFotografii}</span>
-              <span>posuny vpřed: {metriky.pocetPosunuVpred}</span>
-              <span>návraty zpět: {metriky.pocetNavratuZpet}</span>
-              <span>procento návratů: {metriky.procentoNavratu}%</span>
-              <span>
-                kliknutí &bdquo;chci se vracet&ldquo;:{" "}
-                {metriky.pocetKliknutiChciSeVracet}
-              </span>
-              <span>povolená upozornění: {metriky.pocetPovolenychUpozorneni}</span>
-              <span>push odběratelé: {data?.pocetPushOdberu ?? 0}</span>
-            </div>
-          ) : (
-            <p className="text-xs text-text-velmiJemny">data metrik nejsou k dispozici</p>
-          )}
-        </section>
+        {/* Metriky a top položky */}
+        <AdminPrehled
+          metriky={metriky}
+          analytics={analytics}
+          polozky={polozky}
+          chybaMetriky={chyby.metriky}
+        />
 
-        <section className="space-y-3 border border-text-velmiJemny/20 p-4">
-          <h2 className="text-sm font-light text-text-jemny">analytics</h2>
-          {analytics ? (
-            <>
-              <div className="space-y-2">
-                <h3 className="text-xs font-light text-text-velmiJemny">
-                  zdroje návštěv
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-text-velmiJemny">
-                    <thead>
-                      <tr className="border-b border-text-velmiJemny/20">
-                        <th className="py-1 pr-3 font-light">zdroj</th>
-                        <th className="py-1 font-light">návštěvy</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {ZDROJE_NAVSTEV.map((zdroj) => (
-                        <tr
-                          key={zdroj}
-                          className="border-b border-text-velmiJemny/10"
-                        >
-                          <td className="py-1.5 pr-3 text-text">
-                            {POPISY_ZDROJU[zdroj]}
-                          </td>
-                          <td className="py-1.5">{analytics.zdroje[zdroj] ?? 0}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+        <AdminPanelUpravy
+          polozka={upravovanaPolozka}
+          uprava={upravaPolozky}
+          uklada={ukladaUpravyId === upravovanyId}
+          nahravaSnimek={
+            nahravaSnimekProlnuti?.id === upravovanyId
+              ? nahravaSnimekProlnuti.snimek
+              : null
+          }
+          onZmena={(zmena) => {
+            if (upravovanyId) handleZmenaUpravy(upravovanyId, zmena);
+          }}
+          onUlozit={() => {
+            if (upravovanyId) void handleUlozitUpravy(upravovanyId);
+          }}
+          onZrusit={handleZrusitUpravy}
+          onNahraditSnimek={(snimek, soubor) => {
+            if (upravovanyId) {
+              void handleNahraditSnimekProlnuti(upravovanyId, snimek, soubor);
+            }
+          }}
+        />
 
-              <div className="space-y-2">
-                <h3 className="text-xs font-light text-text-velmiJemny">
-                  zařízení návštěvníků
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-text-velmiJemny">
-                    <thead>
-                      <tr className="border-b border-text-velmiJemny/20">
-                        <th className="py-1 pr-3 font-light">zařízení</th>
-                        <th className="py-1 font-light">návštěvy</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {ZARIZENI_NAVSTEV.map((zarizeni) => (
-                        <tr
-                          key={zarizeni}
-                          className="border-b border-text-velmiJemny/10"
-                        >
-                          <td className="py-1.5 pr-3 text-text">
-                            {POPISY_ZARIZENI[zarizeni]}
-                          </td>
-                          <td className="py-1.5">
-                            {analytics.navstevyPodleZarizeni[zarizeni] ?? 0}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="text-xs font-light text-text-velmiJemny">
-                  zařízení push odběratelů
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-text-velmiJemny">
-                    <thead>
-                      <tr className="border-b border-text-velmiJemny/20">
-                        <th className="py-1 pr-3 font-light">zařízení</th>
-                        <th className="py-1 font-light">odběratelé</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {ZARIZENI_NAVSTEV.map((zarizeni) => (
-                        <tr
-                          key={`push-${zarizeni}`}
-                          className="border-b border-text-velmiJemny/10"
-                        >
-                          <td className="py-1.5 pr-3 text-text">
-                            {POPISY_ZARIZENI[zarizeni]}
-                          </td>
-                          <td className="py-1.5">
-                            {analytics.pushOdberyPodleZarizeni[zarizeni] ?? 0}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="text-xs font-light text-text-velmiJemny">
-                  fotografie
-                </h3>
-                {analytics.fotografie.length === 0 ? (
-                  <p className="text-xs text-text-velmiJemny">žádné položky</p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs text-text-velmiJemny">
-                      <thead>
-                        <tr className="border-b border-text-velmiJemny/20">
-                          <th className="py-1 pr-3 font-light">fotka</th>
-                          <th className="py-1 pr-3 font-light">zobrazení</th>
-                          <th className="py-1 font-light">sdílení</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {analytics.fotografie.map((radek) => {
-                          const polozka = polozky.find(
-                            (p) => p.id === radek.polozkaId
-                          );
-
-                          return (
-                            <tr
-                              key={radek.polozkaId}
-                              className="border-b border-text-velmiJemny/10"
-                            >
-                              <td className="py-1.5 pr-3">
-                                <div className="flex items-center gap-2">
-                                  {polozka &&
-                                  ziskatHlavniSouborPolozky(polozka) ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img
-                                      src={sestavitUrlPolozky(
-                                        ziskatHlavniSouborPolozky(polozka)!
-                                      )}
-                                      alt=""
-                                      className="h-8 w-8 flex-shrink-0 object-cover bg-krem-tmavsi"
-                                    />
-                                  ) : (
-                                    <span className="flex h-8 w-8 items-center justify-center bg-krem-tmavsi text-[10px]">
-                                      —
-                                    </span>
-                                  )}
-                                  <span className="text-text">{radek.popis}</span>
-                                </div>
-                              </td>
-                              <td className="py-1.5 pr-3">{radek.zobrazeni}</td>
-                              <td className="py-1.5">{radek.sdileni}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </>
-          ) : (
-            <p className="text-xs text-text-velmiJemny">
-              data analytics nejsou k dispozici
-            </p>
-          )}
-        </section>
-
-        <section className="space-y-3 border border-text-velmiJemny/20 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-sm font-light text-text-jemny">zálohy</h2>
-            <button
-              type="button"
-              onClick={() => void nacistZalohy()}
-              disabled={nacitaZalohy || vytvariZalohu}
-              className="text-xs text-text-velmiJemny disabled:opacity-30"
-            >
-              {nacitaZalohy ? "načítám…" : "obnovit seznam"}
-            </button>
-          </div>
-          <p className="text-xs text-text-velmiJemny">
-            Ruční záloha obsahuje fotografie, metadata galerie, push odběratele,
-            metriky návštěvnosti a netajná nastavení projektu.
-          </p>
-          <button
-            type="button"
-            onClick={() => void handleVytvoritZalohu()}
-            disabled={!trvaleUloziste || vytvariZalohu || obnovujeZalohu !== null}
-            className="tlacitko-klidne"
-          >
-            {vytvariZalohu ? "vytvářím zálohu…" : "vytvořit zálohu"}
-          </button>
-          {!trvaleUloziste && (
-            <p className="text-xs text-amber-700/80">
-              Zálohování vyžaduje aktivní Blob úložiště.
-            </p>
-          )}
-          {zalohy.length === 0 && !nacitaZalohy && trvaleUloziste && (
-            <p className="text-xs text-text-velmiJemny">žádné zálohy</p>
-          )}
-          {zalohy.length > 0 && (
-            <ul className="space-y-2">
-              {zalohy.map((zaloha) => (
-                <li
-                  key={zaloha.pathname}
-                  className="flex flex-col gap-2 border border-text-velmiJemny/20 p-3 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="min-w-0 text-xs text-text-velmiJemny">
-                    <p className="truncate font-mono text-[11px] text-text">
-                      {zaloha.nazev}
-                    </p>
-                    <p>
-                      {formatovatDatumZalohy(zaloha.vytvoreno)} ·{" "}
-                      {formatovatVelikost(zaloha.velikost)}
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => handleStahnoutZalohu(zaloha.pathname)}
-                      className="text-xs text-text-velmiJemny"
-                    >
-                      stáhnout
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void handleObnovitZalohu(zaloha)}
-                      disabled={obnovujeZalohu === zaloha.pathname || vytvariZalohu}
-                      className="text-xs text-red-400/70 disabled:opacity-30"
-                    >
-                      {obnovujeZalohu === zaloha.pathname
-                        ? "obnovuji…"
-                        : "obnovit"}
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        <AdminSeznamPolozek
+          polozky={polozky}
+          analytics={analytics}
+          upravovanyId={upravovanyId}
+          nahrazujeId={nahrazujeId}
+          probihaNahradiFotografii={probihaNahradiFotografii}
+          chybaPolozky={chyby.polozky}
+          maChybuNacitani={maChybuNacitani}
+          onUpravit={handleUpravit}
+          onPosun={handlePosun}
+          onPrepnoutAktivni={handlePrepnoutAktivni}
+          onSmazat={handlePozadavekSmazani}
+          onNahraditFotografii={handleNahraditFotografii}
+        />
 
         <section className="space-y-3 border border-text-velmiJemny/20 p-4">
           <h2 className="text-sm font-light text-text-jemny">nahrát položku</h2>
@@ -941,145 +840,111 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
           </form>
         </section>
 
-        <section className="space-y-3">
-          <h2 className="text-sm font-light text-text-jemny">
-            položky ({polozky.length})
-          </h2>
-          {chyby.polozky && !chyby.uloziste && (
-            <p className="text-xs text-red-400">
-              chyba načtení položek: {chyby.polozky}
+        <AdminNastaveniProlnuti
+          casovani={data?.prolnutiCasovani ?? PROLNUTI_CASOVANI_VYCHOZI}
+          onUlozeno={obnovit}
+          onChyba={setChybaAkce}
+          onPotvrzeni={setPotvrzeniAkce}
+        />
+
+        <AdminDesktopPozvanka
+          fotografieUrl={
+            data?.desktopPozvankaFotografieUrl ?? DESKTOP_POZVANKA_VYCHOZI_FOTOGRAFIE
+          }
+          maVlastniFotografii={Boolean(data?.desktopPozvankaFotografie)}
+          onUlozeno={obnovit}
+          onChyba={setChybaAkce}
+          onPotvrzeni={setPotvrzeniAkce}
+        />
+
+        <section className="space-y-3 border border-text-velmiJemny/20 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-light text-text-jemny">zálohy</h2>
+            <button
+              type="button"
+              onClick={() => void nacistZalohy()}
+              disabled={nacitaZalohy || vytvariZalohu}
+              className="text-xs text-text-velmiJemny disabled:opacity-30"
+            >
+              {nacitaZalohy ? "načítám…" : "obnovit seznam"}
+            </button>
+          </div>
+          <p className="text-xs text-text-velmiJemny">
+            Ruční záloha obsahuje fotografie, metadata galerie, push odběratele,
+            metriky návštěvnosti a netajná nastavení projektu.
+          </p>
+          <button
+            type="button"
+            onClick={() => void handleVytvoritZalohu()}
+            disabled={!trvaleUloziste || vytvariZalohu || obnovujeZalohu !== null}
+            className="tlacitko-klidne"
+          >
+            {vytvariZalohu ? "vytvářím zálohu…" : "vytvořit zálohu"}
+          </button>
+          {!trvaleUloziste && (
+            <p className="text-xs text-amber-700/80">
+              Zálohování vyžaduje aktivní Blob úložiště.
             </p>
           )}
-          {polozky.length === 0 && !maChybuNacitani && (
-            <p className="text-xs text-text-velmiJemny">žádné položky v galerii</p>
+          {zalohy.length === 0 && !nacitaZalohy && trvaleUloziste && (
+            <p className="text-xs text-text-velmiJemny">žádné zálohy</p>
           )}
-          {polozky.map((polozka: Polozka, index: number) => {
-            const aktualniPopis = popisy[polozka.id] ?? polozka.popis;
-            const popisZmenen = aktualniPopis !== polozka.popis;
-            const jeNejnovejsiAktivni = polozka.id === nejnovejsiAktivniId;
-
-            return (
-            <div
-              key={polozka.id}
-              className={`flex items-center gap-3 border border-text-velmiJemny/20 p-3 ${
-                !polozka.aktivni ? "opacity-40" : ""
-              }`}
-            >
-              <div className="flex flex-col gap-1">
-                <button
-                  type="button"
-                  onClick={() => handlePosun(index, "nahoru")}
-                  disabled={index === 0}
-                  className="text-xs text-text-velmiJemny disabled:opacity-30"
+          {zalohy.length > 0 && (
+            <ul className="space-y-2">
+              {zalohy.map((zaloha) => (
+                <li
+                  key={zaloha.pathname}
+                  className="flex flex-col gap-2 border border-text-velmiJemny/20 p-3 sm:flex-row sm:items-center sm:justify-between"
                 >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handlePosun(index, "dolu")}
-                  disabled={index === polozky.length - 1}
-                  className="text-xs text-text-velmiJemny disabled:opacity-30"
-                >
-                  ↓
-                </button>
-              </div>
-
-              <div className="h-12 w-12 flex-shrink-0 overflow-hidden bg-krem-tmavsi">
-                {polozka.typ === "prolnuti" ? (
-                  <div className="relative h-full w-full">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={sestavitUrlPolozky(
-                        polozka.soubory?.[0] ?? polozka.soubor ?? ""
-                      )}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                    <span className="absolute bottom-0 right-0 bg-krem/80 px-0.5 text-[8px] text-text-velmiJemny">
-                      A→B
-                    </span>
+                  <div className="min-w-0 text-xs text-text-velmiJemny">
+                    <p className="truncate font-mono text-[11px] text-text">
+                      {zaloha.nazev}
+                    </p>
+                    <p>
+                      {formatovatDatumZalohy(zaloha.vytvoreno)} ·{" "}
+                      {formatovatVelikost(zaloha.velikost)}
+                    </p>
                   </div>
-                ) : polozka.typ === "fotografie" && polozka.soubor ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={sestavitUrlPolozky(polozka.soubor)}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <span className="flex h-full items-center justify-center text-xs text-text-velmiJemny">
-                    video
-                  </span>
-                )}
-              </div>
-
-              <input
-                type="text"
-                value={aktualniPopis}
-                onChange={(e) =>
-                  setPopisy((predchozi) => ({
-                    ...predchozi,
-                    [polozka.id]: e.target.value,
-                  }))
-                }
-                className="flex-1 border-none bg-transparent text-sm text-text outline-none"
-              />
-
-              <div className="flex flex-col gap-1">
-                {jeNejnovejsiAktivni && (
-                  <button
-                    type="button"
-                    onClick={() => handleOdeslatPush(polozka.id)}
-                    disabled={odesilaPush}
-                    className="text-xs text-text-velmiJemny disabled:opacity-30"
-                  >
-                    {odesilaPush ? "odesílám…" : "Odeslat upozornění"}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => handleUlozitPopis(polozka.id)}
-                  disabled={
-                    !popisZmenen || ukladaPopisId === polozka.id
-                  }
-                  className="text-xs text-text-velmiJemny disabled:opacity-30"
-                >
-                  {ukladaPopisId === polozka.id ? "ukládám…" : "uložit"}
-                </button>
-                {polozka.typ === "fotografie" && (
-                  <button
-                    type="button"
-                    onClick={() => handleNahraditFotografii(polozka.id)}
-                    disabled={probihaNahradiFotografii}
-                    className="text-xs text-text-velmiJemny disabled:opacity-30"
-                  >
-                    {nahrazujeId === polozka.id
-                      ? "Probíhá nahrávání..."
-                      : "nahradit fotografii"}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() =>
-                    handlePrepnoutAktivni(polozka.id, polozka.aktivni)
-                  }
-                  className="text-xs text-text-velmiJemny"
-                >
-                  {polozka.aktivni ? "skrýt" : "zobrazit"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSmazat(polozka.id)}
-                  className="text-xs text-red-400/70"
-                >
-                  smazat
-                </button>
-              </div>
-            </div>
-            );
-          })}
+                  <div className="flex shrink-0 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => handleStahnoutZalohu(zaloha.pathname)}
+                      className="text-xs text-text-velmiJemny"
+                    >
+                      stáhnout
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleObnovitZalohu(zaloha)}
+                      disabled={obnovujeZalohu === zaloha.pathname || vytvariZalohu}
+                      className="text-xs text-red-400/70 disabled:opacity-30"
+                    >
+                      {obnovujeZalohu === zaloha.pathname
+                        ? "obnovuji…"
+                        : "obnovit"}
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
+
+        <AdminAnalyticsDetail
+          analytics={analytics}
+          pocetPushOdberu={data?.pocetPushOdberu ?? 0}
+          metrikyPush={metriky?.pocetPovolenychUpozorneni}
+        />
       </div>
+
+      {potvrzeniSmazani && (
+        <AdminPotvrzeniSmazani
+          popis={potvrzeniSmazani.popis}
+          probiha={mazePolozkuId === potvrzeniSmazani.id}
+          onZrusit={() => setPotvrzeniSmazani(null)}
+          onPotvrdit={() => void handlePotvrditSmazani()}
+        />
+      )}
     </div>
   );
 }

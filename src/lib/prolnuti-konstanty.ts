@@ -6,7 +6,7 @@
  */
 export const PROLNUTI_CASOVANI = {
   /** Kolik ms zůstane první fotografie úplně beze změny před prolínáním */
-  cekaniPredStartemMs: 300,
+  cekaniPredStartemMs: 100,
   /** Délka prolínání mezi dvěma snímky (ms) – delší = klidnější */
   delkaProlnutiMs: 6_500,
   /**

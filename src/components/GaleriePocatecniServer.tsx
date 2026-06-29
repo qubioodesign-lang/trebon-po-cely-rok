@@ -1,5 +1,6 @@
 import type { PolozkaVerejna } from "@/types";
 import { GalerieKritickyCss } from "./GalerieKritickyCss";
+import { LinkaPodPopisem } from "./LinkaPodPopisem";
 import { ZobrazeniPolozkyServer } from "./ZobrazeniPolozkyServer";
 
 interface PropsGaleriePocatecniServer {
@@ -127,7 +128,7 @@ export function GaleriePocatecniServer({
                     <SipkaVlevo />
                   </div>
                 )}
-                <div className="h-px w-[150px] max-w-[45%] bg-white/40" aria-hidden="true" />
+                <LinkaPodPopisem />
                 {aktualniIndex < pocetPolozek - 1 && (
                   <div className="absolute right-[5%] top-1/2 -translate-y-1/2" aria-hidden="true">
                     <SipkaVpravo />
