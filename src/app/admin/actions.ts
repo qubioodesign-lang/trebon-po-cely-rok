@@ -32,6 +32,7 @@ import {
   zpravaChybejiciBlobAutentizace,
   lzeVytvoritZalohu,
 } from "@/lib/admin-data";
+import { overitMetadataVerejne, type UlozisteDat } from "@/lib/uloziste-dat";
 import {
   maBlobAutentizaci,
   pouzivaBlobUloziste,
@@ -124,6 +125,15 @@ async function overitAdmina(): Promise<
   return { oidcHeader, diagnoza };
 }
 
+/** Počká na veřejnou viditelnost změny, pak invaliduje cache stránek */
+async function potvrditAUvolnitWeb(
+  overeni: (data: UlozisteDat) => boolean
+): Promise<void> {
+  await overitMetadataVerejne(overeni);
+  revalidatePath("/admin");
+  revalidatePath("/");
+}
+
 /** Smaže soubor; chybějící soubor neblokuje dokončení mazání položky */
 async function smazatSouborBezpecne(
   cestaSouboru: string,
@@ -144,10 +154,12 @@ async function dokoncitNahrazeniJeLiUlozeno(
   starySoubor: string,
   oidcHeader: string | null
 ): Promise<Extract<AkceVysledek, { uspech: true }> | null> {
-  const overena = await ziskatPolozkuCerstve(id, oidcHeader, {
-    bypassCache: true,
-  });
-  if (overena?.soubor !== novaUrl) {
+  try {
+    await potvrditAUvolnitWeb(
+      (uloziste) =>
+        uloziste.polozky.find((p) => p.id === id)?.soubor === novaUrl
+    );
+  } catch {
     return null;
   }
 
@@ -155,9 +167,7 @@ async function dokoncitNahrazeniJeLiUlozeno(
     await smazatSouborBezpecne(starySoubor, oidcHeader);
   }
 
-  revalidatePath("/admin");
-  revalidatePath("/");
-    return { uspech: true, novaUrlSouboru: overena.soubor ?? undefined };
+  return { uspech: true, novaUrlSouboru: novaUrl };
 }
 
 /** Dokončí náhradu snímku prolnutí, pokud metadata už ukazují na novou URL */
@@ -168,10 +178,13 @@ async function dokoncitNahrazeniSnimkuProlnutiJeLiUlozeno(
   starySoubor: string | null,
   oidcHeader: string | null
 ): Promise<Extract<AkceVysledek, { uspech: true }> | null> {
-  const overena = await ziskatPolozkuCerstve(id, oidcHeader, {
-    bypassCache: true,
-  });
-  if (overena?.soubory?.[indexSnimku] !== novaUrl) {
+  try {
+    await potvrditAUvolnitWeb(
+      (uloziste) =>
+        uloziste.polozky.find((p) => p.id === id)?.soubory?.[indexSnimku] ===
+        novaUrl
+    );
+  } catch {
     return null;
   }
 
@@ -179,8 +192,6 @@ async function dokoncitNahrazeniSnimkuProlnutiJeLiUlozeno(
     await smazatSouborBezpecne(starySoubor, oidcHeader);
   }
 
-  revalidatePath("/admin");
-  revalidatePath("/");
   return { uspech: true, novaUrlSouboru: novaUrl };
 }
 
@@ -224,7 +235,7 @@ export async function nahratPolozku(formData: FormData): Promise<AkceVysledek> {
     const vysledek = await ulozitSoubor(soubor, oidcHeader);
     cestaSouboru = vysledek.cestaSouboru;
 
-    await vytvoritPolozku(
+    const novaPolozka = await vytvoritPolozku(
       {
         typ: vysledek.typ,
         soubor: vysledek.cestaSouboru,
@@ -234,8 +245,10 @@ export async function nahratPolozku(formData: FormData): Promise<AkceVysledek> {
       oidcHeader
     );
 
-    revalidatePath("/admin");
-    revalidatePath("/");
+    await potvrditAUvolnitWeb((uloziste) =>
+      uloziste.polozky.some((p) => p.id === novaPolozka.id)
+    );
+
     return { uspech: true };
   } catch (error) {
     if (cestaSouboru) {
@@ -336,6 +349,10 @@ export async function nahratProlnuti(formData: FormData): Promise<AkceVysledek> 
       oidcHeader
     );
 
+    await potvrditAUvolnitWeb((uloziste) =>
+      uloziste.polozky.some((p) => p.id === novaPolozka.id)
+    );
+
     const diagProlnuti = sestavitDiagProlnuti(
       souborA,
       souborB,
@@ -344,8 +361,6 @@ export async function nahratProlnuti(formData: FormData): Promise<AkceVysledek> 
       novaPolozka.soubory?.length ?? 0
     );
 
-    revalidatePath("/admin");
-    revalidatePath("/");
     return { uspech: true, diagProlnuti };
   } catch (error) {
     for (const cesta of nahrateCesty) {
@@ -380,8 +395,10 @@ export async function prepnoutAktivniPolozky(
 
   try {
     await prepnoutAktivni(id, aktivni, admin.oidcHeader);
-    revalidatePath("/admin");
-    revalidatePath("/");
+    await potvrditAUvolnitWeb(
+      (uloziste) =>
+        uloziste.polozky.find((p) => p.id === id)?.aktivni === aktivni
+    );
     return { uspech: true };
   } catch (error) {
     return {
@@ -407,8 +424,10 @@ export async function smazatPolozkuAdmin(id: string): Promise<AkceVysledek> {
       await smazatSouborBezpecne(cesta, admin.oidcHeader);
     }
 
-    revalidatePath("/admin");
-    revalidatePath("/");
+    await potvrditAUvolnitWeb(
+      (uloziste) => !uloziste.polozky.some((p) => p.id === id)
+    );
+
     return { uspech: true };
   } catch (error) {
     return {
@@ -536,8 +555,10 @@ export async function zmenitPopisPolozky(
 
   try {
     await aktualizovatPopis(id, popis, admin.oidcHeader);
-    revalidatePath("/admin");
-    revalidatePath("/");
+    await potvrditAUvolnitWeb(
+      (uloziste) =>
+        uloziste.polozky.find((p) => p.id === id)?.popis === popis
+    );
     return { uspech: true };
   } catch (error) {
     return {
@@ -574,8 +595,16 @@ export async function ulozitUpravyPolozky(
       admin.oidcHeader
     );
 
-    revalidatePath("/admin");
-    revalidatePath("/");
+    await potvrditAUvolnitWeb((uloziste) => {
+      const polozka = uloziste.polozky.find((p) => p.id === id);
+      if (!polozka) return false;
+      return (
+        polozka.popis === data.popis &&
+        polozka.datumPorizeni === data.datumPorizeni &&
+        polozka.aktivni === data.aktivni
+      );
+    });
+
     return { uspech: true };
   } catch (error) {
     return {
@@ -724,8 +753,12 @@ export async function zmenitPoradiPolozek(
 
   try {
     await zmenitPoradi(poradiIds, admin.oidcHeader);
-    revalidatePath("/admin");
-    revalidatePath("/");
+    await potvrditAUvolnitWeb((uloziste) =>
+      poradiIds.every(
+        (id, index) =>
+          uloziste.polozky.find((p) => p.id === id)?.poradi === index
+      )
+    );
     return { uspech: true };
   } catch (error) {
     return {

@@ -5,7 +5,7 @@ import path from "path";
 import { cache } from "react";
 import type { Polozka } from "@/types";
 import type { TypUdalostiMetriky } from "@/types";
-import { nacistDataBlob, ulozitDataBlob } from "./uloziste-blob";
+import { nacistDataBlob, ulozitDataBlob, nacistMetadataVerejne } from "./uloziste-blob";
 import { normalizovatUloziste } from "./uloziste-normalizace";
 import { pouzivaBlobUloziste } from "./env-blob";
 import type { AnalyticsAgregovane } from "./analytics";
@@ -75,10 +75,10 @@ export interface VolbyCteniDat {
   bypassCache?: boolean;
 }
 
-const MAX_POKUSY_ZAPISU = 8;
+const MAX_POKUSY_ZAPISU = 12;
 
 function cekatPredOpakovanim(pokus: number): Promise<void> {
-  const ms = 75 * (pokus + 1);
+  const ms = Math.min(50 * 2 ** pokus, 2000);
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
@@ -142,7 +142,9 @@ async function nacistDataProZapis(
   volbyCteni?: VolbyCteniDat
 ): Promise<UlozisteDat> {
   if (pouzivaBlobUloziste()) {
-    return nacistDataBlob(oidcZHeaderu, volbyCteni);
+    return nacistDataBlob(oidcZHeaderu, {
+      bypassCache: volbyCteni?.bypassCache ?? true,
+    });
   }
   return nacistDataLokalne();
 }
@@ -153,6 +155,49 @@ export async function nacistDataCerstve(
   volbyCteni?: VolbyCteniDat
 ): Promise<UlozisteDat> {
   return nacistDataProZapis(oidcZHeaderu, volbyCteni);
+}
+
+const MAX_POKUSY_VEREJNEHO_CETENI = 20;
+
+function cekatNaVerejneCteni(pokus: number): Promise<void> {
+  const ms = Math.min(100 * 2 ** pokus, 3000);
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Počká, až jsou metadata viditelná přes veřejnou URL (stejná cesta jako veřejný web).
+ * Server actions vracejí úspěch až po tomto ověření.
+ */
+export async function overitMetadataVerejne(
+  overeni: (data: UlozisteDat) => boolean
+): Promise<UlozisteDat> {
+  if (!pouzivaBlobUloziste()) {
+    const data = nacistDataLokalne();
+    if (!overeni(data)) {
+      throw new Error("Změna nebyla uložena do lokálního úložiště");
+    }
+    return data;
+  }
+
+  let posledni: UlozisteDat | null = null;
+
+  for (let pokus = 0; pokus < MAX_POKUSY_VEREJNEHO_CETENI; pokus++) {
+    try {
+      const data = await nacistMetadataVerejne();
+      posledni = data;
+      if (overeni(data)) {
+        return data;
+      }
+    } catch {
+      // CDN může krátce vracet starou verzi nebo chybu – zkusíme znovu
+    }
+
+    await cekatNaVerejneCteni(pokus);
+  }
+
+  throw new Error(
+    "Změna byla uložena, ale veřejný web ji zatím nevidí. Zkuste akci znovu za chvíli."
+  );
 }
 
 /**

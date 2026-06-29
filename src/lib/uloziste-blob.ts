@@ -1,6 +1,6 @@
 import "server-only";
 
-import { put } from "@vercel/blob";
+import { get, put } from "@vercel/blob";
 import { unstable_noStore as noStore } from "next/cache";
 import type { UlozisteDat } from "./uloziste-dat";
 import { normalizovatUloziste } from "./uloziste-normalizace";
@@ -30,6 +30,19 @@ function sestavitVerejneUrlMetadata(): string {
   }
 
   return `https://${storeId}.public.blob.vercel-storage.com/${BLOB_CESTA_METADATA}`;
+}
+
+async function nacistTextZBlobGet(
+  pathname: string,
+  volby: { storeId?: string; token?: string; oidcToken?: string }
+): Promise<string | null> {
+  const vysledek = await get(pathname, { access: "public", ...volby });
+
+  if (!vysledek?.stream) {
+    return null;
+  }
+
+  return new Response(vysledek.stream).text();
 }
 
 /** Stáhne metadata přes veřejnou URL (bez Bearer tokenu) */
@@ -62,31 +75,45 @@ async function stahnoutMetadataVerejne(
   return odpoved.text();
 }
 
-/** Načte data z Vercel Blob – pouze veřejný fetch, bez autentizovaného get() */
+function parsovatMetadata(text: string | null): UlozisteDat {
+  if (!text?.trim()) {
+    return structuredClone(PRAZDNA_DATA);
+  }
+
+  try {
+    return normalizovatUloziste(JSON.parse(text) as UlozisteDat);
+  } catch {
+    throw new Error(
+      "Metadata v Blob jsou poškozená (neplatný JSON). Obnovte zálohu nebo opravte soubor data/uloziste.json."
+    );
+  }
+}
+
+/** Načte data z Vercel Blob – autentizované get() nebo veřejný fetch bez CDN cache */
 export async function nacistDataBlob(
-  _oidcZHeaderu?: string | null,
+  oidcZHeaderu?: string | null,
   volbyCteni?: VolbyCteniBlob
 ): Promise<UlozisteDat> {
   noStore();
 
+  const bypassCache = volbyCteni?.bypassCache ?? true;
+  const volby = await ziskatVolbyBlobAsync(oidcZHeaderu);
+
+  if (volby.token || volby.oidcToken) {
+    try {
+      const text = await nacistTextZBlobGet(BLOB_CESTA_METADATA, volby);
+      if (text !== null) {
+        return parsovatMetadata(text);
+      }
+    } catch {
+      // Fallback na veřejný fetch níže
+    }
+  }
+
   try {
     const url = sestavitVerejneUrlMetadata();
-    const text = await stahnoutMetadataVerejne(
-      url,
-      volbyCteni?.bypassCache ?? false
-    );
-
-    if (!text?.trim()) {
-      return structuredClone(PRAZDNA_DATA);
-    }
-
-    try {
-      return normalizovatUloziste(JSON.parse(text) as UlozisteDat);
-    } catch {
-      throw new Error(
-        "Metadata v Blob jsou poškozená (neplatný JSON). Obnovte zálohu nebo opravte soubor data/uloziste.json."
-      );
-    }
+    const text = await stahnoutMetadataVerejne(url, bypassCache);
+    return parsovatMetadata(text);
   } catch (error) {
     if (error instanceof Error) {
       throw error;
@@ -114,7 +141,14 @@ export async function ulozitDataBlob(
     addRandomSuffix: false,
     allowOverwrite: true,
     contentType: "application/json",
+    cacheControlMaxAge: 0,
   });
 }
 
-export { normalizovatUloziste } from "./uloziste-normalizace";
+/** Stáhne metadata tak, jak je vidí veřejný web (veřejná URL, bez CDN cache) */
+export async function nacistMetadataVerejne(): Promise<UlozisteDat> {
+  noStore();
+  const url = sestavitVerejneUrlMetadata();
+  const text = await stahnoutMetadataVerejne(url, true);
+  return parsovatMetadata(text);
+}

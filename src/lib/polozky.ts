@@ -186,10 +186,17 @@ export async function aktualizovatPopis(
   popis: string,
   oidcZHeaderu?: string | null
 ): Promise<void> {
-  await upravitData((uloziste) => {
-    const polozka = uloziste.polozky.find((p) => p.id === id);
-    if (polozka) polozka.popis = popis;
-  }, oidcZHeaderu);
+  await upravitData(
+    (uloziste) => {
+      const polozka = uloziste.polozky.find((p) => p.id === id);
+      if (polozka) polozka.popis = popis;
+    },
+    oidcZHeaderu,
+    {
+      overitPoUlozeni: (uloziste) =>
+        uloziste.polozky.find((p) => p.id === id)?.popis === popis,
+    }
+  );
 }
 
 /** Aktualizuje metadata položky (popis, datum, viditelnost) */
@@ -202,17 +209,39 @@ export async function aktualizovatPolozku(
   },
   oidcZHeaderu?: string | null
 ): Promise<void> {
-  await upravitData((uloziste) => {
-    const polozka = uloziste.polozky.find((p) => p.id === id);
-    if (!polozka) {
-      throw new Error("Položka nebyla nalezena");
+  await upravitData(
+    (uloziste) => {
+      const polozka = uloziste.polozky.find((p) => p.id === id);
+      if (!polozka) {
+        throw new Error("Položka nebyla nalezena");
+      }
+      if (data.popis !== undefined) polozka.popis = data.popis;
+      if (data.datumPorizeni !== undefined) {
+        polozka.datumPorizeni = data.datumPorizeni;
+      }
+      if (data.aktivni !== undefined) polozka.aktivni = data.aktivni;
+    },
+    oidcZHeaderu,
+    {
+      overitPoUlozeni: (uloziste) => {
+        const polozka = uloziste.polozky.find((p) => p.id === id);
+        if (!polozka) return false;
+        if (data.popis !== undefined && polozka.popis !== data.popis) {
+          return false;
+        }
+        if (
+          data.datumPorizeni !== undefined &&
+          polozka.datumPorizeni !== data.datumPorizeni
+        ) {
+          return false;
+        }
+        if (data.aktivni !== undefined && polozka.aktivni !== data.aktivni) {
+          return false;
+        }
+        return true;
+      },
     }
-    if (data.popis !== undefined) polozka.popis = data.popis;
-    if (data.datumPorizeni !== undefined) {
-      polozka.datumPorizeni = data.datumPorizeni;
-    }
-    if (data.aktivni !== undefined) polozka.aktivni = data.aktivni;
-  }, oidcZHeaderu);
+  );
 }
 
 /** Nahradí jeden snímek prolnutí (A=0, B=1, C=2) */
@@ -277,10 +306,17 @@ export async function prepnoutAktivni(
   aktivni: boolean,
   oidcZHeaderu?: string | null
 ): Promise<void> {
-  await upravitData((uloziste) => {
-    const polozka = uloziste.polozky.find((p) => p.id === id);
-    if (polozka) polozka.aktivni = aktivni;
-  }, oidcZHeaderu);
+  await upravitData(
+    (uloziste) => {
+      const polozka = uloziste.polozky.find((p) => p.id === id);
+      if (polozka) polozka.aktivni = aktivni;
+    },
+    oidcZHeaderu,
+    {
+      overitPoUlozeni: (uloziste) =>
+        uloziste.polozky.find((p) => p.id === id)?.aktivni === aktivni,
+    }
+  );
 }
 
 /** Smaže položku z úložiště */
@@ -290,12 +326,20 @@ export async function smazatPolozku(
 ): Promise<Polozka | null> {
   let smazana: Polozka | null = null;
 
-  await upravitData((uloziste) => {
-    const index = uloziste.polozky.findIndex((p) => p.id === id);
-    if (index === -1) return;
-    smazana = uloziste.polozky[index];
-    uloziste.polozky.splice(index, 1);
-  }, oidcZHeaderu);
+  await upravitData(
+    (uloziste) => {
+      const index = uloziste.polozky.findIndex((p) => p.id === id);
+      if (index === -1) return;
+      smazana = uloziste.polozky[index];
+      uloziste.polozky.splice(index, 1);
+    },
+    oidcZHeaderu,
+    {
+      overitPoUlozeni: (uloziste) =>
+        !uloziste.polozky.some((p) => p.id === id),
+      chybovaZprava: "Položku se nepodařilo smazat z metadat. Zkuste akci znovu.",
+    }
+  );
 
   return smazana;
 }
@@ -305,10 +349,20 @@ export async function zmenitPoradi(
   ids: string[],
   oidcZHeaderu?: string | null
 ): Promise<void> {
-  await upravitData((uloziste) => {
-    ids.forEach((id, index) => {
-      const polozka = uloziste.polozky.find((p) => p.id === id);
-      if (polozka) polozka.poradi = index;
-    });
-  }, oidcZHeaderu);
+  await upravitData(
+    (uloziste) => {
+      ids.forEach((id, index) => {
+        const polozka = uloziste.polozky.find((p) => p.id === id);
+        if (polozka) polozka.poradi = index;
+      });
+    },
+    oidcZHeaderu,
+    {
+      overitPoUlozeni: (uloziste) =>
+        ids.every(
+          (id, index) =>
+            uloziste.polozky.find((p) => p.id === id)?.poradi === index
+        ),
+    }
+  );
 }
