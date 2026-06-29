@@ -2,7 +2,7 @@ import "server-only";
 
 import type { Polozka } from "@/types";
 import type { PayloadMetriky, AnalyticsSouhrn, AnalyticsFotografieRadek } from "@/types";
-import type { UlozisteDat } from "./uloziste-dat";
+import type { PushOdber, UlozisteDat } from "./uloziste-dat";
 import {
   jePlatnyZdrojNavstevy,
   type ZdrojNavstevnika,
@@ -153,6 +153,21 @@ export function aplikovatAnalyticsBatch(
   }
 }
 
+/** Počítá push odběratele podle uloženého typu zařízení (bez dopočtu starých záznamů) */
+export function spocitatPushOdberyPodleZarizeni(
+  pushOdbery: PushOdber[]
+): Record<TypZarizeni, number> {
+  const pocitadla = prazdnaPocitadlaZarizeni();
+
+  for (const odber of pushOdbery) {
+    if (odber.zarizeni && jePlatneZarizeni(odber.zarizeni)) {
+      pocitadla[odber.zarizeni] += 1;
+    }
+  }
+
+  return pocitadla;
+}
+
 /** Souhrn analytics pro admin – spojí s položkami galerie */
 export function ziskatSouhrnAnalytics(
   uloziste: UlozisteDat,
@@ -184,11 +199,13 @@ export function ziskatSouhrnAnalytics(
   }
 
   const navstevyPodleZarizeni = { ...analytics.navstevyPodleZarizeni };
-  const pushOdberyPodleZarizeni = { ...analytics.pushOdberyPodleZarizeni };
   for (const zarizeni of ZARIZENI_NAVSTEV) {
     navstevyPodleZarizeni[zarizeni] ??= 0;
-    pushOdberyPodleZarizeni[zarizeni] ??= 0;
   }
+
+  const pushOdberyPodleZarizeni = spocitatPushOdberyPodleZarizeni(
+    uloziste.pushOdbery ?? []
+  );
 
   return { zdroje, navstevyPodleZarizeni, pushOdberyPodleZarizeni, fotografie };
 }

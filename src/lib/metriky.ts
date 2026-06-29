@@ -1,6 +1,7 @@
 import type { MetrikySouhrn, PayloadMetriky } from "@/types";
 import type { MetrikyAgregovane, UlozisteDat, ZaznamMetriky } from "./uloziste-dat";
-import type { TypZarizeni } from "./zarizeni-navstevnika";
+import { jePlatneZarizeni, type TypZarizeni } from "./zarizeni-navstevnika";
+import type { PushOdber } from "./uloziste-dat";
 import { aplikovatAnalyticsBatch } from "./analytics";
 import { nacistData, upravitData } from "./uloziste-dat";
 
@@ -192,13 +193,20 @@ export async function ulozitPushOdber(
   await upravitData(
     (uloziste) => {
       const existujici = uloziste.pushOdbery.findIndex((o) => o.endpoint === data.endpoint);
+      const predchozi = existujici >= 0 ? uloziste.pushOdbery[existujici] : null;
 
-      const zaznam = {
+      const zaznam: PushOdber = {
         endpoint: data.endpoint,
         klicP256dh: data.klicP256dh,
         klicAuth: data.klicAuth,
-        vytvoreno: new Date().toISOString(),
+        vytvoreno: predchozi?.vytvoreno ?? new Date().toISOString(),
       };
+
+      if (volby?.zarizeni && jePlatneZarizeni(volby.zarizeni)) {
+        zaznam.zarizeni = volby.zarizeni;
+      } else if (predchozi?.zarizeni) {
+        zaznam.zarizeni = predchozi.zarizeni;
+      }
 
       if (existujici >= 0) {
         uloziste.pushOdbery[existujici] = zaznam;

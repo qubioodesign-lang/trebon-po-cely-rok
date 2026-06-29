@@ -10,6 +10,7 @@ import { normalizovatUloziste } from "./uloziste-normalizace";
 import { pouzivaBlobUloziste } from "./env-blob";
 import type { AnalyticsAgregovane } from "./analytics";
 import type { ProlnutiCasovaniUlozene } from "./prolnuti-casovani";
+import type { TypZarizeni } from "./zarizeni-navstevnika";
 
 export { pouzivaBlobUloziste } from "./env-blob";
 
@@ -31,6 +32,8 @@ export interface PushOdber {
   klicP256dh: string;
   klicAuth: string;
   vytvoreno: string;
+  /** Kategorie zařízení při registraci – volitelné u starších odběrů */
+  zarizeni?: TypZarizeni;
 }
 
 /** Agregované countery metrik – místo append-only logu */
