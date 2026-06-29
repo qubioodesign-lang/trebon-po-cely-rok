@@ -34,6 +34,7 @@ export function prazdneAnalytics(): AnalyticsAgregovane {
   return {
     navstevyPodleZdroje: {
       qr: 0,
+      "desktop-qr": 0,
       whatsapp: 0,
       sdileni: 0,
       primy: 0,
@@ -71,6 +72,12 @@ function zajistitFotografii(
   return normalizovatFotografii(analytics.fotografie[polozkaId]);
 }
 
+function zajistitZdrojeNavstev(analytics: AnalyticsAgregovane): void {
+  for (const zdroj of ZDROJE_NAVSTEV) {
+    analytics.navstevyPodleZdroje[zdroj] ??= 0;
+  }
+}
+
 function zajistitPocitadlaZarizeni(analytics: AnalyticsAgregovane): void {
   if (!analytics.navstevyPodleZarizeni) {
     analytics.navstevyPodleZarizeni = prazdnaPocitadlaZarizeni();
@@ -93,6 +100,7 @@ export function zajistitAnalytics(uloziste: UlozisteDat): AnalyticsAgregovane {
   for (const countery of Object.values(uloziste.analyticsAgregovane.fotografie)) {
     countery.replay ??= 0;
   }
+  zajistitZdrojeNavstev(uloziste.analyticsAgregovane);
   zajistitPocitadlaZarizeni(uloziste.analyticsAgregovane);
   return uloziste.analyticsAgregovane;
 }

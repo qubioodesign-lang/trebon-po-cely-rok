@@ -1,6 +1,7 @@
 /** Povolené zdroje návštěv pro analytics v1a */
 export type ZdrojNavstevnika =
   | "qr"
+  | "desktop-qr"
   | "whatsapp"
   | "sdileni"
   | "primy"
@@ -8,6 +9,7 @@ export type ZdrojNavstevnika =
 
 export const ZDROJE_NAVSTEV: ZdrojNavstevnika[] = [
   "qr",
+  "desktop-qr",
   "whatsapp",
   "sdileni",
   "primy",
@@ -16,6 +18,7 @@ export const ZDROJE_NAVSTEV: ZdrojNavstevnika[] = [
 
 export const POPISY_ZDROJU: Record<ZdrojNavstevnika, string> = {
   qr: "QR",
+  "desktop-qr": "QR (desktop pozvánka)",
   whatsapp: "WhatsApp",
   sdileni: "Sdílení",
   primy: "Přímý vstup",
@@ -37,8 +40,10 @@ export function urcitZdrojNavstevy(): ZdrojNavstevnika {
   }
 
   const params = new URLSearchParams(window.location.search);
+  const zdroj = params.get("zdroj")?.toLowerCase();
   const z = params.get("z")?.toLowerCase();
 
+  if (zdroj === "desktop-qr") return "desktop-qr";
   if (z === "qr") return "qr";
   if (z === "wa" || z === "whatsapp") return "whatsapp";
   if (z === "sdileni" || params.get("polozka")) return "sdileni";

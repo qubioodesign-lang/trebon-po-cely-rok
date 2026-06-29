@@ -51,7 +51,7 @@ export async function DesktopPozvanka({ fotografieUrl }: PropsDesktopPozvanka) {
             role="img"
           />
           <p className="text-[1.3125rem] font-normal tracking-wide text-white/90">
-            trebonpocelyrok.cz
+            www.trebonpocelyrok.cz
           </p>
         </div>
 
