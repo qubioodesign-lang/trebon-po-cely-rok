@@ -7,8 +7,9 @@ import {
   prihlasitAdmin,
   odhlasitAdmin,
   nahratPolozku,
-  nahratProlnuti,
-  type DiagProlnutiNahrani,
+  nahratSouborGalerie,
+  vytvoritProlnutiAdmin,
+  smazatNahrateSouboryProlnuti,
   prepnoutAktivniPolozky,
   smazatPolozkuAdmin,
   zmenitPoradiPolozek,
@@ -38,14 +39,18 @@ import {
   KLIC_SESSION_PUSH_ODESLANO,
 } from "./admin/AdminPosledniPublikace";
 
-function formatDiagProlnuti(diag: DiagProlnutiNahrani): string {
+function formatDiagProlnuti(
+  pocetUlozenych: number,
+  pocetVMeta: number,
+  maC: boolean
+): string {
   return [
     "prolnutí – diagnostika:",
-    `A: ${diag.maA ? "ano" : "ne"}`,
-    `B: ${diag.maB ? "ano" : "ne"}`,
-    `C: ${diag.maC ? "ano" : "ne"}`,
-    `počet uložených souborů: ${diag.pocetUlozenychSouboru}`,
-    `počet v metadata: ${diag.pocetSouboruVMeta}`,
+    `A: ${pocetUlozenych >= 1 ? "ano" : "ne"}`,
+    `B: ${pocetUlozenych >= 2 ? "ano" : "ne"}`,
+    `C: ${maC ? "ano" : "ne"}`,
+    `počet uložených souborů: ${pocetUlozenych}`,
+    `počet v metadata: ${pocetVMeta}`,
   ].join("\n");
 }
 
@@ -74,6 +79,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
   const [chybaAkce, setChybaAkce] = useState("");
   const [nahrava, setNahrava] = useState(false);
   const [nahravaProlnuti, setNahravaProlnuti] = useState(false);
+  const [stavNahravaniProlnuti, setStavNahravaniProlnuti] = useState("");
   const [upravyPolozek, setUpravyPolozek] = useState<
     Record<string, UpravaPolozkyStav>
   >({});
@@ -237,19 +243,15 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
   const handleNahraniProlnuti = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setNahravaProlnuti(true);
+    setStavNahravaniProlnuti("");
     setChybaAkce("");
     setPotvrzeniAkce("");
 
     const form = e.currentTarget;
-    const formData = new FormData();
-
     const popisInput = form.elements.namedItem("popis") as HTMLInputElement | null;
     const datumInput = form.elements.namedItem(
       "datumPorizeni"
     ) as HTMLInputElement | null;
-    if (popisInput) formData.set("popis", popisInput.value);
-    if (datumInput) formData.set("datumPorizeni", datumInput.value);
-
     const inputA = form.elements.namedItem("souborA") as HTMLInputElement | null;
     const inputB = form.elements.namedItem("souborB") as HTMLInputElement | null;
     const inputC = form.elements.namedItem("souborC") as HTMLInputElement | null;
@@ -257,31 +259,103 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
     const fileB = inputB?.files?.[0];
     const fileC = inputC?.files?.[0];
 
-    if (fileA) formData.append("souborA", fileA, fileA.name);
-    if (fileB) formData.append("souborB", fileB, fileB.name);
-    if (fileC?.size) formData.append("souborC", fileC, fileC.name);
+    if (!fileA?.size) {
+      setChybaAkce("Pro prolnutí chybí první fotografie (A)");
+      setNahravaProlnuti(false);
+      return;
+    }
+
+    if (!fileB?.size) {
+      setChybaAkce("Pro prolnutí chybí druhá fotografie (B)");
+      setNahravaProlnuti(false);
+      return;
+    }
+
+    const souboryKNahrani: { snimek: "A" | "B" | "C"; soubor: File }[] = [
+      { snimek: "A", soubor: fileA },
+      { snimek: "B", soubor: fileB },
+    ];
+    if (fileC?.size) {
+      souboryKNahrani.push({ snimek: "C", soubor: fileC });
+    }
+
+    const nahrateCesty: string[] = [];
+    const operaceId = crypto.randomUUID();
 
     try {
-      const vysledek = await nahratProlnuti(formData);
-      if ("diagProlnuti" in vysledek && vysledek.diagProlnuti) {
-        setPotvrzeniAkce(formatDiagProlnuti(vysledek.diagProlnuti));
+      for (const { snimek, soubor } of souboryKNahrani) {
+        setStavNahravaniProlnuti(`nahrávám snímek ${snimek}…`);
+
+        const formData = new FormData();
+        formData.set("soubor", soubor, soubor.name);
+        formData.set("operaceId", operaceId);
+        formData.set("snimek", snimek);
+
+        const vysledek = await nahratSouborGalerie(formData);
+        if ("chyba" in vysledek) {
+          throw new Error(vysledek.chyba);
+        }
+        if (vysledek.typ !== "fotografie") {
+          throw new Error(
+            "Prolnutí podporuje pouze fotografie (JPEG, PNG, WebP, AVIF)"
+          );
+        }
+
+        nahrateCesty.push(vysledek.cestaSouboru);
       }
+
+      setStavNahravaniProlnuti("ukládám metadata prolnutí…");
+
+      const vysledek = await vytvoritProlnutiAdmin({
+        operaceId,
+        soubory: nahrateCesty,
+        popis: popisInput?.value ?? "",
+        datumPorizeni: datumInput?.value || null,
+      });
+
       if ("uspech" in vysledek && vysledek.uspech) {
         setChybaAkce("");
+        setPotvrzeniAkce(
+          vysledek.diagProlnuti
+            ? `Prolnutí bylo nahráno (${vysledek.diagProlnuti.pocetSouboruVMeta} snímků) a je viditelné na webu.`
+            : "Prolnutí bylo nahráno a je viditelné na webu."
+        );
         form.reset();
         obnovit();
       } else if ("chyba" in vysledek && vysledek.chyba) {
+        if (vysledek.diagProlnuti) {
+          setPotvrzeniAkce(
+            formatDiagProlnuti(
+              vysledek.diagProlnuti.pocetUlozenychSouboru,
+              vysledek.diagProlnuti.pocetSouboruVMeta,
+              vysledek.diagProlnuti.maC
+            )
+          );
+        }
         setChybaAkce(vysledek.chyba);
+      } else {
+        setChybaAkce("Neočekávaná odpověď serveru při nahrávání prolnutí");
       }
     } catch (error) {
+      if (nahrateCesty.length > 0) {
+        await smazatNahrateSouboryProlnuti(nahrateCesty, {
+          operaceId,
+          duvod:
+            error instanceof Error
+              ? error.message
+              : "Neočekávaná chyba při nahrávání prolnutí",
+        });
+      }
+
       setChybaAkce(
         error instanceof Error
           ? error.message
           : "Neočekávaná chyba server action při nahrávání prolnutí"
       );
+    } finally {
+      setNahravaProlnuti(false);
+      setStavNahravaniProlnuti("");
     }
-
-    setNahravaProlnuti(false);
   };
 
   const handlePrepnoutAktivni = async (id: string, aktivni: boolean) => {
@@ -840,7 +914,9 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
               disabled={nahravaProlnuti}
               className="tlacitko-klidne"
             >
-              {nahravaProlnuti ? "nahrávání…" : "nahrát prolnutí"}
+              {nahravaProlnuti
+                ? stavNahravaniProlnuti || "nahrávání…"
+                : "nahrát prolnutí"}
             </button>
           </form>
         </section>

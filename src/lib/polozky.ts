@@ -9,6 +9,7 @@ import {
   jePlatnaPolozkaGalerie,
   mapovatPolozkuVerejnou,
   normalizovatSouboryProlnuti,
+  overitProlnutiPolozkuVMetadatech,
 } from "./polozka-soubory";
 import {
   jePlatnyPocetSnimkuProlnuti,
@@ -123,7 +124,13 @@ export async function vytvoritProlnuti(
     oidcZHeaderu,
     {
       overitPoUlozeni: (uloziste) =>
-        uloziste.polozky.some((p) => p.id === novaPolozka.id),
+        overitProlnutiPolozkuVMetadatech(
+          uloziste,
+          novaPolozka.id,
+          soubory
+        ),
+      chybovaZprava:
+        "Prolnutí se nepodařilo uložit do metadat. Zkuste akci znovu.",
     }
   );
 

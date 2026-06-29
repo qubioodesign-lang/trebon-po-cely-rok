@@ -1,9 +1,32 @@
 import type { Polozka, PolozkaVerejna } from "@/types";
+import type { UlozisteDat } from "./uloziste-dat";
 import {
   jePlatnyPocetSnimkuProlnuti,
   normalizovatCestySnimkuProlnuti,
 } from "./prolnuti-snimky";
 import { sestavitUrlPolozky } from "./url-polozky";
+
+/** Ověří, že prolnutí v metadatech má kompletní sadu snímků */
+export function overitProlnutiPolozkuVMetadatech(
+  uloziste: UlozisteDat,
+  id: string,
+  ocekavaneSoubory: string[]
+): boolean {
+  const polozka = uloziste.polozky.find((p) => p.id === id);
+  if (!polozka || polozka.typ !== "prolnuti") {
+    return false;
+  }
+
+  const ulozene = normalizovatSouboryProlnuti(polozka.soubory ?? []);
+  if (!jePlatnyPocetSnimkuProlnuti(ulozene.length)) {
+    return false;
+  }
+  if (ulozene.length !== ocekavaneSoubory.length) {
+    return false;
+  }
+
+  return ocekavaneSoubory.every((url, index) => ulozene[index] === url);
+}
 
 /** Všechny soubory položky (1 u fotografie/videa, 2+ u prolnutí) */
 export function ziskatSouboryPolozky(

@@ -66,6 +66,67 @@ export async function ulozitSoubor(
   };
 }
 
+const MAX_POKUSY_VEREJNEHO_SOUBORU = 12;
+
+function cekatNaVerejnySoubor(pokus: number): Promise<void> {
+  const ms = Math.min(80 * 2 ** pokus, 1500);
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Ověří, že nahraný soubor je veřejně čitelný (stejná cesta jako galerie) */
+export async function overitSouborVerejne(cestaSouboru: string): Promise<void> {
+  if (!cestaSouboru.startsWith("http://") && !cestaSouboru.startsWith("https://")) {
+    const cesta = path.join(UPLOADS_ADRESAR, cestaSouboru);
+    if (!fs.existsSync(cesta)) {
+      throw new Error("Nahraný soubor nebyl nalezen v lokálním úložišti");
+    }
+    return;
+  }
+
+  for (let pokus = 0; pokus < MAX_POKUSY_VEREJNEHO_SOUBORU; pokus++) {
+    const fetchUrl = `${cestaSouboru}${
+      cestaSouboru.includes("?") ? "&" : "?"
+    }_=${Date.now()}-${pokus}`;
+
+    try {
+      const odpoved = await fetch(fetchUrl, {
+        method: "GET",
+        cache: "no-store",
+        headers: {
+          Range: "bytes=0-0",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+      });
+
+      if (odpoved.ok || odpoved.status === 206) {
+        return;
+      }
+    } catch {
+      // CDN může krátce vracet chybu – zkusíme znovu
+    }
+
+    await cekatNaVerejnySoubor(pokus);
+  }
+
+  throw new Error(
+    "Nahraný soubor zatím není veřejně dostupný. Zkuste nahrání znovu."
+  );
+}
+
+/** Smaže více souborů – chybějící soubory neblokují dokončení */
+export async function smazatSoubory(
+  cesty: string[],
+  oidcZHeaderu?: string | null
+): Promise<void> {
+  for (const cesta of cesty) {
+    try {
+      await smazatSoubor(cesta, oidcZHeaderu);
+    } catch {
+      // pokračovat se zbývajícími soubory
+    }
+  }
+}
+
 /** Smaže soubor z Blob nebo lokálního úložiště */
 export async function smazatSoubor(
   cestaSouboru: string,

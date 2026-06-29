@@ -23,8 +23,11 @@ import {
   nahraditSouborPolozky,
   nahraditSnimekProlnuti,
 } from "@/lib/polozky";
-import { ulozitSoubor, smazatSoubor } from "@/lib/soubory";
-import { ziskatSouboryPolozky } from "@/lib/polozka-soubory";
+import { ulozitSoubor, smazatSoubor, smazatSoubory, overitSouborVerejne } from "@/lib/soubory";
+import {
+  ziskatSouboryPolozky,
+  overitProlnutiPolozkuVMetadatech,
+} from "@/lib/polozka-soubory";
 import { jePlatnyPocetSnimkuProlnuti } from "@/lib/prolnuti-snimky";
 import { odeslatPushNotifikaceVsem } from "@/lib/push-notifikace";
 import {
@@ -52,6 +55,12 @@ import {
   obnovitZeZalohy,
   type ZalohaInfo,
 } from "@/lib/zaloha";
+import {
+  logProlnuti,
+  logProlnutiChyba,
+  logProlnutiVarovani,
+  zkratitUrlProLog,
+} from "@/lib/prolnuti-log";
 
 type AkceVysledek =
   | { uspech: true; novaUrlSouboru?: string; diagProlnuti?: DiagProlnutiNahrani }
@@ -65,22 +74,6 @@ export type DiagProlnutiNahrani = {
   pocetUlozenychSouboru: number;
   pocetSouboruVMeta: number;
 };
-
-function sestavitDiagProlnuti(
-  souborA: FormDataEntryValue | null,
-  souborB: FormDataEntryValue | null,
-  souborC: FormDataEntryValue | null,
-  pocetUlozenychSouboru = 0,
-  pocetSouboruVMeta = 0
-): DiagProlnutiNahrani {
-  return {
-    maA: souborA instanceof File && souborA.size > 0,
-    maB: souborB instanceof File && souborB.size > 0,
-    maC: souborC instanceof File && souborC.size > 0,
-    pocetUlozenychSouboru,
-    pocetSouboruVMeta,
-  };
-}
 
 export type PushAkceVysledek =
   | { uspech: true; pocetOdeslano: number; pocetSelhalo: number }
@@ -265,123 +258,255 @@ export async function nahratPolozku(formData: FormData): Promise<AkceVysledek> {
   }
 }
 
-export async function nahratProlnuti(formData: FormData): Promise<AkceVysledek> {
+type NahratSouborVysledek =
+  | { uspech: true; cestaSouboru: string; typ: "fotografie" | "video" }
+  | { chyba: string; diagnoza?: DiagnozaBlob };
+
+/** Nahraje jeden soubor do Blob – samostatný krok pro spolehlivé prolnutí */
+export async function nahratSouborGalerie(
+  formData: FormData
+): Promise<NahratSouborVysledek> {
   const admin = await overitAdmina();
   if ("chyba" in admin) {
     return { chyba: admin.chyba, diagnoza: admin.diagnoza };
   }
 
   const { oidcHeader, diagnoza } = admin;
-  const nahrateCesty: string[] = [];
+  const operaceId = (formData.get("operaceId") as string | null)?.trim() || null;
+  const snimek = (formData.get("snimek") as string | null)?.trim() || null;
+  const jeProlnutiUpload = Boolean(operaceId && snimek);
+
+  if (jeProlnutiUpload && snimek === "A") {
+    logProlnuti("upload.zacatek", { operaceId, snimek });
+  } else if (jeProlnutiUpload) {
+    logProlnuti("upload.pokracovani", { operaceId, snimek });
+  }
 
   try {
-    const souborA = formData.get("souborA");
-    const souborB = formData.get("souborB");
-    const souborC = formData.get("souborC");
-    const popis = (formData.get("popis") as string) ?? "";
-    const datumPorizeni = (formData.get("datumPorizeni") as string) || null;
-
-    if (!(souborA instanceof File) || souborA.size === 0) {
-      return {
-        chyba: "Pro prolnutí chybí první fotografie (A)",
-        diagnoza,
-        diagProlnuti: sestavitDiagProlnuti(souborA, souborB, souborC),
-      };
-    }
-
-    if (!(souborB instanceof File) || souborB.size === 0) {
-      return {
-        chyba: "Pro prolnutí chybí druhá fotografie (B)",
-        diagnoza,
-        diagProlnuti: sestavitDiagProlnuti(souborA, souborB, souborC),
-      };
-    }
-
-    const souboryKNahrani: File[] = [souborA, souborB];
-    if (souborC instanceof File && souborC.size > 0) {
-      souboryKNahrani.push(souborC);
-    }
-
-    if (!jePlatnyPocetSnimkuProlnuti(souboryKNahrani.length)) {
-      return {
-        chyba: "Pro prolnutí jsou potřeba 2 nebo 3 fotografie (A a B povinné)",
-        diagnoza,
-        diagProlnuti: sestavitDiagProlnuti(souborA, souborB, souborC),
-      };
-    }
-
-    // Paralelně načíst všechny buffery hned po validaci – před jakýmkoli uploadem.
-    const souboryProUpload = await Promise.all(
-      souboryKNahrani.map(async (soubor, index) => {
-        const buffer = Buffer.from(await soubor.arrayBuffer());
-        return new File([buffer], soubor.name || `snimek-${index + 1}`, {
-          type: soubor.type,
+    const soubor = formData.get("soubor");
+    if (!(soubor instanceof File) || soubor.size === 0) {
+      const chyba = "Soubor je prázdný nebo se nepodařilo přenést z formuláře";
+      if (jeProlnutiUpload) {
+        logProlnutiChyba("upload.snimek.chyba", chyba, {
+          operaceId,
+          snimek,
+          faze: "validace",
         });
-      })
-    );
-
-    for (const soubor of souboryProUpload) {
-      const vysledek = await ulozitSoubor(soubor, oidcHeader);
-      if (vysledek.typ !== "fotografie") {
-        for (const cesta of nahrateCesty) {
-          await smazatSouborBezpecne(cesta, oidcHeader);
-        }
-        return {
-          chyba: "Prolnutí podporuje pouze fotografie (JPEG, PNG, WebP, AVIF)",
-          diagnoza,
-          diagProlnuti: sestavitDiagProlnuti(
-            souborA,
-            souborB,
-            souborC,
-            nahrateCesty.length
-          ),
-        };
       }
-      nahrateCesty.push(vysledek.cestaSouboru);
+      return { chyba, diagnoza };
     }
 
-    const novaPolozka = await vytvoritProlnuti(
+    if (jeProlnutiUpload) {
+      logProlnuti("upload.snimek.nahravani", {
+        operaceId,
+        snimek,
+        velikostB: soubor.size,
+        typ: soubor.type,
+      });
+    }
+
+    const vysledek = await ulozitSoubor(soubor, oidcHeader);
+    await overitSouborVerejne(vysledek.cestaSouboru);
+
+    if (jeProlnutiUpload) {
+      logProlnuti("upload.snimek.ok", {
+        operaceId,
+        snimek,
+        soubor: zkratitUrlProLog(vysledek.cestaSouboru),
+        typ: vysledek.typ,
+      });
+    }
+
+    return {
+      uspech: true,
+      cestaSouboru: vysledek.cestaSouboru,
+      typ: vysledek.typ,
+    };
+  } catch (error) {
+    if (jeProlnutiUpload) {
+      logProlnutiChyba("upload.snimek.chyba", error, {
+        operaceId,
+        snimek,
+        faze: "blob",
+      });
+    }
+
+    return {
+      chyba: error instanceof Error ? error.message : "Chyba při nahrávání souboru",
+      diagnoza: ziskatDiagnozuBlob(oidcHeader, { lzeZalohovat: lzeVytvoritZalohu() }),
+    };
+  }
+}
+
+/** Smaže dočasně nahrané snímky prolnutí při neúspěchu */
+export async function smazatNahrateSouboryProlnuti(
+  cesty: string[],
+  volby?: { operaceId?: string; duvod: string }
+): Promise<void> {
+  const admin = await overitAdmina();
+  if ("chyba" in admin) {
+    logProlnutiVarovani("rollback.klient.preskoceno", {
+      operaceId: volby?.operaceId,
+      duvod: "neautorizovano",
+      pocetSouboru: cesty.length,
+    });
+    return;
+  }
+
+  logProlnuti("rollback.klient", {
+    operaceId: volby?.operaceId,
+    duvod: volby?.duvod ?? "neuvedeno",
+    pocetSouboru: cesty.length,
+    soubory: cesty.map(zkratitUrlProLog).join(", "),
+  });
+
+  await smazatSoubory(cesty, admin.oidcHeader);
+
+  logProlnuti("rollback.klient.hotovo", {
+    operaceId: volby?.operaceId,
+    pocetSouboru: cesty.length,
+  });
+}
+
+/** Atomicky vytvoří prolnutí z již nahraných URL snímků */
+export async function vytvoritProlnutiAdmin(data: {
+  operaceId?: string;
+  soubory: string[];
+  popis: string;
+  datumPorizeni: string | null;
+}): Promise<AkceVysledek> {
+  const admin = await overitAdmina();
+  if ("chyba" in admin) {
+    return { chyba: admin.chyba, diagnoza: admin.diagnoza };
+  }
+
+  const { oidcHeader, diagnoza } = admin;
+  const operaceId = data.operaceId?.trim() || null;
+  const soubory = data.soubory.filter(
+    (cesta) => typeof cesta === "string" && cesta.trim().length > 0
+  );
+
+  logProlnuti("metadata.zacatek", {
+    operaceId,
+    pocetSnimku: soubory.length,
+    soubory: soubory.map(zkratitUrlProLog).join(", "),
+  });
+
+  if (!jePlatnyPocetSnimkuProlnuti(soubory.length)) {
+    const chyba = "Pro prolnutí jsou potřeba 2 nebo 3 nahrané fotografie";
+    logProlnutiChyba("metadata.chyba", chyba, {
+      operaceId,
+      faze: "validace",
+      pocetSnimku: soubory.length,
+    });
+    return {
+      chyba,
+      diagnoza,
+    };
+  }
+
+  let novaPolozka: Awaited<ReturnType<typeof vytvoritProlnuti>> | null = null;
+  let faze = "overeni-souboru";
+
+  try {
+    for (const [index, cesta] of soubory.entries()) {
+      await overitSouborVerejne(cesta);
+      logProlnuti("metadata.soubor.overeno", {
+        operaceId,
+        snimek: index === 0 ? "A" : index === 1 ? "B" : "C",
+        soubor: zkratitUrlProLog(cesta),
+      });
+    }
+
+    faze = "zapis-metadat";
+    novaPolozka = await vytvoritProlnuti(
       {
-        soubory: nahrateCesty,
-        popis,
-        datumPorizeni,
+        soubory,
+        popis: data.popis,
+        datumPorizeni: data.datumPorizeni,
       },
       oidcHeader
     );
 
+    logProlnuti("metadata.vytvoreno", {
+      operaceId,
+      polozkaId: novaPolozka.id,
+      pocetSouboruVMeta: novaPolozka.soubory?.length ?? 0,
+    });
+
+    faze = "overeni-verejne";
     await potvrditAUvolnitWeb((uloziste) =>
-      uloziste.polozky.some((p) => p.id === novaPolozka.id)
+      overitProlnutiPolozkuVMetadatech(
+        uloziste,
+        novaPolozka!.id,
+        soubory
+      )
     );
 
-    const diagProlnuti = sestavitDiagProlnuti(
-      souborA,
-      souborB,
-      souborC,
-      nahrateCesty.length,
-      novaPolozka.soubory?.length ?? 0
-    );
+    logProlnuti("metadata.verejne.potvrzeno", {
+      operaceId,
+      polozkaId: novaPolozka.id,
+      pocetSnimku: soubory.length,
+    });
 
-    return { uspech: true, diagProlnuti };
+    return {
+      uspech: true,
+      diagProlnuti: {
+        maA: soubory.length >= 1,
+        maB: soubory.length >= 2,
+        maC: soubory.length >= 3,
+        pocetUlozenychSouboru: soubory.length,
+        pocetSouboruVMeta: novaPolozka.soubory?.length ?? 0,
+      },
+    };
   } catch (error) {
-    for (const cesta of nahrateCesty) {
+    const duvod =
+      error instanceof Error ? error.message : "Chyba při vytváření prolnutí";
+
+    logProlnutiChyba("metadata.chyba", error, {
+      operaceId,
+      faze,
+      polozkaId: novaPolozka?.id,
+    });
+
+    let metadataSmazana = false;
+    if (novaPolozka) {
+      faze = "rollback-metadata";
       try {
-        await smazatSouborBezpecne(cesta, oidcHeader);
-      } catch {
-        // metadata zůstala beze změny
+        await smazatPolozku(novaPolozka.id, oidcHeader);
+        metadataSmazana = true;
+        logProlnuti("rollback.metadata.ok", {
+          operaceId,
+          polozkaId: novaPolozka.id,
+        });
+      } catch (rollbackError) {
+        logProlnutiChyba("rollback.metadata.chyba", rollbackError, {
+          operaceId,
+          polozkaId: novaPolozka.id,
+          duvod,
+        });
       }
     }
 
-    const zprava =
-      error instanceof Error ? error.message : "Chyba při nahrávání prolnutí";
+    faze = "rollback-soubory";
+    await smazatSoubory(soubory, oidcHeader);
+    logProlnuti("rollback.soubory.ok", {
+      operaceId,
+      pocetSouboru: soubory.length,
+      metadataSmazana,
+      duvod,
+    });
+
     return {
-      chyba: zprava,
+      chyba: duvod,
       diagnoza: ziskatDiagnozuBlob(oidcHeader, { lzeZalohovat: lzeVytvoritZalohu() }),
-      diagProlnuti: sestavitDiagProlnuti(
-        formData.get("souborA"),
-        formData.get("souborB"),
-        formData.get("souborC"),
-        nahrateCesty.length
-      ),
+      diagProlnuti: {
+        maA: soubory.length >= 1,
+        maB: soubory.length >= 2,
+        maC: soubory.length >= 3,
+        pocetUlozenychSouboru: 0,
+        pocetSouboruVMeta: 0,
+      },
     };
   }
 }
