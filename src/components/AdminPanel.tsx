@@ -157,6 +157,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
   }, [jePrihlasen]);
 
   const trvaleUloziste = data?.trvaleUloziste ?? false;
+  const lzeVytvoritZalohu = data?.lzeVytvoritZalohu ?? false;
   const diagnoza = data?.diagnoza ?? null;
   const posledniAktivniPolozka = polozky.find((p) => p.aktivni) ?? null;
   const upravovanaPolozka = upravovanyId
@@ -507,8 +508,12 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
     try {
       const vysledek = await vytvoritZalohu();
       if ("uspech" in vysledek && vysledek.uspech) {
+        const doBlobu = vysledek.zaloha.url.startsWith("http");
+        const ulozeni = doBlobu
+          ? "Záloha vytvořena"
+          : "Záloha vytvořena a uložena lokálně";
         setPotvrzeniAkce(
-          `Záloha vytvořena (${formatovatVelikost(vysledek.zaloha.velikost)}).`
+          `${ulozeni} (${formatovatVelikost(vysledek.zaloha.velikost)}).`
         );
         await nacistZalohy();
       } else if ("chyba" in vysledek && vysledek.chyba) {
@@ -702,12 +707,12 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
             <p className="text-text-velmiJemny">
               trvalé úložiště aktivní – fotografie a změny se ukládají
             </p>
-          ) : (
+          ) : diagnoza && !diagnoza.lzeZalohovat ? (
             <p className="text-amber-700/80">
               trvalé úložiště není plně aktivní – zápisy z administrace mohou
               selhat (viz diagnostika)
             </p>
-          )}
+          ) : null}
           {diagnoza && <BlokDiagnozy diagnoza={diagnoza} />}
         </section>
 
@@ -876,17 +881,22 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
           <button
             type="button"
             onClick={() => void handleVytvoritZalohu()}
-            disabled={!trvaleUloziste || vytvariZalohu || obnovujeZalohu !== null}
+            disabled={!lzeVytvoritZalohu || vytvariZalohu || obnovujeZalohu !== null}
             className="tlacitko-klidne"
           >
             {vytvariZalohu ? "vytvářím zálohu…" : "vytvořit zálohu"}
           </button>
-          {!trvaleUloziste && (
+          {!lzeVytvoritZalohu && (
             <p className="text-xs text-amber-700/80">
-              Zálohování vyžaduje aktivní Blob úložiště.
+              Zálohování vyžaduje aktivní Blob úložiště nebo lokální soubory.
             </p>
           )}
-          {zalohy.length === 0 && !nacitaZalohy && trvaleUloziste && (
+          {diagnoza?.lzeZalohovat && !diagnoza.zalohaDoBlobu && (
+            <p className="text-xs text-text-velmiJemny">
+              Záloha se uloží lokálně do data/backups/manual/.
+            </p>
+          )}
+          {zalohy.length === 0 && !nacitaZalohy && lzeVytvoritZalohu && (
             <p className="text-xs text-text-velmiJemny">žádné zálohy</p>
           )}
           {zalohy.length > 0 && (

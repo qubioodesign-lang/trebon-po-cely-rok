@@ -95,6 +95,8 @@ export interface PayloadMetrikyBatch {
 export interface DiagnozaBlob {
   trvaleUloziste: boolean;
   maAutentizaci: boolean;
+  lzeZalohovat: boolean;
+  zalohaDoBlobu: boolean;
   jeBuild: boolean;
   prostredi: { vercel: boolean; nodeEnv: string };
   promenne: {
@@ -114,6 +116,7 @@ export interface AdminData {
   analytics: AnalyticsSouhrn;
   pocetPushOdberu: number;
   trvaleUloziste: boolean;
+  lzeVytvoritZalohu: boolean;
   diagnoza: DiagnozaBlob;
   prolnutiCasovani: ProlnutiCasovaniNastaveni;
   desktopPozvankaFotografie: string | null;

@@ -3,8 +3,7 @@ import "server-only";
 import fs from "fs";
 import path from "path";
 import { get, list, put } from "@vercel/blob";
-import { ziskatVolbyBlobAsync } from "@/lib/env-blob";
-import { pouzivaBlobUloziste } from "@/lib/env-blob";
+import { ziskatVolbyBlobAsync, pouzivatBlobProZalohu } from "@/lib/env-blob";
 import {
   ZALOHA_PREFIX,
   type ZalohaInfo,
@@ -62,47 +61,7 @@ export async function ulozitZalohuDoBlobu(
   };
 }
 
-function ulozitZalohuLokalne(zip: Uint8Array): ZalohaInfo {
-  if (!fs.existsSync(CESTA_LOKALNI_ZALOHY)) {
-    fs.mkdirSync(CESTA_LOKALNI_ZALOHY, { recursive: true });
-  }
-
-  const nazev = `${formatovatCasZalohy()}-${crypto.randomUUID().slice(0, 8)}.zip`;
-  const pathname = `${ZALOHA_PREFIX}${nazev}`;
-  const cesta = path.join(CESTA_LOKALNI_ZALOHY, nazev);
-  fs.writeFileSync(cesta, zip);
-
-  return {
-    pathname,
-    url: cesta,
-    velikost: zip.byteLength,
-    vytvoreno: new Date().toISOString(),
-    nazev: nazevZalohyZPathname(pathname),
-  };
-}
-
-export async function ulozitZalohu(
-  zip: Uint8Array,
-  oidcZHeaderu?: string | null
-): Promise<ZalohaInfo> {
-  if (pouzivaBlobUloziste()) {
-    return ulozitZalohuDoBlobu(zip, oidcZHeaderu);
-  }
-  return ulozitZalohuLokalne(zip);
-}
-
-/** Seznam ručních záloh v Blobu nebo lokálně */
-export async function seznamZaloh(
-  oidcZHeaderu?: string | null
-): Promise<ZalohaInfo[]> {
-  if (pouzivaBlobUloziste()) {
-    const volby = await ziskatVolbyBlobAsync(oidcZHeaderu);
-    const vysledek = await list({ prefix: ZALOHA_PREFIX, ...volby });
-    return vysledek.blobs
-      .map(mapBlobNaZalohu)
-      .sort((a, b) => b.vytvoreno.localeCompare(a.vytvoreno));
-  }
-
+function seznamZalohLokalne(): ZalohaInfo[] {
   if (!fs.existsSync(CESTA_LOKALNI_ZALOHY)) {
     return [];
   }
@@ -125,6 +84,50 @@ export async function seznamZaloh(
     .sort((a, b) => b.vytvoreno.localeCompare(a.vytvoreno));
 }
 
+export function ulozitZalohuLokalne(zip: Uint8Array): ZalohaInfo {
+  if (!fs.existsSync(CESTA_LOKALNI_ZALOHY)) {
+    fs.mkdirSync(CESTA_LOKALNI_ZALOHY, { recursive: true });
+  }
+
+  const nazev = `${formatovatCasZalohy()}-${crypto.randomUUID().slice(0, 8)}.zip`;
+  const pathname = `${ZALOHA_PREFIX}${nazev}`;
+  const cesta = path.join(CESTA_LOKALNI_ZALOHY, nazev);
+  fs.writeFileSync(cesta, zip);
+
+  return {
+    pathname,
+    url: cesta,
+    velikost: zip.byteLength,
+    vytvoreno: new Date().toISOString(),
+    nazev: nazevZalohyZPathname(pathname),
+  };
+}
+
+/** Seznam ručních záloh v Blobu nebo lokálně */
+export async function seznamZaloh(
+  oidcZHeaderu?: string | null
+): Promise<ZalohaInfo[]> {
+  const lokalni = seznamZalohLokalne();
+
+  if (!pouzivatBlobProZalohu()) {
+    return lokalni;
+  }
+
+  const volby = await ziskatVolbyBlobAsync(oidcZHeaderu);
+
+  if (volby.token || volby.oidcToken) {
+    const vysledek = await list({ prefix: ZALOHA_PREFIX, ...volby });
+    const blobZalohy = vysledek.blobs.map(mapBlobNaZalohu);
+    const cesty = new Set(blobZalohy.map((zaloha) => zaloha.pathname));
+
+    return [...blobZalohy, ...lokalni.filter((zaloha) => !cesty.has(zaloha.pathname))].sort(
+      (a, b) => b.vytvoreno.localeCompare(a.vytvoreno)
+    );
+  }
+
+  return lokalni;
+}
+
 /** Načte obsah ZIP zálohy podle pathname */
 export async function nacistZalohuZip(
   pathname: string,
@@ -134,7 +137,13 @@ export async function nacistZalohuZip(
     throw new Error("Neplatná cesta zálohy.");
   }
 
-  if (pouzivaBlobUloziste()) {
+  const nazev = pathname.slice(ZALOHA_PREFIX.length);
+  const cesta = path.join(CESTA_LOKALNI_ZALOHY, nazev);
+  if (fs.existsSync(cesta)) {
+    return new Uint8Array(fs.readFileSync(cesta));
+  }
+
+  if (pouzivatBlobProZalohu()) {
     const volby = await ziskatVolbyBlobAsync(oidcZHeaderu);
     const vysledek = await get(pathname, { access: "public", ...volby });
 
@@ -165,11 +174,5 @@ export async function nacistZalohuZip(
     return buffer;
   }
 
-  const nazev = pathname.slice(ZALOHA_PREFIX.length);
-  const cesta = path.join(CESTA_LOKALNI_ZALOHY, nazev);
-  if (!fs.existsSync(cesta)) {
-    throw new Error("Záloha nebyla nalezena.");
-  }
-
-  return new Uint8Array(fs.readFileSync(cesta));
+  throw new Error("Záloha nebyla nalezena.");
 }

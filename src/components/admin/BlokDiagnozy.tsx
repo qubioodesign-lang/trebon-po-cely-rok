@@ -6,6 +6,8 @@ export function BlokDiagnozy({ diagnoza }: { diagnoza: DiagnozaBlob }) {
       <p>diagnoza za běhu:</p>
       <p>vercel: {diagnoza.prostredi.vercel ? "ano" : "ne"}</p>
       <p>autentizace: {diagnoza.maAutentizaci ? "ano" : "ne"}</p>
+      <p>záloha: {diagnoza.lzeZalohovat ? "ano" : "ne"}</p>
+      <p>záloha do Blobu: {diagnoza.zalohaDoBlobu ? "ano" : "ne"}</p>
       <p>node: {diagnoza.prostredi.nodeEnv}</p>
       <p>BLOB_STORE_ID: {diagnoza.promenne.BLOB_STORE_ID ? "ano" : "ne"}</p>
       <p>

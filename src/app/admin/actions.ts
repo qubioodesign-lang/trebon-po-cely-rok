@@ -30,6 +30,7 @@ import { odeslatPushNotifikaceVsem } from "@/lib/push-notifikace";
 import {
   ziskatOidcZRequestu,
   zpravaChybejiciBlobAutentizace,
+  lzeVytvoritZalohu,
 } from "@/lib/admin-data";
 import {
   maBlobAutentizaci,
@@ -108,7 +109,9 @@ async function overitAdmina(): Promise<
   | { oidcHeader: string | null; diagnoza: DiagnozaBlob }
 > {
   const oidcHeader = await ziskatOidcZRequestu();
-  const diagnoza = ziskatDiagnozuBlob(oidcHeader);
+  const diagnoza = ziskatDiagnozuBlob(oidcHeader, {
+    lzeZalohovat: lzeVytvoritZalohu(),
+  });
 
   if (!(await jeAdminPrihlasen())) {
     return { chyba: "Neautorizováno – přihlaste se znovu", diagnoza };
@@ -245,7 +248,7 @@ export async function nahratPolozku(formData: FormData): Promise<AkceVysledek> {
 
     const zprava =
       error instanceof Error ? error.message : "Chyba při nahrávání";
-    return { chyba: zprava, diagnoza: ziskatDiagnozuBlob(oidcHeader) };
+    return { chyba: zprava, diagnoza: ziskatDiagnozuBlob(oidcHeader, { lzeZalohovat: lzeVytvoritZalohu() }) };
   }
 }
 
@@ -357,7 +360,7 @@ export async function nahratProlnuti(formData: FormData): Promise<AkceVysledek> 
       error instanceof Error ? error.message : "Chyba při nahrávání prolnutí";
     return {
       chyba: zprava,
-      diagnoza: ziskatDiagnozuBlob(oidcHeader),
+      diagnoza: ziskatDiagnozuBlob(oidcHeader, { lzeZalohovat: lzeVytvoritZalohu() }),
       diagProlnuti: sestavitDiagProlnuti(
         formData.get("souborA"),
         formData.get("souborB"),
@@ -520,7 +523,7 @@ export async function nahraditFotografiiPolozky(
 
     const zprava =
       error instanceof Error ? error.message : "Chyba při nahrazování fotografie";
-    return { chyba: zprava, diagnoza: ziskatDiagnozuBlob(oidcHeader) };
+    return { chyba: zprava, diagnoza: ziskatDiagnozuBlob(oidcHeader, { lzeZalohovat: lzeVytvoritZalohu() }) };
   }
 }
 
@@ -709,7 +712,7 @@ export async function nahraditSnimekProlnutiPolozky(
       error instanceof Error
         ? error.message
         : "Chyba při nahrazování snímku prolnutí";
-    return { chyba: zprava, diagnoza: ziskatDiagnozuBlob(oidcHeader) };
+    return { chyba: zprava, diagnoza: ziskatDiagnozuBlob(oidcHeader, { lzeZalohovat: lzeVytvoritZalohu() }) };
   }
 }
 
@@ -778,14 +781,7 @@ export async function vytvoritZalohu(): Promise<ZalohaAkceVysledek> {
 
   if (!pouzivaBlobUloziste()) {
     return {
-      chyba: "Zálohování vyžaduje aktivní Blob úložiště.",
-      diagnoza: admin.diagnoza,
-    };
-  }
-
-  if (!maBlobAutentizaci(admin.oidcHeader)) {
-    return {
-      chyba: zpravaChybejiciBlobAutentizace(),
+      chyba: "Zálohování vyžaduje aktivní Blob úložiště nebo lokální soubory.",
       diagnoza: admin.diagnoza,
     };
   }
@@ -931,6 +927,6 @@ export async function nahratDesktopPozvankaFotografii(
       error instanceof Error
         ? error.message
         : "Chyba při nahrávání desktopové fotografie";
-    return { chyba: zprava, diagnoza: ziskatDiagnozuBlob(oidcHeader) };
+    return { chyba: zprava, diagnoza: ziskatDiagnozuBlob(oidcHeader, { lzeZalohovat: lzeVytvoritZalohu() }) };
   }
 }

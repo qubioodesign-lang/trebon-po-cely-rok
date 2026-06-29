@@ -15,6 +15,14 @@ export function jeBuildFaze(): boolean {
   return ziskatEnv("NEXT_PHASE") === "phase-production-build";
 }
 
+/** Zálohy do Blobu jen na Vercelu v produkci – lokální dev vždy ukládá do data/backups/manual */
+export function pouzivatBlobProZalohu(): boolean {
+  if (jeBuildFaze()) return false;
+  if (ziskatEnv("VERCEL") !== "1") return false;
+  if (ziskatEnv("VERCEL_ENV") !== "production") return false;
+  return maBlobKonfiguraci();
+}
+
 /** ID Blob store – z env nebo z read-write tokenu (formát vercel_blob_rw_<storeId>_<suffix>) */
 export function ziskatBlobStoreId(): string | undefined {
   const storeId = ziskatEnv("BLOB_STORE_ID");
@@ -49,6 +57,17 @@ export function maBlobAutentizaci(oidcZHeaderu?: string | null): boolean {
   if (ziskatEnv("BLOB_READ_WRITE_TOKEN")) return true;
   if (oidcZHeaderu) return true;
   if (ziskatEnv("VERCEL_OIDC_TOKEN")) return true;
+  return false;
+}
+
+/**
+ * Autentizace pro zápis do Blobu.
+ * Lokální VERCEL_OIDC_TOKEN z `vercel env pull` nefunguje – Blob OIDC není povolené pro development.
+ */
+export function maBlobAutentizaciProZapis(oidcZHeaderu?: string | null): boolean {
+  if (ziskatEnv("BLOB_READ_WRITE_TOKEN")) return true;
+  if (oidcZHeaderu) return true;
+  if (ziskatEnv("VERCEL") === "1" && ziskatEnv("VERCEL_OIDC_TOKEN")) return true;
   return false;
 }
 
@@ -110,22 +129,30 @@ export async function ziskatOidcZHlavicek(): Promise<string | null> {
 /** Bezpečná diagnostika – neobsahuje tajné hodnoty */
 export type { DiagnozaBlob } from "@/types";
 
-export function ziskatDiagnozuBlob(oidcZHeaderu?: string | null): DiagnozaBlob {
+export function ziskatDiagnozuBlob(
+  oidcZHeaderu?: string | null,
+  volby?: { lzeZalohovat?: boolean }
+): DiagnozaBlob {
   const storeId = ziskatEnv("BLOB_STORE_ID");
   const maReadWrite = Boolean(ziskatEnv("BLOB_READ_WRITE_TOKEN"));
   const maOidcEnv = Boolean(ziskatEnv("VERCEL_OIDC_TOKEN"));
   const maOidcHeader = Boolean(oidcZHeaderu);
   const autentizace = maBlobAutentizaci(oidcZHeaderu);
+  const zapisDoBlobu =
+    pouzivatBlobProZalohu() && maBlobAutentizaciProZapis(oidcZHeaderu);
+  const lzeZalohovat = volby?.lzeZalohovat ?? maBlobKonfiguraci();
 
   let doporuceni: string | null = null;
-  if (!autentizace && storeId) {
+  if (!lzeZalohovat) {
     doporuceni =
-      "Přidejte BLOB_READ_WRITE_TOKEN z Vercel → Storage → váš Blob → .env.local / Tokens";
+      "Zálohu nelze vytvořit – chybí Blob úložiště i lokální soubory k zálohování.";
   }
 
   return {
-    trvaleUloziste: pouzivaBlobUloziste() && autentizace,
+    trvaleUloziste: pouzivaBlobUloziste() && zapisDoBlobu,
     maAutentizaci: autentizace,
+    lzeZalohovat,
+    zalohaDoBlobu: zapisDoBlobu,
     jeBuild: jeBuildFaze(),
     prostredi: {
       vercel: ziskatEnv("VERCEL") === "1",

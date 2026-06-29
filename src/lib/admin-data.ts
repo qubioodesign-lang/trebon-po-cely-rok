@@ -1,5 +1,7 @@
 import "server-only";
 
+import fs from "fs";
+import path from "path";
 import type { AdminVysledek } from "@/types";
 import { seraditPolozky, nacistData } from "./uloziste-dat";
 import { prazdnySouhrnMetrik, ziskatSouhrnZUloziste } from "./metriky";
@@ -8,7 +10,24 @@ import { sloucitProlnutiCasovani, PROLNUTI_CASOVANI_VYCHOZI } from "./prolnuti-c
 import {
   sestavitUrlDesktopPozvankaFotografie,
 } from "./desktop-pozvanka-nastaveni";
-import { pouzivaBlobUloziste, ziskatDiagnozuBlob, ziskatOidcZHlavicek } from "./env-blob";
+import {
+  maBlobKonfiguraci,
+  pouzivaBlobUloziste,
+  ziskatDiagnozuBlob,
+  ziskatOidcZHlavicek,
+} from "./env-blob";
+
+const CESTA_LOKALNI_UPLOADS = path.join(process.cwd(), "public", "uploads");
+
+function lzeVytvoritZalohu(): boolean {
+  if (maBlobKonfiguraci()) {
+    return true;
+  }
+
+  return fs.existsSync(CESTA_LOKALNI_UPLOADS);
+}
+
+export { lzeVytvoritZalohu };
 
 export async function ziskatOidcZRequestu(): Promise<string | null> {
   return ziskatOidcZHlavicek();
@@ -20,7 +39,8 @@ export async function ziskatOidcZRequestu(): Promise<string | null> {
  */
 export async function nacistAdminData(): Promise<AdminVysledek> {
   const oidcHeader = await ziskatOidcZRequestu();
-  const diagnoza = ziskatDiagnozuBlob(oidcHeader);
+  const lzeZalohovat = lzeVytvoritZalohu();
+  const diagnoza = ziskatDiagnozuBlob(oidcHeader, { lzeZalohovat });
   const chyby: AdminVysledek["chyby"] = {};
 
   let polozky: AdminVysledek["data"]["polozky"] = [];
@@ -54,7 +74,8 @@ export async function nacistAdminData(): Promise<AdminVysledek> {
       metriky,
       analytics,
       pocetPushOdberu,
-      trvaleUloziste: pouzivaBlobUloziste() && diagnoza.maAutentizaci,
+      trvaleUloziste: diagnoza.trvaleUloziste,
+      lzeVytvoritZalohu: lzeVytvoritZalohu(),
       diagnoza,
       prolnutiCasovani,
       desktopPozvankaFotografie,
