@@ -112,6 +112,13 @@ export function aplikovatKomunitaNavstevu(
   const existujici = navstevnici[navstevnikId];
 
   if (existujici) {
+    if (!existujici.prvniNavsteva || !existujici.posledniNavsteva) {
+      existujici.prvniNavsteva = existujici.prvniNavsteva ?? nyni;
+      existujici.posledniNavsteva = nyni;
+      existujici.pocetNavstev += 1;
+      return;
+    }
+
     existujici.pocetNavstev += 1;
     existujici.posledniNavsteva = nyni;
     return;
@@ -144,8 +151,8 @@ function spocitatCelkem(navstevnici: KomunitaNavstevnici): {
 }
 
 /**
- * Posledních 7 dní – jen návštěvníci aktivní v okně (mají posledniNavsteva v okně).
- * Vyžaduje známá data – záznamy bez datumů se nepočítají.
+ * Posledních 7 dní – jen návštěvníci aktivní v okně (posledniNavsteva v okně).
+ * Nový vyžaduje prvniNavsteva v okně; vracející se stačí posledniNavsteva v okně.
  */
 function spocitatPoslednich7Dni(
   navstevnici: KomunitaNavstevnici,
@@ -160,17 +167,17 @@ function spocitatPoslednich7Dni(
   for (const navstevnik of Object.values(navstevnici)) {
     const { prvniNavsteva, posledniNavsteva, pocetNavstev } = navstevnik;
 
-    if (!prvniNavsteva || !posledniNavsteva || posledniNavsteva < hranice7d) {
-      continue;
-    }
-
-    if (prvniNavsteva >= hranice7d && pocetNavstev <= 1) {
-      novi += 1;
+    if (!posledniNavsteva || posledniNavsteva < hranice7d) {
       continue;
     }
 
     if (pocetNavstev >= 2) {
       vracejici += 1;
+      continue;
+    }
+
+    if (prvniNavsteva && prvniNavsteva >= hranice7d && pocetNavstev <= 1) {
+      novi += 1;
     }
   }
 

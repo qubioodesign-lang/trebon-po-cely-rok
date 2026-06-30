@@ -137,10 +137,10 @@ export function agregovatSouhrnMetrik(metriky: ZaznamMetriky[]): MetrikySouhrn {
 export function aplikovatMetriky(uloziste: UlozisteDat, udalosti: PayloadMetriky[]): void {
   const agregovane = zajistitMetrikyAgregovane(uloziste);
   for (const udalost of udalosti) {
-    aplikovatMetriku(agregovane, udalost);
     if (udalost.typ === "navsteva" && udalost.navstevnikId) {
       aplikovatKomunitaNavstevu(uloziste, udalost.navstevnikId);
     }
+    aplikovatMetriku(agregovane, udalost);
   }
   aplikovatAnalyticsBatch(uloziste, udalosti);
 }
