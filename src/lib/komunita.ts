@@ -1,5 +1,6 @@
 import type { KomunitaSouhrn } from "@/types";
 import type { UlozisteDat } from "./uloziste-dat";
+import { zajistitMetrikyAgregovane } from "./metriky";
 
 /** Záznam návštěvníka pro metriku komunity – per anonymní ID */
 export interface KomunitaNavstevnik {
@@ -41,23 +42,39 @@ function hranice7DniZpet(referencniCas: Date): string {
   return hranice.toISOString();
 }
 
-/** Doplní pohled o historická počítadla – jen pro čtení, bez zápisu do úložiště */
-function sestavitPohledNavstevnici(uloziste: UlozisteDat): KomunitaNavstevnici {
-  const pohled: KomunitaNavstevnici = {
-    ...(uloziste.komunitaNavstevnici ?? {}),
+function sloucitZaznamNavstevnika(
+  komunita?: KomunitaNavstevnik,
+  legacyPocet = 0
+): KomunitaNavstevnik {
+  const pocetNavstev = Math.max(komunita?.pocetNavstev ?? 0, legacyPocet);
+
+  return {
+    pocetNavstev,
+    prvniNavsteva: komunita?.prvniNavsteva,
+    posledniNavsteva: komunita?.posledniNavsteva,
   };
+}
 
-  const legacy = uloziste.metrikyAgregovane?.navstevyPodleNavstevnika;
-  if (!legacy) {
-    return pohled;
-  }
+/**
+ * Sloučí komunitaNavstevnici s historickým navstevyPodleNavstevnika.
+ * Počet návštěv bere maximum z obou zdrojů – komunita nesmí přepsat starší historii.
+ */
+function sestavitPohledNavstevnici(uloziste: UlozisteDat): KomunitaNavstevnici {
+  const agregovane = zajistitMetrikyAgregovane(uloziste);
+  const komunita = uloziste.komunitaNavstevnici ?? {};
+  const legacy = agregovane.navstevyPodleNavstevnika;
+  const vsechnaId = new Set([
+    ...Object.keys(komunita),
+    ...Object.keys(legacy),
+  ]);
 
-  for (const [navstevnikId, pocetNavstev] of Object.entries(legacy)) {
-    if (pohled[navstevnikId]) {
-      continue;
-    }
+  const pohled: KomunitaNavstevnici = {};
 
-    pohled[navstevnikId] = { pocetNavstev };
+  for (const navstevnikId of vsechnaId) {
+    pohled[navstevnikId] = sloucitZaznamNavstevnika(
+      komunita[navstevnikId],
+      legacy[navstevnikId] ?? 0
+    );
   }
 
   return pohled;
@@ -69,15 +86,17 @@ export function zajistitKomunitaNavstevnici(uloziste: UlozisteDat): KomunitaNavs
     uloziste.komunitaNavstevnici = {};
   }
 
-  const legacy = uloziste.metrikyAgregovane?.navstevyPodleNavstevnika;
-  if (legacy) {
-    for (const [navstevnikId, pocetNavstev] of Object.entries(legacy)) {
-      if (uloziste.komunitaNavstevnici[navstevnikId]) {
-        continue;
-      }
+  const agregovane = zajistitMetrikyAgregovane(uloziste);
+  const legacy = agregovane.navstevyPodleNavstevnika;
 
-      uloziste.komunitaNavstevnici[navstevnikId] = { pocetNavstev };
+  for (const [navstevnikId, legacyPocet] of Object.entries(legacy)) {
+    const existujici = uloziste.komunitaNavstevnici[navstevnikId];
+    if (existujici) {
+      existujici.pocetNavstev = Math.max(existujici.pocetNavstev, legacyPocet);
+      continue;
     }
+
+    uloziste.komunitaNavstevnici[navstevnikId] = { pocetNavstev: legacyPocet };
   }
 
   return uloziste.komunitaNavstevnici;
@@ -105,9 +124,32 @@ export function aplikovatKomunitaNavstevu(
   };
 }
 
-function spocitatObdobi(
+/** Celkem od začátku – všichni návštěvníci bez časového omezení */
+function spocitatCelkem(navstevnici: KomunitaNavstevnici): {
+  novi: number;
+  vracejici: number;
+} {
+  let novi = 0;
+  let vracejici = 0;
+
+  for (const navstevnik of Object.values(navstevnici)) {
+    if (navstevnik.pocetNavstev <= 1) {
+      novi += 1;
+    } else {
+      vracejici += 1;
+    }
+  }
+
+  return { novi, vracejici };
+}
+
+/**
+ * Posledních 7 dní – jen návštěvníci aktivní v okně (mají posledniNavsteva v okně).
+ * Vyžaduje známá data – záznamy bez datumů se nepočítají.
+ */
+function spocitatPoslednich7Dni(
   navstevnici: KomunitaNavstevnici,
-  hranice7d: string | null
+  hranice7d: string
 ): {
   novi: number;
   vracejici: number;
@@ -116,25 +158,18 @@ function spocitatObdobi(
   let vracejici = 0;
 
   for (const navstevnik of Object.values(navstevnici)) {
-    if (hranice7d === null) {
-      if (navstevnik.pocetNavstev <= 1) {
-        novi += 1;
-      } else {
-        vracejici += 1;
-      }
+    const { prvniNavsteva, posledniNavsteva, pocetNavstev } = navstevnik;
+
+    if (!prvniNavsteva || !posledniNavsteva || posledniNavsteva < hranice7d) {
       continue;
     }
 
-    const { prvniNavsteva, posledniNavsteva } = navstevnik;
-    if (!prvniNavsteva || !posledniNavsteva) {
-      continue;
-    }
-
-    if (prvniNavsteva >= hranice7d) {
+    if (prvniNavsteva >= hranice7d && pocetNavstev <= 1) {
       novi += 1;
+      continue;
     }
 
-    if (posledniNavsteva >= hranice7d && prvniNavsteva < hranice7d) {
+    if (pocetNavstev >= 2) {
       vracejici += 1;
     }
   }
@@ -146,7 +181,7 @@ function spocitatObdobi(
  * Souhrn komunity pro administraci.
  *
  * Celkem: nový = jedna návštěva celkem, vracející se = alespoň dvě návštěvy.
- * 7 dní: nový = první návštěva v okně, vracející se = návštěva v okně, první návštěva dříve.
+ * 7 dní: jen aktivní návštěvníci; nový = první návštěva v okně, vracející se = návštěva v okně a alespoň dvě návštěvy celkem.
  */
 export function spocitatSouhrnKomunity(
   uloziste: UlozisteDat,
@@ -154,8 +189,8 @@ export function spocitatSouhrnKomunity(
 ): KomunitaSouhrn {
   const navstevnici = sestavitPohledNavstevnici(uloziste);
   const hranice7d = hranice7DniZpet(referencniCas);
-  const celkem = spocitatObdobi(navstevnici, null);
-  const poslednich7Dni = spocitatObdobi(navstevnici, hranice7d);
+  const celkem = spocitatCelkem(navstevnici);
+  const poslednich7Dni = spocitatPoslednich7Dni(navstevnici, hranice7d);
 
   return {
     celkem: {
