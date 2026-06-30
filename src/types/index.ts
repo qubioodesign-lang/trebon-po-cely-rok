@@ -36,6 +36,18 @@ export interface PolozkaVerejna {
   popis: string;
 }
 
+/** Souhrn metriky komunity – noví vs. vracející se návštěvníci */
+export interface KomunitaObdobiSouhrn {
+  noviNavstevnici: number;
+  vracejiciSeNavstevnici: number;
+  podilVracejicichSe: number;
+}
+
+export interface KomunitaSouhrn {
+  celkem: KomunitaObdobiSouhrn;
+  poslednich7Dni: KomunitaObdobiSouhrn;
+}
+
 /** Agregované metriky pro administraci */
 export interface MetrikySouhrn {
   pocetNavstev: number;
@@ -113,6 +125,7 @@ export interface DiagnozaBlob {
 export interface AdminData {
   polozky: Polozka[];
   metriky: MetrikySouhrn;
+  komunita: KomunitaSouhrn;
   analytics: AnalyticsSouhrn;
   pocetPushOdberu: number;
   trvaleUloziste: boolean;

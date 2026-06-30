@@ -126,6 +126,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
         ? posledniPlnePolozky.current
         : polozkyZeServeru;
   const metriky = data?.metriky ?? null;
+  const komunita = data?.komunita ?? null;
   const analytics = data?.analytics ?? null;
 
   const nacistZalohy = async () => {
@@ -793,6 +794,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
         {/* Metriky a top položky */}
         <AdminPrehled
           metriky={metriky}
+          komunita={komunita}
           analytics={analytics}
           polozky={polozky}
           chybaMetriky={chyby.metriky}

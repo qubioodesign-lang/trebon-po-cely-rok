@@ -11,6 +11,7 @@ import { pouzivaBlobUloziste } from "./env-blob";
 import type { AnalyticsAgregovane } from "./analytics";
 import type { ProlnutiCasovaniUlozene } from "./prolnuti-casovani";
 import type { TypZarizeni } from "./zarizeni-navstevnika";
+import type { KomunitaNavstevnici } from "./komunita";
 
 export { pouzivaBlobUloziste } from "./env-blob";
 
@@ -55,6 +56,8 @@ export interface UlozisteDat {
   metriky: ZaznamMetriky[];
   metrikyAgregovane?: MetrikyAgregovane;
   analyticsAgregovane?: AnalyticsAgregovane;
+  /** Per-návštěvník pro metriku komunity – klíč je trebon_navstevnik_id */
+  komunitaNavstevnici?: KomunitaNavstevnici;
   pushOdbery: PushOdber[];
   /** Upravitelné časy prolnutí z administrace */
   prolnutiCasovani?: ProlnutiCasovaniUlozene;

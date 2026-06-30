@@ -3,6 +3,7 @@ import type { MetrikyAgregovane, UlozisteDat, ZaznamMetriky } from "./uloziste-d
 import { jePlatneZarizeni, type TypZarizeni } from "./zarizeni-navstevnika";
 import type { PushOdber } from "./uloziste-dat";
 import { aplikovatAnalyticsBatch } from "./analytics";
+import { aplikovatKomunitaNavstevu } from "./komunita";
 import { nacistData, upravitData } from "./uloziste-dat";
 
 /** Prázdný souhrn metrik – výchozí stav administrace */
@@ -137,6 +138,9 @@ export function aplikovatMetriky(uloziste: UlozisteDat, udalosti: PayloadMetriky
   const agregovane = zajistitMetrikyAgregovane(uloziste);
   for (const udalost of udalosti) {
     aplikovatMetriku(agregovane, udalost);
+    if (udalost.typ === "navsteva" && udalost.navstevnikId) {
+      aplikovatKomunitaNavstevu(uloziste, udalost.navstevnikId);
+    }
   }
   aplikovatAnalyticsBatch(uloziste, udalosti);
 }

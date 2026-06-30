@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import type { AdminVysledek } from "@/types";
 import { seraditPolozky, nacistData } from "./uloziste-dat";
+import { prazdnySouhrnKomunity, spocitatSouhrnKomunity } from "./komunita";
 import { prazdnySouhrnMetrik, ziskatSouhrnZUloziste } from "./metriky";
 import { prazdnySouhrnAnalytics, ziskatSouhrnAnalytics } from "./analytics";
 import { sloucitProlnutiCasovani, PROLNUTI_CASOVANI_VYCHOZI } from "./prolnuti-casovani";
@@ -45,6 +46,7 @@ export async function nacistAdminData(): Promise<AdminVysledek> {
 
   let polozky: AdminVysledek["data"]["polozky"] = [];
   let metriky = prazdnySouhrnMetrik();
+  let komunita = prazdnySouhrnKomunity();
   let analytics = prazdnySouhrnAnalytics();
   let pocetPushOdberu = 0;
   let prolnutiCasovani = PROLNUTI_CASOVANI_VYCHOZI;
@@ -54,6 +56,7 @@ export async function nacistAdminData(): Promise<AdminVysledek> {
     const uloziste = await nacistData(oidcHeader);
     polozky = seraditPolozky(uloziste.polozky);
     metriky = ziskatSouhrnZUloziste(uloziste);
+    komunita = spocitatSouhrnKomunity(uloziste);
     analytics = ziskatSouhrnAnalytics(uloziste, polozky);
     pocetPushOdberu = uloziste.pushOdbery?.length ?? 0;
     prolnutiCasovani = sloucitProlnutiCasovani(uloziste.prolnutiCasovani);
@@ -72,6 +75,7 @@ export async function nacistAdminData(): Promise<AdminVysledek> {
     data: {
       polozky,
       metriky,
+      komunita,
       analytics,
       pocetPushOdberu,
       trvaleUloziste: diagnoza.trvaleUloziste,

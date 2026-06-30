@@ -1,6 +1,7 @@
-import type { AnalyticsSouhrn, MetrikySouhrn, Polozka } from "@/types";
+import type { AnalyticsSouhrn, KomunitaSouhrn, MetrikySouhrn, Polozka } from "@/types";
 import { sestavitUrlPolozky } from "@/lib/url-polozky";
 import { ziskatHlavniSouborPolozky } from "@/lib/polozka-soubory";
+import { AdminKomunita } from "./AdminKomunita";
 import { soucetSdileni, topPolozky } from "./pomocne";
 
 function KartaMetriky({
@@ -27,6 +28,7 @@ function KartaMetriky({
 
 interface PropsAdminPrehled {
   metriky: MetrikySouhrn | null;
+  komunita: KomunitaSouhrn | null;
   analytics: AnalyticsSouhrn | null;
   polozky: Polozka[];
   chybaMetriky?: string;
@@ -34,6 +36,7 @@ interface PropsAdminPrehled {
 
 export function AdminPrehled({
   metriky,
+  komunita,
   analytics,
   polozky,
   chybaMetriky,
@@ -48,6 +51,8 @@ export function AdminPrehled({
       {chybaMetriky && (
         <p className="text-xs text-red-400">chyba načtení metrik: {chybaMetriky}</p>
       )}
+
+      <AdminKomunita komunita={komunita} />
 
       {metriky ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
