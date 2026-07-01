@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import type { VzkazTreboni } from "@/types";
 import { smazatVzkazAdmin } from "@/app/admin/actions";
 
@@ -20,17 +20,33 @@ function formatovatDatumCas(iso: string): { datum: string; cas: string } {
   };
 }
 
-export function AdminVzkazyTreboni({ vzkazy }: PropsAdminVzkazyTreboni) {
+export function AdminVzkazyTreboni({ vzkazy: vzkazyZServeru }: PropsAdminVzkazyTreboni) {
   const router = useRouter();
+  const [, startTransition] = useTransition();
+  const [vzkazy, setVzkazy] = useState(vzkazyZServeru);
   const [mazeId, setMazeId] = useState<string | null>(null);
+  const [chybaMazani, setChybaMazani] = useState<string | null>(null);
+
+  useEffect(() => {
+    setVzkazy(vzkazyZServeru);
+  }, [vzkazyZServeru]);
 
   const handleSmazat = async (id: string) => {
     setMazeId(id);
+    setChybaMazani(null);
 
     try {
       const vysledek = await smazatVzkazAdmin(id);
       if ("uspech" in vysledek && vysledek.uspech) {
-        router.refresh();
+        setVzkazy((predchozi) => predchozi.filter((vzkaz) => vzkaz.id !== id));
+        startTransition(() => {
+          router.refresh();
+        });
+        return;
+      }
+
+      if ("chyba" in vysledek && vysledek.chyba) {
+        setChybaMazani(vysledek.chyba);
       }
     } finally {
       setMazeId(null);
@@ -45,6 +61,12 @@ export function AdminVzkazyTreboni({ vzkazy }: PropsAdminVzkazyTreboni) {
         Celkem vzkazů:{" "}
         <span className="tabular-nums text-text">{vzkazy.length}</span>
       </p>
+
+      {chybaMazani && (
+        <p className="text-xs text-text-jemny" role="alert">
+          {chybaMazani}
+        </p>
+      )}
 
       {vzkazy.length === 0 ? (
         <p className="text-xs text-text-velmiJemny">Zatím žádné vzkazy.</p>

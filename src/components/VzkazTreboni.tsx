@@ -18,6 +18,11 @@ const MAX_DELKA = 200;
 
 type StavModalu = "psani" | "odesilani" | "uspech";
 
+type OdpovedVzkazu = {
+  uspech?: boolean;
+  chyba?: string;
+};
+
 function IkonaObalky() {
   return (
     <svg
@@ -57,8 +62,10 @@ export function VzkazTreboni() {
   const [modalOtevren, setModalOtevren] = useState(false);
   const [text, setText] = useState("");
   const [stav, setStav] = useState<StavModalu>("psani");
+  const [chybovaZprava, setChybovaZprava] = useState<string | null>(null);
   const [odsazeniDole, setOdsazeniDole] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const odesilaRef = useRef(false);
 
   useEffect(() => {
     if (obalkaUzBylaZobrazenaVRelaci()) {
@@ -101,9 +108,11 @@ export function VzkazTreboni() {
   }, [modalOtevren]);
 
   const zavritModal = useCallback(() => {
+    odesilaRef.current = false;
     setModalOtevren(false);
     setStav("psani");
     setText("");
+    setChybovaZprava(null);
     setOdsazeniDole(0);
   }, []);
 
@@ -120,10 +129,12 @@ export function VzkazTreboni() {
     event.preventDefault();
 
     const vycisteny = text.trim();
-    if (!vycisteny || stav !== "psani") {
+    if (!vycisteny || odesilaRef.current || stav === "odesilani" || stav === "uspech") {
       return;
     }
 
+    odesilaRef.current = true;
+    setChybovaZprava(null);
     setStav("odesilani");
 
     try {
@@ -133,14 +144,30 @@ export function VzkazTreboni() {
         body: JSON.stringify({ text: vycisteny }),
       });
 
+      let telo: OdpovedVzkazu = {};
+      try {
+        telo = (await odpoved.json()) as OdpovedVzkazu;
+      } catch {
+        // prázdná nebo ne-JSON odpověď
+      }
+
       if (!odpoved.ok) {
+        setChybovaZprava(
+          telo.chyba ?? "Vzkaz se nepodařilo odeslat. Zkuste to znovu."
+        );
         setStav("psani");
         return;
       }
 
+      textareaRef.current?.blur();
       setStav("uspech");
     } catch {
+      setChybovaZprava(
+        "Vzkaz se nepodařilo odeslat. Zkontrolujte připojení a zkuste to znovu."
+      );
       setStav("psani");
+    } finally {
+      odesilaRef.current = false;
     }
   };
 
@@ -215,7 +242,7 @@ export function VzkazTreboni() {
                         rows={6}
                         disabled={stav === "odesilani"}
                         aria-label="Vzkaz Třeboni"
-                        className="vzkaz-listek w-full resize-none border-0 bg-transparent p-0 text-xl leading-relaxed text-trebon-modra outline-none focus:ring-0 disabled:opacity-60"
+                        className="vzkaz-listek w-full resize-none border-0 bg-transparent p-0 text-xl leading-relaxed outline-none focus:ring-0 disabled:opacity-60"
                         style={{ minHeight: "9rem" }}
                       />
                     </div>
@@ -224,12 +251,21 @@ export function VzkazTreboni() {
                       {text.length} / {MAX_DELKA}
                     </p>
 
+                    {chybovaZprava && (
+                      <p
+                        className="mt-4 max-w-xs text-center text-xs text-text-jemny"
+                        role="alert"
+                      >
+                        {chybovaZprava}
+                      </p>
+                    )}
+
                     <button
                       type="submit"
                       disabled={!text.trim() || stav === "odesilani"}
                       className="tlacitko-klidne mt-8 disabled:opacity-40"
                     >
-                      {stav === "odesilani" ? "Odesílám…" : "Poslat"}
+                      {stav === "odesilani" ? "Odesílám…" : "Odeslat vzkaz"}
                     </button>
                   </form>
                 </>
