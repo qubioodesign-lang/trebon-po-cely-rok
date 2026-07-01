@@ -60,6 +60,10 @@
     @apply border-text-jemny/50 text-text outline-none;
   }
 
+  .vzkaz-listek {
+    font-family: var(--font-caveat), "Caveat", cursive;
+  }
+
   .prolnuti-linka-bod {
     width: 6px;
     height: 6px;

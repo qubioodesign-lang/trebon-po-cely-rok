@@ -12,6 +12,7 @@ import type { AnalyticsAgregovane } from "./analytics";
 import type { ProlnutiCasovaniUlozene } from "./prolnuti-casovani";
 import type { TypZarizeni } from "./zarizeni-navstevnika";
 import type { KomunitaNavstevnici } from "./komunita";
+import type { VzkazTreboni } from "@/types";
 
 export { pouzivaBlobUloziste } from "./env-blob";
 
@@ -58,6 +59,8 @@ export interface UlozisteDat {
   analyticsAgregovane?: AnalyticsAgregovane;
   /** Per-návštěvník pro metriku komunity – klíč je trebon_navstevnik_id */
   komunitaNavstevnici?: KomunitaNavstevnici;
+  /** Vzkazy návštěvníků pro Třeboň – pouze pro administraci */
+  vzkazyTreboni?: VzkazTreboni[];
   pushOdbery: PushOdber[];
   /** Upravitelné časy prolnutí z administrace */
   prolnutiCasovani?: ProlnutiCasovaniUlozene;

@@ -61,6 +61,7 @@ import {
   logProlnutiVarovani,
   zkratitUrlProLog,
 } from "@/lib/prolnuti-log";
+import { smazatVzkaz } from "@/lib/vzkaz-treboni";
 
 type AkceVysledek =
   | { uspech: true; novaUrlSouboru?: string; diagProlnuti?: DiagProlnutiNahrani }
@@ -1086,5 +1087,23 @@ export async function nahratDesktopPozvankaFotografii(
         ? error.message
         : "Chyba při nahrávání desktopové fotografie";
     return { chyba: zprava, diagnoza: ziskatDiagnozuBlob(oidcHeader, { lzeZalohovat: lzeVytvoritZalohu() }) };
+  }
+}
+
+export async function smazatVzkazAdmin(id: string): Promise<AkceVysledek> {
+  const admin = await overitAdmina();
+  if ("chyba" in admin) {
+    return { chyba: admin.chyba, diagnoza: admin.diagnoza };
+  }
+
+  try {
+    await smazatVzkaz(id, admin.oidcHeader);
+    revalidatePath("/admin");
+    return { uspech: true };
+  } catch (error) {
+    return {
+      chyba: error instanceof Error ? error.message : "Chyba při mazání vzkazu",
+      diagnoza: admin.diagnoza,
+    };
   }
 }

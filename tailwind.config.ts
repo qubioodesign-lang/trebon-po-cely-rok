@@ -20,9 +20,13 @@ const config: Config = {
           jemny: "#6B6B6B",
           velmiJemny: "#9A9A9A",
         },
+        trebon: {
+          modra: "#1B3A4B",
+        },
       },
       fontFamily: {
         sans: ["var(--font-inter)", "Inter", "Manrope", "Plus Jakarta Sans", "system-ui", "sans-serif"],
+        rukopis: ["var(--font-caveat)", "Caveat", "cursive"],
       },
       transitionTimingFunction: {
         klidny: "cubic-bezier(0.4, 0, 0.2, 1)",

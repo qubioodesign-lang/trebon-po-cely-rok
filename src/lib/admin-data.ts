@@ -9,8 +9,10 @@ import { prazdnySouhrnMetrik, ziskatSouhrnZUloziste } from "./metriky";
 import { prazdnySouhrnAnalytics, ziskatSouhrnAnalytics } from "./analytics";
 import { sloucitProlnutiCasovani, PROLNUTI_CASOVANI_VYCHOZI } from "./prolnuti-casovani";
 import {
-  sestavitUrlDesktopPozvankaFotografie,
-} from "./desktop-pozvanka-nastaveni";
+  normalizovatVzkazy,
+  seraditVzkazyOdNejnovejsich,
+} from "./vzkaz-treboni";
+import { sestavitUrlDesktopPozvankaFotografie } from "./desktop-pozvanka-nastaveni";
 import {
   maBlobKonfiguraci,
   pouzivaBlobUloziste,
@@ -51,6 +53,7 @@ export async function nacistAdminData(): Promise<AdminVysledek> {
   let pocetPushOdberu = 0;
   let prolnutiCasovani = PROLNUTI_CASOVANI_VYCHOZI;
   let desktopPozvankaFotografie: string | null = null;
+  let vzkazyTreboni: AdminVysledek["data"]["vzkazyTreboni"] = [];
 
   try {
     const uloziste = await nacistData(oidcHeader);
@@ -61,6 +64,7 @@ export async function nacistAdminData(): Promise<AdminVysledek> {
     pocetPushOdberu = uloziste.pushOdbery?.length ?? 0;
     prolnutiCasovani = sloucitProlnutiCasovani(uloziste.prolnutiCasovani);
     desktopPozvankaFotografie = uloziste.desktopPozvankaFotografie ?? null;
+    vzkazyTreboni = seraditVzkazyOdNejnovejsich(normalizovatVzkazy(uloziste));
   } catch (error) {
     const zprava =
       error instanceof Error
@@ -86,6 +90,7 @@ export async function nacistAdminData(): Promise<AdminVysledek> {
       desktopPozvankaFotografieUrl: sestavitUrlDesktopPozvankaFotografie(
         desktopPozvankaFotografie
       ),
+      vzkazyTreboni,
     },
     chyby,
   };

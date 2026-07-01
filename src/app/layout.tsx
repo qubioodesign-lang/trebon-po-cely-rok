@@ -1,10 +1,16 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Caveat } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
   subsets: ["latin", "latin-ext"],
   variable: "--font-inter",
+  display: "swap",
+});
+
+const caveat = Caveat({
+  subsets: ["latin", "latin-ext"],
+  variable: "--font-caveat",
   display: "swap",
 });
 
@@ -38,7 +44,7 @@ export default function KorenLayout({
 }) {
   return (
     <html lang="cs">
-      <body className={`${inter.variable} font-sans min-h-dvh`}>
+      <body className={`${inter.variable} ${caveat.variable} font-sans min-h-dvh`}>
         {children}
       </body>
     </html>

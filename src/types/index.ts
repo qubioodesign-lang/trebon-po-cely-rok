@@ -103,6 +103,13 @@ export interface PayloadMetrikyBatch {
   udalosti: PayloadMetriky[];
 }
 
+/** Vzkaz návštěvníka pro Třeboň – bez jména a e-mailu */
+export interface VzkazTreboni {
+  id: string;
+  text: string;
+  vytvoreno: string;
+}
+
 /** Diagnostika Blob úložiště (serializovatelná pro klienta) */
 export interface DiagnozaBlob {
   trvaleUloziste: boolean;
@@ -134,6 +141,7 @@ export interface AdminData {
   prolnutiCasovani: ProlnutiCasovaniNastaveni;
   desktopPozvankaFotografie: string | null;
   desktopPozvankaFotografieUrl: string;
+  vzkazyTreboni: VzkazTreboni[];
 }
 
 /** Chyby při načítání jednotlivých částí administrace */

@@ -27,6 +27,7 @@ import { ZobrazeniPolozky } from "./ZobrazeniPolozky";
 import { OdkazChciSeVracet } from "./OdkazChciSeVracet";
 import { OdkazSdilet } from "./OdkazSdilet";
 import { RegistracePWA } from "./RegistracePWA";
+import { VzkazTreboni } from "./VzkazTreboni";
 import {
   SipkaPrehratProlnuti,
   type ProlnutiOvladani,
@@ -364,6 +365,7 @@ export function GalerieHlavni({
       aria-hidden={ssrAktivni ? true : undefined}
     >
       <RegistracePWA />
+      <VzkazTreboni />
 
       {/* Fotografie – na mobilu celý displej, na desktopu 70dvh */}
       <div

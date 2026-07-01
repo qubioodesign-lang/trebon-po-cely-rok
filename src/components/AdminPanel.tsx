@@ -31,6 +31,7 @@ import { AdminPanelUpravy } from "./admin/AdminPanelUpravy";
 import { AdminAnalyticsDetail } from "./admin/AdminAnalyticsDetail";
 import { AdminNastaveniProlnuti } from "./admin/AdminNastaveniProlnuti";
 import { AdminDesktopPozvanka } from "./admin/AdminDesktopPozvanka";
+import { AdminVzkazyTreboni } from "./admin/AdminVzkazyTreboni";
 import { AdminPotvrzeniSmazani } from "./admin/AdminPotvrzeniSmazani";
 import { PROLNUTI_CASOVANI_VYCHOZI } from "@/lib/prolnuti-casovani";
 import { DESKTOP_POZVANKA_VYCHOZI_FOTOGRAFIE } from "@/lib/desktop-pozvanka";
@@ -939,6 +940,8 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
           onChyba={setChybaAkce}
           onPotvrzeni={setPotvrzeniAkce}
         />
+
+        <AdminVzkazyTreboni vzkazy={data?.vzkazyTreboni ?? []} />
 
         <section className="space-y-3 border border-text-velmiJemny/20 p-4">
           <div className="flex items-center justify-between gap-3">
