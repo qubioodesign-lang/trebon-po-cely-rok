@@ -16,12 +16,10 @@ import {
 
 const MAX_DELKA = 200;
 
-type StavModalu = "psani" | "odesilani" | "uspech";
+const HLASKA_CHYBY =
+  "Vzkaz možná nedoputoval. Zkuste to prosím ještě jednou.";
 
-type OdpovedVzkazu = {
-  uspech?: boolean;
-  chyba?: string;
-};
+type StavModalu = "psani" | "odesilani" | "uspech";
 
 function IkonaObalky() {
   return (
@@ -144,17 +142,8 @@ export function VzkazTreboni() {
         body: JSON.stringify({ text: vycisteny }),
       });
 
-      let telo: OdpovedVzkazu = {};
-      try {
-        telo = (await odpoved.json()) as OdpovedVzkazu;
-      } catch {
-        // prázdná nebo ne-JSON odpověď
-      }
-
       if (!odpoved.ok) {
-        setChybovaZprava(
-          telo.chyba ?? "Vzkaz se nepodařilo odeslat. Zkuste to znovu."
-        );
+        setChybovaZprava(HLASKA_CHYBY);
         setStav("psani");
         return;
       }
@@ -162,9 +151,7 @@ export function VzkazTreboni() {
       textareaRef.current?.blur();
       setStav("uspech");
     } catch {
-      setChybovaZprava(
-        "Vzkaz se nepodařilo odeslat. Zkontrolujte připojení a zkuste to znovu."
-      );
+      setChybovaZprava(HLASKA_CHYBY);
       setStav("psani");
     } finally {
       odesilaRef.current = false;
@@ -231,7 +218,7 @@ export function VzkazTreboni() {
                   >
                     <div
                       onClick={handleKlikListek}
-                      className="w-full max-w-[18rem] rotate-[-1.5deg] bg-krem-svetly px-6 py-8 shadow-[0_8px_24px_rgba(47,47,47,0.08)]"
+                      className="w-full max-w-[18rem] rotate-[-1.5deg] bg-krem-svetly px-6 py-8 shadow-[0_3px_8px_rgba(47,47,47,0.07),0_14px_36px_rgba(27,58,75,0.12)]"
                     >
                       <textarea
                         ref={textareaRef}
