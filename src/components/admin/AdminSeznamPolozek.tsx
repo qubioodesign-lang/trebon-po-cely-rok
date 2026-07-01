@@ -34,6 +34,8 @@ interface PropsAdminSeznamPolozek {
 
   onPosun: (index: number, smer: "nahoru" | "dolu") => void;
 
+  onPripnoutNahoru: (index: number) => void;
+
   onPrepnoutAktivni: (id: string, aktivni: boolean) => void;
 
   onSmazat: (id: string) => void;
@@ -63,6 +65,8 @@ export function AdminSeznamPolozek({
   onUpravit,
 
   onPosun,
+
+  onPripnoutNahoru,
 
   onPrepnoutAktivni,
 
@@ -311,6 +315,24 @@ export function AdminSeznamPolozek({
 
 
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-text-velmiJemny/10 pt-2 lg:border-t-0 lg:pt-0">
+
+                  <button
+
+                    type="button"
+
+                    onClick={() => onPripnoutNahoru(index)}
+
+                    disabled={index === 0}
+
+                    className="text-xs text-text-velmiJemny disabled:opacity-30"
+
+                  >
+
+                    připnout nahoru
+
+                  </button>
+
+
 
                   <button
 

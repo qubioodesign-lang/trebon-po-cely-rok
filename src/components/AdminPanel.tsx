@@ -528,6 +528,17 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
     if (zpracovatChybuAkce(vysledek)) obnovit();
   };
 
+  const handlePripnoutNahoru = async (index: number) => {
+    if (index <= 0) return;
+
+    const noveIds = polozky.map((p) => p.id);
+    const [id] = noveIds.splice(index, 1);
+    noveIds.unshift(id);
+
+    const vysledek = await zmenitPoradiPolozek(noveIds);
+    if (zpracovatChybuAkce(vysledek)) obnovit();
+  };
+
   const handleOdeslatPush = async (id: string) => {
     setOdesilaPush(true);
     setChybaAkce("");
@@ -834,6 +845,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
           maChybuNacitani={maChybuNacitani}
           onUpravit={handleUpravit}
           onPosun={handlePosun}
+          onPripnoutNahoru={(index) => void handlePripnoutNahoru(index)}
           onPrepnoutAktivni={handlePrepnoutAktivni}
           onSmazat={handlePozadavekSmazani}
           onNahraditFotografii={handleNahraditFotografii}
