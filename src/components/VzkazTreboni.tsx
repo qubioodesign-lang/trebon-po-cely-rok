@@ -142,9 +142,17 @@ export function VzkazTreboni() {
         body: JSON.stringify({ text: vycisteny }),
       });
 
-      if (!odpoved.ok) {
+      let telo: { uspech?: boolean } | null = null;
+      try {
+        telo = (await odpoved.json()) as { uspech?: boolean };
+      } catch {
+        telo = null;
+      }
+
+      if (!odpoved.ok || telo?.uspech !== true) {
         setChybovaZprava(HLASKA_CHYBY);
         setStav("psani");
+        odesilaRef.current = false;
         return;
       }
 
@@ -153,7 +161,6 @@ export function VzkazTreboni() {
     } catch {
       setChybovaZprava(HLASKA_CHYBY);
       setStav("psani");
-    } finally {
       odesilaRef.current = false;
     }
   };

@@ -3,6 +3,7 @@ import { ziskatOidcZHlavicek } from "@/lib/env-blob";
 import { MAX_DELKA_VZKAZU, pridatVzkaz } from "@/lib/vzkaz-treboni";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 /** Veřejné odeslání vzkazu Třeboni – bez jména a e-mailu */
 export async function POST(request: NextRequest) {
