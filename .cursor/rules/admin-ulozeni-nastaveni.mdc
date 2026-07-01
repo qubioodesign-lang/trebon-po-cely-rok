@@ -1,0 +1,48 @@
+---
+description: Referenční vzor ukládání administrativních nastavení (Blob, ověření, veřejná viditelnost)
+globs: src/app/admin/**,src/lib/**/*nastaveni*.ts,src/lib/uloziste-dat.ts
+alwaysApply: false
+---
+
+# Ukládání administrativních nastavení
+
+Referenční implementace: **Nastavení prolnutí**
+- `src/lib/prolnuti-nastaveni.ts` — zápis + ověření celého stavu
+- `src/app/admin/actions.ts` → `ulozitNastaveniProlnutiAdmin`
+
+Všechny nové i upravované admin akce ukládající nastavení **musí** používat stejný vzor. Nevytvářej alternativní cesty ukládání.
+
+## Povinný tok
+
+1. **Validace** vstupu (server action)
+2. **Zápis** přes `upravitData` do `data/uloziste.json` (Blob)
+3. **`overitPoUlozeni`** — ověř celý uložený stav (všechna relevantní pole), ne jen jednu hodnotu
+4. **`potvrditAUvolnitWeb`** — počkej na veřejnou viditelnost přes cache-bust URL
+5. **Teprve potom** `return { uspech: true }`
+6. Při selhání kroku 3–4: **jasná chyba**, nikdy falešný úspěch
+
+## Vzor kódu
+
+```typescript
+// lib/*-nastaveni.ts
+export function overitXVUlozisti(uloziste, nastaveni): boolean {
+  // porovnej VŠECHNA pole, ideálně přes sloucit* helper
+}
+
+await upravitData(
+  (uloziste) => { uloziste.x = kUlozeni; },
+  oidc,
+  { overitPoUlozeni: (u) => overitXVUlozisti(u, nastaveni) }
+);
+
+// admin/actions.ts
+await ulozitX(validace.data, admin.oidcHeader);
+await potvrditAUvolnitWeb((u) => overitXVUlozisti(u, validace.data));
+return { uspech: true };
+```
+
+## Zakázáno
+
+- `revalidatePath` bez `potvrditAUvolnitWeb` u nastavení v Blobu
+- `overitPoUlozeni` kontrolující jen jedno pole, když se ukládá objekt s více hodnotami
+- Návrat úspěchu před potvrzením veřejné viditelnosti
