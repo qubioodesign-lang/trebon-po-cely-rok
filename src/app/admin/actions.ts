@@ -1098,10 +1098,7 @@ export async function smazatVzkazAdmin(id: string): Promise<AkceVysledek> {
 
   try {
     await smazatVzkaz(id, admin.oidcHeader);
-    await potvrditAUvolnitWeb(
-      (uloziste) =>
-        !(uloziste.vzkazyTreboni ?? []).some((vzkaz) => vzkaz.id === id)
-    );
+    revalidatePath("/admin");
     return { uspech: true };
   } catch (error) {
     return {

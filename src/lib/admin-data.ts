@@ -9,7 +9,7 @@ import { prazdnySouhrnMetrik, ziskatSouhrnZUloziste } from "./metriky";
 import { prazdnySouhrnAnalytics, ziskatSouhrnAnalytics } from "./analytics";
 import { sloucitProlnutiCasovani, PROLNUTI_CASOVANI_VYCHOZI } from "./prolnuti-casovani";
 import {
-  normalizovatVzkazy,
+  nacistVsechnyVzkazy,
   seraditVzkazyOdNejnovejsich,
 } from "./vzkaz-treboni";
 import { sestavitUrlDesktopPozvankaFotografie } from "./desktop-pozvanka-nastaveni";
@@ -54,6 +54,7 @@ export async function nacistAdminData(): Promise<AdminVysledek> {
   let prolnutiCasovani = PROLNUTI_CASOVANI_VYCHOZI;
   let desktopPozvankaFotografie: string | null = null;
   let vzkazyTreboni: AdminVysledek["data"]["vzkazyTreboni"] = [];
+  let legacyVzkazy: AdminVysledek["data"]["vzkazyTreboni"] = [];
 
   try {
     const uloziste = await nacistData(oidcHeader);
@@ -64,7 +65,7 @@ export async function nacistAdminData(): Promise<AdminVysledek> {
     pocetPushOdberu = uloziste.pushOdbery?.length ?? 0;
     prolnutiCasovani = sloucitProlnutiCasovani(uloziste.prolnutiCasovani);
     desktopPozvankaFotografie = uloziste.desktopPozvankaFotografie ?? null;
-    vzkazyTreboni = seraditVzkazyOdNejnovejsich(normalizovatVzkazy(uloziste));
+    legacyVzkazy = uloziste.vzkazyTreboni ?? [];
   } catch (error) {
     const zprava =
       error instanceof Error
@@ -73,6 +74,17 @@ export async function nacistAdminData(): Promise<AdminVysledek> {
     chyby.uloziste = zprava;
     chyby.polozky = zprava;
     chyby.metriky = zprava;
+  }
+
+  try {
+    vzkazyTreboni = seraditVzkazyOdNejnovejsich(
+      await nacistVsechnyVzkazy(oidcHeader, legacyVzkazy)
+    );
+  } catch (error) {
+    chyby.vzkazyTreboni =
+      error instanceof Error
+        ? error.message
+        : "Nepodařilo se načíst vzkazy Třeboni";
   }
 
   return {

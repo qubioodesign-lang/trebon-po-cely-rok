@@ -149,6 +149,7 @@ export interface AdminChyby {
   uloziste?: string;
   polozky?: string;
   metriky?: string;
+  vzkazyTreboni?: string;
 }
 
 /** Výsledek načtení administrace – data jsou vždy k dispozici, chyby odděleně */
