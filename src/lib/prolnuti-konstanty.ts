@@ -11,9 +11,10 @@ export const PROLNUTI_CASOVANI = {
   delkaProlnutiMs: 6_500,
   /**
    * CSS timing-function pro opacity.
-   * Velmi jemná křivka – pomalý začátek i konec, bez „efektu“.
+   * Jemný průběh s mírným počátečním náběhem (p1y > 0), aby B→C nebylo
+   * první sekundy neviditelné; konec zůstává pomalý bez efektu.
    */
-  easing: "cubic-bezier(0.42, 0, 0.18, 1)",
+  easing: "cubic-bezier(0.4, 0.06, 0.22, 1)",
   /** Prodleva po dokončení prolnutí, než se objeví replay */
   replayZpozdeniMs: 1_200,
   /** Doba náběhu opacity replay tlačítka */

@@ -44,7 +44,10 @@ import {
 import type { DiagnozaBlob } from "@/types";
 import type { ProlnutiCasovaniNastaveni } from "@/lib/prolnuti-casovani";
 import { validovatProlnutiCasovani } from "@/lib/prolnuti-casovani";
-import { ulozitProlnutiCasovani } from "@/lib/prolnuti-nastaveni";
+import {
+  overitProlnutiCasovaniVUlozisti,
+  ulozitProlnutiCasovani,
+} from "@/lib/prolnuti-nastaveni";
 import {
   ulozitDesktopPozvankaFotografii,
   ziskatCestuDesktopPozvankaFotografie,
@@ -1014,8 +1017,9 @@ export async function ulozitNastaveniProlnutiAdmin(
 
   try {
     await ulozitProlnutiCasovani(validace.data, admin.oidcHeader);
-    revalidatePath("/admin");
-    revalidatePath("/");
+    await potvrditAUvolnitWeb((uloziste) =>
+      overitProlnutiCasovaniVUlozisti(uloziste, validace.data)
+    );
     return { uspech: true };
   } catch (error) {
     return {

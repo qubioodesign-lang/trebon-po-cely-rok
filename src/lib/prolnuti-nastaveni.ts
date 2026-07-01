@@ -1,11 +1,25 @@
 import "server-only";
 
+import type { UlozisteDat } from "./uloziste-dat";
 import { upravitData, nacistData } from "./uloziste-dat";
 import {
   sloucitProlnutiCasovani,
   type ProlnutiCasovaniNastaveni,
   type ProlnutiCasovaniUlozene,
 } from "./prolnuti-casovani";
+
+export function overitProlnutiCasovaniVUlozisti(
+  uloziste: Pick<UlozisteDat, "prolnutiCasovani">,
+  nastaveni: ProlnutiCasovaniNastaveni
+): boolean {
+  const ulozene = sloucitProlnutiCasovani(uloziste.prolnutiCasovani);
+  return (
+    ulozene.cekaniPredStartemMs === nastaveni.cekaniPredStartemMs &&
+    ulozene.delkaProlnutiMs === nastaveni.delkaProlnutiMs &&
+    ulozene.replayZpozdeniMs === nastaveni.replayZpozdeniMs &&
+    ulozene.replayFadeMs === nastaveni.replayFadeMs
+  );
+}
 
 export async function ziskatProlnutiCasovani(
   oidcZHeaderu?: string | null
@@ -27,7 +41,7 @@ export async function ulozitProlnutiCasovani(
     oidcZHeaderu,
     {
       overitPoUlozeni: (uloziste) =>
-        uloziste.prolnutiCasovani?.delkaProlnutiMs === nastaveni.delkaProlnutiMs,
+        overitProlnutiCasovaniVUlozisti(uloziste, nastaveni),
     }
   );
 }
