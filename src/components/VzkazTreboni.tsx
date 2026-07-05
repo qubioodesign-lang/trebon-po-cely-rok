@@ -13,6 +13,10 @@ import {
   obalkaUzBylaZobrazenaVRelaci,
   oznacitObalkuJakoZobrazenou,
 } from "@/lib/vzkaz-treboni-navstevnik";
+import {
+  TRIDA_VZKAZ_LISTEK,
+  VzkazPotvrzeniListek,
+} from "./VzkazPotvrzeniListek";
 
 const MAX_DELKA = 200;
 
@@ -114,15 +118,6 @@ export function VzkazTreboni() {
     setOdsazeniDole(0);
   }, []);
 
-  useEffect(() => {
-    if (stav !== "uspech") {
-      return;
-    }
-
-    const casovac = window.setTimeout(zavritModal, 1800);
-    return () => window.clearTimeout(casovac);
-  }, [stav, zavritModal]);
-
   const handleOdeslat = async (event: FormEvent) => {
     event.preventDefault();
 
@@ -207,9 +202,7 @@ export function VzkazTreboni() {
           >
             <div className="flex w-full max-w-md flex-1 flex-col items-center justify-center">
               {stav === "uspech" ? (
-                <p className="text-sm font-light tracking-wide text-text-jemny">
-                  Vzkaz doputoval.
-                </p>
+                <VzkazPotvrzeniListek onDokonceno={zavritModal} />
               ) : (
                 <>
                   <h2
@@ -225,7 +218,7 @@ export function VzkazTreboni() {
                   >
                     <div
                       onClick={handleKlikListek}
-                      className="w-full max-w-[18rem] rotate-[-1.5deg] bg-krem-svetly px-6 py-8 shadow-[0_3px_8px_rgba(47,47,47,0.07),0_14px_36px_rgba(27,58,75,0.12)]"
+                      className={TRIDA_VZKAZ_LISTEK}
                     >
                       <textarea
                         ref={textareaRef}
