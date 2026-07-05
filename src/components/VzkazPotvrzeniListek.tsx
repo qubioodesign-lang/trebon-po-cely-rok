@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 const POTVRZENI_TEXT = "Vzkaz doputoval";
+const ZNAKY_POTVRZENI = POTVRZENI_TEXT.split("");
 
 /** Prázdný lístek – krátké očekávání před psaním */
 const MS_PRAZDNY_LISTEK = 600;
@@ -125,8 +126,6 @@ export function VzkazPotvrzeniListek({ onDokonceno }: PropsVzkazPotvrzeniListek)
     return () => window.clearTimeout(casovac);
   }, [faze]);
 
-  const zobrazenyText = POTVRZENI_TEXT.slice(0, pocetZnaku);
-
   return (
     <div className={TRIDA_VZKAZ_LISTEK}>
       <div
@@ -135,7 +134,36 @@ export function VzkazPotvrzeniListek({ onDokonceno }: PropsVzkazPotvrzeniListek)
         aria-live="polite"
         aria-atomic="true"
       >
-        <p className="whitespace-pre-wrap">{zobrazenyText || "\u00a0"}</p>
+        <p className="grid w-full whitespace-pre-wrap text-center">
+          <span className="invisible col-start-1 row-start-1" aria-hidden="true">
+            {POTVRZENI_TEXT}
+          </span>
+          <span className="col-start-1 row-start-1">
+            {pocetZnaku === 0
+              ? "\u00a0"
+              : ZNAKY_POTVRZENI.map((znak, index) => {
+                  if (index >= pocetZnaku) {
+                    return null;
+                  }
+
+                  const jePosledni =
+                    faze === "psani" && index === pocetZnaku - 1;
+
+                  return (
+                    <span
+                      key={index}
+                      className={
+                        jePosledni
+                          ? "inline-block overflow-hidden vzkaz-pismeno-tah"
+                          : "inline-block"
+                      }
+                    >
+                      {znak === " " ? "\u00a0" : znak}
+                    </span>
+                  );
+                })}
+          </span>
+        </p>
         {(faze === "srdce" || faze === "hotovo") && (
           <svg
             viewBox="0 0 24 22"

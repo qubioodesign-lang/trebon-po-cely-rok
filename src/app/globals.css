@@ -65,6 +65,11 @@
     color: #154a6e;
   }
 
+  /** Jemný tah pera při dopisování dalšího písmene – bez změny celkového tempa */
+  .vzkaz-pismeno-tah {
+    animation: vzkaz-pismeno-tah 140ms cubic-bezier(0.35, 0, 0.22, 1) both;
+  }
+
   .prolnuti-linka-bod {
     width: 6px;
     height: 6px;
@@ -74,6 +79,18 @@
     animation-name: prolnuti-linka-bod;
     animation-timing-function: cubic-bezier(0.42, 0, 0.18, 1);
     animation-fill-mode: forwards;
+  }
+}
+
+@keyframes vzkaz-pismeno-tah {
+  from {
+    opacity: 0.25;
+    clip-path: inset(0 100% 0 0);
+  }
+
+  to {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
   }
 }
 
