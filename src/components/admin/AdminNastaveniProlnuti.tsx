@@ -7,6 +7,8 @@ import { ulozitNastaveniProlnutiAdmin } from "@/app/admin/actions";
 const POLE_NASTAVENI: {
   klic: keyof ProlnutiCasovaniNastaveni;
   popisek: string;
+  min?: number;
+  max?: number;
 }[] = [
   {
     klic: "cekaniPredStartemMs",
@@ -14,6 +16,12 @@ const POLE_NASTAVENI: {
   },
   { klic: "delkaProlnutiMs", popisek: "délka prolnutí" },
   { klic: "prekrytiProlnutiMs", popisek: "překrytí mezi kroky prolnutí" },
+  {
+    klic: "nastupPoslednihoSnimkuMs",
+    popisek: "nástup posledního snímku (3 fotky)",
+    min: 1500,
+    max: 5000,
+  },
   { klic: "replayZpozdeniMs", popisek: "zobrazení replay (prodleva)" },
   { klic: "replayFadeMs", popisek: "fade-in replay" },
 ];
@@ -72,7 +80,7 @@ export function AdminNastaveniProlnuti({
       </div>
 
       <div className="space-y-3">
-        {POLE_NASTAVENI.map(({ klic, popisek }) => (
+        {POLE_NASTAVENI.map(({ klic, popisek, min = 0, max }) => (
           <label
             key={klic}
             className="flex flex-col gap-1 text-xs text-text-velmiJemny sm:flex-row sm:items-center sm:justify-between"
@@ -80,7 +88,8 @@ export function AdminNastaveniProlnuti({
             <span className="text-text-jemny">{popisek}</span>
             <input
               type="number"
-              min={0}
+              min={min}
+              max={max}
               step={50}
               value={formular[klic]}
               onChange={(e) =>

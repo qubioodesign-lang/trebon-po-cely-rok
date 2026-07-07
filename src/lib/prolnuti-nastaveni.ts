@@ -17,6 +17,7 @@ export function overitProlnutiCasovaniVUlozisti(
     ulozene.cekaniPredStartemMs === nastaveni.cekaniPredStartemMs &&
     ulozene.delkaProlnutiMs === nastaveni.delkaProlnutiMs &&
     ulozene.prekrytiProlnutiMs === nastaveni.prekrytiProlnutiMs &&
+    ulozene.nastupPoslednihoSnimkuMs === nastaveni.nastupPoslednihoSnimkuMs &&
     ulozene.replayZpozdeniMs === nastaveni.replayZpozdeniMs &&
     ulozene.replayFadeMs === nastaveni.replayFadeMs
   );

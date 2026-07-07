@@ -58,6 +58,17 @@ function prodlevaDoDalsihoKrokuMs(casovani: ProlnutiCasovaniNastaveni): number {
   );
 }
 
+/** Počáteční opacity vrstev – u 3 fotek je poslední snímek skrytý (0) */
+function vytvoritVychoziOpacity(pocetSnimku: number): number[] {
+  return Array.from({ length: pocetSnimku }, (_, index) =>
+    pocetSnimku >= 3 && index === pocetSnimku - 1 ? 0 : 1
+  );
+}
+
+function jePosledniKrokProlnuti(pocetSnimku: number, krok: number): boolean {
+  return pocetSnimku >= 3 && krok === pocetSnimku - 2;
+}
+
 /**
  * Prolnutí – 2–3 fotografie stejného místa.
  * Jednou automaticky, pak zastavení na posledním snímku; opakování jen ručně.
@@ -91,7 +102,7 @@ export function ZobrazeniProlnuti({
   const imgRefs = useRef<(HTMLImageElement | null)[]>([]);
 
   const resetVrstev = useCallback((p: number) => {
-    setVrstvaOpacity(Array.from({ length: Math.max(0, p - 1) }, () => 1));
+    setVrstvaOpacity(vytvoritVychoziOpacity(p));
   }, []);
 
   const vynulovatAktivniFade = useCallback(() => {
@@ -123,7 +134,13 @@ export function ZobrazeniProlnuti({
       probihajiciKrokRef.current = krok;
 
       flushSync(() => {
-        setAktivniFadeKroky((predchozi) => new Set(predchozi).add(krok));
+        setAktivniFadeKroky((predchozi) => {
+          const dalsi = new Set(predchozi).add(krok);
+          if (jePosledniKrokProlnuti(pocet, krok)) {
+            dalsi.add(pocet - 1);
+          }
+          return dalsi;
+        });
         setFaze("prolinuti");
         if (krok === 0) {
           setBehProlnuti((predchozi) => predchozi + 1);
@@ -135,12 +152,22 @@ export function ZobrazeniProlnuti({
         void img.offsetHeight;
       }
 
+      if (jePosledniKrokProlnuti(pocet, krok)) {
+        const posledni = imgRefs.current[pocet - 1];
+        if (posledni) {
+          void posledni.offsetHeight;
+        }
+      }
+
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           if (behRef.current !== beh) return;
           setVrstvaOpacity((predchozi) => {
             const dalsi = [...predchozi];
             dalsi[krok] = 0;
+            if (jePosledniKrokProlnuti(pocet, krok)) {
+              dalsi[pocet - 1] = 1;
+            }
             return dalsi;
           });
         });
@@ -161,7 +188,7 @@ export function ZobrazeniProlnuti({
         }, casovani.replayZpozdeniMs);
       }, prodlevaDoDalsihoKrokuMs(casovani));
     },
-    [casovani, naplanovat, pocetProlnuti]
+    [casovani, naplanovat, pocet, pocetProlnuti]
   );
 
   const spustitKrokProlnutiRef = useRef(spustitKrokProlnuti);
@@ -177,7 +204,9 @@ export function ZobrazeniProlnuti({
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     if (reducedMotion) {
-      setVrstvaOpacity(Array.from({ length: pocetProlnuti }, () => 0));
+      setVrstvaOpacity(
+        Array.from({ length: pocet }, (_, index) => (index === pocet - 1 ? 1 : 0))
+      );
       setFaze("dokonceno");
       naplanovat(() => {
         if (behRef.current !== beh) return;
@@ -187,7 +216,7 @@ export function ZobrazeniProlnuti({
     }
 
     spustitKrokProlnuti(0, beh);
-  }, [casovani.replayZpozdeniMs, naplanovat, pocetProlnuti, spustitKrokProlnuti]);
+  }, [casovani.replayZpozdeniMs, naplanovat, pocet, spustitKrokProlnuti]);
 
   const zkusitSpustitProlinuti = useCallback(() => {
     if (prolinutiZahajenoRef.current) return;
@@ -254,7 +283,7 @@ export function ZobrazeniProlnuti({
       setZobrazitSipku(false);
       setFaze("cekani");
       vynulovatAktivniFade();
-      setVrstvaOpacity(Array.from({ length: Math.max(0, pocet - 1) }, () => 1));
+      setVrstvaOpacity(vytvoritVychoziOpacity(pocet));
     });
 
     casOtevreniRef.current = performance.now();
@@ -336,12 +365,21 @@ export function ZobrazeniProlnuti({
     <div className="absolute inset-0">
       {urls.map((url, index) => {
         const jePosledni = index === posledniIndex;
-        const opacity = jePosledni ? 1 : (vrstvaOpacity[index] ?? 1);
+        const opacity = jePosledni
+          ? pocet >= 3
+            ? (vrstvaOpacity[index] ?? 0)
+            : 1
+          : (vrstvaOpacity[index] ?? 1);
         const skryta =
           faze === "dokonceno" && !jePosledni && opacity === 0;
 
+        const delkaFadeMs =
+          jePosledni && pocet >= 3
+            ? casovani.nastupPoslednihoSnimkuMs
+            : casovani.delkaProlnutiMs;
+
         const transition = aktivniFadeKroky.has(index)
-          ? `opacity ${casovani.delkaProlnutiMs}ms ${PROLNUTI_EASING}`
+          ? `opacity ${delkaFadeMs}ms ${PROLNUTI_EASING}`
           : "none";
 
         return (
@@ -369,7 +407,9 @@ export function ZobrazeniProlnuti({
             onLoad={handleSnimekNacten}
             onError={() => setChyba(true)}
             onTransitionEnd={
-              !jePosledni ? (e) => handleKonecProlinuti(e, index) : undefined
+              !jePosledni || pocet >= 3
+                ? (e) => handleKonecProlinuti(e, index)
+                : undefined
             }
           />
         );

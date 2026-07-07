@@ -14,6 +14,8 @@ export const PROLNUTI_CASOVANI = {
    * Zkracuje statickou pauzu mezi snímky, rychlost samotného fade zůstává stejná.
    */
   prekrytiProlnutiMs: 500,
+  /** Aktivní fade-in posledního snímku (B→C u 3 fotek) – ms */
+  nastupPoslednihoSnimkuMs: 3_500,
   /**
    * CSS timing-function pro opacity.
    * Jemný průběh s mírným počátečním náběhem (p1y > 0), aby B→C nebylo
