@@ -22,6 +22,12 @@ const POLE_NASTAVENI: {
     min: 1500,
     max: 5000,
   },
+  {
+    klic: "prodlevaPredPoslednimKrokemMs",
+    popisek: "spuštění posledního kroku po nástupu druhé fotky (3 fotky)",
+    min: 1500,
+    max: 5000,
+  },
   { klic: "replayZpozdeniMs", popisek: "zobrazení replay (prodleva)" },
   { klic: "replayFadeMs", popisek: "fade-in replay" },
 ];

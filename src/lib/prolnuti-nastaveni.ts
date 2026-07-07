@@ -18,6 +18,8 @@ export function overitProlnutiCasovaniVUlozisti(
     ulozene.delkaProlnutiMs === nastaveni.delkaProlnutiMs &&
     ulozene.prekrytiProlnutiMs === nastaveni.prekrytiProlnutiMs &&
     ulozene.nastupPoslednihoSnimkuMs === nastaveni.nastupPoslednihoSnimkuMs &&
+    ulozene.prodlevaPredPoslednimKrokemMs ===
+      nastaveni.prodlevaPredPoslednimKrokemMs &&
     ulozene.replayZpozdeniMs === nastaveni.replayZpozdeniMs &&
     ulozene.replayFadeMs === nastaveni.replayFadeMs
   );

@@ -8,6 +8,11 @@ export interface ProlnutiCasovaniNastaveni {
   prekrytiProlnutiMs: number;
   /** Aktivní nástup posledního snímku (opacity 0→1) u prolnutí se 3 fotografiemi */
   nastupPoslednihoSnimkuMs: number;
+  /**
+   * Prodleva po startu kroku 0 (nástup druhé fotky), než se spustí poslední krok B→C.
+   * Platí jen u prolnutí se 3 fotografiemi.
+   */
+  prodlevaPredPoslednimKrokemMs: number;
   replayZpozdeniMs: number;
   replayFadeMs: number;
 }
@@ -19,6 +24,7 @@ export const PROLNUTI_CASOVANI_VYCHOZI: ProlnutiCasovaniNastaveni = {
   delkaProlnutiMs: PROLNUTI_CASOVANI.delkaProlnutiMs,
   prekrytiProlnutiMs: PROLNUTI_CASOVANI.prekrytiProlnutiMs,
   nastupPoslednihoSnimkuMs: PROLNUTI_CASOVANI.nastupPoslednihoSnimkuMs,
+  prodlevaPredPoslednimKrokemMs: PROLNUTI_CASOVANI.prodlevaPredPoslednimKrokemMs,
   replayZpozdeniMs: PROLNUTI_CASOVANI.replayZpozdeniMs,
   replayFadeMs: PROLNUTI_CASOVANI.replayFadeMs,
 };
@@ -46,6 +52,9 @@ export function sloucitProlnutiCasovani(
     nastupPoslednihoSnimkuMs:
       platnaMs(ulozene?.nastupPoslednihoSnimkuMs) ??
       PROLNUTI_CASOVANI_VYCHOZI.nastupPoslednihoSnimkuMs,
+    prodlevaPredPoslednimKrokemMs:
+      platnaMs(ulozene?.prodlevaPredPoslednimKrokemMs) ??
+      PROLNUTI_CASOVANI_VYCHOZI.prodlevaPredPoslednimKrokemMs,
     replayZpozdeniMs:
       platnaMs(ulozene?.replayZpozdeniMs) ??
       PROLNUTI_CASOVANI_VYCHOZI.replayZpozdeniMs,
@@ -62,6 +71,7 @@ export function validovatProlnutiCasovani(
   const delka = platnaMs(vstup.delkaProlnutiMs);
   const prekryti = platnaMs(vstup.prekrytiProlnutiMs);
   const nastupPosledniho = platnaMs(vstup.nastupPoslednihoSnimkuMs);
+  const prodlevaPredPoslednim = platnaMs(vstup.prodlevaPredPoslednimKrokemMs);
   const replay = platnaMs(vstup.replayZpozdeniMs);
   const fade = platnaMs(vstup.replayFadeMs);
 
@@ -84,6 +94,15 @@ export function validovatProlnutiCasovani(
   ) {
     return { chyba: "Nástup posledního snímku musí být mezi 1500 a 5000 ms" };
   }
+  if (
+    prodlevaPredPoslednim === undefined ||
+    prodlevaPredPoslednim < 1_500 ||
+    prodlevaPredPoslednim > 5_000
+  ) {
+    return {
+      chyba: "Prodleva před posledním krokem musí být mezi 1500 a 5000 ms",
+    };
+  }
   if (replay === undefined) {
     return { chyba: "Neplatná hodnota zpoždění replay" };
   }
@@ -98,6 +117,7 @@ export function validovatProlnutiCasovani(
       delkaProlnutiMs: delka,
       prekrytiProlnutiMs: prekryti,
       nastupPoslednihoSnimkuMs: nastupPosledniho,
+      prodlevaPredPoslednimKrokemMs: prodlevaPredPoslednim,
       replayZpozdeniMs: replay,
       replayFadeMs: fade,
     },

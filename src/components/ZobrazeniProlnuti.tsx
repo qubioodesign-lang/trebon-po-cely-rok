@@ -15,7 +15,7 @@ import {
   ziskatZbyvajiciCekaniProlnuti,
 } from "@/lib/prolnuti-cas-otevreni";
 import { zaznamenatDiag } from "@/lib/diag-inicializace";
-import { PROLNUTI_EASING } from "@/lib/prolnuti-konstanty";
+import { PROLNUTI_EASING, PROLNUTI_EASING_FADEOUT_DRUHE } from "@/lib/prolnuti-konstanty";
 import type { ProlnutiCasovaniNastaveni } from "@/lib/prolnuti-casovani";
 import {
   jePlatnyPocetSnimkuProlnuti,
@@ -51,7 +51,15 @@ function jeSnimekPripraven(img: HTMLImageElement | null | undefined): boolean {
   return Boolean(img?.complete && img.naturalWidth > 0);
 }
 
-function prodlevaDoDalsihoKrokuMs(casovani: ProlnutiCasovaniNastaveni): number {
+function prodlevaDoDalsihoKrokuMs(
+  casovani: ProlnutiCasovaniNastaveni,
+  pocetSnimku: number,
+  krok: number
+): number {
+  if (pocetSnimku >= 3 && krok === 0) {
+    return casovani.prodlevaPredPoslednimKrokemMs;
+  }
+
   return Math.max(
     80,
     casovani.delkaProlnutiMs + 80 - casovani.prekrytiProlnutiMs
@@ -186,7 +194,7 @@ export function ZobrazeniProlnuti({
           if (behRef.current !== beh) return;
           setZobrazitSipku(true);
         }, casovani.replayZpozdeniMs);
-      }, prodlevaDoDalsihoKrokuMs(casovani));
+      }, prodlevaDoDalsihoKrokuMs(casovani, pocet, krok));
     },
     [casovani, naplanovat, pocet, pocetProlnuti]
   );
@@ -378,8 +386,15 @@ export function ZobrazeniProlnuti({
             ? casovani.nastupPoslednihoSnimkuMs
             : casovani.delkaProlnutiMs;
 
+        const jeFadeOutDruheVPoslednimKroku =
+          pocet >= 3 && index === 1 && aktivniFadeKroky.has(posledniIndex);
+
+        const easing = jeFadeOutDruheVPoslednimKroku
+          ? PROLNUTI_EASING_FADEOUT_DRUHE
+          : PROLNUTI_EASING;
+
         const transition = aktivniFadeKroky.has(index)
-          ? `opacity ${delkaFadeMs}ms ${PROLNUTI_EASING}`
+          ? `opacity ${delkaFadeMs}ms ${easing}`
           : "none";
 
         return (
