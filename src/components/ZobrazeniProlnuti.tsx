@@ -75,7 +75,9 @@ export function ZobrazeniProlnuti({
 
   const [faze, setFaze] = useState<FazeProlnuti>("cekani");
   const [vrstvaOpacity, setVrstvaOpacity] = useState<number[]>([]);
-  const [animujiciKrok, setAnimujiciKrok] = useState<number | null>(null);
+  const [aktivniFadeKroky, setAktivniFadeKroky] = useState<Set<number>>(
+    () => new Set()
+  );
   const [zobrazitSipku, setZobrazitSipku] = useState(false);
   const [chyba, setChyba] = useState(false);
   const [behProlnuti, setBehProlnuti] = useState(0);
@@ -90,6 +92,10 @@ export function ZobrazeniProlnuti({
 
   const resetVrstev = useCallback((p: number) => {
     setVrstvaOpacity(Array.from({ length: Math.max(0, p - 1) }, () => 1));
+  }, []);
+
+  const vynulovatAktivniFade = useCallback(() => {
+    setAktivniFadeKroky(new Set());
   }, []);
 
   const jsouVsechnySnimkyPripravene = useCallback((): boolean => {
@@ -117,7 +123,7 @@ export function ZobrazeniProlnuti({
       probihajiciKrokRef.current = krok;
 
       flushSync(() => {
-        setAnimujiciKrok(krok);
+        setAktivniFadeKroky((predchozi) => new Set(predchozi).add(krok));
         setFaze("prolinuti");
         if (krok === 0) {
           setBehProlnuti((predchozi) => predchozi + 1);
@@ -149,7 +155,6 @@ export function ZobrazeniProlnuti({
         }
 
         setFaze("dokonceno");
-        setAnimujiciKrok(null);
         naplanovat(() => {
           if (behRef.current !== beh) return;
           setZobrazitSipku(true);
@@ -208,7 +213,7 @@ export function ZobrazeniProlnuti({
 
       setZobrazitSipku(false);
       setFaze("cekani");
-      setAnimujiciKrok(null);
+      vynulovatAktivniFade();
       resetVrstev(pocet);
 
       if (!jeAktivni || pocet < 2) return;
@@ -232,7 +237,7 @@ export function ZobrazeniProlnuti({
         zkusitSpustitProlinutiRef.current();
       }, cekaniMs);
     },
-    [casovani.cekaniPredStartemMs, jeAktivni, naplanovat, pocet, resetVrstev, vycistitCasovace]
+    [casovani.cekaniPredStartemMs, jeAktivni, naplanovat, pocet, resetVrstev, vycistitCasovace, vynulovatAktivniFade]
   );
 
   const naplanovatCekaniRef = useRef(naplanovatCekani);
@@ -248,7 +253,7 @@ export function ZobrazeniProlnuti({
       probihajiciKrokRef.current = 0;
       setZobrazitSipku(false);
       setFaze("cekani");
-      setAnimujiciKrok(null);
+      vynulovatAktivniFade();
       setVrstvaOpacity(Array.from({ length: Math.max(0, pocet - 1) }, () => 1));
     });
 
@@ -262,7 +267,7 @@ export function ZobrazeniProlnuti({
       casovacUplynulRef.current = true;
       zkusitSpustitProlinutiRef.current();
     }, casovani.cekaniPredStartemMs);
-  }, [casovani.cekaniPredStartemMs, naplanovat, pocet, vycistitCasovace]);
+  }, [casovani.cekaniPredStartemMs, naplanovat, pocet, vycistitCasovace, vynulovatAktivniFade]);
 
   useLayoutEffect(() => {
     zaznamenatDiag("prolnuti");
@@ -281,11 +286,13 @@ export function ZobrazeniProlnuti({
   useLayoutEffect(() => {
     setChyba(false);
     resetVrstev(pocet);
-  }, [polozka.id, pocet, resetVrstev, urlsKlic]);
+    vynulovatAktivniFade();
+  }, [polozka.id, pocet, resetVrstev, urlsKlic, vynulovatAktivniFade]);
 
   useLayoutEffect(() => {
     if (!jeAktivni || !jePlatnyPocetSnimkuProlnuti(pocet)) {
       vycistitCasovace();
+      vynulovatAktivniFade();
       return;
     }
 
@@ -294,16 +301,30 @@ export function ZobrazeniProlnuti({
     return () => {
       vycistitCasovace();
     };
-  }, [jeAktivni, pocet, polozka.id, urlsKlic, vycistitCasovace]);
+  }, [jeAktivni, pocet, polozka.id, urlsKlic, vycistitCasovace, vynulovatAktivniFade]);
 
   const handleSnimekNacten = useCallback(() => {
     zkusitSpustitProlinutiRef.current();
   }, []);
 
-  const handleKonecProlinuti = (e: TransitionEvent<HTMLImageElement>, index: number) => {
-    if (e.propertyName !== "opacity" || faze !== "prolinuti") return;
-    if (index !== probihajiciKrokRef.current) return;
-  };
+  const handleKonecProlinuti = useCallback(
+    (e: TransitionEvent<HTMLImageElement>, index: number) => {
+      if (e.propertyName !== "opacity") {
+        return;
+      }
+
+      setAktivniFadeKroky((predchozi) => {
+        if (!predchozi.has(index)) {
+          return predchozi;
+        }
+
+        const dalsi = new Set(predchozi);
+        dalsi.delete(index);
+        return dalsi;
+      });
+    },
+    []
+  );
 
   if (!jePlatnyPocetSnimkuProlnuti(pocet) || chyba) {
     return <PlaceholderProlnuti popis={polozka.popis} />;
@@ -319,10 +340,9 @@ export function ZobrazeniProlnuti({
         const skryta =
           faze === "dokonceno" && !jePosledni && opacity === 0;
 
-        const transition =
-          faze === "prolinuti" && index === animujiciKrok
-            ? `opacity ${casovani.delkaProlnutiMs}ms ${PROLNUTI_EASING}`
-            : "none";
+        const transition = aktivniFadeKroky.has(index)
+          ? `opacity ${casovani.delkaProlnutiMs}ms ${PROLNUTI_EASING}`
+          : "none";
 
         return (
           // eslint-disable-next-line @next/next/no-img-element
