@@ -3,7 +3,7 @@ import "server-only";
 import fs from "fs";
 import path from "path";
 import { cache } from "react";
-import type { Polozka } from "@/types";
+import type { Polozka, VzkazTreboni } from "@/types";
 import type { TypUdalostiMetriky } from "@/types";
 import { nacistDataBlob, ulozitDataBlob, nacistMetadataVerejne } from "./uloziste-blob";
 import { normalizovatUloziste } from "./uloziste-normalizace";
@@ -12,7 +12,7 @@ import type { AnalyticsAgregovane } from "./analytics";
 import type { ProlnutiCasovaniUlozene } from "./prolnuti-casovani";
 import type { TypZarizeni } from "./zarizeni-navstevnika";
 import type { KomunitaNavstevnici } from "./komunita";
-import type { VzkazTreboni } from "@/types";
+import type { ChovaniNavstevnikuAgregovane } from "./chovani-navstevniku";
 
 export { pouzivaBlobUloziste } from "./env-blob";
 
@@ -66,6 +66,8 @@ export interface UlozisteDat {
   prolnutiCasovani?: ProlnutiCasovaniUlozene;
   /** Fotografie desktopové pozvánky (mimo galerii) */
   desktopPozvankaFotografie?: string | null;
+  /** Odchody návštěvníků – délka relace a místo odchodu */
+  chovaniNavstevnikuAgregovane?: ChovaniNavstevnikuAgregovane;
   /** Interní čítač – detekce ztráty souběžného zápisu */
   verzeUloziste?: number;
 }

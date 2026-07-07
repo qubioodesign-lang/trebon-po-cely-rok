@@ -29,6 +29,8 @@ import { AdminSeznamPolozek } from "./admin/AdminSeznamPolozek";
 import type { UpravaPolozkyStav } from "./admin/AdminFormularUpravy";
 import { AdminPanelUpravy } from "./admin/AdminPanelUpravy";
 import { AdminAnalyticsDetail } from "./admin/AdminAnalyticsDetail";
+import { AdminChovaniNavstevniku } from "./admin/AdminChovaniNavstevniku";
+import { AdminVylouceniZeStatistik } from "./admin/AdminVylouceniZeStatistik";
 import { AdminNastaveniProlnuti } from "./admin/AdminNastaveniProlnuti";
 import { AdminDesktopPozvanka } from "./admin/AdminDesktopPozvanka";
 import { AdminVzkazyTreboni } from "./admin/AdminVzkazyTreboni";
@@ -1032,6 +1034,10 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
             </ul>
           )}
         </section>
+
+        <AdminChovaniNavstevniku chovani={data?.chovaniNavstevniku ?? null} />
+
+        <AdminVylouceniZeStatistik />
 
         <AdminAnalyticsDetail
           analytics={analytics}

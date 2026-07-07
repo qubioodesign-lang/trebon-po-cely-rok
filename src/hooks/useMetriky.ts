@@ -3,6 +3,8 @@
 import { useCallback, useEffect } from "react";
 import type { PayloadMetriky, TypUdalostiMetriky, ZdrojNavstevnika, TypZarizeni } from "@/types";
 import { ziskatNavstevnikId } from "@/lib/uloziste";
+import { pripravitOdchodNavstevy } from "@/lib/chovani-navstevnika";
+import { jeVyloucenoZeStatistik } from "@/lib/metriky-vylouceni";
 
 const MAX_FRONTA = 10;
 const DEBOUNCE_MS = 30_000;
@@ -10,6 +12,20 @@ const DEBOUNCE_MS = 30_000;
 const fronta: PayloadMetriky[] = [];
 let casovacFlush: ReturnType<typeof setTimeout> | null = null;
 let poslouchaceRegistrovany = false;
+
+function zaraditOdchodNavstevy(): void {
+  const data = pripravitOdchodNavstevy();
+  if (!data) {
+    return;
+  }
+
+  fronta.push({
+    typ: "odchod_navstevy",
+    navstevnikId: ziskatNavstevnikId(),
+    delkaMs: data.delkaMs,
+    odchod: data.odchod,
+  });
+}
 
 function naplanovatFlush(): void {
   if (casovacFlush !== null) {
@@ -64,11 +80,13 @@ function registrovatPoslouchace(): void {
 
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") {
+      zaraditOdchodNavstevy();
       void odeslatFrontu(true);
     }
   });
 
   window.addEventListener("pagehide", () => {
+    zaraditOdchodNavstevy();
     void odeslatFrontu(true);
   });
 }
@@ -89,6 +107,10 @@ export function useMetriky() {
       zdroj?: ZdrojNavstevnika,
       zarizeni?: TypZarizeni
     ) => {
+      if (jeVyloucenoZeStatistik()) {
+        return;
+      }
+
       fronta.push({
         typ,
         polozkaId,

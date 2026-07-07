@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useChovaniNavstevnika } from "@/hooks/useChovaniNavstevnika";
 
 /**
  * Děkovací obrazovka – stejná atmosféra, bez ikon úspěchu.
  * Pozice galerie se obnoví automaticky ze sessionStorage.
  */
 export function ObrazovkaDekujeme() {
+  useChovaniNavstevnika("chci_se_vracet");
+
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-krem px-8 py-16">
       <div className="max-w-sm space-y-8 text-center">

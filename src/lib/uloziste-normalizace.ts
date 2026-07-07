@@ -12,6 +12,7 @@ export function normalizovatUloziste(data: UlozisteDat): UlozisteDat {
     pushOdbery: data.pushOdbery ?? [],
     prolnutiCasovani: data.prolnutiCasovani,
     desktopPozvankaFotografie: data.desktopPozvankaFotografie ?? null,
+    chovaniNavstevnikuAgregovane: data.chovaniNavstevnikuAgregovane,
     verzeUloziste: data.verzeUloziste,
   };
 }

@@ -8,6 +8,7 @@ import {
   urcitZdrojNavstevy,
 } from "@/lib/zdroj-navstev";
 import { urcitZarizeniNavstevnika } from "@/lib/zarizeni-navstevnika";
+import { jeVyloucenoZeStatistik } from "@/lib/metriky-vylouceni";
 
 /**
  * Zaznamená zdroj návštěvy jednou za relaci prohlížeče.
@@ -17,7 +18,7 @@ export function useAnalytics() {
   const { odeslat } = useMetriky();
 
   useEffect(() => {
-    if (bylaNavstevaVSession()) {
+    if (bylaNavstevaVSession() || jeVyloucenoZeStatistik()) {
       return;
     }
 

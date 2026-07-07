@@ -87,7 +87,24 @@ export type TypUdalostiMetriky =
   | "navrat_zpet"
   | "klik_chci_se_vracet"
   | "povoleno_upozorneni"
-  | "replay_prolnuti";
+  | "replay_prolnuti"
+  | "odchod_navstevy";
+
+/** Kategorie místa odchodu návštěvníka ze stránky */
+export type KategorieOdchoduNavstevy = "pribeh" | "chci_se_vracet" | "ostatni";
+
+export interface ChovaniNavstevObdobiSouhrn {
+  pocetNavstev: number;
+  prumerDelkaMs: number;
+  odchodPribeh: number;
+  odchodChciSeVracet: number;
+  odchodOstatni: number;
+}
+
+export interface ChovaniNavstevnikuSouhrn {
+  celkem: ChovaniNavstevObdobiSouhrn;
+  poslednich7Dni: ChovaniNavstevObdobiSouhrn;
+}
 
 /** Payload pro záznam metriky */
 export interface PayloadMetriky {
@@ -96,6 +113,10 @@ export interface PayloadMetriky {
   navstevnikId?: string;
   zdroj?: ZdrojNavstevnika;
   zarizeni?: TypZarizeni;
+  /** Délka návštěvy v ms – u odchod_navstevy */
+  delkaMs?: number;
+  /** Odkud návštěvník odešel – u odchod_navstevy */
+  odchod?: KategorieOdchoduNavstevy;
 }
 
 /** Dávka metrik z klienta */
@@ -142,6 +163,7 @@ export interface AdminData {
   desktopPozvankaFotografie: string | null;
   desktopPozvankaFotografieUrl: string;
   vzkazyTreboni: VzkazTreboni[];
+  chovaniNavstevniku: ChovaniNavstevnikuSouhrn;
 }
 
 /** Chyby při načítání jednotlivých částí administrace */

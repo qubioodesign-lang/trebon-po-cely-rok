@@ -22,6 +22,7 @@ import {
 } from "@/lib/uloziste";
 import { useMetriky } from "@/hooks/useMetriky";
 import { useAnalytics } from "@/hooks/useAnalytics";
+import { useChovaniNavstevnika } from "@/hooks/useChovaniNavstevnika";
 import { LinkaPodPopisem } from "./LinkaPodPopisem";
 import { ZobrazeniPolozky } from "./ZobrazeniPolozky";
 import { OdkazChciSeVracet } from "./OdkazChciSeVracet";
@@ -161,6 +162,7 @@ export function GalerieHlavni({
   const aktualniIndexRef = useRef(aktualniIndex);
   const { odeslat } = useMetriky();
   useAnalytics();
+  useChovaniNavstevnika("pribeh");
 
   aktualniIndexRef.current = aktualniIndex;
 

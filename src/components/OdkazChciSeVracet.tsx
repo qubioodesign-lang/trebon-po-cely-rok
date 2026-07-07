@@ -6,6 +6,7 @@ import {
   ulozitPolozkuGalerie,
 } from "@/lib/uloziste";
 import { useMetriky } from "@/hooks/useMetriky";
+import { oznacitZonuChciSeVracet } from "@/lib/chovani-navstevnika";
 
 interface PropsOdkazChciSeVracet {
   aktualniIndex: number;
@@ -25,6 +26,7 @@ export function OdkazChciSeVracet({
   const handleKlik = () => {
     ulozitPoziciGalerie(aktualniIndex);
     ulozitPolozkuGalerie(polozkaId);
+    oznacitZonuChciSeVracet();
     odeslat("klik_chci_se_vracet");
   };
 

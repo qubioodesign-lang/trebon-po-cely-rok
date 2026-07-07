@@ -6,6 +6,10 @@ import type { AdminVysledek } from "@/types";
 import { seraditPolozky, nacistData } from "./uloziste-dat";
 import { prazdnySouhrnKomunity, spocitatSouhrnKomunity } from "./komunita";
 import { prazdnySouhrnMetrik, ziskatSouhrnZUloziste } from "./metriky";
+import {
+  prazdnySouhrnChovaniNavstevniku,
+  spocitatSouhrnChovaniNavstevniku,
+} from "./chovani-navstevniku";
 import { prazdnySouhrnAnalytics, ziskatSouhrnAnalytics } from "./analytics";
 import { sloucitProlnutiCasovani, PROLNUTI_CASOVANI_VYCHOZI } from "./prolnuti-casovani";
 import {
@@ -50,6 +54,7 @@ export async function nacistAdminData(): Promise<AdminVysledek> {
   let metriky = prazdnySouhrnMetrik();
   let komunita = prazdnySouhrnKomunity();
   let analytics = prazdnySouhrnAnalytics();
+  let chovaniNavstevniku = prazdnySouhrnChovaniNavstevniku();
   let pocetPushOdberu = 0;
   let prolnutiCasovani = PROLNUTI_CASOVANI_VYCHOZI;
   let desktopPozvankaFotografie: string | null = null;
@@ -62,6 +67,7 @@ export async function nacistAdminData(): Promise<AdminVysledek> {
     metriky = ziskatSouhrnZUloziste(uloziste);
     komunita = spocitatSouhrnKomunity(uloziste);
     analytics = ziskatSouhrnAnalytics(uloziste, polozky);
+    chovaniNavstevniku = spocitatSouhrnChovaniNavstevniku(uloziste);
     pocetPushOdberu = uloziste.pushOdbery?.length ?? 0;
     prolnutiCasovani = sloucitProlnutiCasovani(uloziste.prolnutiCasovani);
     desktopPozvankaFotografie = uloziste.desktopPozvankaFotografie ?? null;
@@ -93,6 +99,7 @@ export async function nacistAdminData(): Promise<AdminVysledek> {
       metriky,
       komunita,
       analytics,
+      chovaniNavstevniku,
       pocetPushOdberu,
       trvaleUloziste: diagnoza.trvaleUloziste,
       lzeVytvoritZalohu: lzeVytvoritZalohu(),

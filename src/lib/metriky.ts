@@ -1,9 +1,11 @@
 import type { MetrikySouhrn, PayloadMetriky } from "@/types";
+import type { KategorieOdchoduNavstevy } from "@/types";
 import type { MetrikyAgregovane, UlozisteDat, ZaznamMetriky } from "./uloziste-dat";
 import { jePlatneZarizeni, type TypZarizeni } from "./zarizeni-navstevnika";
 import type { PushOdber } from "./uloziste-dat";
 import { aplikovatAnalyticsBatch } from "./analytics";
 import { aplikovatKomunitaNavstevu } from "./komunita";
+import { aplikovatOdchodNavstevy } from "./chovani-navstevniku";
 import { nacistData, upravitData } from "./uloziste-dat";
 
 /** Prázdný souhrn metrik – výchozí stav administrace */
@@ -86,7 +88,35 @@ export function aplikovatMetriku(
     case "replay_prolnuti":
       agregovane.pocetReplayProlnuti = (agregovane.pocetReplayProlnuti ?? 0) + 1;
       break;
+    case "odchod_navstevy":
+      break;
   }
+}
+
+function jePlatnyOdchod(odchod: unknown): odchod is KategorieOdchoduNavstevy {
+  return odchod === "pribeh" || odchod === "chci_se_vracet" || odchod === "ostatni";
+}
+
+/** Aplikuje odchod návštěvy – samostatně od globálních counterů */
+export function aplikovatChovaniNavstevy(
+  uloziste: UlozisteDat,
+  payload: PayloadMetriky
+): void {
+  if (payload.typ !== "odchod_navstevy") {
+    return;
+  }
+
+  if (
+    typeof payload.delkaMs !== "number" ||
+    !Number.isFinite(payload.delkaMs) ||
+    payload.delkaMs < 0 ||
+    payload.delkaMs > 3_600_000 ||
+    !jePlatnyOdchod(payload.odchod)
+  ) {
+    return;
+  }
+
+  aplikovatOdchodNavstevy(uloziste, Math.round(payload.delkaMs), payload.odchod);
 }
 
 /** Zajistí agregované metriky – migruje staré pole metriky[] pokud existuje */
@@ -139,6 +169,10 @@ export function aplikovatMetriky(uloziste: UlozisteDat, udalosti: PayloadMetriky
   for (const udalost of udalosti) {
     if (udalost.typ === "navsteva" && udalost.navstevnikId) {
       aplikovatKomunitaNavstevu(uloziste, udalost.navstevnikId);
+    }
+    if (udalost.typ === "odchod_navstevy") {
+      aplikovatChovaniNavstevy(uloziste, udalost);
+      continue;
     }
     aplikovatMetriku(agregovane, udalost);
   }

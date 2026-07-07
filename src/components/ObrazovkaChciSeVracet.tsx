@@ -13,7 +13,9 @@ import {
 } from "@/lib/uloziste";
 import { ziskatNeboRegistrovatServiceWorker } from "@/lib/service-worker";
 import { useMetriky } from "@/hooks/useMetriky";
+import { useChovaniNavstevnika } from "@/hooks/useChovaniNavstevnika";
 import { urcitZarizeniNavstevnika } from "@/lib/zarizeni-navstevnika";
+import { jeVyloucenoZeStatistik } from "@/lib/metriky-vylouceni";
 
 /**
  * Obrazovka „chci se vracet“ – klidná, centrovaná, teplé pozadí.
@@ -23,6 +25,7 @@ import { urcitZarizeniNavstevnika } from "@/lib/zarizeni-navstevnika";
 export function ObrazovkaChciSeVracet() {
   const router = useRouter();
   const { odeslat } = useMetriky();
+  useChovaniNavstevnika("chci_se_vracet");
   const [zobrazitNavodIOS, setZobrazitNavodIOS] = useState(false);
   const [nacita, setNacita] = useState(false);
   const [jeUpozorneniAktivni, setJeUpozorneniAktivni] = useState(false);
@@ -246,6 +249,10 @@ async function ulozitSubscriptionNaServer(
   subscription: PushSubscription,
   volby?: { zaznamenatPovoleni?: boolean }
 ): Promise<void> {
+  if (jeVyloucenoZeStatistik()) {
+    return;
+  }
+
   const odberResponse = await fetch("/api/push/odber", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -271,6 +278,10 @@ async function odeslatMetrikuOkamzite(
   typ: "povoleno_upozorneni",
   zarizeni?: ReturnType<typeof urcitZarizeniNavstevnika>
 ): Promise<void> {
+  if (jeVyloucenoZeStatistik()) {
+    return;
+  }
+
   try {
     await fetch("/api/metriky", {
       method: "POST",

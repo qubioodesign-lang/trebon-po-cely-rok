@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { zaznamenatMetrikyBatch } from "@/lib/metriky";
 import { ziskatOidcZHlavicek } from "@/lib/env-blob";
-import type { PayloadMetriky, PayloadMetrikyBatch, TypUdalostiMetriky } from "@/types";
+import type {
+  KategorieOdchoduNavstevy,
+  PayloadMetriky,
+  PayloadMetrikyBatch,
+  TypUdalostiMetriky,
+} from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -14,10 +19,29 @@ const POVOLENE_TYPY: TypUdalostiMetriky[] = [
   "klik_chci_se_vracet",
   "povoleno_upozorneni",
   "replay_prolnuti",
+  "odchod_navstevy",
 ];
 
+function jePlatnyOdchod(odchod: unknown): odchod is KategorieOdchoduNavstevy {
+  return odchod === "pribeh" || odchod === "chci_se_vracet" || odchod === "ostatni";
+}
+
 function jePlatnaUdalost(payload: PayloadMetriky): boolean {
-  return POVOLENE_TYPY.includes(payload.typ);
+  if (!POVOLENE_TYPY.includes(payload.typ)) {
+    return false;
+  }
+
+  if (payload.typ === "odchod_navstevy") {
+    return (
+      typeof payload.delkaMs === "number" &&
+      Number.isFinite(payload.delkaMs) &&
+      payload.delkaMs >= 0 &&
+      payload.delkaMs <= 3_600_000 &&
+      jePlatnyOdchod(payload.odchod)
+    );
+  }
+
+  return true;
 }
 
 function normalizovatTeloo(body: PayloadMetriky | PayloadMetrikyBatch): PayloadMetriky[] {
