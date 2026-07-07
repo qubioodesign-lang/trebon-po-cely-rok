@@ -13,6 +13,7 @@ const POLE_NASTAVENI: {
     popisek: "začátek prolnutí (čekání před startem)",
   },
   { klic: "delkaProlnutiMs", popisek: "délka prolnutí" },
+  { klic: "prekrytiProlnutiMs", popisek: "překrytí mezi kroky prolnutí" },
   { klic: "replayZpozdeniMs", popisek: "zobrazení replay (prodleva)" },
   { klic: "replayFadeMs", popisek: "fade-in replay" },
 ];

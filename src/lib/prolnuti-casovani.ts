@@ -4,6 +4,8 @@ import { PROLNUTI_CASOVANI } from "./prolnuti-konstanty";
 export interface ProlnutiCasovaniNastaveni {
   cekaniPredStartemMs: number;
   delkaProlnutiMs: number;
+  /** Překrytí – další krok může začít o tolik ms dříve než po dokončení fade */
+  prekrytiProlnutiMs: number;
   replayZpozdeniMs: number;
   replayFadeMs: number;
 }
@@ -13,6 +15,7 @@ export type ProlnutiCasovaniUlozene = Partial<ProlnutiCasovaniNastaveni>;
 export const PROLNUTI_CASOVANI_VYCHOZI: ProlnutiCasovaniNastaveni = {
   cekaniPredStartemMs: PROLNUTI_CASOVANI.cekaniPredStartemMs,
   delkaProlnutiMs: PROLNUTI_CASOVANI.delkaProlnutiMs,
+  prekrytiProlnutiMs: PROLNUTI_CASOVANI.prekrytiProlnutiMs,
   replayZpozdeniMs: PROLNUTI_CASOVANI.replayZpozdeniMs,
   replayFadeMs: PROLNUTI_CASOVANI.replayFadeMs,
 };
@@ -34,6 +37,9 @@ export function sloucitProlnutiCasovani(
     delkaProlnutiMs:
       platnaMs(ulozene?.delkaProlnutiMs) ??
       PROLNUTI_CASOVANI_VYCHOZI.delkaProlnutiMs,
+    prekrytiProlnutiMs:
+      platnaMs(ulozene?.prekrytiProlnutiMs) ??
+      PROLNUTI_CASOVANI_VYCHOZI.prekrytiProlnutiMs,
     replayZpozdeniMs:
       platnaMs(ulozene?.replayZpozdeniMs) ??
       PROLNUTI_CASOVANI_VYCHOZI.replayZpozdeniMs,
@@ -48,6 +54,7 @@ export function validovatProlnutiCasovani(
 ): { uspech: true; data: ProlnutiCasovaniNastaveni } | { chyba: string } {
   const cekani = platnaMs(vstup.cekaniPredStartemMs);
   const delka = platnaMs(vstup.delkaProlnutiMs);
+  const prekryti = platnaMs(vstup.prekrytiProlnutiMs);
   const replay = platnaMs(vstup.replayZpozdeniMs);
   const fade = platnaMs(vstup.replayFadeMs);
 
@@ -56,6 +63,12 @@ export function validovatProlnutiCasovani(
   }
   if (delka === undefined || delka < 100) {
     return { chyba: "Délka prolnutí musí být alespoň 100 ms" };
+  }
+  if (prekryti === undefined || prekryti < 0) {
+    return { chyba: "Překrytí prolnutí musí být 0 nebo více ms" };
+  }
+  if (prekryti >= delka) {
+    return { chyba: "Překrytí prolnutí musí být menší než délka prolnutí" };
   }
   if (replay === undefined) {
     return { chyba: "Neplatná hodnota zpoždění replay" };
@@ -69,6 +82,7 @@ export function validovatProlnutiCasovani(
     data: {
       cekaniPredStartemMs: cekani,
       delkaProlnutiMs: delka,
+      prekrytiProlnutiMs: prekryti,
       replayZpozdeniMs: replay,
       replayFadeMs: fade,
     },

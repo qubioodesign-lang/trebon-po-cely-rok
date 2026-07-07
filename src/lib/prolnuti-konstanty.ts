@@ -10,6 +10,11 @@ export const PROLNUTI_CASOVANI = {
   /** Délka prolínání mezi dvěma snímky (ms) – delší = klidnější */
   delkaProlnutiMs: 6_500,
   /**
+   * O kolik ms dříve může začít další krok prolnutí (překrytí časování).
+   * Zkracuje statickou pauzu mezi snímky, rychlost samotného fade zůstává stejná.
+   */
+  prekrytiProlnutiMs: 500,
+  /**
    * CSS timing-function pro opacity.
    * Jemný průběh s mírným počátečním náběhem (p1y > 0), aby B→C nebylo
    * první sekundy neviditelné; konec zůstává pomalý bez efektu.

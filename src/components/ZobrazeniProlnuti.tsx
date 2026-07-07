@@ -51,6 +51,13 @@ function jeSnimekPripraven(img: HTMLImageElement | null | undefined): boolean {
   return Boolean(img?.complete && img.naturalWidth > 0);
 }
 
+function prodlevaDoDalsihoKrokuMs(casovani: ProlnutiCasovaniNastaveni): number {
+  return Math.max(
+    80,
+    casovani.delkaProlnutiMs + 80 - casovani.prekrytiProlnutiMs
+  );
+}
+
 /**
  * Prolnutí – 2–3 fotografie stejného místa.
  * Jednou automaticky, pak zastavení na posledním snímku; opakování jen ručně.
@@ -147,9 +154,9 @@ export function ZobrazeniProlnuti({
           if (behRef.current !== beh) return;
           setZobrazitSipku(true);
         }, casovani.replayZpozdeniMs);
-      }, casovani.delkaProlnutiMs + 80);
+      }, prodlevaDoDalsihoKrokuMs(casovani));
     },
-    [casovani.delkaProlnutiMs, casovani.replayZpozdeniMs, naplanovat, pocetProlnuti]
+    [casovani, naplanovat, pocetProlnuti]
   );
 
   const spustitKrokProlnutiRef = useRef(spustitKrokProlnuti);
