@@ -126,22 +126,8 @@
 .brana-pozadi-obraz {
   position: absolute;
   inset: 0;
-  background-image: url("/brana/pozadi-den-master-2046.png");
+  background-image: var(--brana-pozadi-master-url);
   background-size: cover;
   background-position: center bottom;
   background-repeat: no-repeat;
-  filter: contrast(0.9);
-}
-
-.brana-pozadi-obraz-utlum {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    180deg,
-    rgb(38 35 32 / 0.6) 0%,
-    rgb(40 37 34 / 0.46) 22%,
-    rgb(42 39 36 / 0.32) 42%,
-    rgb(44 41 38 / 0.16) 58%,
-    transparent 70%
-  );
 }

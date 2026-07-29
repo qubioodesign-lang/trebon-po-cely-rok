@@ -1,4 +1,5 @@
 import type { BranaPozadiVarianta } from "@/lib/brana/pozadi-varianty";
+import { BRANA_POZADI_DEN_MASTER } from "@/lib/brana/konstanty";
 import "./brana-pozadi.css";
 import "./brana-pozadi-varianty.css";
 
@@ -9,8 +10,14 @@ type BranaPozadiProps = {
 function BranaPozadiMaster() {
   return (
     <div className="brana-pozadi" data-brana-denni-doba="den" aria-hidden>
-      <div className="brana-pozadi-obraz" />
-      <div className="brana-pozadi-obraz-utlum" />
+      <div
+        className="brana-pozadi-obraz"
+        style={
+          {
+            "--brana-pozadi-master-url": `url("${BRANA_POZADI_DEN_MASTER}")`,
+          } as React.CSSProperties
+        }
+      />
     </div>
   );
 }
