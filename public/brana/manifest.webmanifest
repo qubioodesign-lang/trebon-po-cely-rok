@@ -1,0 +1,26 @@
+{
+  "name": "Brána do Třeboně",
+  "short_name": "Brána",
+  "description": "Brána do Třeboně.",
+  "start_url": "/brana",
+  "scope": "/brana",
+  "display": "standalone",
+  "background_color": "#144C8C",
+  "theme_color": "#144C8C",
+  "orientation": "portrait",
+  "lang": "cs",
+  "icons": [
+    {
+      "src": "/icon",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-icon",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

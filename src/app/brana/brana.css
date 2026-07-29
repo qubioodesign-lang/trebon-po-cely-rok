@@ -7,12 +7,12 @@
  */
 @layer components {
   .brana-root {
-    @apply relative min-h-dvh flex flex-col bg-krem font-sans text-text antialiased;
+    @apply relative flex min-h-dvh min-h-[100dvh] w-full flex-col bg-transparent font-sans text-text antialiased;
     @apply text-[1.0625rem] leading-snug;
   }
 
   .brana-admin-root {
-    @apply flex min-h-dvh flex-1 flex-col;
+    @apply flex min-h-dvh flex-1 flex-col bg-krem;
   }
 
   .brana-obal {
@@ -116,4 +116,17 @@
     @apply min-h-32;
     padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
   }
+}
+
+/* PWA full-screen – veřejná /brana, pozadí pod safe area */
+html:has(.brana-verejna--den),
+body:has(.brana-verejna--den) {
+  min-height: 100dvh;
+  background-color: #144c8c;
+}
+
+html:has(.brana-verejna--noc),
+body:has(.brana-verejna--noc) {
+  min-height: 100dvh;
+  background-color: #0a1420;
 }

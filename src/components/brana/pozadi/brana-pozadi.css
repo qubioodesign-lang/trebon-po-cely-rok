@@ -12,7 +12,10 @@
   --brana-povrch-nejtmavsi: #68635d;
 
   position: fixed;
-  inset: 0;
+  inset: calc(-1 * env(safe-area-inset-top, 0px))
+    calc(-1 * env(safe-area-inset-right, 0px))
+    calc(-1 * env(safe-area-inset-bottom, 0px))
+    calc(-1 * env(safe-area-inset-left, 0px));
   z-index: 0;
   overflow: hidden;
   pointer-events: none;

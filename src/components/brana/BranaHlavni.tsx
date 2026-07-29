@@ -9,10 +9,14 @@ type BranaHlavniProps = {
 
 /** Vstupní obrazovka projektu Brána – /brana */
 export function BranaHlavni({ variantaPozadi, nocRezim }: BranaHlavniProps) {
+  const verejnaTrida = nocRezim ? "brana-verejna--noc" : "brana-verejna--den";
+
   return (
     <>
       <BranaPozadi varianta={variantaPozadi} nocRezim={nocRezim} />
-      <main className="relative z-[1] flex flex-1 flex-col">
+      <main
+        className={`relative z-[1] flex min-h-dvh flex-1 flex-col ${verejnaTrida}`}
+      >
         <BranaObrazovka />
       </main>
     </>
