@@ -22,8 +22,8 @@ export function BranaPozadi() {
           >
             <feTurbulence
               type="fractalNoise"
-              baseFrequency="0.0025 0.012"
-              numOctaves="3"
+              baseFrequency="0.0007 0.038"
+              numOctaves="2"
               seed="4"
               result="sum"
             />
@@ -34,7 +34,7 @@ export function BranaPozadi() {
               result="sum-mon"
             />
             <feComponentTransfer in="sum-mon">
-              <feFuncA type="linear" slope="0.35" />
+              <feFuncA type="linear" slope="0.28" />
             </feComponentTransfer>
           </filter>
         </defs>
