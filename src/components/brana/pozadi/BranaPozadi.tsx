@@ -18,6 +18,7 @@ function BranaPozadiMaster() {
           } as React.CSSProperties
         }
       />
+      <div className="brana-pozadi-modra-klid" />
     </div>
   );
 }

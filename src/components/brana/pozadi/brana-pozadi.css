@@ -128,6 +128,26 @@
   inset: 0;
   background-image: var(--brana-pozadi-master-url);
   background-size: cover;
-  background-position: center calc(100% + 9dvh);
+  background-position: center bottom;
   background-repeat: no-repeat;
+}
+
+.brana-pozadi-modra-klid {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgb(28 84 146 / 0.42) 0%,
+    rgb(26 80 140 / 0.52) 10%,
+    rgb(24 76 134 / 0.62) 22%,
+    rgb(22 72 128 / 0.7) 34%,
+    rgb(20 68 122 / 0.74) 45%,
+    rgb(18 64 116 / 0.72) 54%,
+    rgb(16 60 110 / 0.64) 62%,
+    rgb(14 56 104 / 0.5) 68%,
+    rgb(12 52 98 / 0.34) 73%,
+    rgb(10 48 92 / 0.18) 77%,
+    rgb(8 44 86 / 0.06) 80%,
+    transparent 82%
+  );
 }
