@@ -6,7 +6,7 @@ export const BRANA_AKCENT = "#B8644A";
 
 /** Denní teplá šedá – hlubší tón po západu slunce */
 export const BRANA_DEN = {
-  povrchHorni: "#AEAAA4",
-  povrchStred: "#96918B",
+  povrchHorni: "#87847F",
+  povrchStred: "#757570",
   povrchDolni: "#736E68",
 } as const;

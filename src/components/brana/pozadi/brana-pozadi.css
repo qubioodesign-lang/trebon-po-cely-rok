@@ -5,9 +5,9 @@
 .brana-pozadi {
   --brana-akcent: #b8644a;
   --brana-akcent-svetly: #dc8a62;
-  --brana-povrch-horni: #aeaaa4;
-  --brana-povrch-stred: #96918b;
-  --brana-povrch-prechod: #848079;
+  --brana-povrch-horni: #87847f;
+  --brana-povrch-stred: #757570;
+  --brana-povrch-prechod: #676460;
   --brana-povrch-dolni: #736e68;
   --brana-povrch-nejtmavsi: #68635d;
 
@@ -24,10 +24,14 @@
   background: linear-gradient(
     180deg,
     var(--brana-povrch-horni) 0%,
-    #a6a29c 14%,
-    var(--brana-povrch-stred) 38%,
-    var(--brana-povrch-prechod) 58%,
-    var(--brana-povrch-dolni) 72%,
+    #7a7772 12%,
+    var(--brana-povrch-stred) 30%,
+    #6d6a65 44%,
+    var(--brana-povrch-prechod) 56%,
+    #6a6661 62%,
+    #6e6a65 66%,
+    var(--brana-povrch-dolni) 74%,
+    #6b6661 88%,
     var(--brana-povrch-nejtmavsi) 100%
   );
 }
@@ -69,7 +73,7 @@
   position: absolute;
   inset: 0;
   bottom: 33.333%;
-  background: #706d68;
+  background: #585550;
   opacity: 0.055;
   filter: url(#brana-jemny-sum);
   mix-blend-mode: overlay;
