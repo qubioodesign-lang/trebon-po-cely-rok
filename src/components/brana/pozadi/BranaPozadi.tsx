@@ -6,11 +6,16 @@ type BranaPozadiProps = {
   varianta?: BranaPozadiVarianta;
 };
 
-/**
- * Procedurální full-screen pozadí BRÁNY.
- * V této etapě pouze denní režim; noc přijde stejným systémem proměnných.
- */
-export function BranaPozadi({ varianta }: BranaPozadiProps) {
+function BranaPozadiMaster() {
+  return (
+    <div className="brana-pozadi" data-brana-denni-doba="den" aria-hidden>
+      <div className="brana-pozadi-obraz" />
+      <div className="brana-pozadi-obraz-utlum" />
+    </div>
+  );
+}
+
+function BranaPozadiProceduralni({ varianta }: { varianta: BranaPozadiVarianta }) {
   return (
     <>
       <svg
@@ -95,7 +100,7 @@ export function BranaPozadi({ varianta }: BranaPozadiProps) {
       <div
         className="brana-pozadi"
         data-brana-denni-doba="den"
-        {...(varianta ? { "data-pozadi-variant": String(varianta) } : {})}
+        data-pozadi-variant={String(varianta)}
         aria-hidden
       >
         <div className="brana-pozadi-zaklad" />
@@ -105,4 +110,15 @@ export function BranaPozadi({ varianta }: BranaPozadiProps) {
       </div>
     </>
   );
+}
+
+/**
+ * Full-screen pozadí BRÁNY – master fotografie (výchozí) nebo dočasné procedurální varianty.
+ */
+export function BranaPozadi({ varianta }: BranaPozadiProps) {
+  if (varianta) {
+    return <BranaPozadiProceduralni varianta={varianta} />;
+  }
+
+  return <BranaPozadiMaster />;
 }
