@@ -61,7 +61,7 @@
   }
 
   .brana-horni-lista-nadpis {
-    @apply text-center text-[0.9375rem] font-medium leading-snug tracking-tight text-text;
+    @apply text-center text-lg font-medium leading-snug tracking-tight text-text;
   }
 
   .brana-ikona-misto {
@@ -77,7 +77,7 @@
   }
 
   .brana-kotva-text {
-    @apply flex-1 text-center text-lg font-medium leading-snug tracking-tight text-text;
+    @apply flex-1 text-center text-[0.9375rem] font-medium leading-snug tracking-tight text-text;
   }
 
   .brana-kotva-ikona {
@@ -85,15 +85,15 @@
   }
 
   .brana-datum {
-    @apply px-6 pb-2 pt-2 text-center text-[0.9375rem] leading-snug text-text-jemny;
+    @apply px-6 pb-2 pt-1.5 text-center text-[0.9375rem] leading-snug text-text-jemny;
   }
 
   .brana-navigace {
-    @apply flex flex-wrap justify-center gap-x-4 gap-y-1.5 px-6 pb-5 pt-1;
+    @apply flex flex-nowrap justify-center gap-x-3 px-4 pb-5 pt-1;
   }
 
   .brana-nav-polozka {
-    @apply text-[0.9375rem] leading-snug text-text-jemny;
+    @apply shrink-0 px-1 py-2 text-[0.9375rem] leading-snug text-text-jemny;
   }
 
   .brana-nav-polozka-vybrana {
