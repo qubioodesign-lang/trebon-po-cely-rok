@@ -1,0 +1,111 @@
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Základní styl projektu Brána.
+ * Barvy a font (Inter) sdílené s galerií; typografie upravená pro informační obsah.
+ */
+@layer components {
+  .brana-root {
+    @apply min-h-dvh flex flex-col bg-krem font-sans text-text antialiased;
+    @apply text-[1.0625rem] leading-snug;
+  }
+
+  .brana-admin-root {
+    @apply flex min-h-dvh flex-1 flex-col;
+  }
+
+  .brana-obal {
+    @apply px-6 py-10;
+  }
+
+  .brana-nadpis-hlavni {
+    @apply text-xl font-medium leading-tight tracking-tight text-text;
+  }
+
+  .brana-nadpis-sekce {
+    @apply text-lg font-medium leading-snug tracking-tight text-text;
+  }
+
+  .brana-text {
+    @apply text-[1.0625rem] leading-snug text-text;
+  }
+
+  .brana-text-jemny {
+    @apply text-[0.9375rem] leading-snug text-text-jemny;
+  }
+
+  .brana-text-velmi-jemny {
+    @apply text-sm leading-snug text-text-velmiJemny;
+  }
+
+  .brana-admin-hlavicka {
+    @apply border-b border-text-velmiJemny/20 px-6 py-4;
+  }
+
+  .brana-admin-nadpis {
+    @apply text-base font-medium leading-snug tracking-tight text-text-jemny;
+  }
+
+  .brana-obrazovka {
+    @apply mx-auto flex min-h-dvh w-full max-w-md flex-col;
+  }
+
+  .brana-horni-lista {
+    @apply grid grid-cols-[2.75rem_1fr_2.75rem] items-center gap-2 px-4 pb-2;
+    padding-top: calc(0.75rem + env(safe-area-inset-top, 0px));
+  }
+
+  .brana-horni-lista-nadpis {
+    @apply text-center text-[0.9375rem] font-medium leading-snug tracking-tight text-text;
+  }
+
+  .brana-ikona-misto {
+    @apply flex h-11 w-11 items-center justify-center text-text-jemny;
+  }
+
+  .brana-kotva-blok {
+    @apply px-6 pb-2 pt-10;
+  }
+
+  .brana-kotva-radek {
+    @apply flex items-center gap-3;
+  }
+
+  .brana-kotva-text {
+    @apply flex-1 text-center text-lg font-medium leading-snug tracking-tight text-text;
+  }
+
+  .brana-kotva-ikona {
+    @apply flex h-8 w-8 shrink-0 items-center justify-center text-text-velmiJemny;
+  }
+
+  .brana-datum {
+    @apply px-6 pb-8 pt-4 text-center text-[0.9375rem] leading-snug text-text-jemny;
+  }
+
+  .brana-navigace {
+    @apply flex flex-wrap justify-center gap-x-5 gap-y-2 px-6 pb-6;
+  }
+
+  .brana-nav-polozka {
+    @apply text-[0.9375rem] leading-snug text-text-jemny;
+  }
+
+  .brana-nav-polozka-vybrana {
+    @apply font-medium text-text;
+  }
+
+  .brana-prostor-obsah {
+    @apply min-h-[36vh] flex-1;
+  }
+
+  .brana-aktualizace {
+    @apply px-6 py-3 text-center text-sm leading-snug text-text-velmiJemny;
+  }
+
+  .brana-zapati-rezerva {
+    @apply min-h-32;
+    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  }
+}
