@@ -9,3 +9,7 @@ export function parseBranaPozadiVarianta(
   }
   return undefined;
 }
+
+export function parseBranaNocRezim(noc?: string): boolean {
+  return noc !== undefined;
+}

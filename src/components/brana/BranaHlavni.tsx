@@ -4,13 +4,14 @@ import { BranaPozadi } from "./pozadi/BranaPozadi";
 
 type BranaHlavniProps = {
   variantaPozadi?: BranaPozadiVarianta;
+  nocRezim?: boolean;
 };
 
 /** Vstupní obrazovka projektu Brána – /brana */
-export function BranaHlavni({ variantaPozadi }: BranaHlavniProps) {
+export function BranaHlavni({ variantaPozadi, nocRezim }: BranaHlavniProps) {
   return (
     <>
-      <BranaPozadi varianta={variantaPozadi} />
+      <BranaPozadi varianta={variantaPozadi} nocRezim={nocRezim} />
       <main className="relative z-[1] flex flex-1 flex-col">
         <BranaObrazovka />
       </main>

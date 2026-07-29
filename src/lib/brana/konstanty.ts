@@ -9,3 +9,6 @@ export const BRANA_ZAKLADNI_CESTA = "/brana";
  * Zálohy: pozadi-den-master.png, pozadi-den-master-2046.png
  */
 export const BRANA_POZADI_DEN_MASTER = "/brana/pozadi-den-master-final.png";
+
+/** Noční master pozadí – test: /brana?noc */
+export const BRANA_POZADI_NOC_MASTER = "/brana/pozadi-noc-master.png";

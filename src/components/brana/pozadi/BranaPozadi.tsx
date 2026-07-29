@@ -1,24 +1,34 @@
 import type { BranaPozadiVarianta } from "@/lib/brana/pozadi-varianty";
-import { BRANA_POZADI_DEN_MASTER } from "@/lib/brana/konstanty";
+import {
+  BRANA_POZADI_DEN_MASTER,
+  BRANA_POZADI_NOC_MASTER,
+} from "@/lib/brana/konstanty";
 import "./brana-pozadi.css";
 import "./brana-pozadi-varianty.css";
 
 type BranaPozadiProps = {
   varianta?: BranaPozadiVarianta;
+  nocRezim?: boolean;
 };
 
-function BranaPozadiMaster() {
+function BranaPozadiMaster({ nocRezim = false }: { nocRezim?: boolean }) {
+  const masterUrl = nocRezim ? BRANA_POZADI_NOC_MASTER : BRANA_POZADI_DEN_MASTER;
+
   return (
-    <div className="brana-pozadi" data-brana-denni-doba="den" aria-hidden>
+    <div
+      className="brana-pozadi"
+      data-brana-denni-doba={nocRezim ? "noc" : "den"}
+      aria-hidden
+    >
       <div
         className="brana-pozadi-obraz"
         style={
           {
-            "--brana-pozadi-master-url": `url("${BRANA_POZADI_DEN_MASTER}")`,
+            "--brana-pozadi-master-url": `url("${masterUrl}")`,
           } as React.CSSProperties
         }
       />
-      <div className="brana-pozadi-modra-klid" />
+      {!nocRezim && <div className="brana-pozadi-modra-klid" />}
     </div>
   );
 }
@@ -123,10 +133,10 @@ function BranaPozadiProceduralni({ varianta }: { varianta: BranaPozadiVarianta }
 /**
  * Full-screen pozadí BRÁNY – master fotografie (výchozí) nebo dočasné procedurální varianty.
  */
-export function BranaPozadi({ varianta }: BranaPozadiProps) {
+export function BranaPozadi({ varianta, nocRezim }: BranaPozadiProps) {
   if (varianta) {
     return <BranaPozadiProceduralni varianta={varianta} />;
   }
 
-  return <BranaPozadiMaster />;
+  return <BranaPozadiMaster nocRezim={nocRezim} />;
 }
