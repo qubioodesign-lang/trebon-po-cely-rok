@@ -1,10 +1,16 @@
+import type { BranaPozadiVarianta } from "@/lib/brana/pozadi-varianty";
 import "./brana-pozadi.css";
+import "./brana-pozadi-varianty.css";
+
+type BranaPozadiProps = {
+  varianta?: BranaPozadiVarianta;
+};
 
 /**
  * Procedurální full-screen pozadí BRÁNY.
  * V této etapě pouze denní režim; noc přijde stejným systémem proměnných.
  */
-export function BranaPozadi() {
+export function BranaPozadi({ varianta }: BranaPozadiProps) {
   return (
     <>
       <svg
@@ -37,10 +43,61 @@ export function BranaPozadi() {
               <feFuncA type="linear" slope="0.28" />
             </feComponentTransfer>
           </filter>
+          <filter
+            id="brana-varianta1-sum"
+            x="0%"
+            y="0%"
+            width="100%"
+            height="100%"
+          >
+            <feTurbulence
+              type="turbulence"
+              baseFrequency="0.014 0.006"
+              numOctaves="2"
+              seed="7"
+              result="vlny"
+            />
+            <feColorMatrix
+              type="saturate"
+              values="0"
+              in="vlny"
+              result="vlny-mon"
+            />
+            <feComponentTransfer in="vlny-mon">
+              <feFuncA type="linear" slope="0.45" />
+            </feComponentTransfer>
+          </filter>
+          <filter
+            id="brana-varianta4-odraz"
+            x="-5%"
+            y="-5%"
+            width="110%"
+            height="110%"
+          >
+            <feTurbulence
+              type="fractalNoise"
+              baseFrequency="0.006 0.002"
+              numOctaves="3"
+              seed="19"
+              result="deformace"
+            />
+            <feDisplacementMap
+              in="SourceGraphic"
+              in2="deformace"
+              scale="14"
+              xChannelSelector="R"
+              yChannelSelector="G"
+            />
+          </filter>
         </defs>
       </svg>
 
-      <div className="brana-pozadi" data-brana-denni-doba="den" aria-hidden>
+      <div
+        className="brana-pozadi"
+        data-brana-denni-doba="den"
+        {...(varianta ? { "data-pozadi-variant": String(varianta) } : {})}
+        aria-hidden
+      >
         <div className="brana-pozadi-zaklad" />
         <div className="brana-pozadi-hladina" />
         <div className="brana-pozadi-sum" />
