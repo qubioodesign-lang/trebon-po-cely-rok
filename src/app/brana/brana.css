@@ -61,11 +61,11 @@
   }
 
   .brana-horni-lista-nadpis {
-    @apply text-center text-lg font-medium leading-snug tracking-tight text-text;
+    @apply text-center text-lg font-medium leading-snug tracking-tight text-white;
   }
 
   .brana-ikona-misto {
-    @apply flex h-11 w-11 items-center justify-center text-text-jemny;
+    @apply flex h-11 w-11 items-center justify-center text-white;
   }
 
   .brana-kotva-blok {
@@ -77,15 +77,15 @@
   }
 
   .brana-kotva-text {
-    @apply flex-1 text-center text-[0.8125rem] font-normal leading-snug tracking-tight text-text-jemny;
+    @apply flex-1 text-center text-[0.8125rem] font-normal leading-snug tracking-tight text-white;
   }
 
   .brana-kotva-ikona {
-    @apply flex h-8 w-8 shrink-0 items-center justify-center text-text-velmiJemny;
+    @apply flex h-8 w-8 shrink-0 items-center justify-center text-white;
   }
 
   .brana-datum {
-    @apply px-6 pb-0 pt-0.5 text-center text-[0.9375rem] leading-snug text-text-jemny;
+    @apply px-6 pb-0 pt-0.5 text-center text-[0.9375rem] leading-snug text-white;
   }
 
   .brana-navigace {
@@ -93,15 +93,15 @@
   }
 
   .brana-nav-polozka {
-    @apply shrink-0 px-1 py-2 text-[0.9375rem] leading-snug text-text-jemny;
+    @apply shrink-0 px-1 py-2 text-[0.9375rem] leading-snug text-white;
   }
 
   .brana-nav-polozka-vybrana {
-    @apply font-medium text-text;
+    @apply font-medium text-white;
   }
 
   .brana-orientacni-oddelovac {
-    @apply mx-6 border-0 border-b border-text-velmiJemny/20;
+    @apply mx-6 border-0 border-b border-white/20;
   }
 
   .brana-prostor-obsah {
@@ -109,7 +109,7 @@
   }
 
   .brana-aktualizace {
-    @apply px-6 py-3 text-center text-sm leading-snug text-text-velmiJemny;
+    @apply px-6 py-3 text-center text-sm leading-snug text-white;
   }
 
   .brana-zapati-rezerva {
