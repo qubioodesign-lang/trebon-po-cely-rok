@@ -22,9 +22,9 @@ export function BranaPozadi() {
           >
             <feTurbulence
               type="fractalNoise"
-              baseFrequency="0.0007 0.038"
-              numOctaves="2"
-              seed="4"
+              baseFrequency="0.0011 0.026"
+              numOctaves="3"
+              seed="11"
               result="sum"
             />
             <feColorMatrix

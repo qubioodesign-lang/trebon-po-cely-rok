@@ -4,9 +4,9 @@
  */
 export const BRANA_AKCENT = "#B8644A";
 
-/** Denní teplá šedá – hlubší než krém galerie, stále čitelná se stávajícím tmavým textem */
+/** Denní teplá šedá – hlubší tón po západu slunce */
 export const BRANA_DEN = {
-  povrchHorni: "#D6D3CE",
-  povrchStred: "#C9C6C1",
-  povrchDolni: "#BFBCB6",
+  povrchHorni: "#AEAAA4",
+  povrchStred: "#96918B",
+  povrchDolni: "#736E68",
 } as const;
