@@ -56,6 +56,8 @@ export function BranaObrazovka() {
             </span>
           ))}
         </nav>
+
+        <hr className="brana-orientacni-oddelovac" aria-hidden />
       </div>
 
       <div className="brana-prostor-obsah" aria-hidden />

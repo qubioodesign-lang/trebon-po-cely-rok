@@ -56,7 +56,7 @@
   }
 
   .brana-horni-lista {
-    @apply grid grid-cols-[2.75rem_1fr_2.75rem] items-center gap-2 px-4 pb-1;
+    @apply grid grid-cols-[2.75rem_1fr_2.75rem] items-center gap-2 px-4 pb-0;
     padding-top: calc(0.5rem + env(safe-area-inset-top, 0px));
   }
 
@@ -69,11 +69,11 @@
   }
 
   .brana-kotva-blok {
-    @apply px-6 pb-0 pt-3;
+    @apply px-6 pb-0 pt-1;
   }
 
   .brana-kotva-radek {
-    @apply flex items-center gap-3;
+    @apply flex items-center gap-2;
   }
 
   .brana-kotva-text {
@@ -85,11 +85,11 @@
   }
 
   .brana-datum {
-    @apply px-6 pb-2 pt-1.5 text-center text-[0.9375rem] leading-snug text-text-jemny;
+    @apply px-6 pb-0 pt-0.5 text-center text-[0.9375rem] leading-snug text-text-jemny;
   }
 
   .brana-navigace {
-    @apply flex flex-nowrap justify-center gap-x-3 px-4 pb-5 pt-1;
+    @apply flex flex-nowrap justify-center gap-x-3 px-4 pb-2 pt-0;
   }
 
   .brana-nav-polozka {
@@ -98,6 +98,10 @@
 
   .brana-nav-polozka-vybrana {
     @apply font-medium text-text;
+  }
+
+  .brana-orientacni-oddelovac {
+    @apply mx-6 border-0 border-b border-text-velmiJemny/20;
   }
 
   .brana-prostor-obsah {
