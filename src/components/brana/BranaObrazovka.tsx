@@ -119,8 +119,8 @@ export function BranaObrazovka() {
 
             return (
               <li key={`${akce.mistoNeboTyp}-${akce.nazev}-${akce.cas}`}>
-                <div className="brana-akce-radek">
-                  <span className="brana-akce-radek-levy">
+                <div className="brana-akce-obsah">
+                  <div className="brana-akce-radek">
                     <span className="brana-akce-typ">{typ}</span>
                     {misto ? (
                       <span className="brana-akce-misto">
@@ -128,12 +128,14 @@ export function BranaObrazovka() {
                         {zalomPredlozky(misto)}
                       </span>
                     ) : null}
-                  </span>
-                  <span className="brana-akce-cas">{cas}</span>
+                  </div>
+                  {nazev ? (
+                    <span className="brana-akce-nazev">
+                      {zalomPredlozky(nazev)}
+                    </span>
+                  ) : null}
                 </div>
-                {nazev ? (
-                  <span className="brana-akce-nazev">{zalomPredlozky(nazev)}</span>
-                ) : null}
+                <span className="brana-akce-cas">{cas}</span>
               </li>
             );
           })}

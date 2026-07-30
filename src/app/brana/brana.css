@@ -137,15 +137,15 @@
   }
 
   .brana-seznam-akci li {
-    @apply block text-[0.9375rem] leading-snug text-white;
-  }
-
-  .brana-akce-radek {
-    @apply grid items-end gap-x-3;
+    @apply grid items-start gap-x-3 text-[0.9375rem] leading-snug text-white;
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .brana-akce-radek-levy {
+  .brana-akce-obsah {
+    @apply min-w-0;
+  }
+
+  .brana-akce-radek {
     @apply min-w-0;
   }
 
@@ -154,7 +154,7 @@
   }
 
   .brana-akce-cas {
-    @apply shrink-0 whitespace-nowrap text-[calc(0.9375rem*0.875)] text-white/75;
+    @apply shrink-0 justify-self-end whitespace-nowrap text-[calc(0.9375rem*0.875)] text-white/75;
   }
 
   .brana-akce-nazev {

@@ -53,7 +53,7 @@ export const BRANA_REFERENCNI_AKCE: BranaReferencniAkce[] = [
   { mistoNeboTyp: "Večerní plavby", nazev: "Přístaviště Svět", cas: "20:00" },
   {
     mistoNeboTyp: "Pouliční hudebníci",
-    nazev: "Masarykovo náměstí",
+    nazev: "M. náměstí",
     cas: "14:00",
   },
 ];
