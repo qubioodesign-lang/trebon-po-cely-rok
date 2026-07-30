@@ -117,7 +117,15 @@
   }
 
   .brana-seznam-akci li {
-    @apply text-[0.9375rem] leading-snug text-white;
+    @apply flex items-end gap-x-3 text-[0.9375rem] leading-snug text-white;
+  }
+
+  .brana-akce-text {
+    @apply min-w-0 flex-1;
+  }
+
+  .brana-akce-cas {
+    @apply shrink-0 whitespace-nowrap;
   }
 
   .brana-aktualizace {
