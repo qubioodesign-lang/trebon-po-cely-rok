@@ -105,7 +105,19 @@
   }
 
   .brana-prostor-obsah {
-    @apply min-h-[36vh] flex-1;
+    @apply min-h-[36vh] flex-1 px-6 pt-4;
+  }
+
+  .brana-seznam-akci {
+    @apply m-0 list-none p-0;
+  }
+
+  .brana-seznam-akci li + li {
+    @apply mt-3;
+  }
+
+  .brana-seznam-akci li {
+    @apply leading-snug text-white;
   }
 
   .brana-aktualizace {

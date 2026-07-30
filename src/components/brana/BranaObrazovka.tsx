@@ -1,3 +1,4 @@
+import { BRANA_REFERENCNI_AKCE } from "@/lib/brana/referencni-akce";
 import {
   BranaIkonaObalka,
   BranaIkonaOkno,
@@ -60,7 +61,15 @@ export function BranaObrazovka() {
         <hr className="brana-orientacni-oddelovac" aria-hidden />
       </div>
 
-      <div className="brana-prostor-obsah" aria-hidden />
+      <section className="brana-prostor-obsah" aria-label="Akce">
+        <ul className="brana-seznam-akci">
+          {BRANA_REFERENCNI_AKCE.map((akce) => (
+            <li key={`${akce.mistoNeboTyp}-${akce.nazev}-${akce.cas}`}>
+              {akce.mistoNeboTyp} · {akce.nazev} · {akce.cas}
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <p className="brana-aktualizace">Aktualizováno dnes 6:00</p>
 
