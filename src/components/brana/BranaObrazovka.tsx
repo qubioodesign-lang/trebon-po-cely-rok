@@ -21,7 +21,10 @@ export function BranaObrazovka() {
           <div className="brana-ikona-misto">
             <BranaIkonaObalka />
           </div>
-          <p className="brana-horni-lista-nadpis">BRÁNA do Třeboně</p>
+          <p className="brana-horni-lista-nadpis">
+            <span className="brana-znacka-hlavni">BRÁNA</span>
+            <span className="brana-znacka-podtitul"> do Třeboně</span>
+          </p>
           <div className="brana-ikona-misto">
             <BranaIkonaSdileni />
           </div>

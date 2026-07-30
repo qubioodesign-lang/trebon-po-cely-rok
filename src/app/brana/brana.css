@@ -61,7 +61,15 @@
   }
 
   .brana-horni-lista-nadpis {
-    @apply text-center text-lg font-medium leading-snug tracking-tight text-white;
+    @apply text-center leading-snug tracking-tight text-white;
+  }
+
+  .brana-znacka-hlavni {
+    @apply text-[calc(1.125rem*1.09)] font-semibold;
+  }
+
+  .brana-znacka-podtitul {
+    @apply text-[calc(1.125rem*0.875)] font-normal;
   }
 
   .brana-ikona-misto {
