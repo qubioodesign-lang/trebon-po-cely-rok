@@ -89,7 +89,7 @@
   }
 
   .brana-navigace {
-    @apply mx-auto flex w-fit max-w-full flex-nowrap justify-center gap-x-3 px-6 pb-2 pt-0;
+    @apply flex w-full flex-nowrap justify-between px-6 pb-2 pt-0;
   }
 
   .brana-nav-polozka {
