@@ -48,11 +48,11 @@
   }
 
   .brana-obrazovka {
-    @apply mx-auto flex min-h-dvh w-full max-w-md flex-col;
+    @apply mx-auto flex h-dvh w-full max-w-md flex-col overflow-hidden;
   }
 
   .brana-horni-celek {
-    @apply flex flex-col;
+    @apply flex shrink-0 flex-col;
   }
 
   .brana-horni-lista {
@@ -77,7 +77,7 @@
   }
 
   .brana-kotva-text {
-    @apply flex-1 text-center text-[0.8125rem] font-normal leading-snug tracking-tight text-white;
+    @apply flex-1 text-center text-[0.8125rem] font-normal leading-snug tracking-tight text-white/70;
   }
 
   .brana-kotva-ikona {
@@ -93,7 +93,7 @@
   }
 
   .brana-nav-polozka {
-    @apply shrink-0 px-1 py-2 text-[0.9375rem] leading-snug text-white;
+    @apply shrink-0 px-1 py-2 text-[0.875rem] uppercase leading-snug text-white;
   }
 
   .brana-nav-polozka-vybrana {
@@ -105,7 +105,7 @@
   }
 
   .brana-prostor-obsah {
-    @apply min-h-[36vh] flex-1 px-6 pt-4;
+    @apply min-h-0 flex-1 overflow-y-auto px-6 pt-4;
   }
 
   .brana-seznam-akci {
@@ -129,11 +129,11 @@
   }
 
   .brana-aktualizace {
-    @apply px-6 py-3 text-center text-sm leading-snug text-white;
+    @apply shrink-0 px-6 py-3 text-center text-sm leading-snug text-white;
   }
 
   .brana-zapati-rezerva {
-    @apply min-h-32;
+    @apply min-h-32 shrink-0;
     padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
   }
 }

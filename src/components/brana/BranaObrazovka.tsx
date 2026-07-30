@@ -1,9 +1,5 @@
 import { BRANA_REFERENCNI_AKCE } from "@/lib/brana/referencni-akce";
-import {
-  BranaIkonaObalka,
-  BranaIkonaOkno,
-  BranaIkonaSdileni,
-} from "./BranaIkony";
+import { BranaIkonaObalka, BranaIkonaSdileni } from "./BranaIkony";
 
 const POLOZKY_NAVIGACE = [
   "Dnes",
@@ -35,9 +31,7 @@ export function BranaObrazovka() {
           <div className="brana-kotva-radek">
             <span className="brana-kotva-ikona" aria-hidden />
             <p className="brana-kotva-text">Třeboň je dnes klidná</p>
-            <span className="brana-kotva-ikona">
-              <BranaIkonaOkno />
-            </span>
+            <span className="brana-kotva-ikona" aria-hidden />
           </div>
         </section>
 
