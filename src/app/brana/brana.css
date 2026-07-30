@@ -117,7 +117,7 @@
   }
 
   .brana-seznam-akci li {
-    @apply leading-snug text-white;
+    @apply text-[0.9375rem] leading-snug text-white;
   }
 
   .brana-aktualizace {
