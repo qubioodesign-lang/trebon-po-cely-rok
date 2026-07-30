@@ -144,8 +144,7 @@ export function BranaObrazovka() {
 
         <footer className="brana-pata">
           <Link href="/" className="brana-pata-odkaz">
-            <span className="brana-znacka-hlavni">Třeboň</span>
-            <span className="brana-znacka-podtitul"> po celý rok</span>
+            Třeboň po celý rok
           </Link>
           <p className="brana-pata-aktualizace">Aktualizováno dnes v 6:00</p>
         </footer>

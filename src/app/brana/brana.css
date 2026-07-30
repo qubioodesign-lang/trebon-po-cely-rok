@@ -167,7 +167,16 @@
   }
 
   .brana-pata-odkaz {
-    @apply inline-block leading-snug tracking-tight text-white no-underline;
+    @apply inline-block text-lg font-medium leading-snug tracking-tight text-white no-underline;
+  }
+
+  .brana-pata-odkaz::after {
+    content: "";
+    display: block;
+    width: 100%;
+    height: 1px;
+    margin-top: 0.125rem;
+    background-color: var(--brand-accent);
   }
 
   .brana-pata-aktualizace {
