@@ -66,11 +66,11 @@ export function BranaObrazovka() {
             </li>
           ))}
         </ul>
+
+        <p className="brana-aktualizace">Aktualizováno dnes 6:00</p>
+
+        <footer className="brana-zapati-rezerva" aria-hidden />
       </section>
-
-      <p className="brana-aktualizace">Aktualizováno dnes 6:00</p>
-
-      <footer className="brana-zapati-rezerva" aria-hidden />
     </div>
   );
 }

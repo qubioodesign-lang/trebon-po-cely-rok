@@ -129,11 +129,11 @@
   }
 
   .brana-aktualizace {
-    @apply shrink-0 px-6 py-3 text-center text-sm leading-snug text-white;
+    @apply px-6 py-3 text-center text-sm leading-snug text-white;
   }
 
   .brana-zapati-rezerva {
-    @apply min-h-32 shrink-0;
+    @apply min-h-32;
     padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
   }
 }
