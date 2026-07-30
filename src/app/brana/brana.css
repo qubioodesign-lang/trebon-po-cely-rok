@@ -141,11 +141,12 @@
   }
 
   .brana-akce-radek {
-    @apply flex items-end justify-between gap-x-3;
+    @apply grid items-end gap-x-3;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .brana-akce-radek-levy {
-    @apply min-w-0 flex-1;
+    @apply min-w-0;
   }
 
   .brana-akce-typ {

@@ -56,6 +56,13 @@ function rozlozAkci(akce: (typeof BRANA_REFERENCNI_AKCE)[number]): {
   return { typ, misto: akce.nazev, nazev: "", cas: akce.cas };
 }
 
+const JEDNOPISMENNE_PREDLOZKY = /(\s)([ksvzou])(\s+)(?=\S)/gi;
+
+/** Nezlomitelná mezera za jednopísmennou předložkou – pouze při vykreslení. */
+function zalomPredlozky(text: string): string {
+  return text.replace(JEDNOPISMENNE_PREDLOZKY, "$1$2\u00A0");
+}
+
 /**
  * Kostra první veřejné obrazovky Brány – pouze rozložení, bez dat a funkcí.
  * Určeno pro mobil (max-w-md).
@@ -116,13 +123,16 @@ export function BranaObrazovka() {
                   <span className="brana-akce-radek-levy">
                     <span className="brana-akce-typ">{typ}</span>
                     {misto ? (
-                      <span className="brana-akce-misto"> {misto}</span>
+                      <span className="brana-akce-misto">
+                        {" "}
+                        {zalomPredlozky(misto)}
+                      </span>
                     ) : null}
                   </span>
                   <span className="brana-akce-cas">{cas}</span>
                 </div>
                 {nazev ? (
-                  <span className="brana-akce-nazev">{nazev}</span>
+                  <span className="brana-akce-nazev">{zalomPredlozky(nazev)}</span>
                 ) : null}
               </li>
             );
