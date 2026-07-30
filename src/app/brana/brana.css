@@ -115,11 +115,13 @@
   }
 
   .brana-nav-polozka-vybrana {
-    @apply font-medium text-white;
+    @apply font-medium;
+    color: var(--brand-accent);
   }
 
   .brana-orientacni-oddelovac {
-    @apply mx-6 border-0 border-b border-white/20;
+    @apply mx-6 border-0 border-b;
+    border-bottom-color: color-mix(in srgb, var(--brand-accent) 40%, transparent);
   }
 
   .brana-prostor-obsah {
