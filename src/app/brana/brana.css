@@ -7,7 +7,7 @@
  */
 @layer components {
   .brana-root {
-    --brand-accent: #d4a373;
+    --brand-accent: #cf9168;
     @apply relative flex min-h-dvh min-h-[100dvh] w-full flex-col bg-transparent font-sans text-text antialiased;
     @apply text-[1.0625rem] leading-snug;
   }
