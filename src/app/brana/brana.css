@@ -144,6 +144,10 @@
     @apply min-w-0 flex-1;
   }
 
+  .brana-akce-typ {
+    color: var(--brand-accent);
+  }
+
   .brana-akce-cas {
     @apply shrink-0 whitespace-nowrap;
   }

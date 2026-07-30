@@ -9,6 +9,34 @@ const POLOZKY_NAVIGACE = [
   "Výhled",
 ] as const;
 
+const JEDNOSLOVNE_TYPY_AKCE = new Set([
+  "Kino",
+  "Divadlo",
+  "Koncert",
+  "Festival",
+  "Výstava",
+  "Prohlídka",
+  "Přednáška",
+]);
+
+function rozdelTypAkce(mistoNeboTyp: string): { typ: string; zbytek: string } {
+  if (mistoNeboTyp === "Pro děti") {
+    return { typ: "Pro děti", zbytek: "" };
+  }
+
+  const mezera = mistoNeboTyp.indexOf(" ");
+  if (mezera === -1) {
+    return { typ: mistoNeboTyp, zbytek: "" };
+  }
+
+  const prvniSlovo = mistoNeboTyp.slice(0, mezera);
+  if (JEDNOSLOVNE_TYPY_AKCE.has(prvniSlovo)) {
+    return { typ: prvniSlovo, zbytek: mistoNeboTyp.slice(mezera + 1) };
+  }
+
+  return { typ: mistoNeboTyp, zbytek: "" };
+}
+
 /**
  * Kostra první veřejné obrazovky Brány – pouze rozložení, bez dat a funkcí.
  * Určeno pro mobil (max-w-md).
@@ -60,14 +88,26 @@ export function BranaObrazovka() {
 
       <section className="brana-prostor-obsah" aria-label="Akce">
         <ul className="brana-seznam-akci">
-          {BRANA_REFERENCNI_AKCE.map((akce) => (
-            <li key={`${akce.mistoNeboTyp}-${akce.nazev}-${akce.cas}`}>
-              <span className="brana-akce-text">
-                {akce.mistoNeboTyp} · {akce.nazev}
-              </span>
-              <span className="brana-akce-cas">{akce.cas}</span>
-            </li>
-          ))}
+          {BRANA_REFERENCNI_AKCE.map((akce) => {
+            const { typ, zbytek } = rozdelTypAkce(akce.mistoNeboTyp);
+
+            return (
+              <li key={`${akce.mistoNeboTyp}-${akce.nazev}-${akce.cas}`}>
+                <span className="brana-akce-text">
+                  <span className="brana-akce-typ">{typ}</span>
+                  {zbytek ? (
+                    <>
+                      {" "}
+                      {zbytek} · {akce.nazev}
+                    </>
+                  ) : (
+                    <> · {akce.nazev}</>
+                  )}
+                </span>
+                <span className="brana-akce-cas">{akce.cas}</span>
+              </li>
+            );
+          })}
         </ul>
 
         <p className="brana-aktualizace">Aktualizováno dnes 6:00</p>
