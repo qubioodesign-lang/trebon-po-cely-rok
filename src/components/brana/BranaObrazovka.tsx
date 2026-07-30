@@ -93,18 +93,10 @@ export function BranaObrazovka() {
 
             return (
               <li key={`${akce.mistoNeboTyp}-${akce.nazev}-${akce.cas}`}>
-                <span className="brana-akce-text">
-                  <span className="brana-akce-typ">{typ}</span>
-                  {zbytek ? (
-                    <>
-                      {" "}
-                      {zbytek} {akce.nazev}
-                    </>
-                  ) : (
-                    <> {akce.nazev}</>
-                  )}
+                <span className="brana-akce-typ">{typ}</span>
+                <span className="brana-akce-detail">
+                  {[zbytek, akce.nazev].filter(Boolean).join(" ")} {akce.cas}
                 </span>
-                <span className="brana-akce-cas">{akce.cas}</span>
               </li>
             );
           })}
