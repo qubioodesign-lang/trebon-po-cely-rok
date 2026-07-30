@@ -98,10 +98,10 @@ export function BranaObrazovka() {
                   {zbytek ? (
                     <>
                       {" "}
-                      {zbytek} · {akce.nazev}
+                      {zbytek} {akce.nazev}
                     </>
                   ) : (
-                    <> · {akce.nazev}</>
+                    <> {akce.nazev}</>
                   )}
                 </span>
                 <span className="brana-akce-cas">{akce.cas}</span>
