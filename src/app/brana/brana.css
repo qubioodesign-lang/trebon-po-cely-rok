@@ -140,12 +140,23 @@
     @apply block text-[0.9375rem] leading-snug text-white;
   }
 
+  .brana-akce-radek {
+    @apply flex items-end justify-between gap-x-3;
+  }
+
+  .brana-akce-radek-levy {
+    @apply min-w-0 flex-1;
+  }
+
   .brana-akce-typ {
-    @apply block;
     color: var(--brand-accent);
   }
 
-  .brana-akce-detail {
+  .brana-akce-cas {
+    @apply shrink-0 whitespace-nowrap;
+  }
+
+  .brana-akce-nazev {
     @apply block;
   }
 

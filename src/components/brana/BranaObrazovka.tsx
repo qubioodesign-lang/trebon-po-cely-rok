@@ -37,6 +37,25 @@ function rozdelTypAkce(mistoNeboTyp: string): { typ: string; zbytek: string } {
   return { typ: mistoNeboTyp, zbytek: "" };
 }
 
+function rozlozAkci(akce: (typeof BRANA_REFERENCNI_AKCE)[number]): {
+  typ: string;
+  misto: string;
+  nazev: string;
+  cas: string;
+} {
+  const { typ, zbytek } = rozdelTypAkce(akce.mistoNeboTyp);
+
+  if (zbytek) {
+    return { typ, misto: zbytek, nazev: akce.nazev, cas: akce.cas };
+  }
+
+  if (JEDNOSLOVNE_TYPY_AKCE.has(typ) || typ === "Pro děti") {
+    return { typ, misto: "", nazev: akce.nazev, cas: akce.cas };
+  }
+
+  return { typ, misto: akce.nazev, nazev: "", cas: akce.cas };
+}
+
 /**
  * Kostra první veřejné obrazovky Brány – pouze rozložení, bez dat a funkcí.
  * Určeno pro mobil (max-w-md).
@@ -89,14 +108,22 @@ export function BranaObrazovka() {
       <section className="brana-prostor-obsah" aria-label="Akce">
         <ul className="brana-seznam-akci">
           {BRANA_REFERENCNI_AKCE.map((akce) => {
-            const { typ, zbytek } = rozdelTypAkce(akce.mistoNeboTyp);
+            const { typ, misto, nazev, cas } = rozlozAkci(akce);
 
             return (
               <li key={`${akce.mistoNeboTyp}-${akce.nazev}-${akce.cas}`}>
-                <span className="brana-akce-typ">{typ}</span>
-                <span className="brana-akce-detail">
-                  {[zbytek, akce.nazev].filter(Boolean).join(" ")} {akce.cas}
-                </span>
+                <div className="brana-akce-radek">
+                  <span className="brana-akce-radek-levy">
+                    <span className="brana-akce-typ">{typ}</span>
+                    {misto ? (
+                      <span className="brana-akce-misto"> {misto}</span>
+                    ) : null}
+                  </span>
+                  <span className="brana-akce-cas">{cas}</span>
+                </div>
+                {nazev ? (
+                  <span className="brana-akce-nazev">{nazev}</span>
+                ) : null}
               </li>
             );
           })}
