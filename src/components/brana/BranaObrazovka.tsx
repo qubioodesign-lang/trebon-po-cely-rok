@@ -66,7 +66,8 @@ export function BranaObrazovka() {
           {BRANA_REFERENCNI_AKCE.map((akce) => (
             <li key={`${akce.mistoNeboTyp}-${akce.nazev}-${akce.cas}`}>
               <span className="brana-akce-text">
-                {akce.mistoNeboTyp} · {akce.nazev}
+                <span className="brana-akce-hlavni">{akce.mistoNeboTyp}</span>
+                <span className="brana-akce-detail"> · {akce.nazev}</span>
               </span>
               <span className="brana-akce-cas">{akce.cas}</span>
             </li>

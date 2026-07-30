@@ -124,8 +124,16 @@
     @apply min-w-0 flex-1;
   }
 
+  .brana-akce-hlavni {
+    @apply text-[1.0625rem] font-medium;
+  }
+
+  .brana-akce-detail {
+    @apply font-normal;
+  }
+
   .brana-akce-cas {
-    @apply shrink-0 whitespace-nowrap;
+    @apply shrink-0 whitespace-nowrap text-sm font-normal;
   }
 
   .brana-aktualizace {
