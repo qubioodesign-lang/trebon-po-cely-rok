@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { BRANA_REFERENCNI_AKCE } from "@/lib/brana/referencni-akce";
 import { BranaIkonaObalka, BranaIkonaSdileni } from "./BranaIkony";
 
@@ -141,9 +142,13 @@ export function BranaObrazovka() {
           })}
         </ul>
 
-        <p className="brana-aktualizace">Aktualizováno dnes 6:00</p>
-
-        <footer className="brana-zapati-rezerva" aria-hidden />
+        <footer className="brana-pata">
+          <Link href="/" className="brana-pata-odkaz">
+            <span className="brana-znacka-hlavni">Třeboň</span>
+            <span className="brana-znacka-podtitul"> po celý rok</span>
+          </Link>
+          <p className="brana-pata-aktualizace">Aktualizováno dnes v 6:00</p>
+        </footer>
       </section>
     </div>
   );

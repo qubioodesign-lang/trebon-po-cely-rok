@@ -161,13 +161,17 @@
     @apply block;
   }
 
-  .brana-aktualizace {
-    @apply px-6 py-3 text-center text-sm leading-snug text-white;
+  .brana-pata {
+    @apply flex flex-col items-center px-6 pt-10 text-center;
+    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
   }
 
-  .brana-zapati-rezerva {
-    @apply min-h-32;
-    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  .brana-pata-odkaz {
+    @apply inline-block leading-snug tracking-tight text-white no-underline;
+  }
+
+  .brana-pata-aktualizace {
+    @apply mt-3 text-sm leading-snug text-white/70;
   }
 }
 
