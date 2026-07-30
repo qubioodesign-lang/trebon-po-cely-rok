@@ -7,6 +7,7 @@
  */
 @layer components {
   .brana-root {
+    --brand-accent: #d4a373;
     @apply relative flex min-h-dvh min-h-[100dvh] w-full flex-col bg-transparent font-sans text-text antialiased;
     @apply text-[1.0625rem] leading-snug;
   }
@@ -65,7 +66,16 @@
   }
 
   .brana-znacka-hlavni {
-    @apply text-[calc(1.125rem*1.09)] font-semibold;
+    @apply relative inline-block text-[calc(1.125rem*1.09)] font-semibold;
+  }
+
+  .brana-znacka-hlavni::after {
+    content: "";
+    display: block;
+    width: 100%;
+    height: 1px;
+    margin-top: 0.125rem;
+    background-color: var(--brand-accent);
   }
 
   .brana-znacka-podtitul {
