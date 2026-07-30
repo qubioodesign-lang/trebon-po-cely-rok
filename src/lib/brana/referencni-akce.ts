@@ -25,7 +25,7 @@ export const BRANA_REFERENCNI_AKCE: BranaReferencniAkce[] = [
   { mistoNeboTyp: "Prohlídka", nazev: "Město s průvodcem", cas: "17:00" },
   {
     mistoNeboTyp: "Prohlídka",
-    nazev: "Sádek Rybářství Třeboň",
+    nazev: "Sádky Rybářství Třeboň",
     cas: "13:00",
   },
   {
@@ -35,25 +35,25 @@ export const BRANA_REFERENCNI_AKCE: BranaReferencniAkce[] = [
   },
   { mistoNeboTyp: "Pro děti", nazev: "Hra o poklad Matyáše", cas: "11:00" },
   {
-    mistoNeboTyp: "Restaurace U Vodníka",
-    nazev: "Živá hudba",
+    mistoNeboTyp: "Živá hudba",
+    nazev: "Restaurace U Vodníka",
     cas: "19:00",
   },
   {
-    mistoNeboTyp: "Kavárna Vratislavský dům",
-    nazev: "Jazzový večer",
+    mistoNeboTyp: "Jazzový večer",
+    nazev: "Kavárna Vratislavský dům",
     cas: "18:30",
   },
   {
-    mistoNeboTyp: "Restaurace Šupina",
-    nazev: "Grilování na terase",
+    mistoNeboTyp: "Grilování na terase",
+    nazev: "Restaurace Šupina",
     cas: "17:00",
   },
-  { mistoNeboTyp: "Lázně Aurora", nazev: "Taneční večer", cas: "19:30" },
-  { mistoNeboTyp: "Přístaviště Svět", nazev: "Večerní plavby", cas: "20:00" },
+  { mistoNeboTyp: "Taneční večer", nazev: "Lázně Aurora", cas: "19:30" },
+  { mistoNeboTyp: "Večerní plavby", nazev: "Přístaviště Svět", cas: "20:00" },
   {
-    mistoNeboTyp: "Náměstí T. G. Masaryka",
-    nazev: "Pouliční hudebníci",
+    mistoNeboTyp: "Pouliční hudebníci",
+    nazev: "Masarykovo náměstí",
     cas: "14:00",
   },
 ];
