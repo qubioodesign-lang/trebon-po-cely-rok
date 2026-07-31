@@ -143,9 +143,11 @@ export function BranaObrazovka() {
         </ul>
 
         <footer className="brana-pata">
-          <Link href="/" className="brana-pata-odkaz">
-            Třeboň po celý rok
-          </Link>
+          <div className="brana-pata-stred">
+            <Link href="/" className="brana-pata-odkaz">
+              Třeboň po celý rok
+            </Link>
+          </div>
           <p className="brana-pata-aktualizace">Aktualizováno dnes v 6:00</p>
         </footer>
       </section>
