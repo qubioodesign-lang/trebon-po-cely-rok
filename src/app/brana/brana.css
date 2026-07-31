@@ -125,7 +125,7 @@
   }
 
   .brana-casova-kotva {
-    @apply px-6 pb-3 pt-2.5 text-left text-[0.9375rem] leading-snug;
+    @apply px-6 pb-3 pt-2.5 text-left text-[0.9375rem] font-semibold leading-snug;
     color: var(--brand-accent);
   }
 
