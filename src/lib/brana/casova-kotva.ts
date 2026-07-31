@@ -4,6 +4,7 @@ import {
   dnesVPraze,
   formatDenDatum,
   okamzikVPraze,
+  pridatDny,
   zitraVPraze,
 } from "./cas";
 import type { BranaKotvaScrollConfig } from "./kotva-scrollovani";
@@ -18,7 +19,7 @@ export function textCasoveKotvy(stranka: BranaVerejnaStranka): string {
     case "vikend":
       return formatDenDatum(aktualniVikendVPraze().sobota);
     case "7-dni":
-      return formatDenDatum(dnesVPraze());
+      return formatDenDatum(zitraVPraze());
     case "vyhled":
       return String(okamzikVPraze().rok);
   }
@@ -31,5 +32,24 @@ export function kotvaScrollovaniVikend(): BranaKotvaScrollConfig {
   return {
     vychoziLabel: formatDenDatum(vikend.sobota),
     poPredelu: [formatDenDatum(vikend.nedele)],
+  };
+}
+
+/** Sedm po sobě jdoucích kalendářních dnů od zítřka (bez dneška) v Europe/Prague. */
+export function obdobi7DniVPraze(): string[] {
+  const zitra = zitraVPraze();
+
+  return Array.from({ length: 7 }, (_, index) =>
+    formatDenDatum(pridatDny(zitra, index)),
+  );
+}
+
+/** Scroll kotva pro pohled 7 dní – sedm dnů od zítřka, šest předělů mezi bloky. */
+export function kotvaScrollovani7Dni(): BranaKotvaScrollConfig {
+  const dny = obdobi7DniVPraze();
+
+  return {
+    vychoziLabel: dny[0],
+    poPredelu: dny.slice(1),
   };
 }

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Fragment } from "react";
 import { dnesVPraze, formatDenDatum } from "@/lib/brana/cas";
-import { kotvaScrollovaniVikend, textCasoveKotvy } from "@/lib/brana/casova-kotva";
+import { kotvaScrollovani7Dni, kotvaScrollovaniVikend, textCasoveKotvy } from "@/lib/brana/casova-kotva";
 import { BRANA_REFERENCNI_AKCE } from "@/lib/brana/referencni-akce";
 import { BRANA_NAVIGACE } from "@/lib/brana/navigace-stranky";
 import type { BranaVerejnaStranka } from "@/lib/brana/navigace-stranky";
@@ -76,18 +76,46 @@ type BranaObrazovkaProps = {
   opakovaniSeznamu?: number;
 };
 
+function kotvaScrollProStranku(
+  stranka: BranaVerejnaStranka,
+): ReturnType<typeof kotvaScrollovaniVikend> | null {
+  switch (stranka) {
+    case "vikend":
+      return kotvaScrollovaniVikend();
+    case "7-dni":
+      return kotvaScrollovani7Dni();
+    default:
+      return null;
+  }
+}
+
+function zobrazitDenniPredel(stranka: BranaVerejnaStranka, blok: number): boolean {
+  if (blok === 0) {
+    return false;
+  }
+
+  if (stranka === "vikend") {
+    return blok === 1;
+  }
+
+  if (stranka === "7-dni") {
+    return blok >= 1 && blok <= 6;
+  }
+
+  return false;
+}
+
 export function BranaObrazovka({
   aktivniStranka = "dnes",
   opakovaniSeznamu = 1,
 }: BranaObrazovkaProps) {
-  const kotvaScroll =
-    aktivniStranka === "vikend" ? kotvaScrollovaniVikend() : null;
+  const kotvaScroll = kotvaScrollProStranku(aktivniStranka);
 
   const obsahSeznamu = (
     <>
       {Array.from({ length: opakovaniSeznamu }, (_, blok) => (
         <Fragment key={`blok-${blok}`}>
-          {aktivniStranka === "vikend" && blok === 1 ? (
+          {zobrazitDenniPredel(aktivniStranka, blok) ? (
             <BranaDenniPredel />
           ) : null}
           <ul className="brana-seznam-akci">
