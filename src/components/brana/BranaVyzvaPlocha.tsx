@@ -1,9 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { BRANA_PWA_DEN_BARVA } from "@/lib/brana/konstanty";
+import { useCallback, useEffect, useState, type MouseEvent } from "react";
+import {
+  BRANA_PWA_DEN_BARVA,
+  BRANA_PWA_NOC_BARVA,
+} from "@/lib/brana/konstanty";
 import {
   bylaVyzvaPlochyZobrazena,
+  hlavniAkceVyzvyPlochy,
   jeVyzvaPlochyZavrena,
   oznacVyzvuPlochyZobrazenou,
   zavritVyzvuPlochy,
@@ -14,23 +18,34 @@ type BranaVyzvaPlochaProps = {
   nocRezim: boolean;
 };
 
-function zmerTopPodObsahemData(): number | null {
+function zmerTopVyzvyPlochy(): number | null {
+  const linka = document.querySelector(".brana-orientacni-oddelovac");
   const kotva = document.querySelector(".brana-casova-kotva");
 
-  if (!kotva) {
+  if (!linka || !kotva) {
     return null;
   }
 
-  return kotva.getBoundingClientRect().bottom;
+  const linkaRect = linka.getBoundingClientRect();
+  const kotvaRect = kotva.getBoundingClientRect();
+  const kotvaStyles = getComputedStyle(kotva);
+  const paddingTop = Number.parseFloat(kotvaStyles.paddingTop);
+  const paddingBottom = Number.parseFloat(kotvaStyles.paddingBottom);
+
+  const datumTextTop = kotvaRect.top + paddingTop;
+  const datumTextBottom = kotvaRect.bottom - paddingBottom;
+  const mezeraLinkaDatum = datumTextTop - linkaRect.bottom;
+
+  return datumTextBottom + mezeraLinkaDatum;
 }
 
-export function BranaVyzvaPlocha({ nocRezim: _nocRezim }: BranaVyzvaPlochaProps) {
+export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   const [viditelna, setViditelna] = useState(false);
   const [pripravena, setPripravena] = useState(false);
   const [topPx, setTopPx] = useState<number | null>(null);
 
   const aktualizujPozici = useCallback(() => {
-    const top = zmerTopPodObsahemData();
+    const top = zmerTopVyzvyPlochy();
 
     if (top !== null) {
       setTopPx(top);
@@ -72,22 +87,27 @@ export function BranaVyzvaPlocha({ nocRezim: _nocRezim }: BranaVyzvaPlochaProps)
     };
   }, [aktualizujPozici, zobraz]);
 
-  const zavrit = () => {
+  const zavrit = (udalost: MouseEvent<HTMLButtonElement>) => {
+    udalost.stopPropagation();
     zavritVyzvuPlochy();
     setViditelna(false);
     setPripravena(false);
+  };
+
+  const hlavniKlik = () => {
+    hlavniAkceVyzvyPlochy();
   };
 
   if (!viditelna || topPx === null || jeVyzvaPlochyZavrena()) {
     return null;
   }
 
-  const podklad = BRANA_PWA_DEN_BARVA;
+  const podklad = nocRezim ? BRANA_PWA_NOC_BARVA : BRANA_PWA_DEN_BARVA;
 
   return (
     <div
       className="brana-vyzva-plocha-obal"
-      style={{ top: `calc(${topPx}px + 0.25rem)` }}
+      style={{ top: `${topPx}px` }}
       role="region"
       aria-label="Přidat BRÁNU na plochu"
     >
@@ -107,13 +127,20 @@ export function BranaVyzvaPlocha({ nocRezim: _nocRezim }: BranaVyzvaPlochaProps)
         >
           <span aria-hidden>×</span>
         </button>
-        <p className="brana-vyzva-plocha-text">
-          Přidat{" "}
-          <span className="brana-vyzva-plocha-znacka">BRÁNU</span> na plochu
-        </p>
-        <span className="brana-vyzva-plocha-sipka" aria-hidden>
-          →
-        </span>
+        <button
+          type="button"
+          className="brana-vyzva-plocha-hlavni"
+          aria-label="Přidat BRÁNU na plochu"
+          onClick={hlavniKlik}
+        >
+          <span className="brana-vyzva-plocha-text">
+            Přidat{" "}
+            <span className="brana-vyzva-plocha-znacka">BRÁNU</span> na plochu
+          </span>
+          <span className="brana-vyzva-plocha-sipka" aria-hidden>
+            →
+          </span>
+        </button>
       </div>
     </div>
   );
