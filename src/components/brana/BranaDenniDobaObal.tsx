@@ -14,6 +14,7 @@ import type { BranaVerejnaStranka } from "@/lib/brana/navigace-stranky";
 import { opakovaniSeznamuAkci } from "@/lib/brana/navigace-stranky";
 import { BranaObrazovka } from "./BranaObrazovka";
 import { BranaPozadi } from "./pozadi/BranaPozadi";
+import { BranaVyzvaPlocha } from "./BranaVyzvaPlocha";
 
 type BranaDenniDobaObalProps = {
   stranka: BranaVerejnaStranka;
@@ -78,6 +79,7 @@ export function BranaDenniDobaObal({
           aktivniStranka={stranka}
           opakovaniSeznamu={opakovaniSeznamuAkci(stranka)}
         />
+        <BranaVyzvaPlocha nocRezim={nocRezim} />
       </main>
     </>
   );

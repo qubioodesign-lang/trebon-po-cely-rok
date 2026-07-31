@@ -207,6 +207,54 @@
     font-size: calc(0.875rem * 0.68);
     padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
   }
+
+  .brana-vyzva-plocha-obal {
+    @apply pointer-events-none fixed z-20 mx-auto w-full max-w-md px-6;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .brana-vyzva-plocha {
+    @apply pointer-events-auto ml-[4.75rem] flex max-w-full items-center gap-1 rounded-md py-1.5 pl-0.5 pr-2 text-[0.9375rem] leading-snug text-white;
+    opacity: 0;
+    transition: opacity 0.45s ease;
+  }
+
+  .brana-vyzva-plocha--viditelna {
+    opacity: 1;
+  }
+
+  .brana-vyzva-plocha-zavrit {
+    @apply relative flex shrink-0 items-center justify-center border-0 bg-transparent p-0 text-white/75;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    margin: -0.625rem 0 -0.625rem -0.625rem;
+    font-size: 1.125rem;
+    line-height: 1;
+  }
+
+  .brana-vyzva-plocha-text {
+    @apply m-0 min-w-0 flex-1 whitespace-nowrap;
+  }
+
+  .brana-vyzva-plocha-znacka {
+    @apply relative inline-block font-semibold;
+    font-size: calc(0.9375rem * 1.09);
+  }
+
+  .brana-vyzva-plocha-znacka::after {
+    content: "";
+    display: block;
+    width: 100%;
+    height: 1px;
+    margin-top: 0.0625rem;
+    background-color: #fff;
+  }
+
+  .brana-vyzva-plocha-sipka {
+    @apply shrink-0 pl-0.5 text-white/75;
+    font-size: calc(0.9375rem * 0.875);
+  }
 }
 
 /* PWA full-screen – veřejná /brana, pozadí pod safe area */
