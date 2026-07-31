@@ -1,11 +1,16 @@
 import Link from "next/link";
 import { Fragment } from "react";
 import { dnesVPraze, formatDenDatum } from "@/lib/brana/cas";
-import { textCasoveKotvy } from "@/lib/brana/casova-kotva";
+import { kotvaScrollovaniVikend, textCasoveKotvy } from "@/lib/brana/casova-kotva";
 import { BRANA_REFERENCNI_AKCE } from "@/lib/brana/referencni-akce";
 import { BRANA_NAVIGACE } from "@/lib/brana/navigace-stranky";
 import type { BranaVerejnaStranka } from "@/lib/brana/navigace-stranky";
 import { BranaDenniPredel } from "./BranaDenniPredel";
+import {
+  BranaCasovaKotvaScrollovana,
+  BranaKotvaScrollProvider,
+  BranaProstorObsahScrollovany,
+} from "./BranaKotvaScrollProvider";
 import { BranaIkonaObalka, BranaIkonaSdileni } from "./BranaIkony";
 
 const JEDNOSLOVNE_TYPY_AKCE = new Set([
@@ -75,8 +80,62 @@ export function BranaObrazovka({
   aktivniStranka = "dnes",
   opakovaniSeznamu = 1,
 }: BranaObrazovkaProps) {
+  const kotvaScroll =
+    aktivniStranka === "vikend" ? kotvaScrollovaniVikend() : null;
+
+  const obsahSeznamu = (
+    <>
+      {Array.from({ length: opakovaniSeznamu }, (_, blok) => (
+        <Fragment key={`blok-${blok}`}>
+          {aktivniStranka === "vikend" && blok === 1 ? (
+            <BranaDenniPredel />
+          ) : null}
+          <ul className="brana-seznam-akci">
+            {BRANA_REFERENCNI_AKCE.map((akce) => {
+              const { typ, misto, nazev, cas } = rozlozAkci(akce);
+
+              return (
+                <li
+                  key={`${blok}-${akce.mistoNeboTyp}-${akce.nazev}-${akce.cas}`}
+                >
+                  <div className="brana-akce-obsah">
+                    <div className="brana-akce-radek">
+                      <span className="brana-akce-typ">{typ}</span>
+                      {misto ? (
+                        <span className="brana-akce-misto">
+                          {" "}
+                          {zalomPredlozky(misto)}
+                        </span>
+                      ) : null}
+                    </div>
+                    {nazev ? (
+                      <span className="brana-akce-nazev">
+                        {zalomPredlozky(nazev)}
+                      </span>
+                    ) : null}
+                  </div>
+                  <span className="brana-akce-cas">{cas}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </Fragment>
+      ))}
+
+      <footer className="brana-pata">
+        <div className="brana-pata-stred">
+          <Link href="/" className="brana-pata-odkaz">
+            Třeboň po celý rok
+          </Link>
+        </div>
+        <p className="brana-pata-aktualizace">Aktualizováno dnes v 6:00</p>
+      </footer>
+    </>
+  );
+
   return (
-    <div className="brana-obrazovka">
+    <BranaKotvaScrollProvider config={kotvaScroll}>
+      <div className="brana-obrazovka">
       <div className="brana-horni-celek">
         <header className="brana-horni-lista">
           <div className="brana-ikona-misto">
@@ -119,58 +178,25 @@ export function BranaObrazovka({
 
         <hr className="brana-orientacni-oddelovac" aria-hidden />
 
-        <p className="brana-casova-kotva" aria-label="Časová kotva">
-          {textCasoveKotvy(aktivniStranka)}
-        </p>
+        {kotvaScroll ? (
+          <BranaCasovaKotvaScrollovana
+            vychoziLabel={kotvaScroll.vychoziLabel}
+          />
+        ) : (
+          <p className="brana-casova-kotva" aria-label="Časová kotva">
+            {textCasoveKotvy(aktivniStranka)}
+          </p>
+        )}
       </div>
 
-      <section className="brana-prostor-obsah" aria-label="Akce">
-        {Array.from({ length: opakovaniSeznamu }, (_, blok) => (
-          <Fragment key={`blok-${blok}`}>
-            {aktivniStranka === "vikend" && blok === 1 ? (
-              <BranaDenniPredel />
-            ) : null}
-            <ul className="brana-seznam-akci">
-              {BRANA_REFERENCNI_AKCE.map((akce) => {
-                const { typ, misto, nazev, cas } = rozlozAkci(akce);
-
-                return (
-                  <li
-                    key={`${blok}-${akce.mistoNeboTyp}-${akce.nazev}-${akce.cas}`}
-                  >
-                    <div className="brana-akce-obsah">
-                      <div className="brana-akce-radek">
-                        <span className="brana-akce-typ">{typ}</span>
-                        {misto ? (
-                          <span className="brana-akce-misto">
-                            {" "}
-                            {zalomPredlozky(misto)}
-                          </span>
-                        ) : null}
-                      </div>
-                      {nazev ? (
-                        <span className="brana-akce-nazev">
-                          {zalomPredlozky(nazev)}
-                        </span>
-                      ) : null}
-                    </div>
-                    <span className="brana-akce-cas">{cas}</span>
-                  </li>
-                );
-              })}
-            </ul>
-          </Fragment>
-        ))}
-
-        <footer className="brana-pata">
-          <div className="brana-pata-stred">
-            <Link href="/" className="brana-pata-odkaz">
-              Třeboň po celý rok
-            </Link>
-          </div>
-          <p className="brana-pata-aktualizace">Aktualizováno dnes v 6:00</p>
-        </footer>
-      </section>
-    </div>
+      {kotvaScroll ? (
+        <BranaProstorObsahScrollovany>{obsahSeznamu}</BranaProstorObsahScrollovany>
+      ) : (
+        <section className="brana-prostor-obsah" aria-label="Akce">
+          {obsahSeznamu}
+        </section>
+      )}
+      </div>
+    </BranaKotvaScrollProvider>
   );
 }
