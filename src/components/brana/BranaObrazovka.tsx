@@ -1,8 +1,12 @@
 import Link from "next/link";
 import { Fragment } from "react";
 import { dnesVPraze, formatDenDatum } from "@/lib/brana/cas";
-import { kotvaScrollovani7Dni, kotvaScrollovaniVikend, textCasoveKotvy } from "@/lib/brana/casova-kotva";
+import { kotvaScrollovani7Dni, kotvaScrollovaniVikend, kotvaScrollovaniVyhled, textCasoveKotvy } from "@/lib/brana/casova-kotva";
 import { BRANA_REFERENCNI_AKCE } from "@/lib/brana/referencni-akce";
+import {
+  BRANA_VYHLED_DATUMY,
+  BRANA_VYHLED_PREDEL_INDEX,
+} from "@/lib/brana/referencni-vyhled-datumy";
 import { BRANA_NAVIGACE } from "@/lib/brana/navigace-stranky";
 import type { BranaVerejnaStranka } from "@/lib/brana/navigace-stranky";
 import { BranaDenniPredel } from "./BranaDenniPredel";
@@ -84,6 +88,8 @@ function kotvaScrollProStranku(
       return kotvaScrollovaniVikend();
     case "7-dni":
       return kotvaScrollovani7Dni();
+    case "vyhled":
+      return kotvaScrollovaniVyhled();
     default:
       return null;
   }
@@ -102,7 +108,36 @@ function zobrazitDenniPredel(stranka: BranaVerejnaStranka, blok: number): boolea
     return blok >= 1 && blok <= 6;
   }
 
+  if (stranka === "vyhled") {
+    return blok === 1;
+  }
+
   return false;
+}
+
+function akceProBlok(
+  stranka: BranaVerejnaStranka,
+  blok: number,
+): (typeof BRANA_REFERENCNI_AKCE)[number][] {
+  if (stranka !== "vyhled") {
+    return BRANA_REFERENCNI_AKCE;
+  }
+
+  return blok === 0
+    ? BRANA_REFERENCNI_AKCE.slice(0, BRANA_VYHLED_PREDEL_INDEX)
+    : BRANA_REFERENCNI_AKCE.slice(BRANA_VYHLED_PREDEL_INDEX);
+}
+
+function udajVpravo(
+  stranka: BranaVerejnaStranka,
+  index: number,
+  cas: string,
+): string {
+  if (stranka === "vyhled") {
+    return BRANA_VYHLED_DATUMY[index] ?? cas;
+  }
+
+  return cas;
 }
 
 export function BranaObrazovka({
@@ -110,17 +145,23 @@ export function BranaObrazovka({
   opakovaniSeznamu = 1,
 }: BranaObrazovkaProps) {
   const kotvaScroll = kotvaScrollProStranku(aktivniStranka);
+  const pocetBloku =
+    aktivniStranka === "vyhled" ? 2 : opakovaniSeznamu;
 
   const obsahSeznamu = (
     <>
-      {Array.from({ length: opakovaniSeznamu }, (_, blok) => (
+      {Array.from({ length: pocetBloku }, (_, blok) => (
         <Fragment key={`blok-${blok}`}>
           {zobrazitDenniPredel(aktivniStranka, blok) ? (
             <BranaDenniPredel />
           ) : null}
           <ul className="brana-seznam-akci">
-            {BRANA_REFERENCNI_AKCE.map((akce) => {
+            {akceProBlok(aktivniStranka, blok).map((akce, indexVBloku) => {
               const { typ, misto, nazev, cas } = rozlozAkci(akce);
+              const globalniIndex =
+                aktivniStranka === "vyhled"
+                  ? blok * BRANA_VYHLED_PREDEL_INDEX + indexVBloku
+                  : indexVBloku;
 
               return (
                 <li
@@ -142,7 +183,9 @@ export function BranaObrazovka({
                       </span>
                     ) : null}
                   </div>
-                  <span className="brana-akce-cas">{cas}</span>
+                  <span className="brana-akce-cas">
+                    {udajVpravo(aktivniStranka, globalniIndex, cas)}
+                  </span>
                 </li>
               );
             })}

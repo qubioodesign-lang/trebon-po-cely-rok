@@ -53,3 +53,13 @@ export function kotvaScrollovani7Dni(): BranaKotvaScrollConfig {
     poPredelu: dny.slice(1),
   };
 }
+
+/** Scroll kotva pro pohled Výhled – aktuální rok a následující rok po předělu. */
+export function kotvaScrollovaniVyhled(): BranaKotvaScrollConfig {
+  const rok = okamzikVPraze().rok;
+
+  return {
+    vychoziLabel: String(rok),
+    poPredelu: [String(rok + 1)],
+  };
+}
