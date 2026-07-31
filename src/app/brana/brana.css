@@ -125,7 +125,7 @@
   }
 
   .brana-prostor-obsah {
-    @apply min-h-0 flex-1 overflow-y-auto px-6 pt-4;
+    @apply flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pt-4;
   }
 
   .brana-seznam-akci {
@@ -162,25 +162,27 @@
   }
 
   .brana-pata {
-    @apply flex flex-col items-center px-6 pt-10 text-center;
-    padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+    @apply flex flex-1 flex-col items-center pt-10 text-center;
   }
 
   .brana-pata-odkaz {
-    @apply inline-block text-lg font-medium leading-snug tracking-tight text-white no-underline;
+    @apply inline-block shrink-0 text-[calc(1.125rem*0.72)] font-medium leading-snug tracking-tight text-white no-underline;
   }
 
   .brana-pata-odkaz::after {
     content: "";
     display: block;
-    width: 100%;
+    width: calc(100% - 0.1em);
     height: 1px;
     margin-top: 0.125rem;
+    margin-left: 0.1em;
     background-color: var(--brand-accent);
   }
 
   .brana-pata-aktualizace {
-    @apply mt-3 text-sm leading-snug text-white/70;
+    @apply mt-auto shrink-0 text-center leading-snug text-white/70;
+    font-size: calc(0.875rem * 0.68);
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
   }
 }
 
