@@ -15,6 +15,5 @@ export {
 } from "./navigace-stranky";
 export {
   parseBranaPozadiVarianta,
-  parseBranaNocRezim,
   type BranaPozadiVarianta,
 } from "./pozadi-varianty";

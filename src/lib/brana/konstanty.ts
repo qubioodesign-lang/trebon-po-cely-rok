@@ -10,7 +10,7 @@ export const BRANA_ZAKLADNI_CESTA = "/brana";
  */
 export const BRANA_POZADI_DEN_MASTER = "/brana/pozadi-den-master-final.png";
 
-/** Noční master pozadí – test: /brana?noc */
+/** Noční master pozadí */
 export const BRANA_POZADI_NOC_MASTER = "/brana/pozadi-noc-master.png";
 
 /** PWA systémové barvy – status bar, pozadí mimo safe area */

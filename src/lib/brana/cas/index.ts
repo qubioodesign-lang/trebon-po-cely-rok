@@ -10,3 +10,9 @@ export {
 } from "./cas";
 export { aktualniVikendVPraze, type BranaVikend } from "./vikend";
 export { formatDenDatum, formatDatumKratce } from "./format";
+export {
+  dalsiZmenaDenniDobyVPraze,
+  jeNocniRezimVPraze,
+  prepnutiDenniDobyVPraze,
+  type BranaPrepnutiDenniDoby,
+} from "./denni-doba";

@@ -126,6 +126,21 @@
 }
 
 /* Master fotografie hladiny – výchozí /brana */
+.brana-pozadi-vrstva {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 1.5s ease;
+}
+
+.brana-pozadi:not([data-brana-pozadi-pripraveno="true"]) .brana-pozadi-vrstva {
+  transition: none;
+}
+
+.brana-pozadi-vrstva--viditelna {
+  opacity: 1;
+}
+
 .brana-pozadi-obraz {
   position: absolute;
   inset: 0;
