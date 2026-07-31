@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { dnesVPraze, formatDenDatum } from "@/lib/brana/cas";
+import { Fragment } from "react";
+import { aktualniVikendVPraze, dnesVPraze, formatDenDatum } from "@/lib/brana/cas";
 import { textCasoveKotvy } from "@/lib/brana/casova-kotva";
 import { BRANA_REFERENCNI_AKCE } from "@/lib/brana/referencni-akce";
 import { BRANA_NAVIGACE } from "@/lib/brana/navigace-stranky";
 import type { BranaVerejnaStranka } from "@/lib/brana/navigace-stranky";
+import { BranaDenniPredel } from "./BranaDenniPredel";
 import { BranaIkonaObalka, BranaIkonaSdileni } from "./BranaIkony";
 
 const JEDNOSLOVNE_TYPY_AKCE = new Set([
@@ -73,9 +75,10 @@ export function BranaObrazovka({
   aktivniStranka = "dnes",
   opakovaniSeznamu = 1,
 }: BranaObrazovkaProps) {
-  const akceKZobrazeni = Array.from({ length: opakovaniSeznamu }, (_, blok) =>
-    BRANA_REFERENCNI_AKCE.map((akce) => ({ akce, blok })),
-  ).flat();
+  const nedeleVikendu =
+    aktivniStranka === "vikend"
+      ? formatDenDatum(aktualniVikendVPraze().nedele)
+      : null;
 
   return (
     <div className="brana-obrazovka">
@@ -127,35 +130,42 @@ export function BranaObrazovka({
       </div>
 
       <section className="brana-prostor-obsah" aria-label="Akce">
-        <ul className="brana-seznam-akci">
-          {akceKZobrazeni.map(({ akce, blok }) => {
-            const { typ, misto, nazev, cas } = rozlozAkci(akce);
+        {Array.from({ length: opakovaniSeznamu }, (_, blok) => (
+          <Fragment key={`blok-${blok}`}>
+            {aktivniStranka === "vikend" && blok === 1 && nedeleVikendu ? (
+              <BranaDenniPredel label={nedeleVikendu} />
+            ) : null}
+            <ul className="brana-seznam-akci">
+              {BRANA_REFERENCNI_AKCE.map((akce) => {
+                const { typ, misto, nazev, cas } = rozlozAkci(akce);
 
-            return (
-              <li
-                key={`${blok}-${akce.mistoNeboTyp}-${akce.nazev}-${akce.cas}`}
-              >
-                <div className="brana-akce-obsah">
-                  <div className="brana-akce-radek">
-                    <span className="brana-akce-typ">{typ}</span>
-                    {misto ? (
-                      <span className="brana-akce-misto">
-                        {" "}
-                        {zalomPredlozky(misto)}
-                      </span>
-                    ) : null}
-                  </div>
-                  {nazev ? (
-                    <span className="brana-akce-nazev">
-                      {zalomPredlozky(nazev)}
-                    </span>
-                  ) : null}
-                </div>
-                <span className="brana-akce-cas">{cas}</span>
-              </li>
-            );
-          })}
-        </ul>
+                return (
+                  <li
+                    key={`${blok}-${akce.mistoNeboTyp}-${akce.nazev}-${akce.cas}`}
+                  >
+                    <div className="brana-akce-obsah">
+                      <div className="brana-akce-radek">
+                        <span className="brana-akce-typ">{typ}</span>
+                        {misto ? (
+                          <span className="brana-akce-misto">
+                            {" "}
+                            {zalomPredlozky(misto)}
+                          </span>
+                        ) : null}
+                      </div>
+                      {nazev ? (
+                        <span className="brana-akce-nazev">
+                          {zalomPredlozky(nazev)}
+                        </span>
+                      ) : null}
+                    </div>
+                    <span className="brana-akce-cas">{cas}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </Fragment>
+        ))}
 
         <footer className="brana-pata">
           <div className="brana-pata-stred">
