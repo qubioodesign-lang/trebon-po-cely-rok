@@ -4,7 +4,7 @@ import {
   dnesVPraze,
   formatDenDatum,
   okamzikVPraze,
-  pridatDny,
+  zitraVPraze,
 } from "./cas";
 
 /** Text časové kotvy podle aktivní veřejné stránky BRÁNY. */
@@ -13,7 +13,7 @@ export function textCasoveKotvy(stranka: BranaVerejnaStranka): string {
     case "dnes":
       return formatDenDatum(dnesVPraze());
     case "zitra":
-      return formatDenDatum(pridatDny(dnesVPraze(), 1));
+      return formatDenDatum(zitraVPraze());
     case "vikend":
       return formatDenDatum(aktualniVikendVPraze().sobota);
     case "7-dni":

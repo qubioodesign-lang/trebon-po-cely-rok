@@ -116,3 +116,8 @@ export function dnesVPraze(okamzik: Date = new Date()): BranaDatum {
   const { rok, mesic, den } = okamzikVPraze(okamzik);
   return { rok, mesic, den };
 }
+
+/** Kalendářní datum zítřejšího dne v Europe/Prague. */
+export function zitraVPraze(okamzik: Date = new Date()): BranaDatum {
+  return pridatDny(dnesVPraze(okamzik), 1);
+}

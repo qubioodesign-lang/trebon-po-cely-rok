@@ -6,7 +6,9 @@
 import {
   aktualniVikendVPraze,
   formatDatumKratce,
+  formatDenDatum,
   okamzikZPrahy,
+  zitraVPraze,
   type BranaDatum,
 } from "../src/lib/brana/cas";
 
@@ -138,3 +140,58 @@ if (chyby > 0) {
 }
 
 console.log(`\nVšechny ${pripady.length} hraniční situace prošly.`);
+
+type OcekavanyZitra = {
+  popis: string;
+  okamzik: Date;
+  zitra: BranaDatum;
+};
+
+const pripadyZitra: OcekavanyZitra[] = [
+  {
+    popis: "Zítra – běžný den",
+    okamzik: praha(2026, 7, 31, 12, 0),
+    zitra: datum(2026, 8, 1),
+  },
+  {
+    popis: "Zítra – přechod mezi měsíci",
+    okamzik: praha(2026, 7, 31, 23, 59),
+    zitra: datum(2026, 8, 1),
+  },
+  {
+    popis: "Zítra – přechod mezi roky",
+    okamzik: praha(2025, 12, 31, 18, 0),
+    zitra: datum(2026, 1, 1),
+  },
+  {
+    popis: "Zítra – přechod na letní čas",
+    okamzik: praha(2026, 3, 28, 12, 0),
+    zitra: datum(2026, 3, 29),
+  },
+  {
+    popis: "Zítra – přechod na zimní čas",
+    okamzik: praha(2026, 10, 24, 12, 0),
+    zitra: datum(2026, 10, 25),
+  },
+];
+
+for (const pripad of pripadyZitra) {
+  const vysledek = zitraVPraze(pripad.okamzik);
+
+  if (stejneDatum(vysledek, pripad.zitra)) {
+    console.log(`OK  ${pripad.popis} → ${formatDenDatum(vysledek)}`);
+    continue;
+  }
+
+  chyby++;
+  console.error(`CHYBA ${pripad.popis}`);
+  console.error(`  očekáváno ${formatDatumKratce(pripad.zitra)}`);
+  console.error(`  vráceno  ${formatDatumKratce(vysledek)}`);
+}
+
+if (chyby > 0) {
+  console.error(`\n${chyby} chyb`);
+  process.exit(1);
+}
+
+console.log(`\nVšechny ${pripadyZitra.length} hraniční situace pro Zítra prošly.`);
