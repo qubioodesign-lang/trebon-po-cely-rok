@@ -14,14 +14,14 @@ type BranaVyzvaPlochaProps = {
   nocRezim: boolean;
 };
 
-function zmerTopPodDatem(): number | null {
-  const datum = document.querySelector(".brana-datum");
+function zmerTopPodObsahemData(): number | null {
+  const kotva = document.querySelector(".brana-casova-kotva");
 
-  if (!datum) {
+  if (!kotva) {
     return null;
   }
 
-  return datum.getBoundingClientRect().bottom;
+  return kotva.getBoundingClientRect().bottom;
 }
 
 export function BranaVyzvaPlocha({ nocRezim: _nocRezim }: BranaVyzvaPlochaProps) {
@@ -30,7 +30,7 @@ export function BranaVyzvaPlocha({ nocRezim: _nocRezim }: BranaVyzvaPlochaProps)
   const [topPx, setTopPx] = useState<number | null>(null);
 
   const aktualizujPozici = useCallback(() => {
-    const top = zmerTopPodDatem();
+    const top = zmerTopPodObsahemData();
 
     if (top !== null) {
       setTopPx(top);
