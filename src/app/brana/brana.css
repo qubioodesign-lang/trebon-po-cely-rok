@@ -215,7 +215,10 @@
   }
 
   .brana-vyzva-plocha {
-    @apply pointer-events-auto ml-[4.75rem] flex max-w-full items-center gap-1 rounded-md py-1.5 pl-0.5 pr-2 text-[0.9375rem] leading-snug text-white;
+    @apply pointer-events-auto ml-[2.75rem] flex max-w-full items-center gap-0.5 rounded-md border py-1 pl-0 pr-1.5 text-[0.8125rem] leading-snug;
+    border-width: 1px;
+    border-color: var(--brand-accent);
+    color: var(--brand-accent);
     opacity: 0;
     transition: opacity 0.45s ease;
   }
@@ -225,21 +228,24 @@
   }
 
   .brana-vyzva-plocha-zavrit {
-    @apply relative flex shrink-0 items-center justify-center border-0 bg-transparent p-0 text-white/75;
-    min-width: 2.75rem;
-    min-height: 2.75rem;
-    margin: -0.625rem 0 -0.625rem -0.625rem;
-    font-size: 1.125rem;
+    @apply relative flex shrink-0 items-center justify-center border-0 bg-transparent p-0;
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+    margin: -0.5rem 0 -0.5rem -0.5rem;
+    font-size: 1rem;
     line-height: 1;
+    color: var(--brand-accent);
   }
 
   .brana-vyzva-plocha-text {
     @apply m-0 min-w-0 flex-1 whitespace-nowrap;
+    color: var(--brand-accent);
   }
 
   .brana-vyzva-plocha-znacka {
-    @apply relative inline-block font-semibold;
-    font-size: calc(0.9375rem * 1.09);
+    @apply relative inline-block font-semibold tracking-tight;
+    font-size: calc(0.8125rem * 1.09);
+    color: var(--brand-accent);
   }
 
   .brana-vyzva-plocha-znacka::after {
@@ -252,8 +258,9 @@
   }
 
   .brana-vyzva-plocha-sipka {
-    @apply shrink-0 pl-0.5 text-white/75;
-    font-size: calc(0.9375rem * 0.875);
+    @apply shrink-0 pl-0.5;
+    font-size: calc(0.8125rem * 0.875);
+    color: var(--brand-accent);
   }
 }
 

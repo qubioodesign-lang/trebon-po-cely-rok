@@ -1,10 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import {
-  BRANA_PWA_DEN_BARVA,
-  BRANA_PWA_NOC_BARVA,
-} from "@/lib/brana/konstanty";
+import { BRANA_PWA_DEN_BARVA } from "@/lib/brana/konstanty";
 import {
   bylaVyzvaPlochyZobrazena,
   jeVyzvaPlochyZavrena,
@@ -17,23 +14,23 @@ type BranaVyzvaPlochaProps = {
   nocRezim: boolean;
 };
 
-function zmerTopPodLinkou(): number | null {
-  const linka = document.querySelector(".brana-orientacni-oddelovac");
+function zmerTopPodDatem(): number | null {
+  const datum = document.querySelector(".brana-datum");
 
-  if (!linka) {
+  if (!datum) {
     return null;
   }
 
-  return linka.getBoundingClientRect().bottom;
+  return datum.getBoundingClientRect().bottom;
 }
 
-export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
+export function BranaVyzvaPlocha({ nocRezim: _nocRezim }: BranaVyzvaPlochaProps) {
   const [viditelna, setViditelna] = useState(false);
   const [pripravena, setPripravena] = useState(false);
   const [topPx, setTopPx] = useState<number | null>(null);
 
   const aktualizujPozici = useCallback(() => {
-    const top = zmerTopPodLinkou();
+    const top = zmerTopPodDatem();
 
     if (top !== null) {
       setTopPx(top);
@@ -85,12 +82,12 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     return null;
   }
 
-  const podklad = nocRezim ? BRANA_PWA_DEN_BARVA : BRANA_PWA_NOC_BARVA;
+  const podklad = BRANA_PWA_DEN_BARVA;
 
   return (
     <div
       className="brana-vyzva-plocha-obal"
-      style={{ top: `calc(${topPx}px + 3mm)` }}
+      style={{ top: `calc(${topPx}px + 0.25rem)` }}
       role="region"
       aria-label="Přidat BRÁNU na plochu"
     >
