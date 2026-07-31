@@ -101,11 +101,7 @@ export function BranaObrazovka({
           </div>
         </section>
 
-        <p className="brana-datum">
-          {aktivniStranka === "dnes"
-            ? formatDenDatum(dnesVPraze())
-            : "Středa 29. 7."}
-        </p>
+        <p className="brana-datum">{formatDenDatum(dnesVPraze())}</p>
 
         <nav className="brana-navigace" aria-label="Období">
           {BRANA_NAVIGACE.map((polozka) => (
