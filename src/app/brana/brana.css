@@ -111,7 +111,7 @@
   }
 
   .brana-nav-polozka {
-    @apply shrink-0 px-1 py-2 text-[0.875rem] uppercase leading-snug text-white;
+    @apply shrink-0 px-1 py-2 text-[0.875rem] uppercase leading-snug text-white no-underline;
   }
 
   .brana-nav-polozka-vybrana {

@@ -1,14 +1,8 @@
 import Link from "next/link";
 import { BRANA_REFERENCNI_AKCE } from "@/lib/brana/referencni-akce";
+import { BRANA_NAVIGACE } from "@/lib/brana/navigace-stranky";
+import type { BranaVerejnaStranka } from "@/lib/brana/navigace-stranky";
 import { BranaIkonaObalka, BranaIkonaSdileni } from "./BranaIkony";
-
-const POLOZKY_NAVIGACE = [
-  "Dnes",
-  "Zítra",
-  "Víkend",
-  "7 dní",
-  "Výhled",
-] as const;
 
 const JEDNOSLOVNE_TYPY_AKCE = new Set([
   "Kino",
@@ -68,7 +62,19 @@ function zalomPredlozky(text: string): string {
  * Kostra první veřejné obrazovky Brány – pouze rozložení, bez dat a funkcí.
  * Určeno pro mobil (max-w-md).
  */
-export function BranaObrazovka() {
+type BranaObrazovkaProps = {
+  aktivniStranka?: BranaVerejnaStranka;
+  opakovaniSeznamu?: number;
+};
+
+export function BranaObrazovka({
+  aktivniStranka = "dnes",
+  opakovaniSeznamu = 1,
+}: BranaObrazovkaProps) {
+  const akceKZobrazeni = Array.from({ length: opakovaniSeznamu }, (_, blok) =>
+    BRANA_REFERENCNI_AKCE.map((akce) => ({ akce, blok })),
+  ).flat();
+
   return (
     <div className="brana-obrazovka">
       <div className="brana-horni-celek">
@@ -96,17 +102,18 @@ export function BranaObrazovka() {
         <p className="brana-datum">Středa 29. 7.</p>
 
         <nav className="brana-navigace" aria-label="Období">
-          {POLOZKY_NAVIGACE.map((polozka) => (
-            <span
-              key={polozka}
+          {BRANA_NAVIGACE.map((polozka) => (
+            <Link
+              key={polozka.id}
+              href={polozka.href}
               className={
-                polozka === "Dnes"
+                polozka.id === aktivniStranka
                   ? "brana-nav-polozka brana-nav-polozka-vybrana"
                   : "brana-nav-polozka"
               }
             >
-              {polozka}
-            </span>
+              {polozka.label}
+            </Link>
           ))}
         </nav>
 
@@ -115,11 +122,13 @@ export function BranaObrazovka() {
 
       <section className="brana-prostor-obsah" aria-label="Akce">
         <ul className="brana-seznam-akci">
-          {BRANA_REFERENCNI_AKCE.map((akce) => {
+          {akceKZobrazeni.map(({ akce, blok }) => {
             const { typ, misto, nazev, cas } = rozlozAkci(akce);
 
             return (
-              <li key={`${akce.mistoNeboTyp}-${akce.nazev}-${akce.cas}`}>
+              <li
+                key={`${blok}-${akce.mistoNeboTyp}-${akce.nazev}-${akce.cas}`}
+              >
                 <div className="brana-akce-obsah">
                   <div className="brana-akce-radek">
                     <span className="brana-akce-typ">{typ}</span>
