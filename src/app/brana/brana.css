@@ -147,7 +147,11 @@
   }
 
   .brana-denni-predel {
-    @apply pb-1 pt-4;
+    --brana-denni-predel-odsazeni: calc(
+      1rem + 0.9375rem * 0.875 * 1.375
+    );
+    padding-top: var(--brana-denni-predel-odsazeni);
+    padding-bottom: var(--brana-denni-predel-odsazeni);
   }
 
   .brana-denni-predel-linka {
