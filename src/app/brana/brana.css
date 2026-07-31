@@ -107,7 +107,7 @@
   }
 
   .brana-navigace {
-    @apply flex w-full flex-nowrap justify-between px-[1.375rem] pb-2 pt-1.5;
+    @apply flex w-full flex-nowrap justify-between px-[1.375rem] pb-0 pt-1.5;
   }
 
   .brana-nav-polozka {
@@ -120,12 +120,17 @@
   }
 
   .brana-orientacni-oddelovac {
-    @apply mx-6 border-0 border-b;
+    @apply mx-6 mt-0.5 border-0 border-b;
     border-bottom-color: color-mix(in srgb, var(--brand-accent) 40%, transparent);
   }
 
+  .brana-casova-kotva {
+    @apply px-6 pb-3 pt-2.5 text-left text-[0.9375rem] leading-snug;
+    color: var(--brand-accent);
+  }
+
   .brana-prostor-obsah {
-    @apply flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pt-4;
+    @apply flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pt-2;
   }
 
   .brana-seznam-akci {

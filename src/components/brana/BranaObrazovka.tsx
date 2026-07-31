@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { textCasoveKotvy } from "@/lib/brana/casova-kotva";
 import { BRANA_REFERENCNI_AKCE } from "@/lib/brana/referencni-akce";
 import { BRANA_NAVIGACE } from "@/lib/brana/navigace-stranky";
 import type { BranaVerejnaStranka } from "@/lib/brana/navigace-stranky";
@@ -118,6 +119,10 @@ export function BranaObrazovka({
         </nav>
 
         <hr className="brana-orientacni-oddelovac" aria-hidden />
+
+        <p className="brana-casova-kotva" aria-label="Časová kotva">
+          {textCasoveKotvy(aktivniStranka)}
+        </p>
       </div>
 
       <section className="brana-prostor-obsah" aria-label="Akce">
