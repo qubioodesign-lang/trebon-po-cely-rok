@@ -10,7 +10,8 @@
     "db:init": "node scripts/inicializace-databaze.mjs",
     "seed": "node scripts/seed-vzor.mjs",
     "seed:prolnuti": "node scripts/seed-prolnuti.mjs",
-    "test:analytics": "node scripts/verify-analytics-normalizace.mjs"
+    "test:analytics": "node scripts/verify-analytics-normalizace.mjs",
+    "test:brana-cas": "npx tsx scripts/verify-brana-cas.ts"
   },
   "dependencies": {
     "@vercel/blob": "^2.4.0",
