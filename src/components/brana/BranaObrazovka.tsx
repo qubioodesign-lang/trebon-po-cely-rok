@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Fragment } from "react";
-import { aktualniVikendVPraze, dnesVPraze, formatDenDatum } from "@/lib/brana/cas";
+import { dnesVPraze, formatDenDatum } from "@/lib/brana/cas";
 import { textCasoveKotvy } from "@/lib/brana/casova-kotva";
 import { BRANA_REFERENCNI_AKCE } from "@/lib/brana/referencni-akce";
 import { BRANA_NAVIGACE } from "@/lib/brana/navigace-stranky";
@@ -75,11 +75,6 @@ export function BranaObrazovka({
   aktivniStranka = "dnes",
   opakovaniSeznamu = 1,
 }: BranaObrazovkaProps) {
-  const nedeleVikendu =
-    aktivniStranka === "vikend"
-      ? formatDenDatum(aktualniVikendVPraze().nedele)
-      : null;
-
   return (
     <div className="brana-obrazovka">
       <div className="brana-horni-celek">
@@ -132,8 +127,8 @@ export function BranaObrazovka({
       <section className="brana-prostor-obsah" aria-label="Akce">
         {Array.from({ length: opakovaniSeznamu }, (_, blok) => (
           <Fragment key={`blok-${blok}`}>
-            {aktivniStranka === "vikend" && blok === 1 && nedeleVikendu ? (
-              <BranaDenniPredel label={nedeleVikendu} />
+            {aktivniStranka === "vikend" && blok === 1 ? (
+              <BranaDenniPredel />
             ) : null}
             <ul className="brana-seznam-akci">
               {BRANA_REFERENCNI_AKCE.map((akce) => {

@@ -151,13 +151,8 @@
   }
 
   .brana-denni-predel-linka {
-    @apply mb-2.5 w-1/3 border-0 border-b;
+    @apply w-1/3 border-0 border-b;
     border-bottom-color: color-mix(in srgb, var(--brand-accent) 40%, transparent);
-  }
-
-  .brana-denni-predel-datum {
-    @apply text-left text-[0.9375rem] leading-snug;
-    color: var(--brand-accent);
   }
 
   .brana-akce-obsah {
