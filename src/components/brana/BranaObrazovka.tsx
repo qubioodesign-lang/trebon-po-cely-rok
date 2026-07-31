@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { dnesVPraze, formatDenDatum } from "@/lib/brana/cas";
 import { textCasoveKotvy } from "@/lib/brana/casova-kotva";
 import { BRANA_REFERENCNI_AKCE } from "@/lib/brana/referencni-akce";
 import { BRANA_NAVIGACE } from "@/lib/brana/navigace-stranky";
@@ -100,7 +101,11 @@ export function BranaObrazovka({
           </div>
         </section>
 
-        <p className="brana-datum">Středa 29. 7.</p>
+        <p className="brana-datum">
+          {aktivniStranka === "dnes"
+            ? formatDenDatum(dnesVPraze())
+            : "Středa 29. 7."}
+        </p>
 
         <nav className="brana-navigace" aria-label="Období">
           {BRANA_NAVIGACE.map((polozka) => (
