@@ -4,14 +4,19 @@ export const BRANA_IKONA_TEXT_VELIKOST = 140;
 /** Mezera mezi nápisem a linkou – +50 % oproti 24 px @ 512 (linka posunuta dolů) */
 export const BRANA_IKONA_MEZERA_TEXT_LINKA = 36;
 
-/** Tloušťka linky – opticky odpovídá tahům Inter SemiBold @ 512 */
-export const BRANA_IKONA_LINKA_TLOUSTKA = 5;
+/** Tloušťka linky – dvojnásobek předchozích 5 px @ 512 */
+export const BRANA_IKONA_LINKA_TLOUSTKA = 10;
 
 /**
- * Modrá plocha – nejsvětlejší odstín ze středu denního pozadí BRÁNY
- * (pozadi-den-master-final.png, střed obrazu).
+ * Oranžová linky – svítivější odstín odlesku na vodě (denní pozadí BRÁNY).
+ * Na ikoně mírně sytější kvůli optické čitelnosti v malé velikosti.
  */
-export const BRANA_IKONA_POZADI = "#5186B0";
+export const BRANA_IKONA_AKCENT = "#F0AA66";
+
+/**
+ * Modrá plocha – více modré složky, živější bez zesvětlení do světlé modré.
+ */
+export const BRANA_IKONA_POZADI = "#4585C5";
 
 /**
  * Posun celého motivu dolů od horního okraje @ 512 px.

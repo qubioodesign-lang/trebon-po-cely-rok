@@ -5,7 +5,7 @@ import {
   PWA_IKONA_BRANA_MEZERY,
   meritkaPwaIkony,
 } from "./konstanty";
-import { meritkaBranaIkony, BRANA_IKONA_POZADI } from "./brana-konstanty";
+import { meritkaBranaIkony, BRANA_IKONA_POZADI, BRANA_IKONA_AKCENT } from "./brana-konstanty";
 
 type VariantaPwaIkony = "trebon" | "brana";
 
@@ -49,7 +49,7 @@ function ObsahBranaIkony({ velikost }: { velikost: number }) {
             width: linkaSirka,
             height: linkaTloustka,
             marginTop: mezeraTextLinka,
-            backgroundColor: PWA_IKONA_AKCENT,
+            backgroundColor: BRANA_IKONA_AKCENT,
           }}
         />
       </div>
