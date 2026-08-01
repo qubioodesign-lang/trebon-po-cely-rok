@@ -11,53 +11,39 @@ function meritkaDiagnostickaLinkaTrebon(velikost: number) {
   const { text, mezeraTextLinka, linkaTloustka, posunDolu } =
     meritkaBranaIkony(velikost);
 
-  const puvodniY = posunDolu + text + mezeraTextLinka;
+  const y = posunDolu + text + mezeraTextLinka - linkaTloustka;
 
   return {
-    puvodniY,
-    y: puvodniY - linkaTloustka,
-    x: linkaTloustka,
+    y,
+    left: linkaTloustka,
     width: velikost - 2 * linkaTloustka,
     height: linkaTloustka,
-    marginTop: mezeraTextLinka - linkaTloustka,
-    spacerHeight: text,
-    posunDolu,
   };
 }
 
 function ObsahTrebonIkony({ velikost }: { velikost: number }) {
-  const { spacerHeight, marginTop, width, height, posunDolu } =
-    meritkaDiagnostickaLinkaTrebon(velikost);
+  const linka = meritkaDiagnostickaLinkaTrebon(velikost);
 
   return (
     <div
       style={{
+        position: "relative",
+        display: "flex",
         width: "100%",
         height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
         backgroundColor: BRANA_IKONA_POZADI,
-        paddingTop: posunDolu,
       }}
     >
       <div
         style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
+          position: "absolute",
+          left: linka.left,
+          top: linka.y,
+          width: linka.width,
+          height: linka.height,
+          backgroundColor: BRANA_IKONA_AKCENT,
         }}
-      >
-        <div style={{ height: spacerHeight, width: 1 }} />
-        <div
-          style={{
-            width,
-            height,
-            marginTop,
-            backgroundColor: BRANA_IKONA_AKCENT,
-          }}
-        />
-      </div>
+      />
     </div>
   );
 }
