@@ -3,7 +3,7 @@
  * Minimalistický – bez rušivých prvků.
  */
 
-const CACHE_NAZEV = "trebon-v3";
+const CACHE_NAZEV = "trebon-v4";
 
 // Soubory pro offline cache
 const SOUBORY_CACHE = ["/", "/manifest.json"];
@@ -64,8 +64,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(titulek, {
       body: text,
-      icon: "/icon?v=3",
-      badge: "/icon?v=3",
+      icon: "/icon?v=4",
+      badge: "/icon?v=4",
       tag: "trebon-novinka",
     })
   );

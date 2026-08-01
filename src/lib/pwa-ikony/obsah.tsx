@@ -3,37 +3,24 @@ import {
   PWA_IKONA_BRANA_MEZERY,
 } from "./konstanty";
 import { meritkaBranaIkony, BRANA_IKONA_POZADI, BRANA_IKONA_AKCENT } from "./brana-konstanty";
-import { meritkaTrebonIkony, TREBON_IKONA_POZADI } from "./trebon-konstanty";
 
 type VariantaPwaIkony = "trebon" | "brana";
 
-/** Absolutní metriky linky – shodné s vykreslením ikony BRÁNY */
-function meritkaBranaLinkyAbsolutni(velikost: number) {
+/** Dočasná diagnostická ikona – pouze pozadí a linka shodné s BRÁNOU */
+function ObsahTrebonIkony({ velikost }: { velikost: number }) {
   const { text, linkaSirka, mezeraTextLinka, linkaTloustka, posunDolu } =
     meritkaBranaIkony(velikost);
-
-  return {
-    x: Math.round((velikost - linkaSirka) / 2),
-    y: posunDolu + text + mezeraTextLinka,
-    width: linkaSirka,
-    height: linkaTloustka,
-    color: BRANA_IKONA_AKCENT,
-  };
-}
-
-function ObsahTrebonIkony({ velikost }: { velikost: number }) {
-  const { text, posunDolu } = meritkaTrebonIkony(velikost);
-  const linka = meritkaBranaLinkyAbsolutni(velikost);
 
   return (
     <div
       style={{
-        position: "relative",
-        display: "flex",
-        flexDirection: "column",
         width: "100%",
         height: "100%",
-        backgroundColor: TREBON_IKONA_POZADI,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        backgroundColor: BRANA_IKONA_POZADI,
+        paddingTop: posunDolu,
       }}
     >
       <div
@@ -41,31 +28,18 @@ function ObsahTrebonIkony({ velikost }: { velikost: number }) {
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          paddingTop: posunDolu,
         }}
       >
-        <span
+        <div style={{ height: text, width: 1 }} />
+        <div
           style={{
-            fontSize: text,
-            fontFamily: "Inter, sans-serif",
-            fontWeight: 600,
-            color: PWA_IKONA_TEXT,
-            lineHeight: 1,
+            width: linkaSirka,
+            height: linkaTloustka,
+            marginTop: mezeraTextLinka,
+            backgroundColor: BRANA_IKONA_AKCENT,
           }}
-        >
-          T
-        </span>
+        />
       </div>
-      <div
-        style={{
-          position: "absolute",
-          left: linka.x,
-          top: linka.y,
-          width: linka.width,
-          height: linka.height,
-          backgroundColor: linka.color,
-        }}
-      />
     </div>
   );
 }
