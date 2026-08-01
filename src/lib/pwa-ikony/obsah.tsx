@@ -6,10 +6,28 @@ import { meritkaBranaIkony, BRANA_IKONA_POZADI, BRANA_IKONA_AKCENT } from "./bra
 
 type VariantaPwaIkony = "trebon" | "brana";
 
-/** Dočasná diagnostická ikona – pouze pozadí a linka shodné s BRÁNOU */
-function ObsahTrebonIkony({ velikost }: { velikost: number }) {
-  const { text, linkaSirka, mezeraTextLinka, linkaTloustka, posunDolu } =
+/** Dočasná diagnostická ikona – pozadí BRÁNY + upravená linka */
+function meritkaDiagnostickaLinkaTrebon(velikost: number) {
+  const { text, mezeraTextLinka, linkaTloustka, posunDolu } =
     meritkaBranaIkony(velikost);
+
+  const puvodniY = posunDolu + text + mezeraTextLinka;
+
+  return {
+    puvodniY,
+    y: puvodniY - linkaTloustka,
+    x: linkaTloustka,
+    width: velikost - 2 * linkaTloustka,
+    height: linkaTloustka,
+    marginTop: mezeraTextLinka - linkaTloustka,
+    spacerHeight: text,
+    posunDolu,
+  };
+}
+
+function ObsahTrebonIkony({ velikost }: { velikost: number }) {
+  const { spacerHeight, marginTop, width, height, posunDolu } =
+    meritkaDiagnostickaLinkaTrebon(velikost);
 
   return (
     <div
@@ -30,12 +48,12 @@ function ObsahTrebonIkony({ velikost }: { velikost: number }) {
           alignItems: "center",
         }}
       >
-        <div style={{ height: text, width: 1 }} />
+        <div style={{ height: spacerHeight, width: 1 }} />
         <div
           style={{
-            width: linkaSirka,
-            height: linkaTloustka,
-            marginTop: mezeraTextLinka,
+            width,
+            height,
+            marginTop,
             backgroundColor: BRANA_IKONA_AKCENT,
           }}
         />
