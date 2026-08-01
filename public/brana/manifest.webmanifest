@@ -1,6 +1,6 @@
 {
   "name": "Brána do Třeboně",
-  "short_name": "Brána",
+  "short_name": "Třeboň",
   "description": "Brána do Třeboně.",
   "start_url": "/brana",
   "scope": "/brana",
@@ -11,13 +11,13 @@
   "lang": "cs",
   "icons": [
     {
-      "src": "/icon",
+      "src": "/brana/icon",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/apple-icon",
+      "src": "/brana/apple-icon",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: "/icon",
-    apple: "/apple-icon",
+    apple: "/pwa-launcher-icon",
   },
 };
 

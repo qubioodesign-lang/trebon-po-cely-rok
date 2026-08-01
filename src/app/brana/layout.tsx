@@ -7,6 +7,7 @@ import {
 import "./brana.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.trebonpocelyrok.cz"),
   title: {
     default: BRANA_NAZEV,
     template: `%s · ${BRANA_NAZEV}`,
@@ -16,7 +17,31 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: BRANA_NAZEV,
+    title: "Třeboň",
+  },
+  icons: {
+    icon: "/brana/icon",
+    apple: "/brana/apple-icon",
+  },
+  openGraph: {
+    title: "BRÁNA do Třeboně",
+    description: BRANA_POPIS,
+    type: "website",
+    locale: "cs_CZ",
+    images: [
+      {
+        url: "/brana/apple-icon",
+        width: 512,
+        height: 512,
+        alt: "BRÁNA do Třeboně",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary",
+    title: "BRÁNA do Třeboně",
+    description: BRANA_POPIS,
+    images: ["/brana/apple-icon"],
   },
   robots: {
     index: true,

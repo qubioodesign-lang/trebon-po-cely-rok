@@ -4,8 +4,8 @@
   "description": "Na chvíli zpátky do Třeboně.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#FAF8F5",
-  "theme_color": "#FAF8F5",
+  "background_color": "#144C8C",
+  "theme_color": "#144C8C",
   "orientation": "portrait",
   "lang": "cs",
   "icons": [
@@ -16,7 +16,7 @@
       "purpose": "any"
     },
     {
-      "src": "/apple-icon",
+      "src": "/pwa-launcher-icon",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
