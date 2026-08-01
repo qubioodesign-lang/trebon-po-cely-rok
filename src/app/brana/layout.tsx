@@ -10,7 +10,7 @@ import "./brana.css";
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.trebonpocelyrok.cz"),
   title: {
-    default: BRANA_NAZEV,
+    default: "Třeboň",
     template: `%s · ${BRANA_NAZEV}`,
   },
   description: BRANA_POPIS,

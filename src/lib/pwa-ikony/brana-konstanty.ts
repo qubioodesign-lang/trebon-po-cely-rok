@@ -1,11 +1,17 @@
 /** Proporce motivu BRÁNA – pouze pro ikonu BRÁNY (Třeboň beze změny) */
 export const BRANA_IKONA_TEXT_VELIKOST = 140;
 
-/** Mezera mezi nápisem a linkou – dvojnásobek původních 12 px @ 512 */
-export const BRANA_IKONA_MEZERA_TEXT_LINKA = 24;
+/** Mezera mezi nápisem a linkou – +50 % oproti 24 px @ 512 (linka posunuta dolů) */
+export const BRANA_IKONA_MEZERA_TEXT_LINKA = 36;
 
 /** Tloušťka linky – opticky odpovídá tahům Inter SemiBold @ 512 */
 export const BRANA_IKONA_LINKA_TLOUSTKA = 5;
+
+/**
+ * Modrá plocha – nejsvětlejší odstín ze středu denního pozadí BRÁNY
+ * (pozadi-den-master-final.png, střed obrazu).
+ */
+export const BRANA_IKONA_POZADI = "#5186B0";
 
 /**
  * Posun celého motivu dolů od horního okraje @ 512 px.
