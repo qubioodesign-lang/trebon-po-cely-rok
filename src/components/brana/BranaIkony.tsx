@@ -33,9 +33,11 @@ export function BranaIkonaSdileni({ className }: { className?: string }) {
       strokeLinejoin="round"
       aria-hidden
     >
-      <path d="M12 16V4" />
-      <path d="M8 8l4-4 4 4" />
-      <path d="M5 20h14" />
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <path d="M8.59 13.51l6.83 3.98" />
+      <path d="M15.41 6.51l-6.82 3.98" />
     </svg>
   );
 }

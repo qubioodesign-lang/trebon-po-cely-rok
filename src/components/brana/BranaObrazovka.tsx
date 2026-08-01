@@ -15,7 +15,8 @@ import {
   BranaKotvaScrollProvider,
   BranaProstorObsahScrollovany,
 } from "./BranaKotvaScrollProvider";
-import { BranaIkonaObalka, BranaIkonaSdileni } from "./BranaIkony";
+import { BranaIkonaObalka } from "./BranaIkony";
+import { BranaTlacitkoSdileni } from "./BranaTlacitkoSdileni";
 import { BranaTextAktualizace, BranaAktualizaceProvider } from "./BranaTextAktualizace";
 
 const JEDNOSLOVNE_TYPY_AKCE = new Set([
@@ -227,7 +228,7 @@ export function BranaObrazovka({
             <span className="brana-znacka-podtitul"> do Třeboně</span>
           </p>
           <div className="brana-ikona-misto">
-            <BranaIkonaSdileni />
+            <BranaTlacitkoSdileni />
           </div>
         </header>
 
