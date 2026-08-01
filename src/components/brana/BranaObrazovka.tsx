@@ -16,6 +16,7 @@ import {
   BranaProstorObsahScrollovany,
 } from "./BranaKotvaScrollProvider";
 import { BranaIkonaObalka, BranaIkonaSdileni } from "./BranaIkony";
+import { BranaTextAktualizace, BranaAktualizaceProvider } from "./BranaTextAktualizace";
 
 const JEDNOSLOVNE_TYPY_AKCE = new Set([
   "Kino",
@@ -199,12 +200,15 @@ export function BranaObrazovka({
             Třeboň po celý rok
           </Link>
         </div>
-        <p className="brana-pata-aktualizace">Aktualizováno dnes v 6:00</p>
+        <p className="brana-pata-aktualizace">
+          <BranaTextAktualizace />
+        </p>
       </footer>
     </>
   );
 
   return (
+    <BranaAktualizaceProvider>
     <BranaKotvaScrollProvider config={kotvaScroll}>
       <div className="brana-obrazovka">
       <div className="brana-horni-celek">
@@ -224,7 +228,9 @@ export function BranaObrazovka({
         <section className="brana-kotva-blok" aria-label="Kotva dne">
           <div className="brana-kotva-radek">
             <span className="brana-kotva-ikona" aria-hidden />
-            <p className="brana-kotva-text">Třeboň je dnes klidná</p>
+            <p className="brana-kotva-text">
+              <BranaTextAktualizace />
+            </p>
             <span className="brana-kotva-ikona" aria-hidden />
           </div>
         </section>
@@ -269,5 +275,6 @@ export function BranaObrazovka({
       )}
       </div>
     </BranaKotvaScrollProvider>
+    </BranaAktualizaceProvider>
   );
 }

@@ -95,7 +95,8 @@
   }
 
   .brana-kotva-text {
-    @apply flex-1 text-center text-[0.8125rem] font-normal leading-snug tracking-tight text-white/70;
+    @apply flex-1 text-center font-normal leading-snug tracking-tight text-white/70;
+    font-size: calc(0.875rem * 0.68 * 0.82);
   }
 
   .brana-kotva-ikona {
