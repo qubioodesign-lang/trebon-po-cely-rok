@@ -215,6 +215,37 @@
     transform: translateX(-50%);
   }
 
+  .brana-vzkaz-nadpis {
+    @apply text-white/70;
+  }
+
+  .brana-vzkaz-pocitadlo {
+    @apply text-white/70;
+  }
+
+  .brana-vzkaz-chyba {
+    @apply text-white/70;
+  }
+
+  .brana-vzkaz-zavrit {
+    @apply text-sm tracking-wide text-white/70 transition-colors duration-300;
+    top: calc(2rem + env(safe-area-inset-top, 0px));
+  }
+
+  .brana-vzkaz-zavrit:hover,
+  .brana-vzkaz-zavrit:focus-visible {
+    @apply text-white outline-none;
+  }
+
+  .brana-vzkaz-tlacitko {
+    @apply border-white/30 text-white/80;
+  }
+
+  .brana-vzkaz-tlacitko:hover,
+  .brana-vzkaz-tlacitko:focus-visible {
+    @apply border-white/50 text-white outline-none;
+  }
+
   .brana-vyzva-plocha {
     @apply pointer-events-auto ml-[2.75rem] flex max-w-full items-center gap-0.5 rounded-md border py-1 pl-0 pr-1.5 text-[0.8125rem] leading-snug;
     border-width: 1px;

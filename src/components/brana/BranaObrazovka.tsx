@@ -214,7 +214,13 @@ export function BranaObrazovka({
       <div className="brana-horni-celek">
         <header className="brana-horni-lista">
           <div className="brana-ikona-misto">
-            <BranaIkonaObalka />
+            <Link
+              href="/brana/vzkaz"
+              className="flex h-full w-full items-center justify-center text-white no-underline"
+              aria-label="Nechte vzkaz BRÁNĚ"
+            >
+              <BranaIkonaObalka />
+            </Link>
           </div>
           <p className="brana-horni-lista-nadpis">
             <span className="brana-znacka-hlavni">BRÁNA</span>
