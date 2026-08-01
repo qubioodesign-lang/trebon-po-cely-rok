@@ -16,6 +16,12 @@ export const TREBON_IKONA_HORNI_OBLOUK = 100;
 /** Mezera mezi spodní hranou T a horní hranou linky @ 512 px */
 export const TREBON_IKONA_MEZERA_TEXT_LINKA = 50;
 
+/** Jemné optické zmenšení T – řádově několik procent @ 512 px */
+export const TREBON_IKONA_T_ZMENSENI = 0.97;
+
+/** Jemný posun celého T dolů @ 512 px (px) */
+export const TREBON_IKONA_T_POSUN_DOLU = 6;
+
 /**
  * Poměry vykreslení Inter SemiBold v ImageResponse @ 512 px –
  * vizuální hrany glyfu v em boxu (fontSize 234, linka y 384).
@@ -30,8 +36,10 @@ export function meritkaTrebonPismenoT(velikost: number, linkaY: number) {
   const mezeraTextLinka = Math.round(TREBON_IKONA_MEZERA_TEXT_LINKA * pomer);
   const spodniHrana = linkaY - mezeraTextLinka;
   const cilovaVyska = spodniHrana - horniOblouk;
-  const text = Math.round(cilovaVyska / TREBON_IKONA_T_VIZUALNI_VYSKA_KOEF);
-  const top = Math.round(horniOblouk - TREBON_IKONA_T_HORNI_ODSAZENI * text);
+  const textZaklad = Math.round(cilovaVyska / TREBON_IKONA_T_VIZUALNI_VYSKA_KOEF);
+  const topZaklad = Math.round(horniOblouk - TREBON_IKONA_T_HORNI_ODSAZENI * textZaklad);
+  const text = Math.round(textZaklad * TREBON_IKONA_T_ZMENSENI);
+  const top = Math.round(topZaklad + TREBON_IKONA_T_POSUN_DOLU * pomer);
 
   return {
     text,

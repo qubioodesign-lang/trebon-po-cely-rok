@@ -1,5 +1,5 @@
 /** Verze pro obnovení cache launcher ikon Třeboně (manifest, favicon, PWA). */
-export const TREBON_IKONA_CACHE_VERZE = "9";
+export const TREBON_IKONA_CACHE_VERZE = "10";
 
 /** Favicon a záložní launcher ikona 192×192. */
 export const TREBON_IKONA_URL = `/icon?v=${TREBON_IKONA_CACHE_VERZE}`;
