@@ -1,5 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Caveat } from "next/font/google";
+import {
+  TREBON_IKONA_LAUNCHER_URL,
+  TREBON_IKONA_URL,
+} from "@/lib/pwa-ikony-url";
 import "./globals.css";
 
 const inter = Inter({
@@ -24,8 +28,8 @@ export const metadata: Metadata = {
     title: "Třeboň po celý rok",
   },
   icons: {
-    icon: "/icon",
-    apple: "/pwa-launcher-icon",
+    icon: TREBON_IKONA_URL,
+    apple: TREBON_IKONA_LAUNCHER_URL,
   },
 };
 

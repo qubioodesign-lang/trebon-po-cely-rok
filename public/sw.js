@@ -3,10 +3,16 @@
  * Minimalistický – bez rušivých prvků.
  */
 
-const CACHE_NAZEV = "trebon-v1";
+const CACHE_NAZEV = "trebon-v2";
 
 // Soubory pro offline cache
 const SOUBORY_CACHE = ["/", "/manifest.json"];
+
+/** Launcher ikony vždy stahovat ze sítě – neukládat do cache. */
+function jeLauncherIkona(url) {
+  const cesta = url.pathname;
+  return cesta === "/icon" || cesta === "/pwa-launcher-icon";
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -28,9 +34,15 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Strategie: network first, fallback na cache
+// Strategie: network first, fallback na cache (launcher ikony pouze network)
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+
+  const url = new URL(event.request.url);
+  if (jeLauncherIkona(url)) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
 
   event.respondWith(
     fetch(event.request)
@@ -52,8 +64,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(titulek, {
       body: text,
-      icon: "/icon",
-      badge: "/icon",
+      icon: "/icon?v=2",
+      badge: "/icon?v=2",
       tag: "trebon-novinka",
     })
   );

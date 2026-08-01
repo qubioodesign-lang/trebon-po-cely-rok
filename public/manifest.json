@@ -4,19 +4,19 @@
   "description": "Na chvíli zpátky do Třeboně.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#144C8C",
-  "theme_color": "#144C8C",
+  "background_color": "#4585C5",
+  "theme_color": "#4585C5",
   "orientation": "portrait",
   "lang": "cs",
   "icons": [
     {
-      "src": "/icon",
+      "src": "/icon?v=2",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/pwa-launcher-icon",
+      "src": "/pwa-launcher-icon?v=2",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
