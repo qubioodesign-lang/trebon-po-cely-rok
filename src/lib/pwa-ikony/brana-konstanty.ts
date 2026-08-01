@@ -8,10 +8,10 @@ export const BRANA_IKONA_MEZERA_TEXT_LINKA = 36;
 export const BRANA_IKONA_LINKA_TLOUSTKA = 20;
 
 /**
- * Oranžová linky – svítivější odstín odlesku na vodě (denní pozadí BRÁNY).
- * Na ikoně mírně sytější kvůli optické čitelnosti v malé velikosti.
+ * Oranžová linky – teplejší odstín odlesku na vodě (denní pozadí BRÁNY).
+ * Stejná světlost a sytost jako předchozí #F0AA66, méně žluté složky.
  */
-export const BRANA_IKONA_AKCENT = "#F0AA66";
+export const BRANA_IKONA_AKCENT = "#F0A066";
 
 /**
  * Modrá plocha – více modré složky, živější bez zesvětlení do světlé modré.
