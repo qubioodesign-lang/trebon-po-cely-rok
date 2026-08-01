@@ -11,7 +11,7 @@
   "lang": "cs",
   "icons": [
     {
-      "src": "/brana/apple-icon",
+      "src": "/brana/apple-icon?v=2",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"

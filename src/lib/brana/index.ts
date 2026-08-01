@@ -7,6 +7,10 @@ export {
   BRANA_PWA_DEN_BARVA,
   BRANA_PWA_NOC_BARVA,
 } from "./konstanty";
+export {
+  BRANA_IKONA_CACHE_VERZE,
+  BRANA_IKONA_LAUNCHER_URL,
+} from "./pwa-ikony-url";
 export { BRANA_AKCENT, BRANA_DEN } from "./barvy";
 export {
   BRANA_NAVIGACE,

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import {
+  BRANA_IKONA_LAUNCHER_URL,
   BRANA_NAZEV,
   BRANA_POPIS,
   BRANA_PWA_DEN_BARVA,
@@ -20,8 +21,14 @@ export const metadata: Metadata = {
     title: "Třeboň",
   },
   icons: {
-    icon: "/brana/icon",
-    apple: "/brana/apple-icon",
+    icon: [
+      {
+        url: BRANA_IKONA_LAUNCHER_URL,
+        sizes: "512x512",
+        type: "image/png",
+      },
+    ],
+    apple: BRANA_IKONA_LAUNCHER_URL,
   },
   openGraph: {
     title: "BRÁNA do Třeboně",
