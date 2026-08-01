@@ -8,23 +8,39 @@ import {
 export const TREBON_IKONA_POZADI = BRANA_IKONA_POZADI;
 
 /**
- * Velikost písmene T @ 512 px.
- * Spodní hrana T = spodní hrana nápisu BRÁNA (228 + 140 = 368).
+ * Začátek horního oblouku launcher ikony @ 512 px.
+ * Horní hrana T končí v místě, kde boční strany přecházejí do zaoblených rohů.
  */
-export const TREBON_IKONA_TEXT_VELIKOST = 318;
+export const TREBON_IKONA_HORNI_OBLOUK = 100;
+
+/** Mezera mezi spodní hranou T a horní hranou linky @ 512 px */
+export const TREBON_IKONA_MEZERA_TEXT_LINKA = 50;
 
 /**
- * Posun motivu od horního okraje @ 512 px.
- * Horní hrana T ≈ oblast začátku zaoblení bočních rohů launcheru (~100 px).
+ * Poměry vykreslení Inter SemiBold v ImageResponse @ 512 px –
+ * vizuální hrany glyfu v em boxu (fontSize 234, linka y 384).
  */
-export const TREBON_IKONA_POSUN_DOLU = 50;
+const TREBON_IKONA_T_VIZUALNI_VYSKA_KOEF = 167 / 234;
+const TREBON_IKONA_T_HORNI_ODSAZENI = 41 / 234;
 
-export function meritkaTrebonIkony(velikost: number) {
+/** Metriky bílého písmene T nad hotovou diagnostickou linkou */
+export function meritkaTrebonPismenoT(velikost: number, linkaY: number) {
   const pomer = velikost / 512;
+  const horniOblouk = Math.round(TREBON_IKONA_HORNI_OBLOUK * pomer);
+  const mezeraTextLinka = Math.round(TREBON_IKONA_MEZERA_TEXT_LINKA * pomer);
+  const spodniHrana = linkaY - mezeraTextLinka;
+  const cilovaVyska = spodniHrana - horniOblouk;
+  const text = Math.round(cilovaVyska / TREBON_IKONA_T_VIZUALNI_VYSKA_KOEF);
+  const top = Math.round(horniOblouk - TREBON_IKONA_T_HORNI_ODSAZENI * text);
 
   return {
-    text: Math.round(TREBON_IKONA_TEXT_VELIKOST * pomer),
-    posunDolu: Math.round(TREBON_IKONA_POSUN_DOLU * pomer),
+    text,
+    top,
+    horniHrana: horniOblouk,
+    spodniHrana,
+    mezeraTextLinka,
+    horniOblouk,
+    vizualniVyska: cilovaVyska,
   };
 }
 

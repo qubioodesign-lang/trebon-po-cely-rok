@@ -3,6 +3,7 @@ import {
   PWA_IKONA_BRANA_MEZERY,
 } from "./konstanty";
 import { meritkaBranaIkony, BRANA_IKONA_POZADI, BRANA_IKONA_AKCENT } from "./brana-konstanty";
+import { meritkaTrebonPismenoT } from "./trebon-konstanty";
 
 type VariantaPwaIkony = "trebon" | "brana";
 
@@ -23,6 +24,7 @@ function meritkaDiagnostickaLinkaTrebon(velikost: number) {
 
 function ObsahTrebonIkony({ velikost }: { velikost: number }) {
   const linka = meritkaDiagnostickaLinkaTrebon(velikost);
+  const pismeno = meritkaTrebonPismenoT(velikost, linka.y);
 
   return (
     <div
@@ -34,6 +36,28 @@ function ObsahTrebonIkony({ velikost }: { velikost: number }) {
         backgroundColor: BRANA_IKONA_POZADI,
       }}
     >
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          top: pismeno.top,
+          display: "flex",
+          justifyContent: "center",
+        }}
+      >
+        <span
+          style={{
+            fontSize: pismeno.text,
+            fontFamily: "Inter, sans-serif",
+            fontWeight: 600,
+            color: PWA_IKONA_TEXT,
+            lineHeight: 1,
+          }}
+        >
+          T
+        </span>
+      </div>
       <div
         style={{
           position: "absolute",
