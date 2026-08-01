@@ -10,13 +10,13 @@
   "lang": "cs",
   "icons": [
     {
-      "src": "/icon?v=2",
+      "src": "/icon?v=3",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/pwa-launcher-icon?v=2",
+      "src": "/pwa-launcher-icon?v=3",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
