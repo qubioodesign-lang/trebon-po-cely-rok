@@ -15,8 +15,8 @@ function meritkaDiagnostickaLinkaTrebon(velikost: number) {
 
   return {
     y,
-    left: linkaTloustka,
-    width: velikost - 2 * linkaTloustka,
+    left: 2 * linkaTloustka,
+    width: velikost - 4 * linkaTloustka,
     height: linkaTloustka,
   };
 }
