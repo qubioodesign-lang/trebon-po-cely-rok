@@ -1,13 +1,62 @@
 import {
-  PWA_IKONA_AKCENT,
-  PWA_IKONA_POZADI,
   PWA_IKONA_TEXT,
   PWA_IKONA_BRANA_MEZERY,
-  meritkaPwaIkony,
 } from "./konstanty";
 import { meritkaBranaIkony, BRANA_IKONA_POZADI, BRANA_IKONA_AKCENT } from "./brana-konstanty";
+import {
+  meritkaTrebonIkony,
+  TREBON_IKONA_POZADI,
+  TREBON_IKONA_AKCENT,
+} from "./trebon-konstanty";
 
 type VariantaPwaIkony = "trebon" | "brana";
+
+function ObsahTrebonIkony({ velikost }: { velikost: number }) {
+  const { text, linkaSirka, mezeraTextLinka, linkaTloustka, posunDolu } =
+    meritkaTrebonIkony(velikost);
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        backgroundColor: TREBON_IKONA_POZADI,
+        paddingTop: posunDolu,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+        }}
+      >
+        <span
+          style={{
+            fontSize: text,
+            fontFamily: "Inter, sans-serif",
+            fontWeight: 600,
+            color: PWA_IKONA_TEXT,
+            lineHeight: 1,
+          }}
+        >
+          T
+        </span>
+        <div
+          style={{
+            width: linkaSirka,
+            height: linkaTloustka,
+            marginTop: mezeraTextLinka,
+            backgroundColor: TREBON_IKONA_AKCENT,
+          }}
+        />
+      </div>
+    </div>
+  );
+}
 
 function ObsahBranaIkony({ velikost }: { velikost: number }) {
   const { text, linkaSirka, mezeraTextLinka, linkaTloustka, posunDolu } =
@@ -68,50 +117,7 @@ function ObsahPwaIkony({
     return <ObsahBranaIkony velikost={velikost} />;
   }
 
-  const { pismenoT, linkaSirka, linkaTloustka, mezeraTextLinka } =
-    meritkaPwaIkony(velikost);
-
-  return (
-    <div
-      style={{
-        width: "100%",
-        height: "100%",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: PWA_IKONA_POZADI,
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <span
-          style={{
-            fontSize: pismenoT,
-            fontFamily: "Inter, sans-serif",
-            fontWeight: 600,
-            color: PWA_IKONA_TEXT,
-            lineHeight: 1,
-          }}
-        >
-          T
-        </span>
-        <div
-          style={{
-            width: linkaSirka,
-            height: linkaTloustka,
-            marginTop: mezeraTextLinka,
-            backgroundColor: PWA_IKONA_AKCENT,
-          }}
-        />
-      </div>
-    </div>
-  );
+  return <ObsahTrebonIkony velikost={velikost} />;
 }
 
 export function vykreslitPwaIkony(
