@@ -15,11 +15,11 @@ export const PWA_IKONA_LINKA_TLOUSTKA = 3;
 /** Mezera mezi textem a linkou */
 export const PWA_IKONA_MEZERA_TEXT_LINKA = 12;
 
-/** Velikost písmene T */
-export const PWA_IKONA_T_VELIKOST = 210;
+/** Velikost písmene T – ~83 % výšky motivu dle referenčního návrhu */
+export const PWA_IKONA_T_VELIKOST = 497;
 
-/** Velikost nápisu BRÁNA – stejná optická váha jako .brana-znacka-hlavni */
-export const PWA_IKONA_BRANA_VELIKOST = 56;
+/** Velikost nápisu BRÁNA – ~90 % šířky ikony dle referenčního návrhu */
+export const PWA_IKONA_BRANA_VELIKOST = 148;
 
 /** Inter SemiBold – shodné s font-semibold v hlavičce BRÁNY */
 export const PWA_IKONA_FONT_VAHA = 600;
