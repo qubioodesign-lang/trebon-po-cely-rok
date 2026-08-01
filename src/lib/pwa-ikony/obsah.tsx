@@ -3,28 +3,37 @@ import {
   PWA_IKONA_BRANA_MEZERY,
 } from "./konstanty";
 import { meritkaBranaIkony, BRANA_IKONA_POZADI, BRANA_IKONA_AKCENT } from "./brana-konstanty";
-import {
-  meritkaTrebonIkony,
-  TREBON_IKONA_POZADI,
-  TREBON_IKONA_AKCENT,
-} from "./trebon-konstanty";
+import { meritkaTrebonIkony, TREBON_IKONA_POZADI } from "./trebon-konstanty";
 
 type VariantaPwaIkony = "trebon" | "brana";
 
-function ObsahTrebonIkony({ velikost }: { velikost: number }) {
+/** Absolutní metriky linky – shodné s vykreslením ikony BRÁNY */
+function meritkaBranaLinkyAbsolutni(velikost: number) {
   const { text, linkaSirka, mezeraTextLinka, linkaTloustka, posunDolu } =
-    meritkaTrebonIkony(velikost);
+    meritkaBranaIkony(velikost);
+
+  return {
+    x: Math.round((velikost - linkaSirka) / 2),
+    y: posunDolu + text + mezeraTextLinka,
+    width: linkaSirka,
+    height: linkaTloustka,
+    color: BRANA_IKONA_AKCENT,
+  };
+}
+
+function ObsahTrebonIkony({ velikost }: { velikost: number }) {
+  const { text, posunDolu } = meritkaTrebonIkony(velikost);
+  const linka = meritkaBranaLinkyAbsolutni(velikost);
 
   return (
     <div
       style={{
-        width: "100%",
-        height: "100%",
+        position: "relative",
         display: "flex",
         flexDirection: "column",
-        alignItems: "center",
+        width: "100%",
+        height: "100%",
         backgroundColor: TREBON_IKONA_POZADI,
-        paddingTop: posunDolu,
       }}
     >
       <div
@@ -32,6 +41,7 @@ function ObsahTrebonIkony({ velikost }: { velikost: number }) {
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
+          paddingTop: posunDolu,
         }}
       >
         <span
@@ -45,15 +55,17 @@ function ObsahTrebonIkony({ velikost }: { velikost: number }) {
         >
           T
         </span>
-        <div
-          style={{
-            width: linkaSirka,
-            height: linkaTloustka,
-            marginTop: mezeraTextLinka,
-            backgroundColor: TREBON_IKONA_AKCENT,
-          }}
-        />
       </div>
+      <div
+        style={{
+          position: "absolute",
+          left: linka.x,
+          top: linka.y,
+          width: linka.width,
+          height: linka.height,
+          backgroundColor: linka.color,
+        }}
+      />
     </div>
   );
 }
