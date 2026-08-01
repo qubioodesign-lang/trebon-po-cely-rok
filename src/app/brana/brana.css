@@ -219,6 +219,12 @@
     @apply text-white/70;
   }
 
+  .brana-vzkaz-listek {
+    box-shadow:
+      0 3px 8px rgba(47, 47, 47, 0.07),
+      0 14px 36px rgba(27, 58, 75, 0.12);
+  }
+
   .brana-vzkaz-pocitadlo {
     @apply text-white/70;
   }
@@ -238,12 +244,12 @@
   }
 
   .brana-vzkaz-tlacitko {
-    @apply border-white/30 text-white/80;
+    @apply border-white/70 text-white/70;
   }
 
   .brana-vzkaz-tlacitko:hover,
   .brana-vzkaz-tlacitko:focus-visible {
-    @apply border-white/50 text-white outline-none;
+    @apply border-white text-white outline-none;
   }
 
   .brana-vyzva-plocha {

@@ -13,7 +13,7 @@ const MS_KRESLENI_SRDC = 1_250;
 const MS_PO_DOKONCENI = 1_500;
 
 export const TRIDA_BRANA_VZKAZ_LISTEK =
-  "w-full max-w-[18rem] rotate-[-1.5deg] bg-krem-svetly px-6 py-8 shadow-[0_3px_8px_rgba(47,47,47,0.07),0_14px_36px_rgba(27,58,75,0.12)]";
+  "brana-vzkaz-listek w-full max-w-[18rem] rotate-[-1.5deg] bg-krem-svetly px-6 py-8";
 
 const INK = "#154a6e";
 
