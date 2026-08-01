@@ -172,7 +172,7 @@ export function BranaVzkazFormular() {
                 <button
                   type="submit"
                   disabled={!text.trim() || stav === "odesilani"}
-                  className="tlacitko-klidne brana-vzkaz-tlacitko mt-8 disabled:opacity-40"
+                  className="tlacitko-klidne brana-vzkaz-tlacitko mt-8"
                 >
                   {stav === "odesilani" ? "Odesílám…" : "Odeslat vzkaz"}
                 </button>
