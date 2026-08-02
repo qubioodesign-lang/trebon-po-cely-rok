@@ -2,11 +2,11 @@
 
 import { useEffect } from "react";
 import { inicializovatBranaPwaInstalaci } from "@/lib/brana/pwa-instalace";
-import { ziskatNeboRegistrovatServiceWorker } from "@/lib/service-worker";
+import { ziskatNeboRegistrovatBranaServiceWorker } from "@/lib/brana/service-worker";
 
 if (typeof window !== "undefined" && "serviceWorker" in navigator) {
   inicializovatBranaPwaInstalaci();
-  void ziskatNeboRegistrovatServiceWorker().catch(() => {
+  void ziskatNeboRegistrovatBranaServiceWorker().catch(() => {
     // Service worker není kritický pro základní zobrazení BRÁNY
   });
 }
@@ -17,7 +17,7 @@ export function BranaRegistracePWA() {
     inicializovatBranaPwaInstalaci();
 
     if ("serviceWorker" in navigator) {
-      void ziskatNeboRegistrovatServiceWorker().catch(() => {
+      void ziskatNeboRegistrovatBranaServiceWorker().catch(() => {
         // Service worker není kritický pro základní zobrazení BRÁNY
       });
     }
