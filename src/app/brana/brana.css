@@ -203,6 +203,10 @@
     background-color: var(--brand-accent);
   }
 
+  .brana-pata-odkaz-sipka {
+    opacity: 0.7;
+  }
+
   .brana-pata-aktualizace {
     @apply mt-auto shrink-0 text-center leading-snug text-white/70;
     font-size: calc(0.875rem * 0.68);
