@@ -14,7 +14,6 @@ import {
 } from "@/lib/brana/konstanty";
 import {
   jeBranaSpustenaJakoPwa,
-  jeInstalacniPromptKDispozici,
   priAppInstalled,
   vyvolatInstalacniDialog,
 } from "@/lib/brana/pwa-instalace";
@@ -140,17 +139,13 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     skrytVyzvu();
   };
 
-  const hlavniKlik = async () => {
-    if (!jeInstalacniPromptKDispozici()) {
-      return;
-    }
-
-    const vysledek = await vyvolatInstalacniDialog();
-
-    if (vysledek === "accepted") {
-      zavritVyzvuPlochy();
-      skrytVyzvu();
-    }
+  const hlavniKlik = () => {
+    void vyvolatInstalacniDialog().then((vysledek) => {
+      if (vysledek === "accepted") {
+        zavritVyzvuPlochy();
+        skrytVyzvu();
+      }
+    });
   };
 
   if (beziJakoPwa || !viditelna || jeVyzvaPlochyZavrena()) {

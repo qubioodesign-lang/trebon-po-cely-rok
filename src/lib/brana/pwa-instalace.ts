@@ -7,14 +7,16 @@ export type BeforeInstallPromptEvent = Event & {
 
 declare global {
   interface Window {
+    /** Zachycený včasným synchronním skriptem – může přijít před načtením bundlu. */
     __branaPwaVcasnyPrompt?: BeforeInstallPromptEvent;
+    /** Jediné úložiště promptu sdílené mezi všemi JS chunky. */
+    __branaPwaInstalacniPrompt?: BeforeInstallPromptEvent;
+    __branaPwaPosluchaceRegistrovani?: boolean;
   }
 }
 
-let ulozenyPrompt: BeforeInstallPromptEvent | null = null;
 const posluchaciPromptu = new Set<() => void>();
 const posluchaciInstalace = new Set<() => void>();
-let posluchaceRegistrovani = false;
 
 function oznamitZmenuPromptu(): void {
   posluchaciPromptu.forEach((posluchac) => {
@@ -22,15 +24,37 @@ function oznamitZmenuPromptu(): void {
   });
 }
 
-/** Načte prompt zachycený inline skriptem v layoutu BRÁNY před hydratací. */
-function nacistVcasnyPrompt(): void {
+/** Sloučí včasný prompt ze skriptu do sdíleného window úložiště. */
+function synchronizovatPromptZeWindow(): void {
   const vcasny = window.__branaPwaVcasnyPrompt;
 
-  if (!vcasny || ulozenyPrompt !== null) {
+  if (!vcasny) {
     return;
   }
 
-  ulozenyPrompt = vcasny;
+  window.__branaPwaInstalacniPrompt = vcasny;
+  delete window.__branaPwaVcasnyPrompt;
+  oznamitZmenuPromptu();
+}
+
+function ziskatUlozenyPrompt(): BeforeInstallPromptEvent | null {
+  synchronizovatPromptZeWindow();
+  return window.__branaPwaInstalacniPrompt ?? null;
+}
+
+function ulozitPrompt(udalost: BeforeInstallPromptEvent): void {
+  udalost.preventDefault();
+  window.__branaPwaInstalacniPrompt = udalost;
+  delete window.__branaPwaVcasnyPrompt;
+  oznamitZmenuPromptu();
+}
+
+function zahoditPrompt(): void {
+  if (!window.__branaPwaInstalacniPrompt && !window.__branaPwaVcasnyPrompt) {
+    return;
+  }
+
+  delete window.__branaPwaInstalacniPrompt;
   delete window.__branaPwaVcasnyPrompt;
   oznamitZmenuPromptu();
 }
@@ -41,22 +65,15 @@ export function jeBranaSpustenaJakoPwa(): boolean {
 }
 
 export function zachytitInstalacniPrompt(udalost: Event): void {
-  udalost.preventDefault();
-  ulozenyPrompt = udalost as BeforeInstallPromptEvent;
-  oznamitZmenuPromptu();
+  ulozitPrompt(udalost as BeforeInstallPromptEvent);
 }
 
 export function jeInstalacniPromptKDispozici(): boolean {
-  return ulozenyPrompt !== null;
+  return ziskatUlozenyPrompt() !== null;
 }
 
 export function zahoditInstalacniPrompt(): void {
-  if (ulozenyPrompt === null) {
-    return;
-  }
-
-  ulozenyPrompt = null;
-  oznamitZmenuPromptu();
+  zahoditPrompt();
 }
 
 export function priZmeneInstalacnihoPromptu(posluchac: () => void): () => void {
@@ -77,25 +94,25 @@ export function priAppInstalled(posluchac: () => void): () => void {
 
 /**
  * Registruje globální posluchače co nejdříve po načtení stránky BRÁNY.
- * Opakované volání je bezpečné.
+ * Opakované volání je bezpečné – stav posluchačů je na window kvůli duplicitním chunkům.
  */
 export function inicializovatBranaPwaInstalaci(): void {
-  if (typeof window === "undefined" || posluchaceRegistrovani) {
+  if (typeof window === "undefined" || window.__branaPwaPosluchaceRegistrovani) {
     return;
   }
 
-  posluchaceRegistrovani = true;
+  window.__branaPwaPosluchaceRegistrovani = true;
 
-  nacistVcasnyPrompt();
+  synchronizovatPromptZeWindow();
 
-  window.addEventListener("brana-pwa-prompt", nacistVcasnyPrompt);
+  window.addEventListener("brana-pwa-prompt", synchronizovatPromptZeWindow);
 
   window.addEventListener("beforeinstallprompt", (udalost) => {
     zachytitInstalacniPrompt(udalost);
   });
 
   window.addEventListener("appinstalled", () => {
-    zahoditInstalacniPrompt();
+    zahoditPrompt();
     posluchaciInstalace.forEach((posluchac) => {
       posluchac();
     });
@@ -106,13 +123,14 @@ export function inicializovatBranaPwaInstalaci(): void {
 export async function vyvolatInstalacniDialog(): Promise<
   "accepted" | "dismissed" | "nedostupny"
 > {
-  const prompt = ulozenyPrompt;
+  const prompt = ziskatUlozenyPrompt();
 
   if (!prompt) {
     return "nedostupny";
   }
 
-  ulozenyPrompt = null;
+  delete window.__branaPwaInstalacniPrompt;
+  delete window.__branaPwaVcasnyPrompt;
   oznamitZmenuPromptu();
 
   try {
