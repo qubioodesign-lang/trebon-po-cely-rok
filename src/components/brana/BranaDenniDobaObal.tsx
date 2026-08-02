@@ -15,6 +15,7 @@ import { opakovaniSeznamuAkci } from "@/lib/brana/navigace-stranky";
 import { BranaDesktopPozadi } from "./BranaDesktopPozadi";
 import { BranaObrazovka } from "./BranaObrazovka";
 import { BranaPozadi } from "./pozadi/BranaPozadi";
+import { BranaRegistracePWA } from "./BranaRegistracePWA";
 import { BranaVyzvaPlocha } from "./BranaVyzvaPlocha";
 
 type BranaDenniDobaObalProps = {
@@ -78,6 +79,7 @@ export function BranaDenniDobaObal({
 
   return (
     <div className="brana-desktop-kontejner">
+      <BranaRegistracePWA />
       <BranaDesktopPozadi nocRezim={nocRezim} />
       <div className="brana-desktop-radek">
         <div className="brana-desktop-mobil">
