@@ -88,14 +88,12 @@ export function BranaDenniDobaObal({
             className={`relative z-[1] flex min-h-dvh flex-1 flex-col ${verejnaTrida}`}
           >
             {children ?? (
-              <>
-                <BranaObrazovka
-                  aktivniStranka={stranka}
-                  opakovaniSeznamu={opakovaniSeznamuAkci(stranka)}
-                />
-                <BranaVyzvaPlocha nocRezim={nocRezim} />
-              </>
+              <BranaObrazovka
+                aktivniStranka={stranka}
+                opakovaniSeznamu={opakovaniSeznamuAkci(stranka)}
+              />
             )}
+            <BranaVyzvaPlocha nocRezim={nocRezim} />
           </main>
         </div>
         {desktopPanel}

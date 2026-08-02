@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState, type MouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useState,
+  type CSSProperties,
+  type MouseEvent,
+} from "react";
 import {
   BRANA_PWA_DEN_BARVA,
   BRANA_PWA_NOC_BARVA,
@@ -8,9 +15,8 @@ import {
 import {
   jeBranaSpustenaJakoPwa,
   jeInstalacniPromptKDispozici,
+  priAppInstalled,
   vyvolatInstalacniDialog,
-  zachytitInstalacniPrompt,
-  zahoditInstalacniPrompt,
 } from "@/lib/brana/pwa-instalace";
 import {
   bylaVyzvaPlochyZobrazena,
@@ -65,13 +71,12 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   }, []);
 
   const zobraz = useCallback(() => {
-    aktualizujPozici();
     oznacVyzvuPlochyZobrazenou();
     setViditelna(true);
     requestAnimationFrame(() => {
       setPripravena(true);
     });
-  }, [aktualizujPozici]);
+  }, []);
 
   useEffect(() => {
     if (jeBranaSpustenaJakoPwa()) {
@@ -83,31 +88,10 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
       return;
     }
 
-    aktualizujPozici();
-    window.addEventListener("resize", aktualizujPozici);
-
-    const onBeforeInstallPrompt = (udalost: Event) => {
-      zachytitInstalacniPrompt(udalost);
-    };
-
-    const onAppInstalled = () => {
-      zahoditInstalacniPrompt();
-      zavritVyzvuPlochy();
-      skrytVyzvu();
-    };
-
-    window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
-    window.addEventListener("appinstalled", onAppInstalled);
-
     if (bylaVyzvaPlochyZobrazena()) {
       setViditelna(true);
       setPripravena(true);
-
-      return () => {
-        window.removeEventListener("resize", aktualizujPozici);
-        window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
-        window.removeEventListener("appinstalled", onAppInstalled);
-      };
+      return;
     }
 
     const prodleva = zbyvajiciProdlevaVyzvyPlochy();
@@ -115,11 +99,40 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
 
     return () => {
       window.clearTimeout(timeout);
-      window.removeEventListener("resize", aktualizujPozici);
-      window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
-      window.removeEventListener("appinstalled", onAppInstalled);
     };
-  }, [aktualizujPozici, skrytVyzvu, zobraz]);
+  }, [zobraz]);
+
+  useEffect(() => {
+    if (!viditelna || beziJakoPwa) {
+      return;
+    }
+
+    aktualizujPozici();
+    window.addEventListener("resize", aktualizujPozici);
+
+    return () => {
+      window.removeEventListener("resize", aktualizujPozici);
+    };
+  }, [aktualizujPozici, beziJakoPwa, viditelna]);
+
+  useLayoutEffect(() => {
+    if (!viditelna || beziJakoPwa) {
+      return;
+    }
+
+    aktualizujPozici();
+  }, [aktualizujPozici, beziJakoPwa, viditelna]);
+
+  useEffect(() => {
+    if (beziJakoPwa) {
+      return;
+    }
+
+    return priAppInstalled(() => {
+      zavritVyzvuPlochy();
+      skrytVyzvu();
+    });
+  }, [beziJakoPwa, skrytVyzvu]);
 
   const zavrit = (udalost: MouseEvent<HTMLButtonElement>) => {
     udalost.stopPropagation();
@@ -140,21 +153,18 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     }
   };
 
-  if (
-    beziJakoPwa ||
-    !viditelna ||
-    topPx === null ||
-    jeVyzvaPlochyZavrena()
-  ) {
+  if (beziJakoPwa || !viditelna || jeVyzvaPlochyZavrena()) {
     return null;
   }
 
   const podklad = nocRezim ? BRANA_PWA_NOC_BARVA : BRANA_PWA_DEN_BARVA;
+  const stylObalu: CSSProperties | undefined =
+    topPx !== null ? { top: `${topPx}px` } : undefined;
 
   return (
     <div
       className="brana-vyzva-plocha-obal"
-      style={{ top: `${topPx}px` }}
+      style={stylObalu}
       role="region"
       aria-label="Přidat BRÁNU na plochu"
     >

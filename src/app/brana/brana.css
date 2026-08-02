@@ -215,6 +215,7 @@
 
   .brana-vyzva-plocha-obal {
     @apply pointer-events-none fixed z-20 mx-auto w-full max-w-md px-6;
+    top: 15.5rem;
     left: 50%;
     transform: translateX(-50%);
   }
