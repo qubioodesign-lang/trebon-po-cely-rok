@@ -6,6 +6,7 @@ import {
   useLayoutEffect,
   useState,
   type CSSProperties,
+  type KeyboardEvent,
   type MouseEvent,
 } from "react";
 import {
@@ -139,13 +140,20 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     skrytVyzvu();
   };
 
-  const hlavniKlik = () => {
+  const hlavniKlik = useCallback(() => {
     void vyvolatInstalacniDialog().then((vysledek) => {
       if (vysledek === "accepted") {
         zavritVyzvuPlochy();
         skrytVyzvu();
       }
     });
+  }, [skrytVyzvu]);
+
+  const hlavniKlavesa = (udalost: KeyboardEvent<HTMLDivElement>) => {
+    if (udalost.key === "Enter" || udalost.key === " ") {
+      udalost.preventDefault();
+      hlavniKlik();
+    }
   };
 
   if (beziJakoPwa || !viditelna || jeVyzvaPlochyZavrena()) {
@@ -170,6 +178,11 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
             : "brana-vyzva-plocha"
         }
         style={{ backgroundColor: podklad }}
+        role="button"
+        tabIndex={0}
+        aria-label="Přidat BRÁNU na plochu"
+        onClick={hlavniKlik}
+        onKeyDown={hlavniKlavesa}
       >
         <button
           type="button"
@@ -179,12 +192,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
         >
           <span aria-hidden>×</span>
         </button>
-        <button
-          type="button"
-          className="brana-vyzva-plocha-hlavni"
-          aria-label="Přidat BRÁNU na plochu"
-          onClick={hlavniKlik}
-        >
+        <div className="brana-vyzva-plocha-hlavni">
           <span className="brana-vyzva-plocha-text">
             Přidat{" "}
             <span className="brana-vyzva-plocha-znacka">BRÁNU</span> na plochu
@@ -192,7 +200,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
           <span className="brana-vyzva-plocha-sipka" aria-hidden>
             →
           </span>
-        </button>
+        </div>
       </div>
     </div>
   );
