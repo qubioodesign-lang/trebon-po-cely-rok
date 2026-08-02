@@ -207,6 +207,10 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   };
 
   const rezim: RezimVyzvy = zvolitRezimVyzvy(maPrompt, navod !== null);
+  const maAktivniVyzvu =
+    rezim === "chrome" ||
+    maPrompt ||
+    (rezim === "navod" && navod !== null);
 
   const hlavniKlik = useCallback(async () => {
     if (rezim === "chrome") {
@@ -243,7 +247,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     }
   };
 
-  if (beziJakoPwa || !viditelna || jeVyzvaPlochyZavrena()) {
+  if (beziJakoPwa || !viditelna || jeVyzvaPlochyZavrena() || !maAktivniVyzvu) {
     return null;
   }
 
