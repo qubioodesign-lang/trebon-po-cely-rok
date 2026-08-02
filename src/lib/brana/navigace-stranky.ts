@@ -1,6 +1,7 @@
+import { jeVikendPouzeNedeleVPraze } from "./cas";
+
 /** Veřejné navigační stránky BRÁNY – /brana a podcesty */
 export type BranaVerejnaStranka = "dnes" | "zitra" | "vikend" | "7-dni" | "vyhled";
-
 export const BRANA_NAVIGACE = [
   { id: "dnes", label: "Dnes", href: "/brana" },
   { id: "zitra", label: "Zítra", href: "/brana/zitra" },
@@ -20,8 +21,7 @@ export function opakovaniSeznamuAkci(stranka: BranaVerejnaStranka): number {
     case "vyhled":
       return 1;
     case "vikend":
-      return 2;
-    case "7-dni":
+      return jeVikendPouzeNedeleVPraze() ? 1 : 2;    case "7-dni":
       return 7;
   }
 }

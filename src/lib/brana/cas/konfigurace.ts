@@ -3,14 +3,6 @@ export const BRANA_CASOVA_KONFIGURACE = {
   /** Časové pásmo Třeboně – všechny výpočty musí vycházet z tohoto pásma. */
   casovePasmo: "Europe/Prague",
 
-  /** Pravidla pro určení aktuálního víkendu. */
-  vikend: {
-    /** Den přepnutí na následující víkend (0 = neděle). */
-    denPrepnuti: 0,
-    /** Čas přepnutí v pásmu Europe/Prague (od tohoto okamžiku platí následující víkend). */
-    casPrepnuti: { hodina: 22, minuta: 0 },
-  },
-
   /** Poloha Třeboně pro výpočet východu a západu slunce. */
   trebon: {
     lat: 49.0038,

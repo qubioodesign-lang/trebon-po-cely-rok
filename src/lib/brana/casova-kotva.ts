@@ -1,6 +1,7 @@
 import type { BranaVerejnaStranka } from "./navigace-stranky";
 import {
   aktualniVikendVPraze,
+  jeVikendPouzeNedeleVPraze,
   dnesVPraze,
   formatDenDatum,
   okamzikVPraze,
@@ -16,8 +17,12 @@ export function textCasoveKotvy(stranka: BranaVerejnaStranka): string {
       return formatDenDatum(dnesVPraze());
     case "zitra":
       return formatDenDatum(zitraVPraze());
-    case "vikend":
-      return formatDenDatum(aktualniVikendVPraze().sobota);
+    case "vikend": {
+      const vikend = aktualniVikendVPraze();
+      return formatDenDatum(
+        jeVikendPouzeNedeleVPraze() ? vikend.nedele : vikend.sobota,
+      );
+    }
     case "7-dni":
       return formatDenDatum(zitraVPraze());
     case "vyhled":
@@ -25,8 +30,12 @@ export function textCasoveKotvy(stranka: BranaVerejnaStranka): string {
   }
 }
 
-/** Scroll kotva pro pohled Víkend – sobota a neděle z centrální definice víkendu. */
-export function kotvaScrollovaniVikend(): BranaKotvaScrollConfig {
+/** Scroll kotva pro pohled Víkend – sobota a neděle, v neděli jen aktuální den. */
+export function kotvaScrollovaniVikend(): BranaKotvaScrollConfig | null {
+  if (jeVikendPouzeNedeleVPraze()) {
+    return null;
+  }
+
   const vikend = aktualniVikendVPraze();
 
   return {

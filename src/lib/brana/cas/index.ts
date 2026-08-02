@@ -8,7 +8,11 @@ export {
   type BranaDatum,
   type BranaOkamzikVPraze,
 } from "./cas";
-export { aktualniVikendVPraze, type BranaVikend } from "./vikend";
+export {
+  aktualniVikendVPraze,
+  jeVikendPouzeNedeleVPraze,
+  type BranaVikend,
+} from "./vikend";
 export { formatDenDatum, formatDatumKratce } from "./format";
 export {
   dalsiZmenaDenniDobyVPraze,

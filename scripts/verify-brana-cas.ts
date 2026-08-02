@@ -7,6 +7,7 @@ import {
   aktualniVikendVPraze,
   formatDatumKratce,
   formatDenDatum,
+  jeVikendPouzeNedeleVPraze,
   okamzikZPrahy,
   zitraVPraze,
   type BranaDatum,
@@ -17,6 +18,7 @@ type OcekavanyVikend = {
   okamzik: Date;
   sobota: BranaDatum;
   nedele: BranaDatum;
+  pouzeNedele?: boolean;
 };
 
 function stejneDatum(a: BranaDatum, b: BranaDatum): boolean {
@@ -39,14 +41,26 @@ function praha(
 
 const pripady: OcekavanyVikend[] = [
   {
+    popis: "Pondělí 00:00:00",
+    okamzik: praha(2026, 8, 3, 0, 0),
+    sobota: datum(2026, 8, 8),
+    nedele: datum(2026, 8, 9),
+  },
+  {
     popis: "Pondělí během dne",
     okamzik: praha(2026, 8, 3, 10, 0),
     sobota: datum(2026, 8, 8),
     nedele: datum(2026, 8, 9),
   },
   {
-    popis: "Pátek během dne",
-    okamzik: praha(2026, 8, 7, 15, 30),
+    popis: "Pátek 23:59:59",
+    okamzik: praha(2026, 8, 7, 23, 59),
+    sobota: datum(2026, 8, 8),
+    nedele: datum(2026, 8, 9),
+  },
+  {
+    popis: "Sobota 00:00:00",
+    okamzik: praha(2026, 8, 8, 0, 0),
     sobota: datum(2026, 8, 8),
     nedele: datum(2026, 8, 9),
   },
@@ -57,58 +71,74 @@ const pripady: OcekavanyVikend[] = [
     nedele: datum(2026, 8, 9),
   },
   {
-    popis: "Neděle 21:59",
-    okamzik: praha(2026, 8, 9, 21, 59),
-    sobota: datum(2026, 8, 8),
+    popis: "Neděle 00:00:00",
+    okamzik: praha(2026, 8, 9, 0, 0),
+    sobota: datum(2026, 8, 9),
     nedele: datum(2026, 8, 9),
+    pouzeNedele: true,
   },
   {
-    popis: "Neděle 22:00",
+    popis: "Neděle 21:59:59",
+    okamzik: praha(2026, 8, 9, 21, 59),
+    sobota: datum(2026, 8, 9),
+    nedele: datum(2026, 8, 9),
+    pouzeNedele: true,
+  },
+  {
+    popis: "Neděle 22:00:00",
     okamzik: praha(2026, 8, 9, 22, 0),
-    sobota: datum(2026, 8, 15),
-    nedele: datum(2026, 8, 16),
+    sobota: datum(2026, 8, 9),
+    nedele: datum(2026, 8, 9),
+    pouzeNedele: true,
   },
   {
-    popis: "Neděle 22:01",
-    okamzik: praha(2026, 8, 9, 22, 1),
-    sobota: datum(2026, 8, 15),
-    nedele: datum(2026, 8, 16),
+    popis: "Neděle 23:59:59",
+    okamzik: praha(2026, 8, 9, 23, 59),
+    sobota: datum(2026, 8, 9),
+    nedele: datum(2026, 8, 9),
+    pouzeNedele: true,
   },
   {
     popis: "Přechod na letní čas – neděle 21:59",
     okamzik: praha(2026, 3, 29, 21, 59),
-    sobota: datum(2026, 3, 28),
+    sobota: datum(2026, 3, 29),
     nedele: datum(2026, 3, 29),
+    pouzeNedele: true,
   },
   {
     popis: "Přechod na letní čas – neděle 22:00",
     okamzik: praha(2026, 3, 29, 22, 0),
-    sobota: datum(2026, 4, 4),
-    nedele: datum(2026, 4, 5),
+    sobota: datum(2026, 3, 29),
+    nedele: datum(2026, 3, 29),
+    pouzeNedele: true,
   },
   {
     popis: "Přechod na zimní čas – neděle 21:59",
     okamzik: praha(2026, 10, 25, 21, 59),
-    sobota: datum(2026, 10, 24),
+    sobota: datum(2026, 10, 25),
     nedele: datum(2026, 10, 25),
+    pouzeNedele: true,
   },
   {
     popis: "Přechod na zimní čas – neděle 22:00",
     okamzik: praha(2026, 10, 25, 22, 0),
-    sobota: datum(2026, 10, 31),
-    nedele: datum(2026, 11, 1),
+    sobota: datum(2026, 10, 25),
+    nedele: datum(2026, 10, 25),
+    pouzeNedele: true,
   },
   {
     popis: "Přechod mezi roky – neděle 21:59",
     okamzik: praha(2025, 12, 28, 21, 59),
-    sobota: datum(2025, 12, 27),
+    sobota: datum(2025, 12, 28),
     nedele: datum(2025, 12, 28),
+    pouzeNedele: true,
   },
   {
     popis: "Přechod mezi roky – neděle 22:00",
     okamzik: praha(2025, 12, 28, 22, 0),
-    sobota: datum(2026, 1, 3),
-    nedele: datum(2026, 1, 4),
+    sobota: datum(2025, 12, 28),
+    nedele: datum(2025, 12, 28),
+    pouzeNedele: true,
   },
 ];
 
@@ -118,8 +148,11 @@ for (const pripad of pripady) {
   const vikend = aktualniVikendVPraze(pripad.okamzik);
   const sobotaOk = stejneDatum(vikend.sobota, pripad.sobota);
   const nedeleOk = stejneDatum(vikend.nedele, pripad.nedele);
+  const pouzeNedeleOk =
+    pripad.pouzeNedele === undefined ||
+    jeVikendPouzeNedeleVPraze(pripad.okamzik) === pripad.pouzeNedele;
 
-  if (sobotaOk && nedeleOk) {
+  if (sobotaOk && nedeleOk && pouzeNedeleOk) {
     console.log(`OK  ${pripad.popis}`);
     continue;
   }

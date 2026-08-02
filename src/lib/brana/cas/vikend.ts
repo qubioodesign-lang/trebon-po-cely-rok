@@ -1,4 +1,3 @@
-import { BRANA_CASOVA_KONFIGURACE } from "./konfigurace";
 import {
   dnesVPraze,
   okamzikVPraze,
@@ -12,41 +11,26 @@ export type BranaVikend = {
   nedele: BranaDatum;
 };
 
-function jePoPrepnuVikendu(okamzik: Date): boolean {
-  const { denPrepnuti, casPrepnuti } = BRANA_CASOVA_KONFIGURACE.vikend;
-  const praha = okamzikVPraze(okamzik);
-
-  if (praha.denVTydnu !== denPrepnuti) {
-    return false;
-  }
-
-  const minuty = praha.hodina * 60 + praha.minuta;
-  const minutyPrepnuti = casPrepnuti.hodina * 60 + casPrepnuti.minuta;
-
-  return minuty >= minutyPrepnuti;
+/** Neděle – pohled Víkend zobrazuje pouze aktuální neděli (jako Dnes). */
+export function jeVikendPouzeNedeleVPraze(okamzik: Date = new Date()): boolean {
+  return okamzikVPraze(okamzik).denVTydnu === 0;
 }
 
 /**
- * Vrátí sobotu a neděli aktuálního víkendu v pásmu Europe/Prague.
+ * Vrátí sobotu a neděli víkendu v pásmu Europe/Prague.
  *
- * Po–So: nejbližší nadcházející víkend.
- * Ne před 22:00: právě probíhající víkend.
- * Ne od 22:00: následující víkend.
+ * Po–Pá: nejbližší nadcházející sobota a neděle.
+ * So: aktuální sobota a neděle.
+ * Ne: pouze aktuální neděle (sobota = neděle = dnes).
+ * Přechod na příští víkend až v pondělí 00:00:00.
  */
 export function aktualniVikendVPraze(okamzik: Date = new Date()): BranaVikend {
   const praha = okamzikVPraze(okamzik);
   const dnes = dnesVPraze(okamzik);
 
   if (praha.denVTydnu === 0) {
-    if (jePoPrepnuVikendu(okamzik)) {
-      return {
-        sobota: pridatDny(dnes, 6),
-        nedele: pridatDny(dnes, 7),
-      };
-    }
-
     return {
-      sobota: pridatDny(dnes, -1),
+      sobota: dnes,
       nedele: dnes,
     };
   }
