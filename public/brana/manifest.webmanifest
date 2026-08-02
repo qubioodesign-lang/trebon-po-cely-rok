@@ -1,10 +1,10 @@
 {
-  "id": "https://www.trebonpocelyrok.cz/brana/",
+  "id": "https://brana.trebonpocelyrok.cz/",
   "name": "Brána do Třeboně",
   "short_name": "Třeboň",
   "description": "Brána do Třeboně.",
-  "start_url": "/brana/",
-  "scope": "/brana/",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#144C8C",
   "theme_color": "#144C8C",
