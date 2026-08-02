@@ -27,7 +27,6 @@ import {
   vyvolatInstalacniDialog,
 } from "@/lib/brana/pwa-instalace";
 import {
-  jeAndroid,
   potrebujeOtevritVChromu,
   zapamatovatEmbeddedAndroidKontext,
 } from "@/lib/brana/vlozeny-android-prohlizec";
@@ -44,7 +43,27 @@ type BranaVyzvaPlochaProps = {
   nocRezim: boolean;
 };
 
-type RezimVyzvy = "instalace" | "chrome" | "ios-navod";
+type RezimVyzvy = "instalace" | "chrome" | "navod";
+
+function zvolitRezimVyzvy(maPrompt: boolean, maNavod: boolean): RezimVyzvy {
+  if (maNavod && !maPrompt) {
+    return "navod";
+  }
+
+  if (jeIOS()) {
+    return "instalace";
+  }
+
+  if (maPrompt) {
+    return "instalace";
+  }
+
+  if (potrebujeOtevritVChromu()) {
+    return "chrome";
+  }
+
+  return "instalace";
+}
 
 function zmerTopVyzvyPlochy(): number | null {
   const linka = document.querySelector(".brana-orientacni-oddelovac");
@@ -67,35 +86,19 @@ function zmerTopVyzvyPlochy(): number | null {
   return datumTextBottom + mezeraLinkaDatum;
 }
 
-function zvolitRezimVyzvy(maPrompt: boolean): RezimVyzvy {
-  if (jeIOS()) {
-    return "instalace";
-  }
-
-  if (maPrompt) {
-    return "instalace";
-  }
-
-  if (jeAndroid() && potrebujeOtevritVChromu()) {
-    return "chrome";
-  }
-
-  return "instalace";
-}
-
 export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   const [viditelna, setViditelna] = useState(false);
   const [pripravena, setPripravena] = useState(false);
   const [topPx, setTopPx] = useState<number | null>(null);
   const [beziJakoPwa, setBeziJakoPwa] = useState(false);
   const [maPrompt, setMaPrompt] = useState(false);
-  const [iosNavod, setIosNavod] = useState<string | null>(null);
+  const [navod, setNavod] = useState<string | null>(null);
   const [chromeUrl, setChromeUrl] = useState("");
 
   const skrytVyzvu = useCallback(() => {
     setViditelna(false);
     setPripravena(false);
-    setIosNavod(null);
+    setNavod(null);
   }, []);
 
   const aktualizujPozici = useCallback(() => {
@@ -120,7 +123,11 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     setChromeUrl(sestavitOtevreniVChromuIntentUrl(aktualniStrankaUrl()));
 
     return priZmeneInstalacnihoPromptu(() => {
-      setMaPrompt(jeInstalacniPromptKDispozici());
+      const dostupny = jeInstalacniPromptKDispozici();
+      setMaPrompt(dostupny);
+      if (dostupny) {
+        setNavod(null);
+      }
     });
   }, []);
 
@@ -187,15 +194,10 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     skrytVyzvu();
   };
 
-  const rezim: RezimVyzvy = iosNavod ? "ios-navod" : zvolitRezimVyzvy(maPrompt);
+  const rezim: RezimVyzvy = zvolitRezimVyzvy(maPrompt, navod !== null);
 
   const hlavniKlik = useCallback(async () => {
     if (rezim === "chrome") {
-      return;
-    }
-
-    if (jeIOS()) {
-      setIosNavod(zvolitInstalacniNavod());
       return;
     }
 
@@ -206,7 +208,11 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
         zavritVyzvuPlochy();
         skrytVyzvu();
       }
+
+      return;
     }
+
+    setNavod(zvolitInstalacniNavod());
   }, [rezim, skrytVyzvu]);
 
   const hlavniKlavesa = (udalost: KeyboardEvent<HTMLElement>) => {
@@ -228,7 +234,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   const stylObalu: CSSProperties | undefined =
     topPx !== null ? { top: `${topPx}px` } : undefined;
 
-  const viceRadku = rezim === "chrome" || rezim === "ios-navod";
+  const viceRadku = rezim === "chrome" || rezim === "navod";
   const tridaPlochy = [
     "brana-vyzva-plocha",
     pripravena ? "brana-vyzva-plocha--viditelna" : "",
@@ -240,8 +246,8 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   const hlavniText =
     rezim === "chrome"
       ? BRANA_TEKST_OTEVRIT_V_CHROMU
-      : rezim === "ios-navod"
-        ? iosNavod
+      : rezim === "navod"
+        ? navod
         : null;
 
   return (
@@ -284,7 +290,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
             role="button"
             tabIndex={0}
             aria-label={
-              rezim === "ios-navod" ? iosNavod ?? undefined : "Přidat BRÁNU na plochu"
+              rezim === "navod" ? navod ?? undefined : "Přidat BRÁNU na plochu"
             }
             onClick={() => void hlavniKlik()}
             onKeyDown={hlavniKlavesa}
@@ -299,7 +305,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
                 <span className="brana-vyzva-plocha-znacka">BRÁNU</span> na plochu
               </span>
             )}
-            {rezim !== "ios-navod" ? (
+            {rezim !== "navod" ? (
               <span className="brana-vyzva-plocha-sipka" aria-hidden>
                 →
               </span>

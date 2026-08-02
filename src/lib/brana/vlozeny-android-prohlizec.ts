@@ -51,17 +51,17 @@ export function jeVlozenyAndroidProhlizec(): boolean {
 }
 
 /**
- * Android bez systémového promptu – nabídnout přechod do plného Chromu.
- * Platí i když embedded kontext nelze prokázat (bezpečnější než nejasný návod).
+ * Přechod do plného Chromu – pouze při silném důkazu embedded kontextu
+ * a bez dostupného beforeinstallprompt.
  */
 export function potrebujeOtevritVChromu(): boolean {
   if (typeof window === "undefined") {
     return false;
   }
 
-  if (!jeAndroid() || jePWA()) {
+  if (jeInstalacniPromptKDispozici()) {
     return false;
   }
 
-  return !jeInstalacniPromptKDispozici();
+  return jeVlozenyAndroidProhlizec();
 }
