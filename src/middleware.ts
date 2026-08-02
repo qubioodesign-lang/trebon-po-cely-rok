@@ -25,6 +25,12 @@ export function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  if (pathname === "/brana/sw.js") {
+    const response = NextResponse.next();
+    response.headers.set("Service-Worker-Allowed", "/");
+    return response;
+  }
+
   if (
     pathname.startsWith("/api/") ||
     pathname.startsWith("/_next/") ||
