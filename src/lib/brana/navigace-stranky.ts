@@ -21,7 +21,19 @@ export function opakovaniSeznamuAkci(stranka: BranaVerejnaStranka): number {
     case "vyhled":
       return 1;
     case "vikend":
-      return jeVikendPouzeNedeleVPraze() ? 1 : 2;    case "7-dni":
+      return jeVikendPouzeNedeleVPraze() ? 1 : 2;
+    case "7-dni":
       return 7;
   }
+}
+
+/** Sousední pohled pro swipe – stejné pořadí a href jako navigační odkazy. */
+export function sousedniBranaStranka(
+  stranka: BranaVerejnaStranka,
+  smer: "predchozi" | "nasledujici",
+): (typeof BRANA_NAVIGACE)[number] | null {
+  const index = BRANA_NAVIGACE.findIndex((polozka) => polozka.id === stranka);
+  const sousedniIndex = smer === "nasledujici" ? index + 1 : index - 1;
+
+  return BRANA_NAVIGACE[sousedniIndex] ?? null;
 }

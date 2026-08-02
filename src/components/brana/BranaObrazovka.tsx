@@ -13,8 +13,8 @@ import { BranaDenniPredel } from "./BranaDenniPredel";
 import {
   BranaCasovaKotvaScrollovana,
   BranaKotvaScrollProvider,
-  BranaProstorObsahScrollovany,
 } from "./BranaKotvaScrollProvider";
+import { BranaSwipeObsah } from "./BranaSwipeObsah";
 import { BranaIkonaObalka } from "./BranaIkony";
 import { BranaTlacitkoSdileni } from "./BranaTlacitkoSdileni";
 import { BranaTextAktualizace, BranaAktualizaceProvider } from "./BranaTextAktualizace";
@@ -273,13 +273,12 @@ export function BranaObrazovka({
         )}
       </div>
 
-      {kotvaScroll ? (
-        <BranaProstorObsahScrollovany>{obsahSeznamu}</BranaProstorObsahScrollovany>
-      ) : (
-        <section className="brana-prostor-obsah" aria-label="Akce">
-          {obsahSeznamu}
-        </section>
-      )}
+      <BranaSwipeObsah
+        aktivniStranka={aktivniStranka}
+        scrollovat={!!kotvaScroll}
+      >
+        {obsahSeznamu}
+      </BranaSwipeObsah>
       </div>
     </BranaKotvaScrollProvider>
     </BranaAktualizaceProvider>
