@@ -7,8 +7,15 @@ import {
   branaVerejnaCesta,
   type BranaInterniStranka,
 } from "./cesty";
+import { useBranaHostFromContext } from "@/components/brana/BranaCestyProvider";
 
-function branaHost(): string | null {
+function useEffectiveBranaHost(): string | null {
+  const contextHost = useBranaHostFromContext();
+
+  if (contextHost) {
+    return contextHost.split(":")[0];
+  }
+
   if (typeof window === "undefined") {
     return null;
   }
@@ -17,23 +24,23 @@ function branaHost(): string | null {
 }
 
 export function useBranaHost(): string | null {
-  return branaHost();
+  return useEffectiveBranaHost();
 }
 
 export function useBranaNavigace() {
-  const host = branaHost();
+  const host = useEffectiveBranaHost();
 
   return useMemo(() => branaNavigace(host), [host]);
 }
 
 export function useBranaVerejnaCesta(stranka: BranaInterniStranka) {
-  const host = branaHost();
+  const host = useEffectiveBranaHost();
 
   return useMemo(() => branaVerejnaCesta(stranka, host), [stranka, host]);
 }
 
 export function useBranaOdkazNaTrebon() {
-  const host = branaHost();
+  const host = useEffectiveBranaHost();
 
   return useMemo(() => branaOdkazNaTrebon(host), [host]);
 }

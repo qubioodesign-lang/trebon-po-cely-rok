@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
+import { BranaCestyProvider } from "@/components/brana/BranaCestyProvider";
 import {
   BRANA_IKONA_LAUNCHER_URL,
   BRANA_NAZEV,
@@ -63,17 +65,19 @@ export const viewport: Viewport = {
   themeColor: BRANA_PWA_DEN_BARVA,
 };
 
-export default function BranaLayout({
+export default async function BranaLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const host = (await headers()).get("host");
+
   return (
     <div className="brana-root">
       {/* synchronní skript – musí běžet dříve než beforeinstallprompt */}
       {/* eslint-disable-next-line @next/next/no-sync-scripts */}
       <script src="/brana/pwa-instalace-vcasna.js" />
-      {children}
+      <BranaCestyProvider host={host}>{children}</BranaCestyProvider>
     </div>
   );
 }
