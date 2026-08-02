@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useState,
   type CSSProperties,
   type KeyboardEvent,
@@ -18,22 +19,22 @@ import {
   BRANA_PWA_DEN_BARVA,
   BRANA_PWA_NOC_BARVA,
 } from "@/lib/brana/konstanty";
-import { zvolitInstalacniNavod } from "@/lib/brana/pwa-instalacni-navod";
+import {
+  otevritBranaIosInstalacniObrazovku,
+  urcitBranaInstalacniStav,
+} from "@/lib/brana/pwa-instalacni-stav";
 import {
   jeBranaSpustenaJakoPwa,
-  jeInstalacniPromptKDispozici,
   priAppInstalled,
   priZmeneInstalacnihoPromptu,
   vyvolatInstalacniDialog,
 } from "@/lib/brana/pwa-instalace";
 import {
-  potrebujeOtevritVChromu,
   vymazatEmbeddedAndroidKontext,
   vycistitEmbeddedPoInstalaci,
   zapamatovatEmbeddedAndroidKontext,
   zpracovatOtevreniVChromu,
 } from "@/lib/brana/vlozeny-android-prohlizec";
-import { jeIOS } from "@/lib/uloziste";
 import {
   bylaVyzvaPlochyZobrazena,
   jeVyzvaPlochyZavrena,
@@ -45,28 +46,6 @@ import {
 type BranaVyzvaPlochaProps = {
   nocRezim: boolean;
 };
-
-type RezimVyzvy = "instalace" | "chrome" | "navod";
-
-function zvolitRezimVyzvy(maPrompt: boolean, maNavod: boolean): RezimVyzvy {
-  if (maNavod && !maPrompt) {
-    return "navod";
-  }
-
-  if (jeIOS()) {
-    return "instalace";
-  }
-
-  if (maPrompt) {
-    return "instalace";
-  }
-
-  if (potrebujeOtevritVChromu()) {
-    return "chrome";
-  }
-
-  return "instalace";
-}
 
 function zmerTopVyzvyPlochy(): number | null {
   const linka = document.querySelector(".brana-orientacni-oddelovac");
@@ -90,18 +69,32 @@ function zmerTopVyzvyPlochy(): number | null {
 }
 
 export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
-  const [viditelna, setViditelna] = useState(false);
-  const [pripravena, setPripravena] = useState(false);
+  const [prodlevaUplynula, setProdlevaUplynula] = useState(
+    () => bylaVyzvaPlochyZobrazena(),
+  );
+  const [pripravena, setPripravena] = useState(() =>
+    bylaVyzvaPlochyZobrazena(),
+  );
   const [topPx, setTopPx] = useState<number | null>(null);
-  const [beziJakoPwa, setBeziJakoPwa] = useState(false);
-  const [maPrompt, setMaPrompt] = useState(false);
-  const [navod, setNavod] = useState<string | null>(null);
-  const [chromeUrl, setChromeUrl] = useState("");
+  const [prepoctiVerze, setPrepoctiVerze] = useState(0);
+
+  const obnovitStav = useCallback(() => {
+    setPrepoctiVerze((verze) => verze + 1);
+  }, []);
+
+  const instalacniStav = useMemo(
+    () =>
+      urcitBranaInstalacniStav({
+        vyzvaZavrena: jeVyzvaPlochyZavrena(),
+        nainstalovano: jeBranaSpustenaJakoPwa(),
+        prodlevaUplynula,
+        aktualniUrl: aktualniStrankaUrl(),
+      }),
+    [prepoctiVerze, prodlevaUplynula],
+  );
 
   const skrytVyzvu = useCallback(() => {
-    setViditelna(false);
     setPripravena(false);
-    setNavod(null);
   }, []);
 
   const aktualizujPozici = useCallback(() => {
@@ -114,7 +107,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
 
   const zobraz = useCallback(() => {
     oznacVyzvuPlochyZobrazenou();
-    setViditelna(true);
+    setProdlevaUplynula(true);
     requestAnimationFrame(() => {
       setPripravena(true);
     });
@@ -130,21 +123,15 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
       vycistitEmbeddedPoInstalaci();
     }
 
-    setMaPrompt(jeInstalacniPromptKDispozici());
-    setChromeUrl(pripravitOtevreniVChromu(aktualniStrankaUrl()));
+    obnovitStav();
 
     return priZmeneInstalacnihoPromptu(() => {
-      const dostupny = jeInstalacniPromptKDispozici();
-      setMaPrompt(dostupny);
-      if (dostupny) {
-        setNavod(null);
-      }
+      obnovitStav();
     });
-  }, []);
+  }, [obnovitStav]);
 
   useEffect(() => {
     if (jeBranaSpustenaJakoPwa()) {
-      setBeziJakoPwa(true);
       return;
     }
 
@@ -153,7 +140,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     }
 
     if (bylaVyzvaPlochyZobrazena()) {
-      setViditelna(true);
+      setProdlevaUplynula(true);
       setPripravena(true);
       return;
     }
@@ -167,7 +154,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   }, [zobraz]);
 
   useEffect(() => {
-    if (!viditelna || beziJakoPwa) {
+    if (instalacniStav.typ === "SKRYTO") {
       return;
     }
 
@@ -177,47 +164,35 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     return () => {
       window.removeEventListener("resize", aktualizujPozici);
     };
-  }, [aktualizujPozici, beziJakoPwa, viditelna]);
+  }, [aktualizujPozici, instalacniStav.typ]);
 
   useLayoutEffect(() => {
-    if (!viditelna || beziJakoPwa) {
+    if (instalacniStav.typ === "SKRYTO") {
       return;
     }
 
     aktualizujPozici();
-  }, [aktualizujPozici, beziJakoPwa, viditelna]);
+  }, [aktualizujPozici, instalacniStav.typ]);
 
   useEffect(() => {
-    if (beziJakoPwa) {
-      return;
-    }
-
     return priAppInstalled(() => {
       vycistitEmbeddedPoInstalaci();
       zavritVyzvuPlochy();
       skrytVyzvu();
+      obnovitStav();
     });
-  }, [beziJakoPwa, skrytVyzvu]);
+  }, [obnovitStav, skrytVyzvu]);
 
   const zavrit = (udalost: MouseEvent<HTMLButtonElement>) => {
     udalost.stopPropagation();
     udalost.preventDefault();
     zavritVyzvuPlochy();
     skrytVyzvu();
+    obnovitStav();
   };
 
-  const rezim: RezimVyzvy = zvolitRezimVyzvy(maPrompt, navod !== null);
-  const maAktivniVyzvu =
-    rezim === "chrome" ||
-    maPrompt ||
-    (rezim === "navod" && navod !== null);
-
   const hlavniKlik = useCallback(async () => {
-    if (rezim === "chrome") {
-      return;
-    }
-
-    if (jeInstalacniPromptKDispozici()) {
+    if (instalacniStav.typ === "PROMPT") {
       const vysledek = await vyvolatInstalacniDialog();
 
       if (vysledek === "accepted") {
@@ -225,11 +200,14 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
         skrytVyzvu();
       }
 
+      obnovitStav();
       return;
     }
 
-    setNavod(zvolitInstalacniNavod());
-  }, [rezim, skrytVyzvu]);
+    if (instalacniStav.typ === "IOS_INSTALACE") {
+      otevritBranaIosInstalacniObrazovku(instalacniStav.varianta);
+    }
+  }, [instalacniStav, obnovitStav, skrytVyzvu]);
 
   const otevritVChromu = (udalost: MouseEvent<HTMLAnchorElement>) => {
     vymazatEmbeddedAndroidKontext();
@@ -237,7 +215,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   };
 
   const hlavniKlavesa = (udalost: KeyboardEvent<HTMLElement>) => {
-    if (rezim === "chrome") {
+    if (instalacniStav.typ === "CHROME_INTENT") {
       return;
     }
 
@@ -247,7 +225,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     }
   };
 
-  if (beziJakoPwa || !viditelna || jeVyzvaPlochyZavrena() || !maAktivniVyzvu) {
+  if (instalacniStav.typ === "SKRYTO") {
     return null;
   }
 
@@ -255,7 +233,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   const stylObalu: CSSProperties | undefined =
     topPx !== null ? { top: `${topPx}px` } : undefined;
 
-  const viceRadku = rezim === "chrome" || rezim === "navod";
+  const viceRadku = instalacniStav.typ === "CHROME_INTENT";
   const tridaPlochy = [
     "brana-vyzva-plocha",
     pripravena ? "brana-vyzva-plocha--viditelna" : "",
@@ -264,20 +242,13 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     .filter(Boolean)
     .join(" ");
 
-  const hlavniText =
-    rezim === "chrome"
-      ? BRANA_TEKST_OTEVRIT_V_CHROMU
-      : rezim === "navod"
-        ? navod
-        : null;
-
   return (
     <div
       className="brana-vyzva-plocha-obal"
       style={stylObalu}
       role="region"
       aria-label={
-        rezim === "chrome"
+        instalacniStav.typ === "CHROME_INTENT"
           ? BRANA_TEKST_OTEVRIT_V_CHROMU
           : "Přidat BRÁNU na plochu"
       }
@@ -292,9 +263,9 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
           <span aria-hidden>×</span>
         </button>
 
-        {rezim === "chrome" ? (
+        {instalacniStav.typ === "CHROME_INTENT" ? (
           <a
-            href={chromeUrl}
+            href={instalacniStav.url}
             onClick={otevritVChromu}
             className="brana-vyzva-plocha-hlavni brana-vyzva-plocha-hlavni--odkaz"
             aria-label={BRANA_TEKST_OTEVRIT_V_CHROMU}
@@ -311,27 +282,17 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
             className="brana-vyzva-plocha-hlavni"
             role="button"
             tabIndex={0}
-            aria-label={
-              rezim === "navod" ? navod ?? undefined : "Přidat BRÁNU na plochu"
-            }
+            aria-label="Přidat BRÁNU na plochu"
             onClick={() => void hlavniKlik()}
             onKeyDown={hlavniKlavesa}
           >
-            {hlavniText ? (
-              <span className="brana-vyzva-plocha-text brana-vyzva-plocha-text--vice-radku">
-                {hlavniText}
-              </span>
-            ) : (
-              <span className="brana-vyzva-plocha-text">
-                Přidat{" "}
-                <span className="brana-vyzva-plocha-znacka">BRÁNU</span> na plochu
-              </span>
-            )}
-            {rezim !== "navod" ? (
-              <span className="brana-vyzva-plocha-sipka" aria-hidden>
-                →
-              </span>
-            ) : null}
+            <span className="brana-vyzva-plocha-text">
+              Přidat{" "}
+              <span className="brana-vyzva-plocha-znacka">BRÁNU</span> na plochu
+            </span>
+            <span className="brana-vyzva-plocha-sipka" aria-hidden>
+              →
+            </span>
           </div>
         )}
       </div>

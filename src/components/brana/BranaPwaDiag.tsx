@@ -2,18 +2,25 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  popisBranaInstalacniStav,
+  urcitBranaInstalacniStav,
+} from "@/lib/brana/pwa-instalacni-stav";
+import {
   BRANA_OTEVRENO_V_CHROMU_PARAM,
   BRANA_PLNY_CHROME_KLIC,
   jeVlozenyAndroidProhlizec,
   potrebujeOtevritVChromu,
 } from "@/lib/brana/vlozeny-android-prohlizec";
-import { jeInstalacniPromptKDispozici } from "@/lib/brana/pwa-instalace";
-import { jeIOS } from "@/lib/uloziste";
+import { aktualniStrankaUrl } from "@/lib/brana/otevrit-v-chromu";
+import { jeInstalacniPromptKDispozici, jeBranaSpustenaJakoPwa } from "@/lib/brana/pwa-instalace";
+import {
+  bylaVyzvaPlochyZobrazena,
+  jeVyzvaPlochyZavrena,
+  zbyvajiciProdlevaVyzvyPlochy,
+} from "@/lib/brana/vyzva-plocha";
 
 const SESSION_KLIC_EMBEDDED = "brana_embedded_android";
 const DIAG_PARAM = "pwaDiag";
-
-type RezimVyzvy = "instalace" | "chrome" | "navod";
 
 type Diagnostika = Record<string, string>;
 
@@ -23,26 +30,6 @@ function maDiagParam(): boolean {
   }
 
   return new URL(window.location.href).searchParams.get(DIAG_PARAM) === "1";
-}
-
-function zvolitRezimVyzvy(maPrompt: boolean, maNavod: boolean): RezimVyzvy {
-  if (maNavod && !maPrompt) {
-    return "navod";
-  }
-
-  if (jeIOS()) {
-    return "instalace";
-  }
-
-  if (maPrompt) {
-    return "instalace";
-  }
-
-  if (potrebujeOtevritVChromu()) {
-    return "chrome";
-  }
-
-  return "instalace";
 }
 
 function formatUserAgentData(): string {
@@ -83,6 +70,13 @@ function formatNavigatorStandalone(): string {
 function sesbiratDiagnostiku(): Diagnostika {
   const maPrompt = jeInstalacniPromptKDispozici();
   const url = new URL(window.location.href);
+  const instalacniStav = urcitBranaInstalacniStav({
+    vyzvaZavrena: jeVyzvaPlochyZavrena(),
+    nainstalovano: jeBranaSpustenaJakoPwa(),
+    prodlevaUplynula:
+      bylaVyzvaPlochyZobrazena() || zbyvajiciProdlevaVyzvyPlochy() === 0,
+    aktualniUrl: aktualniStrankaUrl(),
+  });
 
   return {
     "location.href": window.location.href,
@@ -101,7 +95,7 @@ function sesbiratDiagnostiku(): Diagnostika {
       url.searchParams.get(BRANA_OTEVRENO_V_CHROMU_PARAM) ?? "(null)",
     "jeVlozenyAndroidProhlizec()": String(jeVlozenyAndroidProhlizec()),
     "potrebujeOtevritVChromu()": String(potrebujeOtevritVChromu()),
-    "zvolitRezimVyzvy()": zvolitRezimVyzvy(maPrompt, false),
+    "urcitBranaInstalacniStav()": popisBranaInstalacniStav(instalacniStav),
     cas_mereni: new Date().toISOString(),
   };
 }
