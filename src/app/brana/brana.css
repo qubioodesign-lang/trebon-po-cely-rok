@@ -321,6 +321,10 @@
     font-size: calc(0.8125rem * 0.875);
     color: var(--brand-accent);
   }
+
+  .brana-vyzva-plocha-diagnostika {
+    @apply pointer-events-none ml-[2.75rem] mt-1 max-w-full text-[0.6875rem] leading-tight text-white/90;
+  }
 }
 
 /* PWA full-screen – veřejná /brana, pozadí pod safe area */

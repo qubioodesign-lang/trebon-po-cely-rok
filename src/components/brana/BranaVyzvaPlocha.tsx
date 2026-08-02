@@ -16,7 +16,8 @@ import {
 import {
   jeBranaSpustenaJakoPwa,
   priAppInstalled,
-  vyvolatInstalacniDialog,
+  vyvolatInstalacniDialogSDiagnostikou,
+  type BranaInstalacniDiagnostikaStav,
 } from "@/lib/brana/pwa-instalace";
 import {
   bylaVyzvaPlochyZobrazena,
@@ -56,6 +57,8 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   const [pripravena, setPripravena] = useState(false);
   const [topPx, setTopPx] = useState<number | null>(null);
   const [beziJakoPwa, setBeziJakoPwa] = useState(false);
+  const [diagnostickyStav, setDiagnostickyStav] =
+    useState<BranaInstalacniDiagnostikaStav | null>(null);
 
   const skrytVyzvu = useCallback(() => {
     setViditelna(false);
@@ -141,12 +144,15 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   };
 
   const hlavniKlik = useCallback(() => {
-    void vyvolatInstalacniDialog().then((vysledek) => {
-      if (vysledek === "accepted") {
-        zavritVyzvuPlochy();
-        skrytVyzvu();
-      }
-    });
+    setDiagnostickyStav("handler spuštěn");
+    void vyvolatInstalacniDialogSDiagnostikou(setDiagnostickyStav).then(
+      (vysledek) => {
+        if (vysledek === "instalace přijata") {
+          zavritVyzvuPlochy();
+          skrytVyzvu();
+        }
+      },
+    );
   }, [skrytVyzvu]);
 
   const hlavniKlavesa = (udalost: KeyboardEvent<HTMLDivElement>) => {
@@ -202,6 +208,11 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
           </span>
         </div>
       </div>
+      {diagnostickyStav ? (
+        <p className="brana-vyzva-plocha-diagnostika" aria-live="polite">
+          {diagnostickyStav}
+        </p>
+      ) : null}
     </div>
   );
 }
