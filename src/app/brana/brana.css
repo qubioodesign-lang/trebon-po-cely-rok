@@ -330,3 +330,78 @@ body:has(.brana-verejna--noc) {
   min-height: 100dvh;
   background-color: #0a1420;
 }
+
+/* Desktop – mobilní BRÁNA 1:1 vedle informačního panelu */
+.brana-desktop-kontejner {
+  @apply relative min-h-dvh w-full;
+}
+
+.brana-desktop-pozadi {
+  @apply pointer-events-none fixed inset-0 z-0 hidden overflow-hidden md:block;
+}
+
+.brana-desktop-radek {
+  @apply relative z-10 flex min-h-dvh w-full flex-col md:flex-row md:items-stretch md:justify-center md:gap-10 lg:gap-14;
+}
+
+.brana-desktop-mobil {
+  @apply relative mx-auto flex h-dvh w-full max-w-md shrink-0 flex-col overflow-hidden md:mx-0;
+}
+
+@media (min-width: 768px) {
+  .brana-desktop-mobil .brana-pozadi {
+    position: absolute;
+    inset: calc(-1 * env(safe-area-inset-top, 0px))
+      calc(-1 * env(safe-area-inset-right, 0px))
+      calc(-1 * env(safe-area-inset-bottom, 0px))
+      calc(-1 * env(safe-area-inset-left, 0px));
+  }
+
+  .brana-desktop-mobil > main {
+    min-height: 0;
+    height: 100%;
+  }
+
+  .brana-desktop-mobil .brana-vyzva-plocha-obal {
+    position: absolute;
+    right: 0;
+    left: 0;
+    transform: none;
+  }
+}
+
+.brana-desktop-informace {
+  @apply hidden md:flex md:max-w-sm md:flex-1 md:items-center md:justify-center md:px-8 md:py-12 lg:px-10 lg:py-16;
+}
+
+.brana-desktop-informace-obsah {
+  @apply flex w-full max-w-sm flex-col items-center gap-8 text-center text-white;
+}
+
+.brana-desktop-informace-hlavicka {
+  @apply space-y-3;
+}
+
+.brana-desktop-informace-nadpis {
+  @apply text-[1.75rem] font-normal leading-snug tracking-tight;
+}
+
+.brana-desktop-informace-popis {
+  @apply text-[0.9375rem] font-normal leading-relaxed text-white/85;
+}
+
+.brana-desktop-informace-qr-blok {
+  @apply flex flex-col items-center gap-4;
+}
+
+.brana-desktop-informace-qr {
+  @apply h-[200px] w-[200px] [&>svg]:block [&>svg]:h-full [&>svg]:w-full;
+}
+
+.brana-desktop-informace-adresa {
+  @apply text-base font-normal tracking-wide text-white/90;
+}
+
+.brana-desktop-informace-poznamka {
+  @apply text-[0.75rem] font-normal text-white/65;
+}

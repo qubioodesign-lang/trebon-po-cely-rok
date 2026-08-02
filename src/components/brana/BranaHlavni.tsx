@@ -1,5 +1,6 @@
 import type { BranaPozadiVarianta } from "@/lib/brana/pozadi-varianty";
 import type { BranaVerejnaStranka } from "@/lib/brana/navigace-stranky";
+import { BranaDesktopInformacniPanel } from "./BranaDesktopInformacniPanel";
 import { BranaDenniDobaObal } from "./BranaDenniDobaObal";
 
 type BranaHlavniProps = {
@@ -19,6 +20,7 @@ export function BranaHlavni({
       stranka={stranka}
       variantaPozadi={variantaPozadi}
       vychoziNocRezim={vychoziNocRezim}
+      desktopPanel={<BranaDesktopInformacniPanel />}
     />
   );
 }

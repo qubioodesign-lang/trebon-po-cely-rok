@@ -12,6 +12,7 @@ import {
 import type { BranaPozadiVarianta } from "@/lib/brana/pozadi-varianty";
 import type { BranaVerejnaStranka } from "@/lib/brana/navigace-stranky";
 import { opakovaniSeznamuAkci } from "@/lib/brana/navigace-stranky";
+import { BranaDesktopPozadi } from "./BranaDesktopPozadi";
 import { BranaObrazovka } from "./BranaObrazovka";
 import { BranaPozadi } from "./pozadi/BranaPozadi";
 import { BranaVyzvaPlocha } from "./BranaVyzvaPlocha";
@@ -21,6 +22,7 @@ type BranaDenniDobaObalProps = {
   variantaPozadi?: BranaPozadiVarianta;
   stranka?: BranaVerejnaStranka;
   children?: ReactNode;
+  desktopPanel?: ReactNode;
 };
 
 function nastavThemeColor(nocRezim: boolean) {
@@ -37,6 +39,7 @@ export function BranaDenniDobaObal({
   variantaPozadi,
   vychoziNocRezim,
   children,
+  desktopPanel,
 }: BranaDenniDobaObalProps) {
   const [nocRezim, setNocRezim] = useState(vychoziNocRezim);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -74,21 +77,27 @@ export function BranaDenniDobaObal({
   const verejnaTrida = nocRezim ? "brana-verejna--noc" : "brana-verejna--den";
 
   return (
-    <>
-      <BranaPozadi varianta={variantaPozadi} nocRezim={nocRezim} />
-      <main
-        className={`relative z-[1] flex min-h-dvh flex-1 flex-col ${verejnaTrida}`}
-      >
-        {children ?? (
-          <>
-            <BranaObrazovka
-              aktivniStranka={stranka}
-              opakovaniSeznamu={opakovaniSeznamuAkci(stranka)}
-            />
-            <BranaVyzvaPlocha nocRezim={nocRezim} />
-          </>
-        )}
-      </main>
-    </>
+    <div className="brana-desktop-kontejner">
+      <BranaDesktopPozadi nocRezim={nocRezim} />
+      <div className="brana-desktop-radek">
+        <div className="brana-desktop-mobil">
+          <BranaPozadi varianta={variantaPozadi} nocRezim={nocRezim} />
+          <main
+            className={`relative z-[1] flex min-h-dvh flex-1 flex-col ${verejnaTrida}`}
+          >
+            {children ?? (
+              <>
+                <BranaObrazovka
+                  aktivniStranka={stranka}
+                  opakovaniSeznamu={opakovaniSeznamuAkci(stranka)}
+                />
+                <BranaVyzvaPlocha nocRezim={nocRezim} />
+              </>
+            )}
+          </main>
+        </div>
+        {desktopPanel}
+      </div>
+    </div>
   );
 }
