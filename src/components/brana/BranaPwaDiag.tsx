@@ -8,6 +8,7 @@ import {
 import {
   BRANA_OTEVRENO_V_CHROMU_PARAM,
   BRANA_PLNY_CHROME_KLIC,
+  jeAndroid,
   jeVlozenyAndroidProhlizec,
   potrebujeOtevritVChromu,
 } from "@/lib/brana/vlozeny-android-prohlizec";
@@ -67,6 +68,43 @@ function formatNavigatorStandalone(): string {
   return hodnota === true ? "true" : hodnota === false ? "false" : String(hodnota);
 }
 
+/** Custom Tab vs plný Chrome – heuristika z referreru, UA a session stavu. */
+function formatChromeKontext(): string {
+  if (!jeAndroid()) {
+    return "ne-Android (Custom Tab / ChromeTabbedActivity nelze určit)";
+  }
+
+  const ua = navigator.userAgent;
+  const referrer = document.referrer;
+  const maWebView = /; wv\)/.test(ua);
+  const maChrome = /Chrome\//.test(ua);
+  const maAndroidAppReferrer = referrer.startsWith("android-app://");
+  const potvrzenyPlnyChrome =
+    sessionStorage.getItem(BRANA_PLNY_CHROME_KLIC) === "1" ||
+    new URL(window.location.href).searchParams.get(BRANA_OTEVRENO_V_CHROMU_PARAM) ===
+      "1";
+
+  if (potvrzenyPlnyChrome) {
+    return "plný Chrome (ChromeTabbedActivity) – potvrzeno session/param";
+  }
+
+  if (jeVlozenyAndroidProhlizec() || maAndroidAppReferrer) {
+    return maWebView
+      ? "embedded WebView (ne Custom Tab) – referrer android-app:// nebo session"
+      : "Chrome Custom Tab (embedded) – referrer android-app:// nebo session";
+  }
+
+  if (maWebView) {
+    return "embedded WebView (ne Custom Tab, ne plný Chrome) – UA ; wv)";
+  }
+
+  if (maChrome && !maAndroidAppReferrer) {
+    return "plný Chrome (ChromeTabbedActivity) – heuristika UA/referrer";
+  }
+
+  return "nejednoznačné (Android, bez android-app:// referreru)";
+}
+
 function sesbiratDiagnostiku(): Diagnostika {
   const maPrompt = jeInstalacniPromptKDispozici();
   const url = new URL(window.location.href);
@@ -83,6 +121,7 @@ function sesbiratDiagnostiku(): Diagnostika {
     "document.referrer": document.referrer || "(prázdný)",
     "navigator.userAgent": navigator.userAgent,
     "navigator.userAgentData": formatUserAgentData(),
+    "Custom Tab vs plný Chrome": formatChromeKontext(),
     "display-mode: standalone":
       window.matchMedia("(display-mode: standalone)").matches ? "ano" : "ne",
     "navigator.standalone": formatNavigatorStandalone(),
