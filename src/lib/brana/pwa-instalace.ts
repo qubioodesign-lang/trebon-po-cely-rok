@@ -113,6 +113,11 @@ export function inicializovatBranaPwaInstalaci(): void {
 
   window.addEventListener("appinstalled", () => {
     zahoditPrompt();
+    try {
+      sessionStorage.removeItem("brana_embedded_android");
+    } catch {
+      // sessionStorage nemusí být dostupné
+    }
     posluchaciInstalace.forEach((posluchac) => {
       posluchac();
     });

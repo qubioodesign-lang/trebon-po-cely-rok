@@ -12,7 +12,7 @@ import {
 import {
   aktualniStrankaUrl,
   BRANA_TEKST_OTEVRIT_V_CHROMU,
-  sestavitOtevreniVChromuIntentUrl,
+  pripravitOtevreniVChromu,
 } from "@/lib/brana/otevrit-v-chromu";
 import {
   BRANA_PWA_DEN_BARVA,
@@ -28,7 +28,10 @@ import {
 } from "@/lib/brana/pwa-instalace";
 import {
   potrebujeOtevritVChromu,
+  vymazatEmbeddedAndroidKontext,
+  vycistitEmbeddedPoInstalaci,
   zapamatovatEmbeddedAndroidKontext,
+  zpracovatOtevreniVChromu,
 } from "@/lib/brana/vlozeny-android-prohlizec";
 import { jeIOS } from "@/lib/uloziste";
 import {
@@ -118,9 +121,15 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   }, []);
 
   useEffect(() => {
+    zpracovatOtevreniVChromu();
     zapamatovatEmbeddedAndroidKontext();
+
+    if (jeBranaSpustenaJakoPwa()) {
+      vycistitEmbeddedPoInstalaci();
+    }
+
     setMaPrompt(jeInstalacniPromptKDispozici());
-    setChromeUrl(sestavitOtevreniVChromuIntentUrl(aktualniStrankaUrl()));
+    setChromeUrl(pripravitOtevreniVChromu(aktualniStrankaUrl()));
 
     return priZmeneInstalacnihoPromptu(() => {
       const dostupny = jeInstalacniPromptKDispozici();
@@ -182,6 +191,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     }
 
     return priAppInstalled(() => {
+      vycistitEmbeddedPoInstalaci();
       zavritVyzvuPlochy();
       skrytVyzvu();
     });
@@ -214,6 +224,11 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
 
     setNavod(zvolitInstalacniNavod());
   }, [rezim, skrytVyzvu]);
+
+  const otevritVChromu = (udalost: MouseEvent<HTMLAnchorElement>) => {
+    vymazatEmbeddedAndroidKontext();
+    udalost.currentTarget.href = pripravitOtevreniVChromu(aktualniStrankaUrl());
+  };
 
   const hlavniKlavesa = (udalost: KeyboardEvent<HTMLElement>) => {
     if (rezim === "chrome") {
@@ -274,6 +289,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
         {rezim === "chrome" ? (
           <a
             href={chromeUrl}
+            onClick={otevritVChromu}
             className="brana-vyzva-plocha-hlavni brana-vyzva-plocha-hlavni--odkaz"
             aria-label={BRANA_TEKST_OTEVRIT_V_CHROMU}
           >

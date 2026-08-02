@@ -1,3 +1,14 @@
+(function () {
+  try {
+    var url = new URL(window.location.href);
+    if (url.searchParams.get("otevrenoVChromu") === "1") {
+      sessionStorage.removeItem("brana_embedded_android");
+    }
+  } catch (e) {
+    // ignorovat – hlavní logika běží v bundlu
+  }
+})();
+
 window.addEventListener(
   "beforeinstallprompt",
   function (e) {
