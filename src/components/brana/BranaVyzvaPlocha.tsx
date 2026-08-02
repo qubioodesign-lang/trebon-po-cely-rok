@@ -121,8 +121,10 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   }, []);
 
   useEffect(() => {
-    zpracovatOtevreniVChromu();
-    zapamatovatEmbeddedAndroidKontext();
+    const praveOtevrenoVChromu = zpracovatOtevreniVChromu();
+    if (!praveOtevrenoVChromu) {
+      zapamatovatEmbeddedAndroidKontext();
+    }
 
     if (jeBranaSpustenaJakoPwa()) {
       vycistitEmbeddedPoInstalaci();
