@@ -8,7 +8,6 @@ import {
 import {
   jeBranaSpustenaJakoPwa,
   jeInstalacniPromptKDispozici,
-  priZmeneInstalacnihoPromptu,
   vyvolatInstalacniDialog,
   zachytitInstalacniPrompt,
   zahoditInstalacniPrompt,
@@ -50,8 +49,6 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   const [viditelna, setViditelna] = useState(false);
   const [pripravena, setPripravena] = useState(false);
   const [topPx, setTopPx] = useState<number | null>(null);
-  const [casUplynul, setCasUplynul] = useState(false);
-  const [promptKDispozici, setPromptKDispozici] = useState(false);
   const [beziJakoPwa, setBeziJakoPwa] = useState(false);
 
   const skrytVyzvu = useCallback(() => {
@@ -82,6 +79,10 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
       return;
     }
 
+    if (jeVyzvaPlochyZavrena()) {
+      return;
+    }
+
     aktualizujPozici();
     window.addEventListener("resize", aktualizujPozici);
 
@@ -98,54 +99,27 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
     window.addEventListener("appinstalled", onAppInstalled);
 
-    setPromptKDispozici(jeInstalacniPromptKDispozici());
-
-    let timeout: number | undefined;
-
-    if (
-      bylaVyzvaPlochyZobrazena() &&
-      jeInstalacniPromptKDispozici() &&
-      !jeVyzvaPlochyZavrena()
-    ) {
-      setCasUplynul(true);
+    if (bylaVyzvaPlochyZobrazena()) {
       setViditelna(true);
       setPripravena(true);
-    } else if (!jeVyzvaPlochyZavrena()) {
-      const prodleva = zbyvajiciProdlevaVyzvyPlochy();
-      timeout = window.setTimeout(() => {
-        setCasUplynul(true);
-      }, prodleva);
+
+      return () => {
+        window.removeEventListener("resize", aktualizujPozici);
+        window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+        window.removeEventListener("appinstalled", onAppInstalled);
+      };
     }
 
-    const odregistrovatPrompt = priZmeneInstalacnihoPromptu(() => {
-      setPromptKDispozici(jeInstalacniPromptKDispozici());
-    });
+    const prodleva = zbyvajiciProdlevaVyzvyPlochy();
+    const timeout = window.setTimeout(zobraz, prodleva);
 
     return () => {
-      if (timeout) {
-        window.clearTimeout(timeout);
-      }
-
+      window.clearTimeout(timeout);
       window.removeEventListener("resize", aktualizujPozici);
       window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
       window.removeEventListener("appinstalled", onAppInstalled);
-      odregistrovatPrompt();
     };
-  }, [aktualizujPozici, skrytVyzvu]);
-
-  useEffect(() => {
-    if (
-      beziJakoPwa ||
-      jeVyzvaPlochyZavrena() ||
-      !casUplynul ||
-      !promptKDispozici ||
-      viditelna
-    ) {
-      return;
-    }
-
-    zobraz();
-  }, [beziJakoPwa, casUplynul, promptKDispozici, viditelna, zobraz]);
+  }, [aktualizujPozici, skrytVyzvu, zobraz]);
 
   const zavrit = (udalost: MouseEvent<HTMLButtonElement>) => {
     udalost.stopPropagation();
@@ -154,23 +128,23 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   };
 
   const hlavniKlik = async () => {
-    const vysledek = await vyvolatInstalacniDialog();
-    setPromptKDispozici(false);
-
-    if (vysledek === "nedostupny") {
+    if (!jeInstalacniPromptKDispozici()) {
       return;
     }
 
-    zavritVyzvuPlochy();
-    skrytVyzvu();
+    const vysledek = await vyvolatInstalacniDialog();
+
+    if (vysledek === "accepted") {
+      zavritVyzvuPlochy();
+      skrytVyzvu();
+    }
   };
 
   if (
     beziJakoPwa ||
     !viditelna ||
     topPx === null ||
-    jeVyzvaPlochyZavrena() ||
-    !promptKDispozici
+    jeVyzvaPlochyZavrena()
   ) {
     return null;
   }
