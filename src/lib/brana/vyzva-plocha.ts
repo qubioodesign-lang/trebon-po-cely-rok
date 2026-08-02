@@ -29,11 +29,6 @@ export function zavritVyzvuPlochy(): void {
   stav.zavreno = true;
 }
 
-/** Hlavní akce výzvy – připraveno pro budoucí napojení instalace na plochu. */
-export function hlavniAkceVyzvyPlochy(): void {
-  // Zatím bez akce.
-}
-
 /** Zbyvající prodleva od prvního otevření BRÁNY v tomto načtení stránky. */
 export function zbyvajiciProdlevaVyzvyPlochy(): number {
   if (stav.casNacteni === null) {

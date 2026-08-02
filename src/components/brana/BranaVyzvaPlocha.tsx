@@ -6,8 +6,15 @@ import {
   BRANA_PWA_NOC_BARVA,
 } from "@/lib/brana/konstanty";
 import {
+  jeBranaSpustenaJakoPwa,
+  jeInstalacniPromptKDispozici,
+  priZmeneInstalacnihoPromptu,
+  vyvolatInstalacniDialog,
+  zachytitInstalacniPrompt,
+  zahoditInstalacniPrompt,
+} from "@/lib/brana/pwa-instalace";
+import {
   bylaVyzvaPlochyZobrazena,
-  hlavniAkceVyzvyPlochy,
   jeVyzvaPlochyZavrena,
   oznacVyzvuPlochyZobrazenou,
   zavritVyzvuPlochy,
@@ -43,6 +50,14 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   const [viditelna, setViditelna] = useState(false);
   const [pripravena, setPripravena] = useState(false);
   const [topPx, setTopPx] = useState<number | null>(null);
+  const [casUplynul, setCasUplynul] = useState(false);
+  const [promptKDispozici, setPromptKDispozici] = useState(false);
+  const [beziJakoPwa, setBeziJakoPwa] = useState(false);
+
+  const skrytVyzvu = useCallback(() => {
+    setViditelna(false);
+    setPripravena(false);
+  }, []);
 
   const aktualizujPozici = useCallback(() => {
     const top = zmerTopVyzvyPlochy();
@@ -62,43 +77,101 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   }, [aktualizujPozici]);
 
   useEffect(() => {
-    if (jeVyzvaPlochyZavrena()) {
+    if (jeBranaSpustenaJakoPwa()) {
+      setBeziJakoPwa(true);
       return;
     }
 
     aktualizujPozici();
     window.addEventListener("resize", aktualizujPozici);
 
-    if (bylaVyzvaPlochyZobrazena()) {
+    const onBeforeInstallPrompt = (udalost: Event) => {
+      zachytitInstalacniPrompt(udalost);
+    };
+
+    const onAppInstalled = () => {
+      zahoditInstalacniPrompt();
+      zavritVyzvuPlochy();
+      skrytVyzvu();
+    };
+
+    window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+    window.addEventListener("appinstalled", onAppInstalled);
+
+    setPromptKDispozici(jeInstalacniPromptKDispozici());
+
+    let timeout: number | undefined;
+
+    if (
+      bylaVyzvaPlochyZobrazena() &&
+      jeInstalacniPromptKDispozici() &&
+      !jeVyzvaPlochyZavrena()
+    ) {
+      setCasUplynul(true);
       setViditelna(true);
       setPripravena(true);
-
-      return () => {
-        window.removeEventListener("resize", aktualizujPozici);
-      };
+    } else if (!jeVyzvaPlochyZavrena()) {
+      const prodleva = zbyvajiciProdlevaVyzvyPlochy();
+      timeout = window.setTimeout(() => {
+        setCasUplynul(true);
+      }, prodleva);
     }
 
-    const prodleva = zbyvajiciProdlevaVyzvyPlochy();
-    const timeout = window.setTimeout(zobraz, prodleva);
+    const odregistrovatPrompt = priZmeneInstalacnihoPromptu(() => {
+      setPromptKDispozici(jeInstalacniPromptKDispozici());
+    });
 
     return () => {
-      window.clearTimeout(timeout);
+      if (timeout) {
+        window.clearTimeout(timeout);
+      }
+
       window.removeEventListener("resize", aktualizujPozici);
+      window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", onAppInstalled);
+      odregistrovatPrompt();
     };
-  }, [aktualizujPozici, zobraz]);
+  }, [aktualizujPozici, skrytVyzvu]);
+
+  useEffect(() => {
+    if (
+      beziJakoPwa ||
+      jeVyzvaPlochyZavrena() ||
+      !casUplynul ||
+      !promptKDispozici ||
+      viditelna
+    ) {
+      return;
+    }
+
+    zobraz();
+  }, [beziJakoPwa, casUplynul, promptKDispozici, viditelna, zobraz]);
 
   const zavrit = (udalost: MouseEvent<HTMLButtonElement>) => {
     udalost.stopPropagation();
     zavritVyzvuPlochy();
-    setViditelna(false);
-    setPripravena(false);
+    skrytVyzvu();
   };
 
-  const hlavniKlik = () => {
-    hlavniAkceVyzvyPlochy();
+  const hlavniKlik = async () => {
+    const vysledek = await vyvolatInstalacniDialog();
+    setPromptKDispozici(false);
+
+    if (vysledek === "nedostupny") {
+      return;
+    }
+
+    zavritVyzvuPlochy();
+    skrytVyzvu();
   };
 
-  if (!viditelna || topPx === null || jeVyzvaPlochyZavrena()) {
+  if (
+    beziJakoPwa ||
+    !viditelna ||
+    topPx === null ||
+    jeVyzvaPlochyZavrena() ||
+    !promptKDispozici
+  ) {
     return null;
   }
 
