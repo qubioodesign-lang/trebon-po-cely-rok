@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import {
   BRANA_IKONA_LAUNCHER_URL,
   BRANA_NAZEV,
@@ -6,6 +7,10 @@ import {
   BRANA_PWA_DEN_BARVA,
 } from "@/lib/brana";
 import "./brana.css";
+
+/** Zachytí beforeinstallprompt dříve než React bundle – uloží událost pro pwa-instalace.ts */
+const BRANA_PWA_VCASNA_INSTALACE =
+  'window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();window.__branaPwaVcasnyPrompt=e;window.dispatchEvent(new Event("brana-pwa-prompt"));},{capture:true});';
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.trebonpocelyrok.cz"),
@@ -68,5 +73,12 @@ export default function BranaLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <div className="brana-root">{children}</div>;
+  return (
+    <div className="brana-root">
+      <Script id="brana-pwa-vcasna-instalace" strategy="beforeInteractive">
+        {BRANA_PWA_VCASNA_INSTALACE}
+      </Script>
+      {children}
+    </div>
+  );
 }
