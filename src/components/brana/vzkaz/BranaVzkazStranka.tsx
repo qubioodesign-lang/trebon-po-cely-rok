@@ -1,5 +1,5 @@
+import { BranaDenniDobaObal } from "../BranaDenniDobaObal";
 import { BranaVzkazFormular } from "./BranaVzkazFormular";
-import { BranaVzkazObal } from "./BranaVzkazObal";
 
 type BranaVzkazStrankaProps = {
   vychoziNocRezim: boolean;
@@ -7,8 +7,8 @@ type BranaVzkazStrankaProps = {
 
 export function BranaVzkazStranka({ vychoziNocRezim }: BranaVzkazStrankaProps) {
   return (
-    <BranaVzkazObal vychoziNocRezim={vychoziNocRezim}>
+    <BranaDenniDobaObal vychoziNocRezim={vychoziNocRezim}>
       <BranaVzkazFormular />
-    </BranaVzkazObal>
+    </BranaDenniDobaObal>
   );
 }

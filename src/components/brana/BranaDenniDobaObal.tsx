@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   dalsiZmenaDenniDobyVPraze,
   jeNocniRezimVPraze,
@@ -17,9 +17,10 @@ import { BranaPozadi } from "./pozadi/BranaPozadi";
 import { BranaVyzvaPlocha } from "./BranaVyzvaPlocha";
 
 type BranaDenniDobaObalProps = {
-  stranka: BranaVerejnaStranka;
-  variantaPozadi?: BranaPozadiVarianta;
   vychoziNocRezim: boolean;
+  variantaPozadi?: BranaPozadiVarianta;
+  stranka?: BranaVerejnaStranka;
+  children?: ReactNode;
 };
 
 function nastavThemeColor(nocRezim: boolean) {
@@ -32,9 +33,10 @@ function nastavThemeColor(nocRezim: boolean) {
 }
 
 export function BranaDenniDobaObal({
-  stranka,
+  stranka = "dnes",
   variantaPozadi,
   vychoziNocRezim,
+  children,
 }: BranaDenniDobaObalProps) {
   const [nocRezim, setNocRezim] = useState(vychoziNocRezim);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -44,6 +46,8 @@ export function BranaDenniDobaObal({
   }, [nocRezim]);
 
   useEffect(() => {
+    setNocRezim(jeNocniRezimVPraze());
+
     const naplanuj = () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
@@ -75,11 +79,15 @@ export function BranaDenniDobaObal({
       <main
         className={`relative z-[1] flex min-h-dvh flex-1 flex-col ${verejnaTrida}`}
       >
-        <BranaObrazovka
-          aktivniStranka={stranka}
-          opakovaniSeznamu={opakovaniSeznamuAkci(stranka)}
-        />
-        <BranaVyzvaPlocha nocRezim={nocRezim} />
+        {children ?? (
+          <>
+            <BranaObrazovka
+              aktivniStranka={stranka}
+              opakovaniSeznamu={opakovaniSeznamuAkci(stranka)}
+            />
+            <BranaVyzvaPlocha nocRezim={nocRezim} />
+          </>
+        )}
       </main>
     </>
   );
