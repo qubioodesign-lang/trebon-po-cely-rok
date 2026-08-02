@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import Script from "next/script";
 import { BranaCestyProvider } from "@/components/brana/BranaCestyProvider";
+import { BranaPwaDiag } from "@/components/brana/BranaPwaDiag";
 import {
   BRANA_IKONA_LAUNCHER_URL,
   BRANA_NAZEV,
@@ -80,7 +81,10 @@ export default async function BranaLayout({
         src="/brana/pwa-instalace-vcasna.js"
         strategy="beforeInteractive"
       />
-      <BranaCestyProvider host={host}>{children}</BranaCestyProvider>
+      <BranaCestyProvider host={host}>
+        {children}
+        <BranaPwaDiag />
+      </BranaCestyProvider>
     </div>
   );
 }

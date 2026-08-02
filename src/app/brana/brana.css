@@ -424,3 +424,40 @@ body:has(.brana-verejna--noc) {
 .brana-desktop-informace-poznamka {
   @apply text-[0.75rem] font-normal text-white/65;
 }
+
+/* Dočasná PWA diagnostika – odstranit po testu (?pwaDiag=1) */
+.brana-pwa-diag {
+  @apply fixed inset-x-0 bottom-0 z-[9999] max-h-[55dvh] overflow-y-auto border-t border-white/20 bg-[#0a1420]/95 p-3 text-white;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.brana-pwa-diag-hlavicka {
+  @apply mb-2 flex flex-wrap items-center justify-between gap-2;
+  font-family: system-ui, sans-serif;
+  font-size: 0.875rem;
+}
+
+.brana-pwa-diag-kopie {
+  @apply rounded-md border border-white/30 bg-white/10 px-3 py-1.5 text-white;
+  font-family: system-ui, sans-serif;
+  font-size: 0.8125rem;
+}
+
+.brana-pwa-diag-seznam {
+  @apply m-0 space-y-2 p-0;
+}
+
+.brana-pwa-diag-radek {
+  @apply grid gap-0.5 border-b border-white/10 pb-2;
+  grid-template-columns: 1fr;
+}
+
+.brana-pwa-diag-radek dt {
+  @apply font-semibold text-white/70;
+}
+
+.brana-pwa-diag-radek dd {
+  @apply m-0 break-all whitespace-pre-wrap text-white;
+}
