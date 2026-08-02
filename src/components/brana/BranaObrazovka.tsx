@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { Fragment } from "react";
 import { dnesVPraze, formatDenDatum } from "@/lib/brana/cas";
@@ -7,8 +9,12 @@ import {
   BRANA_VYHLED_DATUMY,
   BRANA_VYHLED_PREDEL_INDEX,
 } from "@/lib/brana/referencni-vyhled-datumy";
-import { BRANA_NAVIGACE } from "@/lib/brana/navigace-stranky";
 import type { BranaVerejnaStranka } from "@/lib/brana/navigace-stranky";
+import {
+  useBranaNavigace,
+  useBranaOdkazNaTrebon,
+  useBranaVerejnaCesta,
+} from "@/lib/brana/use-brana-cesty";
 import { BranaDenniPredel } from "./BranaDenniPredel";
 import {
   BranaCasovaKotvaScrollovana,
@@ -146,6 +152,9 @@ export function BranaObrazovka({
   aktivniStranka = "dnes",
   opakovaniSeznamu = 1,
 }: BranaObrazovkaProps) {
+  const navigace = useBranaNavigace();
+  const vzkazHref = useBranaVerejnaCesta("vzkaz");
+  const trebonHref = useBranaOdkazNaTrebon();
   const kotvaScroll = kotvaScrollProStranku(aktivniStranka);
   const pocetBloku =
     aktivniStranka === "vyhled" ? 2 : opakovaniSeznamu;
@@ -197,7 +206,7 @@ export function BranaObrazovka({
 
       <footer className="brana-pata">
         <div className="brana-pata-stred">
-          <Link href="/" className="brana-pata-odkaz">
+          <Link href={trebonHref} className="brana-pata-odkaz">
             Třeboň po celý rok{" "}
             <span className="brana-pata-odkaz-sipka" aria-hidden>
               →
@@ -219,7 +228,7 @@ export function BranaObrazovka({
         <header className="brana-horni-lista">
           <div className="brana-ikona-misto">
             <Link
-              href="/brana/vzkaz"
+              href={vzkazHref}
               className="flex h-full w-full items-center justify-center text-white no-underline"
               aria-label="Nechte vzkaz BRÁNĚ"
             >
@@ -248,7 +257,7 @@ export function BranaObrazovka({
         <p className="brana-datum">{formatDenDatum(dnesVPraze())}</p>
 
         <nav className="brana-navigace" aria-label="Období">
-          {BRANA_NAVIGACE.map((polozka) => (
+          {navigace.map((polozka) => (
             <Link
               key={polozka.id}
               href={polozka.href}

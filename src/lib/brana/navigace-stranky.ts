@@ -1,18 +1,18 @@
 import { jeVikendPouzeNedeleVPraze } from "./cas";
+import {
+  branaNavigace,
+  BRANA_NAVIGACE_POLOZKY,
+  type BranaNavPolozka,
+} from "./cesty";
 
 /** Veřejné navigační stránky BRÁNY – /brana a podcesty */
 export type BranaVerejnaStranka = "dnes" | "zitra" | "vikend" | "7-dni" | "vyhled";
-export const BRANA_NAVIGACE = [
-  { id: "dnes", label: "Dnes", href: "/brana" },
-  { id: "zitra", label: "Zítra", href: "/brana/zitra" },
-  { id: "vikend", label: "Víkend", href: "/brana/vikend" },
-  { id: "7-dni", label: "7 dní", href: "/brana/7-dni" },
-  { id: "vyhled", label: "Výhled", href: "/brana/vyhled" },
-] as const satisfies ReadonlyArray<{
-  id: BranaVerejnaStranka;
-  label: string;
-  href: string;
-}>;
+
+/** @deprecated Použijte {@link branaNavigace} – statické href neodráží subdoménu. */
+export const BRANA_NAVIGACE = BRANA_NAVIGACE_POLOZKY.map((polozka) => ({
+  ...polozka,
+  href: polozka.id === "dnes" ? "/brana" : `/brana/${polozka.id}`,
+})) as BranaNavPolozka[];
 
 export function opakovaniSeznamuAkci(stranka: BranaVerejnaStranka): number {
   switch (stranka) {
@@ -31,9 +31,11 @@ export function opakovaniSeznamuAkci(stranka: BranaVerejnaStranka): number {
 export function sousedniBranaStranka(
   stranka: BranaVerejnaStranka,
   smer: "predchozi" | "nasledujici",
-): (typeof BRANA_NAVIGACE)[number] | null {
-  const index = BRANA_NAVIGACE.findIndex((polozka) => polozka.id === stranka);
+  host?: string | null,
+): BranaNavPolozka | null {
+  const navigace = branaNavigace(host);
+  const index = navigace.findIndex((polozka) => polozka.id === stranka);
   const sousedniIndex = smer === "nasledujici" ? index + 1 : index - 1;
 
-  return BRANA_NAVIGACE[sousedniIndex] ?? null;
+  return navigace[sousedniIndex] ?? null;
 }

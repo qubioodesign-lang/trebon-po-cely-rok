@@ -9,6 +9,7 @@ import {
   type FormEvent,
 } from "react";
 import { BRANA_MAX_DELKA_VZKAZU } from "@/lib/brana/vzkaz/konstanty";
+import { useBranaVerejnaCesta } from "@/lib/brana/use-brana-cesty";
 import {
   BranaVzkazPotvrzeniListek,
   TRIDA_BRANA_VZKAZ_LISTEK,
@@ -21,6 +22,7 @@ type StavFormulare = "psani" | "odesilani" | "uspech";
 
 export function BranaVzkazFormular() {
   const router = useRouter();
+  const branaDomov = useBranaVerejnaCesta("dnes");
   const [text, setText] = useState("");
   const [stav, setStav] = useState<StavFormulare>("psani");
   const [chybovaZprava, setChybovaZprava] = useState<string | null>(null);
@@ -51,8 +53,8 @@ export function BranaVzkazFormular() {
   }, []);
 
   const zavritStranku = useCallback(() => {
-    router.push("/brana");
-  }, [router]);
+    router.push(branaDomov);
+  }, [router, branaDomov]);
 
   const handleOdeslat = async (event: FormEvent) => {
     event.preventDefault();

@@ -2,10 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useRef, type ReactNode } from "react";
-import {
-  sousedniBranaStranka,
-  type BranaVerejnaStranka,
-} from "@/lib/brana/navigace-stranky";
+import { sousedniBranaStranka } from "@/lib/brana/navigace-stranky";
+import type { BranaVerejnaStranka } from "@/lib/brana/navigace-stranky";
+import { useBranaHost } from "@/lib/brana/use-brana-cesty";
 import { useBranaKotvaScroll } from "./BranaKotvaScrollProvider";
 
 const MIN_VZDALENOST_SWIPE = 50;
@@ -42,6 +41,7 @@ export function BranaSwipeObsah({
   scrollovat = false,
 }: BranaSwipeObsahProps) {
   const router = useRouter();
+  const host = useBranaHost();
   const kontext = useBranaKotvaScroll();
   const stavRef = useRef<TouchStav | null>(null);
 
@@ -59,7 +59,7 @@ export function BranaSwipeObsah({
   };
 
   const naviguj = (smer: "predchozi" | "nasledujici") => {
-    const cil = sousedniBranaStranka(aktivniStranka, smer);
+    const cil = sousedniBranaStranka(aktivniStranka, smer, host);
 
     if (cil) {
       router.push(cil.href);
