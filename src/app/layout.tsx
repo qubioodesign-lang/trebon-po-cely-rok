@@ -3,6 +3,7 @@ import { Inter, Caveat } from "next/font/google";
 import {
   TREBON_IKONA_LAUNCHER_URL,
   TREBON_IKONA_URL,
+  TREBON_SPLASH_URL,
 } from "@/lib/pwa-ikony-url";
 import "./globals.css";
 
@@ -30,6 +31,12 @@ export const metadata: Metadata = {
   icons: {
     icon: TREBON_IKONA_URL,
     apple: TREBON_IKONA_LAUNCHER_URL,
+    other: [
+      {
+        rel: "apple-touch-startup-image",
+        url: TREBON_SPLASH_URL,
+      },
+    ],
   },
 };
 

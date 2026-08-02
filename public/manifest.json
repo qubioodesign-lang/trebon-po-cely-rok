@@ -16,7 +16,7 @@
       "purpose": "any"
     },
     {
-      "src": "/pwa-launcher-icon?v=11",
+      "src": "/pwa-splash-icon?v=1",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"

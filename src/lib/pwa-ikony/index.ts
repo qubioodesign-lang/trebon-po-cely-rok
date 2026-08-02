@@ -3,4 +3,4 @@ export {
   PWA_IKONA_POZADI,
   PWA_IKONA_TEXT,
 } from "./konstanty";
-export { vykreslitPwaIkony } from "./obsah";
+export { vykreslitPwaIkony, vykreslitPwaSplashIkony } from "./obsah";

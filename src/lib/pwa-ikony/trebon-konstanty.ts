@@ -49,6 +49,12 @@ export function meritkaTrebonPismenoT(velikost: number, linkaY: number) {
   };
 }
 
+/**
+ * Tloušťka oranžové linky na splash ikoně @ 512 px.
+ * ≈ 2/3 launcher linky (20 px) – stejná poloha a délka, jen tenčí pruh.
+ */
+export const TREBON_SPLASH_LINKA_TLOUSTKA = 13;
+
 /** Spodní hrana nápisu BRÁNA @ referenční velikost – pro kontrolu zarovnání T */
 export const TREBON_IKONA_SPOLECNY_SPOODNI_OKRAJ =
   BRANA_IKONA_POSUN_DOLU + BRANA_IKONA_TEXT_VELIKOST;

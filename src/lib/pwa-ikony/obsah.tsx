@@ -3,7 +3,10 @@ import {
   PWA_IKONA_BRANA_MEZERY,
 } from "./konstanty";
 import { meritkaBranaIkony, BRANA_IKONA_POZADI, BRANA_IKONA_AKCENT } from "./brana-konstanty";
-import { meritkaTrebonPismenoT } from "./trebon-konstanty";
+import {
+  meritkaTrebonPismenoT,
+  TREBON_SPLASH_LINKA_TLOUSTKA,
+} from "./trebon-konstanty";
 
 type VariantaPwaIkony = "trebon" | "brana";
 
@@ -22,8 +25,69 @@ function meritkaDiagnostickaLinkaTrebon(velikost: number) {
   };
 }
 
+/** Splash linka – stejná poloha a délka jako launcher, tenčí pruh */
+function meritkaSplashLinkaTrebon(velikost: number) {
+  const linka = meritkaDiagnostickaLinkaTrebon(velikost);
+  const pomer = velikost / 512;
+
+  return {
+    ...linka,
+    height: Math.max(1, Math.round(TREBON_SPLASH_LINKA_TLOUSTKA * pomer)),
+  };
+}
+
 function ObsahTrebonIkony({ velikost }: { velikost: number }) {
   const linka = meritkaDiagnostickaLinkaTrebon(velikost);
+  const pismeno = meritkaTrebonPismenoT(velikost, linka.y);
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        display: "flex",
+        width: "100%",
+        height: "100%",
+        backgroundColor: BRANA_IKONA_POZADI,
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          top: pismeno.top,
+          display: "flex",
+          justifyContent: "center",
+        }}
+      >
+        <span
+          style={{
+            fontSize: pismeno.text,
+            fontFamily: "Inter, sans-serif",
+            fontWeight: 600,
+            color: PWA_IKONA_TEXT,
+            lineHeight: 1,
+          }}
+        >
+          T
+        </span>
+      </div>
+      <div
+        style={{
+          position: "absolute",
+          left: linka.left,
+          top: linka.y,
+          width: linka.width,
+          height: linka.height,
+          backgroundColor: BRANA_IKONA_AKCENT,
+        }}
+      />
+    </div>
+  );
+}
+
+function ObsahTrebonSplashIkony({ velikost }: { velikost: number }) {
+  const linka = meritkaSplashLinkaTrebon(velikost);
   const pismeno = meritkaTrebonPismenoT(velikost, linka.y);
 
   return (
@@ -139,4 +203,9 @@ export function vykreslitPwaIkony(
   velikost: number,
 ) {
   return <ObsahPwaIkony varianta={varianta} velikost={velikost} />;
+}
+
+/** Splash/launch screen ikona – Třeboň po celý rok (tenčí linka) */
+export function vykreslitPwaSplashIkony(velikost: number) {
+  return <ObsahTrebonSplashIkony velikost={velikost} />;
 }
