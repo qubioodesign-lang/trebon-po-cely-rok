@@ -3,6 +3,9 @@ import { jeInstalacniPromptKDispozici } from "./pwa-instalace";
 
 const SESSION_KLIC_EMBEDDED = "brana_embedded_android";
 
+/** Pozitivní stav potvrzeného plného Chromu v aktuální kartě. */
+export const BRANA_PLNY_CHROME_KLIC = "brana_plny_chrome";
+
 /** Jednorázový query parametr potvrzující otevření v plném Chromu. */
 export const BRANA_OTEVRENO_V_CHROMU_PARAM = "otevrenoVChromu";
 
@@ -44,6 +47,7 @@ export function zpracovatOtevreniVChromu(): boolean {
   }
 
   vymazatEmbeddedAndroidKontext();
+  sessionStorage.setItem(BRANA_PLNY_CHROME_KLIC, "1");
 
   const url = new URL(window.location.href);
   url.searchParams.delete(BRANA_OTEVRENO_V_CHROMU_PARAM);
@@ -65,6 +69,7 @@ export function zapamatovatEmbeddedAndroidKontext(): void {
   }
 
   if (document.referrer.startsWith("android-app://")) {
+    sessionStorage.removeItem(BRANA_PLNY_CHROME_KLIC);
     sessionStorage.setItem(SESSION_KLIC_EMBEDDED, "1");
   }
 }
@@ -87,6 +92,10 @@ export function jeVlozenyAndroidProhlizec(): boolean {
   }
 
   if (!jeAndroid() || jePWA()) {
+    return false;
+  }
+
+  if (sessionStorage.getItem(BRANA_PLNY_CHROME_KLIC) === "1") {
     return false;
   }
 
