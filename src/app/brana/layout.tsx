@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
+import Script from "next/script";
 import { BranaCestyProvider } from "@/components/brana/BranaCestyProvider";
 import {
   BRANA_IKONA_LAUNCHER_URL,
@@ -74,9 +75,11 @@ export default async function BranaLayout({
 
   return (
     <div className="brana-root">
-      {/* synchronní skript – musí běžet dříve než beforeinstallprompt */}
-      {/* eslint-disable-next-line @next/next/no-sync-scripts */}
-      <script src="/brana/pwa-instalace-vcasna.js" />
+      <Script
+        id="brana-pwa-instalace-vcasna"
+        src="/brana/pwa-instalace-vcasna.js"
+        strategy="beforeInteractive"
+      />
       <BranaCestyProvider host={host}>{children}</BranaCestyProvider>
     </div>
   );

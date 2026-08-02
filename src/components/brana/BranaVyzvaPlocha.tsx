@@ -13,12 +13,14 @@ import {
   BRANA_PWA_DEN_BARVA,
   BRANA_PWA_NOC_BARVA,
 } from "@/lib/brana/konstanty";
+import { zvolitInstalacniNavod } from "@/lib/brana/pwa-instalacni-navod";
 import {
   jeBranaSpustenaJakoPwa,
+  jeInstalacniPromptKDispozici,
   priAppInstalled,
-  vyvolatInstalacniDialogSDiagnostikou,
-  type BranaInstalacniDiagnostikaStav,
+  vyvolatInstalacniDialog,
 } from "@/lib/brana/pwa-instalace";
+import { jeIOS } from "@/lib/uloziste";
 import {
   bylaVyzvaPlochyZobrazena,
   jeVyzvaPlochyZavrena,
@@ -57,12 +59,12 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   const [pripravena, setPripravena] = useState(false);
   const [topPx, setTopPx] = useState<number | null>(null);
   const [beziJakoPwa, setBeziJakoPwa] = useState(false);
-  const [diagnostickyStav, setDiagnostickyStav] =
-    useState<BranaInstalacniDiagnostikaStav | null>(null);
+  const [navod, setNavod] = useState<string | null>(null);
 
   const skrytVyzvu = useCallback(() => {
     setViditelna(false);
     setPripravena(false);
+    setNavod(null);
   }, []);
 
   const aktualizujPozici = useCallback(() => {
@@ -143,22 +145,30 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     skrytVyzvu();
   };
 
-  const hlavniKlik = useCallback(() => {
-    setDiagnostickyStav("handler spuštěn");
-    void vyvolatInstalacniDialogSDiagnostikou(setDiagnostickyStav).then(
-      (vysledek) => {
-        if (vysledek === "instalace přijata") {
-          zavritVyzvuPlochy();
-          skrytVyzvu();
-        }
-      },
-    );
+  const hlavniKlik = useCallback(async () => {
+    if (jeIOS()) {
+      setNavod(zvolitInstalacniNavod());
+      return;
+    }
+
+    if (jeInstalacniPromptKDispozici()) {
+      const vysledek = await vyvolatInstalacniDialog();
+
+      if (vysledek === "accepted") {
+        zavritVyzvuPlochy();
+        skrytVyzvu();
+      }
+
+      return;
+    }
+
+    setNavod(zvolitInstalacniNavod());
   }, [skrytVyzvu]);
 
   const hlavniKlavesa = (udalost: KeyboardEvent<HTMLDivElement>) => {
     if (udalost.key === "Enter" || udalost.key === " ") {
       udalost.preventDefault();
-      hlavniKlik();
+      void hlavniKlik();
     }
   };
 
@@ -187,7 +197,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
         role="button"
         tabIndex={0}
         aria-label="Přidat BRÁNU na plochu"
-        onClick={hlavniKlik}
+        onClick={() => void hlavniKlik()}
         onKeyDown={hlavniKlavesa}
       >
         <button
@@ -208,9 +218,9 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
           </span>
         </div>
       </div>
-      {diagnostickyStav ? (
-        <p className="brana-vyzva-plocha-diagnostika" aria-live="polite">
-          {diagnostickyStav}
+      {navod ? (
+        <p className="brana-vyzva-plocha-navod" aria-live="polite">
+          {navod}
         </p>
       ) : null}
     </div>
