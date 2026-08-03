@@ -24,6 +24,19 @@ import { useMetriky } from "@/hooks/useMetriky";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { useChovaniNavstevnika } from "@/hooks/useChovaniNavstevnika";
 import { LinkaPodPopisem } from "./LinkaPodPopisem";
+import { maViceRadkuPopisu } from "@/lib/popis-radky";
+
+function tridyPopisuGalerie(
+  popis: string,
+  tono: "mobil" | "desktop",
+): string {
+  const barva = tono === "mobil" ? "text-white/90" : "text-text-jemny";
+  const zaklad = `text-sm font-light tracking-wide ${barva}`;
+  if (!maViceRadkuPopisu(popis)) {
+    return zaklad;
+  }
+  return `${zaklad} max-w-[240px] whitespace-pre leading-[1.625]`;
+}
 import { ZobrazeniPolozky } from "./ZobrazeniPolozky";
 import { OdkazChciSeVracet } from "./OdkazChciSeVracet";
 import { OdkazSdilet } from "./OdkazSdilet";
@@ -432,7 +445,7 @@ export function GalerieHlavni({
 
           {/* Popis a odkaz přes fotografií – pouze mobil, nad gradientem (z-20) */}
           <div className="absolute inset-x-0 bottom-0 z-20 flex flex-col items-center px-6 pb-[calc(2.75rem+env(safe-area-inset-bottom,0px))] text-center md:hidden">
-            <p className="text-sm font-light tracking-wide text-white/90">
+            <p className={tridyPopisuGalerie(aktualniPolozka.popis, "mobil")}>
               {aktualniPolozka.popis}
             </p>
             <div className="relative my-3 flex w-full items-center justify-center">
@@ -488,7 +501,7 @@ export function GalerieHlavni({
 
       {/* Popis a odkaz pod fotografií – pouze desktop */}
       <div className="hidden flex-col items-center px-6 py-8 text-center md:flex">
-        <p className="text-sm font-light tracking-wide text-text-jemny">
+        <p className={tridyPopisuGalerie(aktualniPolozka.popis, "desktop")}>
           {aktualniPolozka.popis}
         </p>
         <OdkazChciSeVracet

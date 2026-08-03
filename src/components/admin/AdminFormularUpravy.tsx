@@ -1,5 +1,6 @@
 import type { Polozka } from "@/types";
 import { sestavitUrlPolozky } from "@/lib/url-polozky";
+import { AdminPolePopisu } from "@/components/admin/AdminPolePopisu";
 
 export interface UpravaPolozkyStav {
   popis: string;
@@ -77,11 +78,9 @@ export function AdminFormularUpravy({
     <div className="space-y-3">
       <label className="block space-y-1 text-xs text-text-velmiJemny">
         popis
-        <input
-          type="text"
+        <AdminPolePopisu
           value={uprava.popis}
-          onChange={(e) => onZmena({ popis: e.target.value })}
-          className="w-full border border-text-velmiJemny/30 bg-transparent px-3 py-2 text-sm text-text outline-none focus:border-text-jemny/50"
+          onChange={(popis) => onZmena({ popis })}
         />
       </label>
 

@@ -35,8 +35,13 @@ import { AdminNastaveniProlnuti } from "./admin/AdminNastaveniProlnuti";
 import { AdminDesktopPozvanka } from "./admin/AdminDesktopPozvanka";
 import { AdminVzkazyTreboni } from "./admin/AdminVzkazyTreboni";
 import { AdminPotvrzeniSmazani } from "./admin/AdminPotvrzeniSmazani";
+import { AdminPolePopisu } from "./admin/AdminPolePopisu";
 import { PROLNUTI_CASOVANI_VYCHOZI } from "@/lib/prolnuti-casovani";
 import { DESKTOP_POZVANKA_VYCHOZI_FOTOGRAFIE } from "@/lib/desktop-pozvanka";
+import {
+  HLASKA_MAX_RADKU,
+  prekrocilMaxRadku,
+} from "@/lib/popis-radky";
 import {
   AdminPosledniPublikace,
   KLIC_SESSION_PUSH_ODESLANO,
@@ -82,6 +87,8 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
   const [chybaAkce, setChybaAkce] = useState("");
   const [nahrava, setNahrava] = useState(false);
   const [nahravaProlnuti, setNahravaProlnuti] = useState(false);
+  const [klicPopisuFoto, setKlicPopisuFoto] = useState(0);
+  const [klicPopisuProlnuti, setKlicPopisuProlnuti] = useState(0);
   const [stavNahravaniProlnuti, setStavNahravaniProlnuti] = useState("");
   const [upravyPolozek, setUpravyPolozek] = useState<
     Record<string, UpravaPolozkyStav>
@@ -223,12 +230,19 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
 
     const form = e.currentTarget;
     const formData = new FormData(form);
+    const popis = String(formData.get("popis") ?? "");
+    if (prekrocilMaxRadku(popis)) {
+      setChybaAkce(HLASKA_MAX_RADKU);
+      setNahrava(false);
+      return;
+    }
 
     try {
       const vysledek = await nahratPolozku(formData);
       if ("uspech" in vysledek && vysledek.uspech) {
         setChybaAkce("");
         form.reset();
+        setKlicPopisuFoto((k) => k + 1);
         obnovit();
       } else if ("chyba" in vysledek && vysledek.chyba) {
         setChybaAkce(vysledek.chyba);
@@ -252,7 +266,13 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
     setPotvrzeniAkce("");
 
     const form = e.currentTarget;
-    const popisInput = form.elements.namedItem("popis") as HTMLInputElement | null;
+    const popisInput = form.elements.namedItem("popis") as HTMLTextAreaElement | null;
+    const popis = popisInput?.value ?? "";
+    if (prekrocilMaxRadku(popis)) {
+      setChybaAkce(HLASKA_MAX_RADKU);
+      setNahravaProlnuti(false);
+      return;
+    }
     const datumInput = form.elements.namedItem(
       "datumPorizeni"
     ) as HTMLInputElement | null;
@@ -313,7 +333,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
       const vysledek = await vytvoritProlnutiAdmin({
         operaceId,
         soubory: nahrateCesty,
-        popis: popisInput?.value ?? "",
+        popis: popis,
         datumPorizeni: datumInput?.value || null,
       });
 
@@ -325,6 +345,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
             : "Prolnutí bylo nahráno a je viditelné na webu."
         );
         form.reset();
+        setKlicPopisuProlnuti((k) => k + 1);
         obnovit();
       } else if ("chyba" in vysledek && vysledek.chyba) {
         if (vysledek.diagProlnuti) {
@@ -405,6 +426,11 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
   const handleUlozitUpravy = async (id: string) => {
     const uprava = upravyPolozek[id];
     if (!uprava) return;
+
+    if (prekrocilMaxRadku(uprava.popis)) {
+      setChybaAkce(HLASKA_MAX_RADKU);
+      return;
+    }
 
     setUkladaUpravyId(id);
     setChybaAkce("");
@@ -863,10 +889,9 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
               required
               className="w-full text-xs text-text-jemny"
             />
-            <input
-              type="text"
+            <AdminPolePopisu
+              key={klicPopisuFoto}
               name="popis"
-              placeholder="popis (malými písmeny, bez tečky)"
               className="w-full border border-text-velmiJemny/30 bg-transparent px-3 py-2 text-sm text-text outline-none"
             />
             <input
@@ -915,10 +940,9 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
                 className="mt-1 w-full text-xs text-text-jemny"
               />
             </label>
-            <input
-              type="text"
+            <AdminPolePopisu
+              key={klicPopisuProlnuti}
               name="popis"
-              placeholder="popis (malými písmeny, bez tečky)"
               className="w-full border border-text-velmiJemny/30 bg-transparent px-3 py-2 text-sm text-text outline-none"
             />
             <input

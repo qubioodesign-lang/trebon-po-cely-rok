@@ -1,7 +1,20 @@
 import type { PolozkaVerejna } from "@/types";
+import { maViceRadkuPopisu } from "@/lib/popis-radky";
 import { GalerieKritickyCss } from "./GalerieKritickyCss";
 import { LinkaPodPopisem } from "./LinkaPodPopisem";
 import { ZobrazeniPolozkyServer } from "./ZobrazeniPolozkyServer";
+
+function tridyPopisuGalerie(
+  popis: string,
+  tono: "mobil" | "desktop",
+): string {
+  const barva = tono === "mobil" ? "text-white/90" : "text-text-jemny";
+  const zaklad = `text-sm font-light tracking-wide ${barva}`;
+  if (!maViceRadkuPopisu(popis)) {
+    return zaklad;
+  }
+  return `${zaklad} max-w-[240px] whitespace-pre leading-[1.625]`;
+}
 
 interface PropsGaleriePocatecniServer {
   polozka: PolozkaVerejna;
@@ -116,7 +129,9 @@ export function GaleriePocatecniServer({
             </div>
 
             <div className="absolute inset-x-0 bottom-0 z-20 flex flex-col items-center px-6 pb-[calc(2.75rem+env(safe-area-inset-bottom,0px))] text-center md:hidden">
-              <p className="text-sm font-light tracking-wide text-white/90">{polozka.popis}</p>
+              <p className={tridyPopisuGalerie(polozka.popis, "mobil")}>
+                {polozka.popis}
+              </p>
               <div className="relative my-3 flex w-full items-center justify-center">
                 {aktualniIndex >= 1 && (
                   <div className="absolute left-[2%] top-1/2 -translate-y-1/2" aria-hidden="true">
@@ -153,7 +168,9 @@ export function GaleriePocatecniServer({
         </div>
 
         <div className="hidden flex-col items-center px-6 py-8 text-center md:flex">
-          <p className="text-sm font-light tracking-wide text-text-jemny">{polozka.popis}</p>
+          <p className={tridyPopisuGalerie(polozka.popis, "desktop")}>
+            {polozka.popis}
+          </p>
           <a href={hrefChciSeVracet} className="odkaz-jemny mt-3 inline-block">
             chci se vracet
           </a>
