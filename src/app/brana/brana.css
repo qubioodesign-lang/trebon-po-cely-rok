@@ -132,6 +132,40 @@
 
   .brana-prostor-obsah {
     @apply flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pt-2;
+    overflow-x: hidden;
+  }
+
+  .brana-prostor-obsah-vnitr {
+    @apply w-full shrink-0;
+  }
+
+  .brana-listovani-viewport {
+    @apply relative w-full shrink-0 overflow-hidden;
+  }
+
+  .brana-listovani-panel {
+    @apply w-full;
+    will-change: transform;
+  }
+
+  .brana-listovani-panel--odjezd {
+    @apply absolute left-0 top-0;
+    pointer-events: none;
+  }
+
+  .brana-listovani-panel--prijezd {
+    @apply relative;
+  }
+
+  .brana-listovani-panel--bezi {
+    transition: transform var(--brana-listovani-trvani, 360ms)
+      var(--brana-listovani-easing, cubic-bezier(0.4, 0, 0.2, 1));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .brana-listovani-panel--bezi {
+      transition: none;
+    }
   }
 
   .brana-seznam-akci {
