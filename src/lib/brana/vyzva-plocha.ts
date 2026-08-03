@@ -101,13 +101,17 @@ export function resetVychoziScrollVyzvyPlochy(): void {
 }
 
 /**
- * Smysluplný scroll ≈ jedna výška okna oproti výchozí pozici kontejneru.
+ * Smysluplný scroll podle dostupné vzdálenosti kontejneru
+ * (ne podle celé výšky okna, která může být větší než maxScroll).
  */
 export function zpracovatScrollVyzvyPlochy(
   scrollY: number,
-  vyskaOkna: number,
+  clientHeight: number,
+  scrollHeight: number,
 ): boolean {
-  if (vyskaOkna <= 0) {
+  const maxScroll = scrollHeight - clientHeight;
+
+  if (maxScroll < 120 || clientHeight <= 0) {
     return stav.zajemScroll;
   }
 
@@ -116,7 +120,12 @@ export function zpracovatScrollVyzvyPlochy(
     return stav.zajemScroll;
   }
 
-  if (Math.abs(scrollY - stav.vychoziScrollY) >= vyskaOkna) {
+  const prah = Math.max(
+    120,
+    Math.min(clientHeight * 0.5, maxScroll * 0.6),
+  );
+
+  if (Math.abs(scrollY - stav.vychoziScrollY) >= prah) {
     stav.zajemScroll = true;
   }
 

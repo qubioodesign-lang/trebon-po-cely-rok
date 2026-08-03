@@ -224,7 +224,11 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
         return;
       }
 
-      zpracovatScrollVyzvyPlochy(kontejner.scrollTop, window.innerHeight);
+      zpracovatScrollVyzvyPlochy(
+        kontejner.scrollTop,
+        kontejner.clientHeight,
+        kontejner.scrollHeight,
+      );
       zkusZobrazitPoZajmu();
     };
 
@@ -241,7 +245,11 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
 
       resetVychoziScrollVyzvyPlochy();
       kontejner = nalezeny;
-      zpracovatScrollVyzvyPlochy(kontejner.scrollTop, window.innerHeight);
+      zpracovatScrollVyzvyPlochy(
+        kontejner.scrollTop,
+        kontejner.clientHeight,
+        kontejner.scrollHeight,
+      );
       kontejner.addEventListener("scroll", naScroll, { passive: true });
     };
 
