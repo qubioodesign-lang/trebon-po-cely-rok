@@ -44,13 +44,10 @@ import {
   jeVyzvaPlochyZavrena,
   oznacVyzvuPlochyZobrazenou,
   pohledVyzvyZPathname,
-  resetVychoziScrollVyzvyPlochy,
   sledovatPohledVyzvyPlochy,
   smiSeZobrazitVyzvaPlochy,
-  zbyvajiciStropVyzvyPlochy,
   zbyvajiciZdvorilostVyzvyPlochy,
   zavritVyzvuPlochy,
-  zpracovatScrollVyzvyPlochy,
 } from "@/lib/brana/vyzva-plocha";
 
 const BRANA_PRIPRAVA_MAX_MS = 2_000;
@@ -79,10 +76,6 @@ function zmerTopVyzvyPlochy(): number | null {
   const mezeraLinkaDatum = datumTextTop - linkaRect.bottom;
 
   return datumTextBottom + mezeraLinkaDatum;
-}
-
-function najdiScrollKontejnerVyzvy(): HTMLElement | null {
-  return document.querySelector(".brana-prostor-obsah");
 }
 
 export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
@@ -197,71 +190,10 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
       zkusZobrazitPoZajmu();
     }, zbyvajiciZdvorilostVyzvyPlochy());
 
-    const timeoutStrop = window.setTimeout(() => {
-      zkusZobrazitPoZajmu();
-    }, zbyvajiciStropVyzvyPlochy());
-
     return () => {
       window.clearTimeout(timeoutZdvorilost);
-      window.clearTimeout(timeoutStrop);
     };
   }, [zkusZobrazitPoZajmu]);
-
-  useEffect(() => {
-    if (jeBranaSpustenaJakoPwa() || jeVyzvaPlochyZavrena()) {
-      return;
-    }
-
-    if (bylaVyzvaPlochyZobrazena()) {
-      return;
-    }
-
-    let kontejner: HTMLElement | null = null;
-    let zruseno = false;
-
-    const naScroll = () => {
-      if (!kontejner || zruseno) {
-        return;
-      }
-
-      zpracovatScrollVyzvyPlochy(
-        kontejner.scrollTop,
-        kontejner.clientHeight,
-        kontejner.scrollHeight,
-      );
-      zkusZobrazitPoZajmu();
-    };
-
-    const pripoj = () => {
-      const nalezeny = najdiScrollKontejnerVyzvy();
-
-      if (!nalezeny || nalezeny === kontejner) {
-        return;
-      }
-
-      if (kontejner) {
-        kontejner.removeEventListener("scroll", naScroll);
-      }
-
-      resetVychoziScrollVyzvyPlochy();
-      kontejner = nalezeny;
-      zpracovatScrollVyzvyPlochy(
-        kontejner.scrollTop,
-        kontejner.clientHeight,
-        kontejner.scrollHeight,
-      );
-      kontejner.addEventListener("scroll", naScroll, { passive: true });
-    };
-
-    pripoj();
-    const interval = window.setInterval(pripoj, 500);
-
-    return () => {
-      zruseno = true;
-      window.clearInterval(interval);
-      kontejner?.removeEventListener("scroll", naScroll);
-    };
-  }, [pathname, zkusZobrazitPoZajmu]);
 
   useEffect(() => {
     if (!viditelnost.viditelna) {

@@ -1,9 +1,6 @@
 /** Minimální zdvořilostní odstup před zobrazením výzvy. */
 export const BRANA_VYZVA_ZDVORILOST_MS = 8_000;
 
-/** Strop – výzva i při pasivním čtení bez hlubší interakce. */
-export const BRANA_VYZVA_STROP_MS = 20_000;
-
 /** @deprecated Použij BRANA_VYZVA_ZDVORILOST_MS. */
 export const BRANA_VYZVA_PLOCHA_PRODLEVA_MS = BRANA_VYZVA_ZDVORILOST_MS;
 
@@ -12,9 +9,7 @@ type StavVyzvyPlochy = {
   zavreno: boolean;
   zobrazena: boolean;
   zajemPohled: boolean;
-  zajemScroll: boolean;
   posledniPohled: string | null;
-  vychoziScrollY: number | null;
 };
 
 const stav: StavVyzvyPlochy = {
@@ -22,9 +17,7 @@ const stav: StavVyzvyPlochy = {
   zavreno: false,
   zobrazena: false,
   zajemPohled: false,
-  zajemScroll: false,
   posledniPohled: null,
-  vychoziScrollY: null,
 };
 
 function zajistitCasNacteni(): number {
@@ -53,24 +46,16 @@ export function zavritVyzvuPlochy(): void {
 }
 
 export function maZajemVyzvyPlochy(): boolean {
-  return stav.zajemPohled || stav.zajemScroll;
+  return stav.zajemPohled;
 }
 
 export function uplynulaZdvorilostVyzvyPlochy(): boolean {
   return Date.now() - zajistitCasNacteni() >= BRANA_VYZVA_ZDVORILOST_MS;
 }
 
-export function uplynulStropVyzvyPlochy(): boolean {
-  return Date.now() - zajistitCasNacteni() >= BRANA_VYZVA_STROP_MS;
-}
-
-/** Zda produktová politika dovoluje zobrazení (po zdvořilosti + zájem nebo strop). */
+/** Zda produktová politika dovoluje zobrazení (po zdvořilosti + přepnutí pohledu). */
 export function smiSeZobrazitVyzvaPlochy(): boolean {
-  if (!uplynulaZdvorilostVyzvyPlochy()) {
-    return false;
-  }
-
-  return maZajemVyzvyPlochy() || uplynulStropVyzvyPlochy();
+  return uplynulaZdvorilostVyzvyPlochy() && maZajemVyzvyPlochy();
 }
 
 /**
@@ -95,55 +80,10 @@ export function sledovatPohledVyzvyPlochy(pohledId: string | null): boolean {
   return stav.zajemPohled;
 }
 
-/** Nový scroll kontejner po navigaci – baseline se změří znovu, zájem scrollu zůstane. */
-export function resetVychoziScrollVyzvyPlochy(): void {
-  stav.vychoziScrollY = null;
-}
-
-/**
- * Smysluplný scroll podle dostupné vzdálenosti kontejneru
- * (ne podle celé výšky okna, která může být větší než maxScroll).
- */
-export function zpracovatScrollVyzvyPlochy(
-  scrollY: number,
-  clientHeight: number,
-  scrollHeight: number,
-): boolean {
-  const maxScroll = scrollHeight - clientHeight;
-
-  if (maxScroll < 120 || clientHeight <= 0) {
-    return stav.zajemScroll;
-  }
-
-  if (stav.vychoziScrollY === null) {
-    stav.vychoziScrollY = scrollY;
-    return stav.zajemScroll;
-  }
-
-  const prah = Math.max(
-    120,
-    Math.min(clientHeight * 0.5, maxScroll * 0.6),
-  );
-
-  if (Math.abs(scrollY - stav.vychoziScrollY) >= prah) {
-    stav.zajemScroll = true;
-  }
-
-  return stav.zajemScroll;
-}
-
 /** Zbývající čas do zdvořilostního odstupu (8 s). */
 export function zbyvajiciZdvorilostVyzvyPlochy(): number {
   return Math.max(
     BRANA_VYZVA_ZDVORILOST_MS - (Date.now() - zajistitCasNacteni()),
-    0,
-  );
-}
-
-/** Zbývající čas do stropu (20 s). */
-export function zbyvajiciStropVyzvyPlochy(): number {
-  return Math.max(
-    BRANA_VYZVA_STROP_MS - (Date.now() - zajistitCasNacteni()),
     0,
   );
 }
