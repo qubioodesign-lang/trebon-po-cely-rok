@@ -12,8 +12,7 @@ export type BranaVyzvaViditelnostDuvod =
   | "NAINSTALOVANO"
   | "ZAVRENO_UZIVATELEM"
   | "CEKANI_NA_PRODLENI"
-  | "DESKTOP_NEBO_NEPODPOROVANO"
-  | "ZATIM_NEDOSTUPNA_CESTA";
+  | "DESKTOP_NEBO_NEPODPOROVANO";
 
 export type BranaVyzvaViditelnost =
   | { viditelna: true }
@@ -58,22 +57,15 @@ export type BranaInstalacniStav =
 export type BranaInstalacniStavVstup = {
   vyzvaZavrena: boolean;
   nainstalovano: boolean;
-  prodlevaUplynula: boolean;
+  /** Zdvořilost 8 s uplynula a (zájem nebo strop 20 s). */
+  politikaZobrazeniSplnena?: boolean;
+  /** @deprecated Použij politikaZobrazeniSplnena. */
+  prodlevaUplynula?: boolean;
   aktualniUrl: string;
 };
 
 function jeMobilniProstredi(): boolean {
   return jeIOS() || jeAndroid();
-}
-
-function mapovatDuvodViditelnostiNaSkryto(
-  duvod: BranaVyzvaViditelnostDuvod,
-): BranaInstalacniStavSkrytoDuvod {
-  if (duvod === "ZATIM_NEDOSTUPNA_CESTA") {
-    return "BEZ_FUNKCNI_AKCE";
-  }
-
-  return duvod;
 }
 
 /**
@@ -83,7 +75,7 @@ function mapovatDuvodViditelnostiNaSkryto(
 export function urcitBranaCestuPoKliknuti(
   vstup: Pick<BranaInstalacniStavVstup, "aktualniUrl">,
 ): BranaCestaPoKliknuti {
-  // SSR: bez window/navigator nelze určit cestu (dříve se sem kvůli desktop zkratce nedostalo).
+  // SSR: bez window/navigator nelze určit cestu.
   if (typeof window === "undefined") {
     return { typ: "ZATIM_NEDOSTUPNA" };
   }
@@ -111,8 +103,7 @@ export function urcitBranaCestuPoKliknuti(
 }
 
 /**
- * Zda se výzva smí zobrazit.
- * Krok 1: při ZATIM_NEDOSTUPNA zůstává výzva skrytá (stejné chování jako dříve).
+ * Zda se výzva smí zobrazit – pouze produktová politika (ne technická cesta).
  */
 export function urcitBranaVyzvaViditelnost(
   vstup: BranaInstalacniStavVstup,
@@ -129,14 +120,8 @@ export function urcitBranaVyzvaViditelnost(
     return { viditelna: false, duvod: "DESKTOP_NEBO_NEPODPOROVANO" };
   }
 
-  if (!vstup.prodlevaUplynula) {
+  if (!(vstup.politikaZobrazeniSplnena ?? vstup.prodlevaUplynula)) {
     return { viditelna: false, duvod: "CEKANI_NA_PRODLENI" };
-  }
-
-  const cesta = urcitBranaCestuPoKliknuti(vstup);
-
-  if (cesta.typ === "ZATIM_NEDOSTUPNA") {
-    return { viditelna: false, duvod: "ZATIM_NEDOSTUPNA_CESTA" };
   }
 
   return { viditelna: true };
@@ -171,13 +156,14 @@ export function urcitBranaInstalacniStav(
   if (!viditelnost.viditelna) {
     return {
       typ: "SKRYTO",
-      duvod: mapovatDuvodViditelnostiNaSkryto(viditelnost.duvod),
+      duvod: viditelnost.duvod,
     };
   }
 
   const cesta = urcitBranaCestuPoKliknuti(vstup);
 
   if (cesta.typ === "ZATIM_NEDOSTUPNA") {
+    // Výzva může být vidět i bez promptu – kompatibilní API nemá samostatný typ.
     return { typ: "SKRYTO", duvod: "BEZ_FUNKCNI_AKCE" };
   }
 

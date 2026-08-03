@@ -1,10 +1,12 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import {
   useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type KeyboardEvent,
@@ -26,6 +28,7 @@ import {
 } from "@/lib/brana/pwa-instalacni-stav";
 import {
   jeBranaSpustenaJakoPwa,
+  jeInstalacniPromptKDispozici,
   priAppInstalled,
   priZmeneInstalacnihoPromptu,
   vyvolatInstalacniDialog,
@@ -40,9 +43,18 @@ import {
   bylaVyzvaPlochyZobrazena,
   jeVyzvaPlochyZavrena,
   oznacVyzvuPlochyZobrazenou,
+  pohledVyzvyZPathname,
+  resetVychoziScrollVyzvyPlochy,
+  sledovatPohledVyzvyPlochy,
+  smiSeZobrazitVyzvaPlochy,
+  zbyvajiciStropVyzvyPlochy,
+  zbyvajiciZdvorilostVyzvyPlochy,
   zavritVyzvuPlochy,
-  zbyvajiciProdlevaVyzvyPlochy,
+  zpracovatScrollVyzvyPlochy,
 } from "@/lib/brana/vyzva-plocha";
+
+const BRANA_PRIPRAVA_MAX_MS = 2_000;
+const TEXT_PRIPRAVA = "Připravuji přidání na plochu…";
 
 type BranaVyzvaPlochaProps = {
   nocRezim: boolean;
@@ -69,15 +81,22 @@ function zmerTopVyzvyPlochy(): number | null {
   return datumTextBottom + mezeraLinkaDatum;
 }
 
+function najdiScrollKontejnerVyzvy(): HTMLElement | null {
+  return document.querySelector(".brana-prostor-obsah");
+}
+
 export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
-  const [prodlevaUplynula, setProdlevaUplynula] = useState(
-    () => bylaVyzvaPlochyZobrazena(),
+  const pathname = usePathname();
+  const [politikaSplnena, setPolitikaSplnena] = useState(() =>
+    bylaVyzvaPlochyZobrazena() || smiSeZobrazitVyzvaPlochy(),
   );
   const [pripravena, setPripravena] = useState(() =>
     bylaVyzvaPlochyZobrazena(),
   );
+  const [pripravuji, setPripravuji] = useState(false);
   const [topPx, setTopPx] = useState<number | null>(null);
   const [prepoctiVerze, setPrepoctiVerze] = useState(0);
+  const pripravujiRef = useRef(false);
 
   const obnovitStav = useCallback(() => {
     setPrepoctiVerze((verze) => verze + 1);
@@ -87,10 +106,10 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     () => ({
       vyzvaZavrena: jeVyzvaPlochyZavrena(),
       nainstalovano: jeBranaSpustenaJakoPwa(),
-      prodlevaUplynula,
+      politikaZobrazeniSplnena: politikaSplnena,
       aktualniUrl: aktualniStrankaUrl(),
     }),
-    [prepoctiVerze, prodlevaUplynula],
+    [prepoctiVerze, politikaSplnena],
   );
 
   const viditelnost = useMemo(
@@ -119,12 +138,27 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   }, []);
 
   const zobraz = useCallback(() => {
+    if (jeVyzvaPlochyZavrena() || jeBranaSpustenaJakoPwa()) {
+      return;
+    }
+
+    if (!smiSeZobrazitVyzvaPlochy()) {
+      return;
+    }
+
     oznacVyzvuPlochyZobrazenou();
-    setProdlevaUplynula(true);
+    setPolitikaSplnena(true);
     requestAnimationFrame(() => {
       setPripravena(true);
     });
   }, []);
+
+  const zkusZobrazitPoZajmu = useCallback(() => {
+    setPolitikaSplnena(smiSeZobrazitVyzvaPlochy());
+    if (smiSeZobrazitVyzvaPlochy()) {
+      zobraz();
+    }
+  }, [zobraz]);
 
   useEffect(() => {
     const praveOtevrenoVChromu = zpracovatOtevreniVChromu();
@@ -144,27 +178,82 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   }, [obnovitStav]);
 
   useEffect(() => {
-    if (jeBranaSpustenaJakoPwa()) {
-      return;
-    }
+    sledovatPohledVyzvyPlochy(pohledVyzvyZPathname(pathname));
+    zkusZobrazitPoZajmu();
+  }, [pathname, zkusZobrazitPoZajmu]);
 
-    if (jeVyzvaPlochyZavrena()) {
+  useEffect(() => {
+    if (jeBranaSpustenaJakoPwa() || jeVyzvaPlochyZavrena()) {
       return;
     }
 
     if (bylaVyzvaPlochyZobrazena()) {
-      setProdlevaUplynula(true);
+      setPolitikaSplnena(true);
       setPripravena(true);
       return;
     }
 
-    const prodleva = zbyvajiciProdlevaVyzvyPlochy();
-    const timeout = window.setTimeout(zobraz, prodleva);
+    const timeoutZdvorilost = window.setTimeout(() => {
+      zkusZobrazitPoZajmu();
+    }, zbyvajiciZdvorilostVyzvyPlochy());
+
+    const timeoutStrop = window.setTimeout(() => {
+      zkusZobrazitPoZajmu();
+    }, zbyvajiciStropVyzvyPlochy());
 
     return () => {
-      window.clearTimeout(timeout);
+      window.clearTimeout(timeoutZdvorilost);
+      window.clearTimeout(timeoutStrop);
     };
-  }, [zobraz]);
+  }, [zkusZobrazitPoZajmu]);
+
+  useEffect(() => {
+    if (jeBranaSpustenaJakoPwa() || jeVyzvaPlochyZavrena()) {
+      return;
+    }
+
+    if (bylaVyzvaPlochyZobrazena()) {
+      return;
+    }
+
+    let kontejner: HTMLElement | null = null;
+    let zruseno = false;
+
+    const naScroll = () => {
+      if (!kontejner || zruseno) {
+        return;
+      }
+
+      zpracovatScrollVyzvyPlochy(kontejner.scrollTop, window.innerHeight);
+      zkusZobrazitPoZajmu();
+    };
+
+    const pripoj = () => {
+      const nalezeny = najdiScrollKontejnerVyzvy();
+
+      if (!nalezeny || nalezeny === kontejner) {
+        return;
+      }
+
+      if (kontejner) {
+        kontejner.removeEventListener("scroll", naScroll);
+      }
+
+      resetVychoziScrollVyzvyPlochy();
+      kontejner = nalezeny;
+      zpracovatScrollVyzvyPlochy(kontejner.scrollTop, window.innerHeight);
+      kontejner.addEventListener("scroll", naScroll, { passive: true });
+    };
+
+    pripoj();
+    const interval = window.setInterval(pripoj, 500);
+
+    return () => {
+      zruseno = true;
+      window.clearInterval(interval);
+      kontejner?.removeEventListener("scroll", naScroll);
+    };
+  }, [pathname, zkusZobrazitPoZajmu]);
 
   useEffect(() => {
     if (!viditelnost.viditelna) {
@@ -205,7 +294,15 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   };
 
   const hlavniKlik = useCallback(async () => {
-    if (cesta.typ === "PROMPT") {
+    if (pripravujiRef.current) {
+      return;
+    }
+
+    const okamzita = urcitBranaCestuPoKliknuti({
+      aktualniUrl: aktualniStrankaUrl(),
+    });
+
+    if (okamzita.typ === "PROMPT") {
       const vysledek = await vyvolatInstalacniDialog();
 
       if (vysledek === "accepted") {
@@ -217,10 +314,62 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
       return;
     }
 
-    if (cesta.typ === "IOS_INSTALACE") {
-      otevritBranaIosInstalacniObrazovku(cesta.varianta);
+    if (okamzita.typ === "IOS_INSTALACE") {
+      otevritBranaIosInstalacniObrazovku(okamzita.varianta);
+      return;
     }
-  }, [cesta, obnovitStav, skrytVyzvu]);
+
+    if (okamzita.typ === "CHROME_INTENT") {
+      window.location.href = okamzita.url;
+      return;
+    }
+
+    pripravujiRef.current = true;
+    setPripravuji(true);
+    obnovitStav();
+
+    const deadline = Date.now() + BRANA_PRIPRAVA_MAX_MS;
+
+    await new Promise<void>((resolve) => {
+      let hotovo = false;
+
+      const dokonci = () => {
+        if (hotovo) {
+          return;
+        }
+
+        hotovo = true;
+        window.clearInterval(interval);
+        zrusPrompt();
+        resolve();
+      };
+
+      const zrusPrompt = priZmeneInstalacnihoPromptu(() => {
+        if (jeInstalacniPromptKDispozici()) {
+          dokonci();
+        }
+      });
+
+      const interval = window.setInterval(() => {
+        if (jeInstalacniPromptKDispozici() || Date.now() >= deadline) {
+          dokonci();
+        }
+      }, 100);
+    });
+
+    if (jeInstalacniPromptKDispozici()) {
+      const vysledek = await vyvolatInstalacniDialog();
+
+      if (vysledek === "accepted") {
+        zavritVyzvuPlochy();
+        skrytVyzvu();
+      }
+    }
+
+    pripravujiRef.current = false;
+    setPripravuji(false);
+    obnovitStav();
+  }, [obnovitStav, skrytVyzvu]);
 
   const otevritVChromu = (udalost: MouseEvent<HTMLAnchorElement>) => {
     vymazatEmbeddedAndroidKontext();
@@ -228,7 +377,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   };
 
   const hlavniKlavesa = (udalost: KeyboardEvent<HTMLElement>) => {
-    if (cesta.typ === "CHROME_INTENT") {
+    if (cesta.typ === "CHROME_INTENT" && !pripravuji) {
       return;
     }
 
@@ -246,11 +395,11 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   const stylObalu: CSSProperties | undefined =
     topPx !== null ? { top: `${topPx}px` } : undefined;
 
-  const viceRadku = cesta.typ === "CHROME_INTENT";
+  const chromeOdkaz = cesta.typ === "CHROME_INTENT" && !pripravuji;
   const tridaPlochy = [
     "brana-vyzva-plocha",
     pripravena ? "brana-vyzva-plocha--viditelna" : "",
-    viceRadku ? "brana-vyzva-plocha--vice-radku" : "",
+    chromeOdkaz ? "brana-vyzva-plocha--vice-radku" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -261,9 +410,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
       style={stylObalu}
       role="region"
       aria-label={
-        cesta.typ === "CHROME_INTENT"
-          ? BRANA_TEKST_OTEVRIT_V_CHROMU
-          : "Přidat BRÁNU na plochu"
+        chromeOdkaz ? BRANA_TEKST_OTEVRIT_V_CHROMU : "Přidat BRÁNU na plochu"
       }
     >
       <div className={tridaPlochy} style={{ backgroundColor: podklad }}>
@@ -276,7 +423,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
           <span aria-hidden>×</span>
         </button>
 
-        {cesta.typ === "CHROME_INTENT" ? (
+        {chromeOdkaz ? (
           <a
             href={cesta.url}
             onClick={otevritVChromu}
@@ -295,17 +442,27 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
             className="brana-vyzva-plocha-hlavni"
             role="button"
             tabIndex={0}
-            aria-label="Přidat BRÁNU na plochu"
+            aria-label={pripravuji ? TEXT_PRIPRAVA : "Přidat BRÁNU na plochu"}
+            aria-busy={pripravuji || undefined}
             onClick={() => void hlavniKlik()}
             onKeyDown={hlavniKlavesa}
           >
             <span className="brana-vyzva-plocha-text">
-              Přidat{" "}
-              <span className="brana-vyzva-plocha-znacka">BRÁNU</span> na plochu
+              {pripravuji ? (
+                TEXT_PRIPRAVA
+              ) : (
+                <>
+                  Přidat{" "}
+                  <span className="brana-vyzva-plocha-znacka">BRÁNU</span> na
+                  plochu
+                </>
+              )}
             </span>
-            <span className="brana-vyzva-plocha-sipka" aria-hidden>
-              →
-            </span>
+            {!pripravuji ? (
+              <span className="brana-vyzva-plocha-sipka" aria-hidden>
+                →
+              </span>
+            ) : null}
           </div>
         )}
       </div>
