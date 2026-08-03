@@ -39,6 +39,23 @@
 }
 
 @layer components {
+  /* Horní nápis galerie Třeboně – jemná oranžová linka (motiv sdílený s BRÁNOU, bez změny BRÁNY) */
+  .trebon-horni-napis {
+    @apply relative inline-block font-light tracking-[0.15em] text-white/90;
+    font-size: calc(1.125rem * 1.04);
+  }
+
+  .trebon-horni-napis::after {
+    content: "";
+    position: absolute;
+    left: 0.3em;
+    top: 100%;
+    width: calc(100% - 0.3em);
+    height: 1px;
+    margin-top: 0.125rem;
+    background-color: #cf9168;
+  }
+
   /* Nenápadný textový odkaz – bez rámečku, bez zvýraznění */
   .odkaz-jemny {
     @apply text-text-velmiJemny text-sm tracking-wide transition-colors duration-300;

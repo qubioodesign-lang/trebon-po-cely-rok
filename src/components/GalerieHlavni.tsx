@@ -437,8 +437,8 @@ export function GalerieHlavni({
           )}
 
           {/* Název přes fotografií – nad gradientem (z-20) */}
-          <div className="absolute inset-x-0 top-0 z-20 px-6 pt-8 md:bg-gradient-to-b md:from-black/30 md:to-transparent md:pb-16">
-            <h1 className="text-center text-lg font-light tracking-[0.15em] text-white/90">
+          <div className="absolute inset-x-0 top-0 z-20 px-6 pt-8 text-center md:bg-gradient-to-b md:from-black/30 md:to-transparent md:pb-16">
+            <h1 className="trebon-horni-napis">
               Třeboň po celý rok
             </h1>
           </div>
