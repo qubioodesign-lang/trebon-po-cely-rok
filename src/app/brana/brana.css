@@ -139,34 +139,33 @@
     @apply w-full shrink-0;
   }
 
-  .brana-prostor-obsah-vnitr--skryty {
-    @apply pointer-events-none invisible absolute h-0 w-full overflow-hidden;
-  }
-
   .brana-listovani-viewport {
     @apply relative w-full shrink-0 overflow-hidden;
   }
 
   .brana-listovani-panel {
+    @apply w-full;
     will-change: transform;
   }
 
-  /* Přesah 8px vlevo/vpravo – kryje posun nudgu bez odhalení pozadí */
   .brana-listovani-panel--odjezd {
-    --brana-listovani-presah: 8px;
-    width: calc(100% + (2 * var(--brana-listovani-presah)));
-    margin-left: calc(-1 * var(--brana-listovani-presah));
+    @apply absolute left-0 top-0;
     pointer-events: none;
   }
 
-  .brana-listovani-panel--odjezd-absolutni {
-    @apply absolute top-0;
-    left: calc(-1 * var(--brana-listovani-presah));
-    margin-left: 0;
+  .brana-listovani-panel--prijezd {
+    @apply relative;
   }
 
-  .brana-listovani-panel--prijezd {
-    @apply relative w-full;
+  .brana-listovani-panel--bezi {
+    transition: transform var(--brana-listovani-trvani, 360ms)
+      var(--brana-listovani-easing, cubic-bezier(0.4, 0, 0.2, 1));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .brana-listovani-panel--bezi {
+      transition: none;
+    }
   }
 
   .brana-seznam-akci {
