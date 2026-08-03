@@ -1,3 +1,4 @@
+import { otevritIosInstalacniVrstvu } from "@/lib/brana/ios-instalacni-vrstva";
 import { pripravitOtevreniVChromu } from "@/lib/brana/otevrit-v-chromu";
 import { jeSafari } from "@/lib/brana/pwa-instalacni-navod";
 import { jeInstalacniPromptKDispozici } from "@/lib/brana/pwa-instalace";
@@ -170,12 +171,9 @@ export function urcitBranaInstalacniStav(
   return cesta;
 }
 
-/**
- * Fáze 2: otevře samostatnou iOS instalační obrazovku.
- * Zatím bez route a bez UI – handler je připraven pro navázání.
- */
+/** Otevře celoobrazovkovou iOS instalační vrstvu (pokračování stejné cesty). */
 export function otevritBranaIosInstalacniObrazovku(
-  _varianta: "SAFARI" | "JINY_PROHLIZEC",
+  varianta: "SAFARI" | "JINY_PROHLIZEC",
 ): void {
-  void _varianta;
+  otevritIosInstalacniVrstvu(varianta);
 }
