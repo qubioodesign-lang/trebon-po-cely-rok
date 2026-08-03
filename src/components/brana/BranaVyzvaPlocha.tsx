@@ -21,7 +21,8 @@ import {
 } from "@/lib/brana/konstanty";
 import {
   otevritBranaIosInstalacniObrazovku,
-  urcitBranaInstalacniStav,
+  urcitBranaCestuPoKliknuti,
+  urcitBranaVyzvaViditelnost,
 } from "@/lib/brana/pwa-instalacni-stav";
 import {
   jeBranaSpustenaJakoPwa,
@@ -82,16 +83,22 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     setPrepoctiVerze((verze) => verze + 1);
   }, []);
 
-  const instalacniStav = useMemo(
-    () =>
-      urcitBranaInstalacniStav({
-        vyzvaZavrena: jeVyzvaPlochyZavrena(),
-        nainstalovano: jeBranaSpustenaJakoPwa(),
-        prodlevaUplynula,
-        aktualniUrl: aktualniStrankaUrl(),
-      }),
+  const vstup = useMemo(
+    () => ({
+      vyzvaZavrena: jeVyzvaPlochyZavrena(),
+      nainstalovano: jeBranaSpustenaJakoPwa(),
+      prodlevaUplynula,
+      aktualniUrl: aktualniStrankaUrl(),
+    }),
     [prepoctiVerze, prodlevaUplynula],
   );
+
+  const viditelnost = useMemo(
+    () => urcitBranaVyzvaViditelnost(vstup),
+    [vstup],
+  );
+
+  const cesta = useMemo(() => urcitBranaCestuPoKliknuti(vstup), [vstup]);
 
   const skrytVyzvu = useCallback(() => {
     setPripravena(false);
@@ -154,7 +161,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   }, [zobraz]);
 
   useEffect(() => {
-    if (instalacniStav.typ === "SKRYTO") {
+    if (!viditelnost.viditelna) {
       return;
     }
 
@@ -164,15 +171,15 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     return () => {
       window.removeEventListener("resize", aktualizujPozici);
     };
-  }, [aktualizujPozici, instalacniStav.typ]);
+  }, [aktualizujPozici, viditelnost.viditelna]);
 
   useLayoutEffect(() => {
-    if (instalacniStav.typ === "SKRYTO") {
+    if (!viditelnost.viditelna) {
       return;
     }
 
     aktualizujPozici();
-  }, [aktualizujPozici, instalacniStav.typ]);
+  }, [aktualizujPozici, viditelnost.viditelna]);
 
   useEffect(() => {
     return priAppInstalled(() => {
@@ -192,7 +199,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   };
 
   const hlavniKlik = useCallback(async () => {
-    if (instalacniStav.typ === "PROMPT") {
+    if (cesta.typ === "PROMPT") {
       const vysledek = await vyvolatInstalacniDialog();
 
       if (vysledek === "accepted") {
@@ -204,10 +211,10 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
       return;
     }
 
-    if (instalacniStav.typ === "IOS_INSTALACE") {
-      otevritBranaIosInstalacniObrazovku(instalacniStav.varianta);
+    if (cesta.typ === "IOS_INSTALACE") {
+      otevritBranaIosInstalacniObrazovku(cesta.varianta);
     }
-  }, [instalacniStav, obnovitStav, skrytVyzvu]);
+  }, [cesta, obnovitStav, skrytVyzvu]);
 
   const otevritVChromu = (udalost: MouseEvent<HTMLAnchorElement>) => {
     vymazatEmbeddedAndroidKontext();
@@ -215,7 +222,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   };
 
   const hlavniKlavesa = (udalost: KeyboardEvent<HTMLElement>) => {
-    if (instalacniStav.typ === "CHROME_INTENT") {
+    if (cesta.typ === "CHROME_INTENT") {
       return;
     }
 
@@ -225,7 +232,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     }
   };
 
-  if (instalacniStav.typ === "SKRYTO") {
+  if (!viditelnost.viditelna) {
     return null;
   }
 
@@ -233,7 +240,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   const stylObalu: CSSProperties | undefined =
     topPx !== null ? { top: `${topPx}px` } : undefined;
 
-  const viceRadku = instalacniStav.typ === "CHROME_INTENT";
+  const viceRadku = cesta.typ === "CHROME_INTENT";
   const tridaPlochy = [
     "brana-vyzva-plocha",
     pripravena ? "brana-vyzva-plocha--viditelna" : "",
@@ -248,7 +255,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
       style={stylObalu}
       role="region"
       aria-label={
-        instalacniStav.typ === "CHROME_INTENT"
+        cesta.typ === "CHROME_INTENT"
           ? BRANA_TEKST_OTEVRIT_V_CHROMU
           : "Přidat BRÁNU na plochu"
       }
@@ -263,9 +270,9 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
           <span aria-hidden>×</span>
         </button>
 
-        {instalacniStav.typ === "CHROME_INTENT" ? (
+        {cesta.typ === "CHROME_INTENT" ? (
           <a
-            href={instalacniStav.url}
+            href={cesta.url}
             onClick={otevritVChromu}
             className="brana-vyzva-plocha-hlavni brana-vyzva-plocha-hlavni--odkaz"
             aria-label={BRANA_TEKST_OTEVRIT_V_CHROMU}

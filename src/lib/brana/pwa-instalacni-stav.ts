@@ -7,6 +7,29 @@ import {
 } from "@/lib/brana/vlozeny-android-prohlizec";
 import { jeIOS } from "@/lib/uloziste";
 
+/** Důvod skrytí výzvy – odděleně od volby cesty po kliknutí. */
+export type BranaVyzvaViditelnostDuvod =
+  | "NAINSTALOVANO"
+  | "ZAVRENO_UZIVATELEM"
+  | "CEKANI_NA_PRODLENI"
+  | "DESKTOP_NEBO_NEPODPOROVANO"
+  | "ZATIM_NEDOSTUPNA_CESTA";
+
+export type BranaVyzvaViditelnost =
+  | { viditelna: true }
+  | { viditelna: false; duvod: BranaVyzvaViditelnostDuvod };
+
+/** Technická cesta po klepnutí na výzvu – uživateli se nezobrazuje. */
+export type BranaCestaPoKliknuti =
+  | { typ: "PROMPT" }
+  | { typ: "CHROME_INTENT"; url: string }
+  | {
+      typ: "IOS_INSTALACE";
+      varianta: "SAFARI" | "JINY_PROHLIZEC";
+    }
+  | { typ: "ZATIM_NEDOSTUPNA" };
+
+/** @deprecated Kompatibilní tvar pro diagnostiku – preferuj viditelnost + cestu. */
 export type BranaInstalacniStavSkrytoDuvod =
   | "NAINSTALOVANO"
   | "ZAVRENO_UZIVATELEM"
@@ -14,6 +37,7 @@ export type BranaInstalacniStavSkrytoDuvod =
   | "DESKTOP_NEBO_NEPODPOROVANO"
   | "BEZ_FUNKCNI_AKCE";
 
+/** @deprecated Kompatibilní tvar pro diagnostiku – preferuj viditelnost + cestu. */
 export type BranaInstalacniStav =
   | {
       typ: "SKRYTO";
@@ -42,46 +66,23 @@ function jeMobilniProstredi(): boolean {
   return jeIOS() || jeAndroid();
 }
 
-/** Textový popis stavu pro diagnostiku. */
-export function popisBranaInstalacniStav(stav: BranaInstalacniStav): string {
-  if (stav.typ === "SKRYTO") {
-    return `SKRYTO / ${stav.duvod}`;
+function mapovatDuvodViditelnostiNaSkryto(
+  duvod: BranaVyzvaViditelnostDuvod,
+): BranaInstalacniStavSkrytoDuvod {
+  if (duvod === "ZATIM_NEDOSTUPNA_CESTA") {
+    return "BEZ_FUNKCNI_AKCE";
   }
 
-  if (stav.typ === "IOS_INSTALACE") {
-    return `IOS_INSTALACE / ${stav.varianta}`;
-  }
-
-  if (stav.typ === "CHROME_INTENT") {
-    return "CHROME_INTENT";
-  }
-
-  return "PROMPT";
+  return duvod;
 }
 
 /**
- * Jediný resolver instalačního stavu BRÁNY.
- * Pouze čisté rozhodování – bez side effectů a bez volání prompt().
+ * Volba technické cesty po kliknutí.
+ * Neřeší, zda se výzva smí zobrazit.
  */
-export function urcitBranaInstalacniStav(
-  vstup: BranaInstalacniStavVstup,
-): BranaInstalacniStav {
-  if (vstup.vyzvaZavrena) {
-    return { typ: "SKRYTO", duvod: "ZAVRENO_UZIVATELEM" };
-  }
-
-  if (vstup.nainstalovano) {
-    return { typ: "SKRYTO", duvod: "NAINSTALOVANO" };
-  }
-
-  if (!jeMobilniProstredi()) {
-    return { typ: "SKRYTO", duvod: "DESKTOP_NEBO_NEPODPOROVANO" };
-  }
-
-  if (!vstup.prodlevaUplynula) {
-    return { typ: "SKRYTO", duvod: "CEKANI_NA_PRODLENI" };
-  }
-
+export function urcitBranaCestuPoKliknuti(
+  vstup: Pick<BranaInstalacniStavVstup, "aktualniUrl">,
+): BranaCestaPoKliknuti {
   if (jeIOS()) {
     return {
       typ: "IOS_INSTALACE",
@@ -101,7 +102,81 @@ export function urcitBranaInstalacniStav(
     }
   }
 
-  return { typ: "SKRYTO", duvod: "BEZ_FUNKCNI_AKCE" };
+  return { typ: "ZATIM_NEDOSTUPNA" };
+}
+
+/**
+ * Zda se výzva smí zobrazit.
+ * Krok 1: při ZATIM_NEDOSTUPNA zůstává výzva skrytá (stejné chování jako dříve).
+ */
+export function urcitBranaVyzvaViditelnost(
+  vstup: BranaInstalacniStavVstup,
+): BranaVyzvaViditelnost {
+  if (vstup.vyzvaZavrena) {
+    return { viditelna: false, duvod: "ZAVRENO_UZIVATELEM" };
+  }
+
+  if (vstup.nainstalovano) {
+    return { viditelna: false, duvod: "NAINSTALOVANO" };
+  }
+
+  if (!jeMobilniProstredi()) {
+    return { viditelna: false, duvod: "DESKTOP_NEBO_NEPODPOROVANO" };
+  }
+
+  if (!vstup.prodlevaUplynula) {
+    return { viditelna: false, duvod: "CEKANI_NA_PRODLENI" };
+  }
+
+  const cesta = urcitBranaCestuPoKliknuti(vstup);
+
+  if (cesta.typ === "ZATIM_NEDOSTUPNA") {
+    return { viditelna: false, duvod: "ZATIM_NEDOSTUPNA_CESTA" };
+  }
+
+  return { viditelna: true };
+}
+
+/** Textový popis kompatibilního stavu pro diagnostiku. */
+export function popisBranaInstalacniStav(stav: BranaInstalacniStav): string {
+  if (stav.typ === "SKRYTO") {
+    return `SKRYTO / ${stav.duvod}`;
+  }
+
+  if (stav.typ === "IOS_INSTALACE") {
+    return `IOS_INSTALACE / ${stav.varianta}`;
+  }
+
+  if (stav.typ === "CHROME_INTENT") {
+    return "CHROME_INTENT";
+  }
+
+  return "PROMPT";
+}
+
+/**
+ * Kompatibilní složení viditelnosti + cesty (pro diagnostiku).
+ * Preferuj {@link urcitBranaVyzvaViditelnost} a {@link urcitBranaCestuPoKliknuti}.
+ */
+export function urcitBranaInstalacniStav(
+  vstup: BranaInstalacniStavVstup,
+): BranaInstalacniStav {
+  const viditelnost = urcitBranaVyzvaViditelnost(vstup);
+
+  if (!viditelnost.viditelna) {
+    return {
+      typ: "SKRYTO",
+      duvod: mapovatDuvodViditelnostiNaSkryto(viditelnost.duvod),
+    };
+  }
+
+  const cesta = urcitBranaCestuPoKliknuti(vstup);
+
+  if (cesta.typ === "ZATIM_NEDOSTUPNA") {
+    return { typ: "SKRYTO", duvod: "BEZ_FUNKCNI_AKCE" };
+  }
+
+  return cesta;
 }
 
 /**
