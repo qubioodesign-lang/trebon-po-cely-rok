@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { jeIOS, jePWA } from "@/lib/uloziste";
 import { ziskatNeboRegistrovatServiceWorker } from "@/lib/service-worker";
 import { useChovaniNavstevnika } from "@/hooks/useChovaniNavstevnika";
@@ -18,16 +19,76 @@ import {
   vyvolatTrebonInstalacniDialog,
 } from "@/lib/trebon-pwa-instalace";
 
+/** Zpět jen když předchozí záznam historie je na stejném originu; jinak galerie. */
+function muzeBezpecneZpet(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const navigation = (
+    window as Window & {
+      navigation?: {
+        currentEntry?: { index: number };
+        entries: () => { url?: string }[];
+      };
+    }
+  ).navigation;
+
+  if (
+    navigation?.currentEntry &&
+    typeof navigation.currentEntry.index === "number" &&
+    typeof navigation.entries === "function"
+  ) {
+    const index = navigation.currentEntry.index;
+    if (index <= 0) {
+      return false;
+    }
+    const predchozi = navigation.entries()[index - 1];
+    if (!predchozi?.url) {
+      return false;
+    }
+    try {
+      return new URL(predchozi.url).origin === window.location.origin;
+    } catch {
+      return false;
+    }
+  }
+
+  if (window.history.length <= 1) {
+    return false;
+  }
+
+  const referrer = document.referrer;
+  if (!referrer) {
+    return false;
+  }
+
+  try {
+    return new URL(referrer).origin === window.location.origin;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Obrazovka „chci se vracet“ – klidná, centrovaná, teplé pozadí.
  * CTA vede k přidání Třeboně na plochu (ne k push upozornění).
  */
 export function ObrazovkaChciSeVracet() {
   useChovaniNavstevnika("chci_se_vracet");
+  const router = useRouter();
   const { odeslat } = useMetriky();
   const [nacita, setNacita] = useState(false);
   const [nainstalovano, setNainstalovano] = useState(() => jePWA());
   const [hlaska, setHlaska] = useState("");
+
+  const zavrit = useCallback(() => {
+    if (muzeBezpecneZpet()) {
+      router.back();
+      return;
+    }
+    router.replace("/");
+  }, [router]);
 
   const obnovitStavInstalace = useCallback(() => {
     if (jePWA()) {
@@ -104,6 +165,15 @@ export function ObrazovkaChciSeVracet() {
 
   return (
     <div className="relative flex min-h-dvh flex-col items-center justify-center bg-krem px-8 py-16">
+      <button
+        type="button"
+        onClick={zavrit}
+        className="odkaz-jemny absolute right-6 top-8"
+        aria-label="Zavřít"
+      >
+        zavřít
+      </button>
+
       <div className="max-w-sm space-y-8 text-center">
         <div className="space-y-6 text-sm font-light leading-relaxed tracking-wide text-text-jemny">
           <p className="text-pretty">
