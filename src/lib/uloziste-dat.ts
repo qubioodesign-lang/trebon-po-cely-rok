@@ -46,6 +46,10 @@ export interface MetrikyAgregovane {
   pocetNavratuZpet: number;
   pocetKliknutiChciSeVracet: number;
   pocetPovolenychUpozorneni: number;
+  /** Kliknutí na CTA „Přidat Třeboň na plochu“ (zájem, ne instalace) */
+  pocetKliknutiPridatNaPlochu: number;
+  /** Relace spuštěné ve standalone / PWA režimu */
+  pocetNavstevZePlochy: number;
   pocetReplayProlnuti: number;
   navstevyPodleNavstevnika: Record<string, number>;
 }

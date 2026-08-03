@@ -4,14 +4,14 @@ import { POPISY_ZARIZENI, ZARIZENI_NAVSTEV } from "@/lib/zarizeni-navstevnika";
 
 interface PropsAdminAnalyticsDetail {
   analytics: AnalyticsSouhrn | null;
-  pocetPushOdberu: number;
-  metrikyPush?: number;
+  pocetKliknutiPridatNaPlochu: number;
+  pocetNavstevZePlochy: number;
 }
 
 export function AdminAnalyticsDetail({
   analytics,
-  pocetPushOdberu,
-  metrikyPush,
+  pocetKliknutiPridatNaPlochu,
+  pocetNavstevZePlochy,
 }: PropsAdminAnalyticsDetail) {
   if (!analytics) {
     return (
@@ -29,10 +29,10 @@ export function AdminAnalyticsDetail({
       <h2 className="text-sm font-light text-text-jemny">analytics</h2>
 
       <div className="grid gap-2 text-xs text-text-velmiJemny sm:grid-cols-2">
-        <span>push odběratelé: {pocetPushOdberu}</span>
-        {metrikyPush !== undefined && (
-          <span>povolená upozornění: {metrikyPush}</span>
-        )}
+        <span>
+          Kliknutí na Přidat Třeboň na plochu: {pocetKliknutiPridatNaPlochu}
+        </span>
+        <span>Návštěvy z ikony na ploše: {pocetNavstevZePlochy}</span>
       </div>
 
       <div className="space-y-2">
@@ -82,37 +82,6 @@ export function AdminAnalyticsDetail({
                   </td>
                   <td className="py-1.5">
                     {analytics.navstevyPodleZarizeni[zarizeni] ?? 0}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <h3 className="text-xs font-light text-text-velmiJemny">
-          zařízení push odběratelů
-        </h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-text-velmiJemny">
-            <thead>
-              <tr className="border-b border-text-velmiJemny/20">
-                <th className="py-1 pr-3 font-light">zařízení</th>
-                <th className="py-1 font-light">odběratelé</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ZARIZENI_NAVSTEV.map((zarizeni) => (
-                <tr
-                  key={`push-${zarizeni}`}
-                  className="border-b border-text-velmiJemny/10"
-                >
-                  <td className="py-1.5 pr-3 text-text">
-                    {POPISY_ZARIZENI[zarizeni]}
-                  </td>
-                  <td className="py-1.5">
-                    {analytics.pushOdberyPodleZarizeni[zarizeni] ?? 0}
                   </td>
                 </tr>
               ))}

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { jeIOS, jePWA } from "@/lib/uloziste";
 import { ziskatNeboRegistrovatServiceWorker } from "@/lib/service-worker";
 import { useChovaniNavstevnika } from "@/hooks/useChovaniNavstevnika";
+import { useMetriky } from "@/hooks/useMetriky";
 import { TrebonIosInstalacniVrstva } from "@/components/TrebonIosInstalacniVrstva";
 import {
   otevritTrebonIosInstalacniVrstvu,
@@ -23,6 +24,7 @@ import {
  */
 export function ObrazovkaChciSeVracet() {
   useChovaniNavstevnika("chci_se_vracet");
+  const { odeslat } = useMetriky();
   const [nacita, setNacita] = useState(false);
   const [nainstalovano, setNainstalovano] = useState(() => jePWA());
   const [hlaska, setHlaska] = useState("");
@@ -63,6 +65,9 @@ export function ObrazovkaChciSeVracet() {
       setNainstalovano(true);
       return;
     }
+
+    // Fire-and-forget: zájem o CTA, neblokuje instalační cestu
+    odeslat("klik_pridat_na_plochu");
 
     if (jeIOS()) {
       otevritTrebonIosInstalacniVrstvu(urcitTrebonIosInstalacniVariantu());

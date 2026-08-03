@@ -58,6 +58,8 @@ export interface MetrikySouhrn {
   procentoNavratu: number;
   pocetKliknutiChciSeVracet: number;
   pocetPovolenychUpozorneni: number;
+  pocetKliknutiPridatNaPlochu: number;
+  pocetNavstevZePlochy: number;
   pocetReplayProlnuti: number;
 }
 
@@ -87,6 +89,8 @@ export type TypUdalostiMetriky =
   | "navrat_zpet"
   | "klik_chci_se_vracet"
   | "povoleno_upozorneni"
+  | "klik_pridat_na_plochu"
+  | "navsteva_standalone"
   | "replay_prolnuti"
   | "odchod_navstevy";
 

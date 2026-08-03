@@ -1041,8 +1041,10 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
 
         <AdminAnalyticsDetail
           analytics={analytics}
-          pocetPushOdberu={data?.pocetPushOdberu ?? 0}
-          metrikyPush={metriky?.pocetPovolenychUpozorneni}
+          pocetKliknutiPridatNaPlochu={
+            metriky?.pocetKliknutiPridatNaPlochu ?? 0
+          }
+          pocetNavstevZePlochy={metriky?.pocetNavstevZePlochy ?? 0}
         />
       </div>
 

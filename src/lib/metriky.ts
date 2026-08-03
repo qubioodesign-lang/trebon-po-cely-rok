@@ -22,6 +22,8 @@ export function prazdneMetrikyAgregovane(): MetrikyAgregovane {
     pocetNavratuZpet: 0,
     pocetKliknutiChciSeVracet: 0,
     pocetPovolenychUpozorneni: 0,
+    pocetKliknutiPridatNaPlochu: 0,
+    pocetNavstevZePlochy: 0,
     pocetReplayProlnuti: 0,
     navstevyPodleNavstevnika: {},
   };
@@ -52,6 +54,8 @@ export function souhrnZAgregovanych(agregovane: MetrikyAgregovane): MetrikySouhr
     ),
     pocetKliknutiChciSeVracet: agregovane.pocetKliknutiChciSeVracet,
     pocetPovolenychUpozorneni: agregovane.pocetPovolenychUpozorneni,
+    pocetKliknutiPridatNaPlochu: agregovane.pocetKliknutiPridatNaPlochu ?? 0,
+    pocetNavstevZePlochy: agregovane.pocetNavstevZePlochy ?? 0,
     pocetReplayProlnuti: agregovane.pocetReplayProlnuti ?? 0,
   };
 }
@@ -84,6 +88,14 @@ export function aplikovatMetriku(
       break;
     case "povoleno_upozorneni":
       agregovane.pocetPovolenychUpozorneni += 1;
+      break;
+    case "klik_pridat_na_plochu":
+      agregovane.pocetKliknutiPridatNaPlochu =
+        (agregovane.pocetKliknutiPridatNaPlochu ?? 0) + 1;
+      break;
+    case "navsteva_standalone":
+      agregovane.pocetNavstevZePlochy =
+        (agregovane.pocetNavstevZePlochy ?? 0) + 1;
       break;
     case "replay_prolnuti":
       agregovane.pocetReplayProlnuti = (agregovane.pocetReplayProlnuti ?? 0) + 1;
@@ -123,6 +135,8 @@ export function aplikovatChovaniNavstevy(
 export function zajistitMetrikyAgregovane(uloziste: UlozisteDat): MetrikyAgregovane {
   if (uloziste.metrikyAgregovane) {
     uloziste.metrikyAgregovane.pocetReplayProlnuti ??= 0;
+    uloziste.metrikyAgregovane.pocetKliknutiPridatNaPlochu ??= 0;
+    uloziste.metrikyAgregovane.pocetNavstevZePlochy ??= 0;
     if (uloziste.metriky.length > 0) {
       for (const zaznam of uloziste.metriky) {
         aplikovatMetriku(uloziste.metrikyAgregovane, {

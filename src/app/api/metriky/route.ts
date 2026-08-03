@@ -18,6 +18,8 @@ const POVOLENE_TYPY: TypUdalostiMetriky[] = [
   "navrat_zpet",
   "klik_chci_se_vracet",
   "povoleno_upozorneni",
+  "klik_pridat_na_plochu",
+  "navsteva_standalone",
   "replay_prolnuti",
   "odchod_navstevy",
 ];
