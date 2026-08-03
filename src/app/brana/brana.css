@@ -227,7 +227,11 @@
     @apply inline-block shrink-0 text-[0.9375rem] font-medium leading-snug tracking-tight text-white no-underline;
   }
 
-  .brana-pata-odkaz::after {
+  .brana-pata-odkaz-text {
+    @apply relative inline-block;
+  }
+
+  .brana-pata-odkaz-text::after {
     content: "";
     display: block;
     width: calc(100% - 0.15em);

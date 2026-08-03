@@ -210,7 +210,7 @@ export function BranaObrazovka({
     <footer className="brana-pata">
       <div className="brana-pata-stred">
         <Link href={trebonHref} className="brana-pata-odkaz">
-          Třeboň po celý rok{" "}
+          <span className="brana-pata-odkaz-text">Třeboň po celý rok</span>{" "}
           <span className="brana-pata-odkaz-sipka" aria-hidden>
             →
           </span>
