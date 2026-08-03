@@ -98,7 +98,13 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     [vstup],
   );
 
-  const cesta = useMemo(() => urcitBranaCestuPoKliknuti(vstup), [vstup]);
+  const cesta = useMemo(() => {
+    if (!viditelnost.viditelna) {
+      return { typ: "ZATIM_NEDOSTUPNA" as const };
+    }
+
+    return urcitBranaCestuPoKliknuti(vstup);
+  }, [viditelnost, vstup]);
 
   const skrytVyzvu = useCallback(() => {
     setPripravena(false);

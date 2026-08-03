@@ -83,6 +83,11 @@ function mapovatDuvodViditelnostiNaSkryto(
 export function urcitBranaCestuPoKliknuti(
   vstup: Pick<BranaInstalacniStavVstup, "aktualniUrl">,
 ): BranaCestaPoKliknuti {
+  // SSR: bez window/navigator nelze určit cestu (dříve se sem kvůli desktop zkratce nedostalo).
+  if (typeof window === "undefined") {
+    return { typ: "ZATIM_NEDOSTUPNA" };
+  }
+
   if (jeIOS()) {
     return {
       typ: "IOS_INSTALACE",
