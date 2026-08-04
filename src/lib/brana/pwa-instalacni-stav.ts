@@ -17,8 +17,8 @@ export type BranaVyzvaViditelnost =
   | { viditelna: false; duvod: BranaVyzvaViditelnostDuvod };
 
 /**
- * Technická cesta po klepnutí na výzvu.
- * CHROME_INTENT záměrně neexistuje – veřejná výzva nikdy nevede do Chromu.
+ * Technická cesta po klepnutí.
+ * CHROME_INTENT záměrně neexistuje.
  */
 export type BranaCestaPoKliknuti =
   | { typ: "PROMPT" }
@@ -54,7 +54,7 @@ export type BranaInstalacniStav =
 export type BranaInstalacniStavVstup = {
   vyzvaZavrena: boolean;
   nainstalovano: boolean;
-  /** Zdvořilost 8 s uplynula a (zájem nebo strop 20 s). */
+  /** Zdvořilost 8 s + skutečné přepnutí pohledu. */
   politikaZobrazeniSplnena?: boolean;
   /** @deprecated Použij politikaZobrazeniSplnena. */
   prodlevaUplynula?: boolean;
@@ -72,7 +72,6 @@ function jeMobilniProstredi(): boolean {
 export function urcitBranaCestuPoKliknuti(
   _vstup: Pick<BranaInstalacniStavVstup, "aktualniUrl">,
 ): BranaCestaPoKliknuti {
-  // SSR: bez window/navigator nelze určit cestu.
   if (typeof window === "undefined") {
     return { typ: "ZATIM_NEDOSTUPNA" };
   }
@@ -92,9 +91,10 @@ export function urcitBranaCestuPoKliknuti(
 }
 
 /**
- * Zda se výzva smí zobrazit – pouze produktová politika (ne technická cesta).
- * Android/Chrome: CTA může být vidět i před BIP; po kliknutí se krátce čeká na prompt.
- * iOS: zdvořilost + zájem, klik otevře vlastní návod.
+ * Viditelnost výzvy.
+ * Produktová politika (8 s + přepnutí) pro všechny mobilní větve.
+ * Android navíc vyžaduje uložený beforeinstallprompt – bez něj žádné mrtvé tlačítko.
+ * iOS pouze produktová politika (vlastní návod).
  */
 export function urcitBranaVyzvaViditelnost(
   vstup: BranaInstalacniStavVstup,
@@ -113,6 +113,14 @@ export function urcitBranaVyzvaViditelnost(
 
   if (!(vstup.politikaZobrazeniSplnena ?? vstup.prodlevaUplynula)) {
     return { viditelna: false, duvod: "CEKANI_NA_PRODLENI" };
+  }
+
+  if (jeIOS()) {
+    return { viditelna: true };
+  }
+
+  if (!jeInstalacniPromptKDispozici()) {
+    return { viditelna: false, duvod: "BEZ_INSTALACNIHO_PROMPTU" };
   }
 
   return { viditelna: true };
@@ -150,14 +158,13 @@ export function urcitBranaInstalacniStav(
   const cesta = urcitBranaCestuPoKliknuti(vstup);
 
   if (cesta.typ === "ZATIM_NEDOSTUPNA") {
-    // Výzva může být vidět i bez promptu – kompatibilní API nemá samostatný typ.
     return { typ: "SKRYTO", duvod: "BEZ_FUNKCNI_AKCE" };
   }
 
   return cesta;
 }
 
-/** Otevře celoobrazovkovou iOS instalační vrstvu (pokračování stejné cesty). */
+/** Otevře celoobrazovkovou iOS instalační vrstvu BRÁNY. */
 export function otevritBranaIosInstalacniObrazovku(
   varianta: "SAFARI" | "JINY_PROHLIZEC",
 ): void {
