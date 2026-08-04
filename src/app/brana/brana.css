@@ -224,6 +224,48 @@
     transform: translateX(-50%);
   }
 
+  .brana-ios-instalace-vrstva {
+    @apply pointer-events-auto fixed inset-0 z-50 flex items-center justify-center px-6;
+  }
+
+  .brana-ios-instalace-vrstva--den {
+    background-color: rgba(20, 76, 140, 0.78);
+  }
+
+  .brana-ios-instalace-vrstva--noc {
+    background-color: rgba(10, 20, 32, 0.82);
+  }
+
+  .brana-ios-instalace-zavrit {
+    @apply absolute right-6 border-0 bg-transparent p-0 text-white/70 transition-colors duration-300;
+    top: calc(2rem + env(safe-area-inset-top, 0px));
+    font-size: 1.25rem;
+    line-height: 1;
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+  }
+
+  .brana-ios-instalace-zavrit:hover,
+  .brana-ios-instalace-zavrit:focus-visible {
+    @apply text-white outline-none;
+  }
+
+  .brana-ios-instalace-obsah {
+    @apply flex max-w-sm flex-col items-center text-center;
+  }
+
+  .brana-ios-instalace-nadpis {
+    @apply mb-8 text-sm font-light tracking-wide text-white/70;
+  }
+
+  .brana-ios-instalace-radek {
+    @apply text-[1.0625rem] font-light leading-snug tracking-wide text-white;
+  }
+
+  .brana-ios-instalace-radek + .brana-ios-instalace-radek {
+    @apply mt-3;
+  }
+
   .brana-vzkaz-nadpis {
     @apply text-white/70;
   }

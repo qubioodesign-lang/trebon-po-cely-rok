@@ -15,6 +15,7 @@ import { opakovaniSeznamuAkci } from "@/lib/brana/navigace-stranky";
 import { BranaDesktopPozadi } from "./BranaDesktopPozadi";
 import { BranaObrazovka } from "./BranaObrazovka";
 import { BranaPozadi } from "./pozadi/BranaPozadi";
+import { BranaIosInstalacniVrstva } from "./BranaIosInstalacniVrstva";
 import { BranaRegistracePWA } from "./BranaRegistracePWA";
 import { BranaVyzvaPlocha } from "./BranaVyzvaPlocha";
 
@@ -94,6 +95,7 @@ export function BranaDenniDobaObal({
               />
             )}
             <BranaVyzvaPlocha nocRezim={nocRezim} />
+            <BranaIosInstalacniVrstva nocRezim={nocRezim} />
           </main>
         </div>
         {desktopPanel}
