@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useState, type MouseEvent } from "react";
+import { Fragment, useEffect, useState, type MouseEvent } from "react";
 import { dnesVPraze, formatDenDatum } from "@/lib/brana/cas";
 import { kotvaScrollovani7Dni, kotvaScrollovaniVikend, kotvaScrollovaniVyhled, textCasoveKotvy } from "@/lib/brana/casova-kotva";
 import { branaVerejnaCesta } from "@/lib/brana/cesty";
 import type { BranaVerejnaStranka } from "@/lib/brana/navigace-stranky";
 import {
+  branaPohledZPathname,
   nactiBranaSdilenaPohledovaData,
   type BranaKonfiguracePohledu,
   type BranaSdilenaPohledovaData,
@@ -171,6 +172,20 @@ export function BranaObrazovka({
   const trebonHref = useBranaOdkazNaTrebon();
   const kotvaScroll = kotvaScrollProStranku(pohled);
   const pocetBloku = pohled === "vyhled" ? 2 : opakovani;
+
+  useEffect(() => {
+    const onPopState = () => {
+      const zUrl = branaPohledZPathname(window.location.pathname, host);
+      if (!zUrl) {
+        return;
+      }
+
+      setPohled((aktualni) => (aktualni === zUrl ? aktualni : zUrl));
+    };
+
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [host]);
 
   const prepnoutPohledKlikem = (cil: BranaVerejnaStranka) => {
     if (cil === pohled) {
