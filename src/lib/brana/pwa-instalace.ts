@@ -7,9 +7,10 @@ export type BeforeInstallPromptEvent = Event & {
 
 declare global {
   interface Window {
-    /** Jediné úložiště beforeinstallprompt (model Třeboně). */
+    /** Zachycený včasným synchronním skriptem – může přijít před načtením bundlu. */
+    __branaPwaVcasnyPrompt?: BeforeInstallPromptEvent;
+    /** Jediné úložiště promptu sdílené mezi všemi JS chunky. */
     __branaPwaInstalacniPrompt?: BeforeInstallPromptEvent;
-    /** Guard: nativní BIP/appinstalled listener už registrován. */
     __branaPwaPosluchaceRegistrovani?: boolean;
   }
 }
@@ -23,32 +24,48 @@ function oznamitZmenuPromptu(): void {
   });
 }
 
-function ziskatUlozenyPrompt(): BeforeInstallPromptEvent | null {
-  if (typeof window === "undefined") {
-    return null;
+/** Sloučí včasný prompt ze skriptu do sdíleného window úložiště. */
+function synchronizovatPromptZeWindow(): void {
+  const vcasny = window.__branaPwaVcasnyPrompt;
+
+  if (!vcasny) {
+    return;
   }
 
+  window.__branaPwaInstalacniPrompt = vcasny;
+  delete window.__branaPwaVcasnyPrompt;
+  oznamitZmenuPromptu();
+}
+
+function ziskatUlozenyPrompt(): BeforeInstallPromptEvent | null {
+  synchronizovatPromptZeWindow();
   return window.__branaPwaInstalacniPrompt ?? null;
 }
 
 function ulozitPrompt(udalost: BeforeInstallPromptEvent): void {
   udalost.preventDefault();
   window.__branaPwaInstalacniPrompt = udalost;
+  delete window.__branaPwaVcasnyPrompt;
   oznamitZmenuPromptu();
 }
 
 function zahoditPrompt(): void {
-  if (typeof window === "undefined" || !window.__branaPwaInstalacniPrompt) {
+  if (!window.__branaPwaInstalacniPrompt && !window.__branaPwaVcasnyPrompt) {
     return;
   }
 
   delete window.__branaPwaInstalacniPrompt;
+  delete window.__branaPwaVcasnyPrompt;
   oznamitZmenuPromptu();
 }
 
 /** BRÁNA běží jako nainstalovaná PWA (display-mode: standalone nebo iOS). */
 export function jeBranaSpustenaJakoPwa(): boolean {
   return jePWA();
+}
+
+export function zachytitInstalacniPrompt(udalost: Event): void {
+  ulozitPrompt(udalost as BeforeInstallPromptEvent);
 }
 
 export function jeInstalacniPromptKDispozici(): boolean {
@@ -59,13 +76,8 @@ export function zahoditInstalacniPrompt(): void {
   zahoditPrompt();
 }
 
-/**
- * Přihlášení ke změně BIP store.
- * Okamžitě synchronizuje aktuální stav (BIP zachycený před mountem).
- */
 export function priZmeneInstalacnihoPromptu(posluchac: () => void): () => void {
   posluchaciPromptu.add(posluchac);
-  posluchac();
 
   return () => {
     posluchaciPromptu.delete(posluchac);
@@ -81,8 +93,8 @@ export function priAppInstalled(posluchac: () => void): () => void {
 }
 
 /**
- * Registruje BIP/appinstalled jako Třeboň – při load klientského modulu.
- * Opakované volání je no-op díky window guardu.
+ * Registruje globální posluchače co nejdříve po načtení stránky BRÁNY.
+ * Opakované volání je bezpečné – stav posluchačů je na window kvůli duplicitním chunkům.
  */
 export function inicializovatBranaPwaInstalaci(): void {
   if (typeof window === "undefined" || window.__branaPwaPosluchaceRegistrovani) {
@@ -91,12 +103,21 @@ export function inicializovatBranaPwaInstalaci(): void {
 
   window.__branaPwaPosluchaceRegistrovani = true;
 
+  synchronizovatPromptZeWindow();
+
+  window.addEventListener("brana-pwa-prompt", synchronizovatPromptZeWindow);
+
   window.addEventListener("beforeinstallprompt", (udalost) => {
-    ulozitPrompt(udalost as BeforeInstallPromptEvent);
+    zachytitInstalacniPrompt(udalost);
   });
 
   window.addEventListener("appinstalled", () => {
     zahoditPrompt();
+    try {
+      sessionStorage.removeItem("brana_embedded_android");
+    } catch {
+      // sessionStorage nemusí být dostupné
+    }
     posluchaciInstalace.forEach((posluchac) => {
       posluchac();
     });
@@ -104,13 +125,14 @@ export function inicializovatBranaPwaInstalaci(): void {
 }
 
 /**
- * Horní limit jen pro visící userChoice – prompt() se volá hned v gestu.
+ * Horní limit čekání na prompt() + userChoice.
+ * Chrání UI před nekonečným „Připravuji…“, když Promise visí bez dialogu.
  */
 export const BRANA_INSTALACNI_DIALOG_MAX_MS = 8_000;
 
 let dialogProbiha = false;
 
-/** Vyvolá systémový dialog; před prompt() žádné await/polling. */
+/** Vyvolá systémový instalační dialog prohlížeče; uloženou událost zahodí. */
 export async function vyvolatInstalacniDialog(): Promise<
   "accepted" | "dismissed" | "nedostupny"
 > {
@@ -118,24 +140,21 @@ export async function vyvolatInstalacniDialog(): Promise<
     return "nedostupny";
   }
 
-  dialogProbiha = true;
-
   const prompt = ziskatUlozenyPrompt();
 
   if (!prompt) {
-    dialogProbiha = false;
     return "nedostupny";
   }
 
+  dialogProbiha = true;
   delete window.__branaPwaInstalacniPrompt;
+  delete window.__branaPwaVcasnyPrompt;
   oznamitZmenuPromptu();
 
   try {
-    const promptPromise = prompt.prompt();
-
     const vysledek = await Promise.race([
       (async (): Promise<"accepted" | "dismissed"> => {
-        await promptPromise;
+        await prompt.prompt();
         const { outcome } = await prompt.userChoice;
         return outcome;
       })(),
