@@ -1,35 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import {
-  Fragment,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { Fragment } from "react";
 import { dnesVPraze, formatDenDatum } from "@/lib/brana/cas";
+import { kotvaScrollovani7Dni, kotvaScrollovaniVikend, kotvaScrollovaniVyhled, textCasoveKotvy } from "@/lib/brana/casova-kotva";
+import { BRANA_REFERENCNI_AKCE } from "@/lib/brana/referencni-akce";
 import {
-  kotvaScrollovani7Dni,
-  kotvaScrollovaniVikend,
-  kotvaScrollovaniVyhled,
-  textCasoveKotvy,
-} from "@/lib/brana/casova-kotva";
-import { branaVerejnaCesta } from "@/lib/brana/cesty";
+  BRANA_VYHLED_DATUMY,
+  BRANA_VYHLED_PREDEL_INDEX,
+} from "@/lib/brana/referencni-vyhled-datumy";
 import type { BranaVerejnaStranka } from "@/lib/brana/navigace-stranky";
-import { sousedniBranaStranka } from "@/lib/brana/navigace-stranky";
 import {
-  branaKonfiguracePohledu,
-  branaPohledZPathname,
-  indexBranaPohledu,
-  nactiBranaSdilenaPohledovaData,
-  type BranaKonfiguracePohledu,
-  type BranaSdilenaPohledovaData,
-} from "@/lib/brana/pohledy-data";
-import {
-  useBranaHost,
   useBranaNavigace,
   useBranaOdkazNaTrebon,
   useBranaVerejnaCesta,
@@ -38,18 +19,11 @@ import { BranaDenniPredel } from "./BranaDenniPredel";
 import {
   BranaCasovaKotvaScrollovana,
   BranaKotvaScrollProvider,
-  useBranaKotvaScroll,
 } from "./BranaKotvaScrollProvider";
-import {
-  BranaSwipeObsah,
-  type BranaListovaniPrechod,
-} from "./BranaSwipeObsah";
+import { BranaSwipeObsah, pripravitBranaListovani } from "./BranaSwipeObsah";
 import { BranaIkonaObalka } from "./BranaIkony";
 import { BranaTlacitkoSdileni } from "./BranaTlacitkoSdileni";
-import {
-  BranaTextAktualizace,
-  BranaAktualizaceProvider,
-} from "./BranaTextAktualizace";
+import { BranaTextAktualizace, BranaAktualizaceProvider } from "./BranaTextAktualizace";
 
 const JEDNOSLOVNE_TYPY_AKCE = new Set([
   "Kino",
@@ -79,7 +53,7 @@ function rozdelTypAkce(mistoNeboTyp: string): { typ: string; zbytek: string } {
   return { typ: mistoNeboTyp, zbytek: "" };
 }
 
-function rozlozAkci(akce: BranaSdilenaPohledovaData["akce"][number]): {
+function rozlozAkci(akce: (typeof BRANA_REFERENCNI_AKCE)[number]): {
   typ: string;
   misto: string;
   nazev: string;
@@ -105,13 +79,14 @@ function zalomPredlozky(text: string): string {
   return text.replace(JEDNOPISMENNE_PREDLOZKY, "$1$2\u00A0");
 }
 
-function preferujeReducedMotion(): boolean {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
+/**
+ * Kostra první veřejné obrazovky Brány – pouze rozložení, bez dat a funkcí.
+ * Určeno pro mobil (max-w-md).
+ */
+type BranaObrazovkaProps = {
+  aktivniStranka?: BranaVerejnaStranka;
+  opakovaniSeznamu?: number;
+};
 
 function kotvaScrollProStranku(
   stranka: BranaVerejnaStranka,
@@ -149,62 +124,59 @@ function zobrazitDenniPredel(stranka: BranaVerejnaStranka, blok: number): boolea
 }
 
 function akceProBlok(
-  data: BranaSdilenaPohledovaData,
   stranka: BranaVerejnaStranka,
   blok: number,
-): BranaSdilenaPohledovaData["akce"] {
+): (typeof BRANA_REFERENCNI_AKCE)[number][] {
   if (stranka !== "vyhled") {
-    return data.akce;
+    return BRANA_REFERENCNI_AKCE;
   }
 
   return blok === 0
-    ? data.akce.slice(0, data.vyhledPredelIndex)
-    : data.akce.slice(data.vyhledPredelIndex);
+    ? BRANA_REFERENCNI_AKCE.slice(0, BRANA_VYHLED_PREDEL_INDEX)
+    : BRANA_REFERENCNI_AKCE.slice(BRANA_VYHLED_PREDEL_INDEX);
 }
 
 function udajVpravo(
-  data: BranaSdilenaPohledovaData,
   stranka: BranaVerejnaStranka,
   index: number,
   cas: string,
 ): string {
   if (stranka === "vyhled") {
-    return data.vyhledDatumy[index] ?? cas;
+    return BRANA_VYHLED_DATUMY[index] ?? cas;
   }
 
   return cas;
 }
 
-function SeznamAkciPohledu({
-  pohled,
-  data,
-  konfiguracePohledu,
-}: {
-  pohled: BranaVerejnaStranka;
-  data: BranaSdilenaPohledovaData;
-  konfiguracePohledu: BranaKonfiguracePohledu[];
-}) {
-  const konfigurace =
-    konfiguracePohledu.find((polozka) => polozka.id === pohled) ??
-    branaKonfiguracePohledu(pohled);
-  const pocetBloku = pohled === "vyhled" ? 2 : konfigurace.opakovaniSeznamu;
+export function BranaObrazovka({
+  aktivniStranka = "dnes",
+  opakovaniSeznamu = 1,
+}: BranaObrazovkaProps) {
+  const navigace = useBranaNavigace();
+  const vzkazHref = useBranaVerejnaCesta("vzkaz");
+  const trebonHref = useBranaOdkazNaTrebon();
+  const kotvaScroll = kotvaScrollProStranku(aktivniStranka);
+  const pocetBloku =
+    aktivniStranka === "vyhled" ? 2 : opakovaniSeznamu;
 
-  return (
+  const seznamAkci = (
     <>
       {Array.from({ length: pocetBloku }, (_, blok) => (
-        <Fragment key={`${pohled}-blok-${blok}`}>
-          {zobrazitDenniPredel(pohled, blok) ? <BranaDenniPredel /> : null}
+        <Fragment key={`blok-${blok}`}>
+          {zobrazitDenniPredel(aktivniStranka, blok) ? (
+            <BranaDenniPredel />
+          ) : null}
           <ul className="brana-seznam-akci">
-            {akceProBlok(data, pohled, blok).map((akce, indexVBloku) => {
+            {akceProBlok(aktivniStranka, blok).map((akce, indexVBloku) => {
               const { typ, misto, nazev, cas } = rozlozAkci(akce);
               const globalniIndex =
-                pohled === "vyhled"
-                  ? blok * data.vyhledPredelIndex + indexVBloku
+                aktivniStranka === "vyhled"
+                  ? blok * BRANA_VYHLED_PREDEL_INDEX + indexVBloku
                   : indexVBloku;
 
               return (
                 <li
-                  key={`${pohled}-${blok}-${akce.mistoNeboTyp}-${akce.nazev}-${akce.cas}`}
+                  key={`${blok}-${akce.mistoNeboTyp}-${akce.nazev}-${akce.cas}`}
                 >
                   <div className="brana-akce-obsah">
                     <div className="brana-akce-radek">
@@ -223,7 +195,7 @@ function SeznamAkciPohledu({
                     ) : null}
                   </div>
                   <span className="brana-akce-cas">
-                    {udajVpravo(data, pohled, globalniIndex, cas)}
+                    {udajVpravo(aktivniStranka, globalniIndex, cas)}
                   </span>
                 </li>
               );
@@ -232,219 +204,6 @@ function SeznamAkciPohledu({
         </Fragment>
       ))}
     </>
-  );
-}
-
-type BranaObrazovkaProps = {
-  /** Počáteční pohled z URL – SSR/hydratace. */
-  pocatecniPohled?: BranaVerejnaStranka;
-  /** Společná data všech pohledů (jedna pravda). */
-  data?: BranaSdilenaPohledovaData;
-  /** Konfigurace všech pěti pohledů ze serveru. */
-  konfiguracePohledu?: BranaKonfiguracePohledu[];
-  /** @deprecated Použijte pocatecniPohled */
-  aktivniStranka?: BranaVerejnaStranka;
-};
-
-type PrechodStav = {
-  z: BranaVerejnaStranka;
-  na: BranaVerejnaStranka;
-  smer: 1 | -1;
-  bezi: boolean;
-};
-
-/**
- * Klientský shell pěti veřejných pohledů BRÁNY.
- * Po hydrataci přepíná bez RSC; URL zůstávají SSR vstupy.
- */
-export function BranaObrazovka({
-  pocatecniPohled,
-  data: dataProp,
-  konfiguracePohledu: konfiguraceProp,
-  aktivniStranka = "dnes",
-}: BranaObrazovkaProps) {
-  const vychoziPohled = pocatecniPohled ?? aktivniStranka;
-  const data = dataProp ?? nactiBranaSdilenaPohledovaData();
-  const konfiguracePohledu =
-    konfiguraceProp ??
-    (["dnes", "zitra", "vikend", "7-dni", "vyhled"] as const).map(
-      branaKonfiguracePohledu,
-    );
-  const navigace = useBranaNavigace();
-  const host = useBranaHost();
-  const pathname = usePathname();
-  const vzkazHref = useBranaVerejnaCesta("vzkaz");
-  const trebonHref = useBranaOdkazNaTrebon();
-
-  const [pohled, setPohled] = useState<BranaVerejnaStranka>(vychoziPohled);
-  const [prechod, setPrechod] = useState<PrechodStav | null>(null);
-  const pohledRef = useRef(pohled);
-  const prechodRef = useRef(prechod);
-  const ignorovatPathnameRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    pohledRef.current = pohled;
-  }, [pohled]);
-
-  useEffect(() => {
-    prechodRef.current = prechod;
-  }, [prechod]);
-
-  const kotvaScroll = kotvaScrollProStranku(pohled);
-
-  const aktualizujUrl = useCallback(
-    (cil: BranaVerejnaStranka) => {
-      const cesta = branaVerejnaCesta(cil, host);
-      const aktualni = `${window.location.pathname}${window.location.search}`;
-      const cilova = `${cesta}${window.location.search}`;
-
-      if (aktualni === cilova) {
-        return;
-      }
-
-      ignorovatPathnameRef.current = cesta;
-      window.history.pushState(null, "", cilova);
-    },
-    [host],
-  );
-
-  const prepnoutPohled = useCallback(
-    (
-      na: BranaVerejnaStranka,
-      volby?: { historie?: "push" | "none" },
-    ) => {
-      const historie = volby?.historie ?? "push";
-      const z = pohledRef.current;
-
-      if (na === z && !prechodRef.current) {
-        return;
-      }
-
-      if (prechodRef.current?.na === na && pohledRef.current === na) {
-        return;
-      }
-
-      const indexZ = indexBranaPohledu(z);
-      const indexNa = indexBranaPohledu(na);
-
-      if (indexZ < 0 || indexNa < 0 || indexZ === indexNa) {
-        setPohled(na);
-        setPrechod(null);
-        if (historie === "push") {
-          aktualizujUrl(na);
-        }
-        return;
-      }
-
-      const smer: 1 | -1 = indexNa > indexZ ? 1 : -1;
-
-      if (preferujeReducedMotion()) {
-        setPrechod(null);
-        setPohled(na);
-        if (historie === "push") {
-          aktualizujUrl(na);
-        }
-        return;
-      }
-
-      setPohled(na);
-      setPrechod({ z, na, smer, bezi: false });
-
-      if (historie === "push") {
-        aktualizujUrl(na);
-      }
-    },
-    [aktualizujUrl],
-  );
-
-  // Back / Forward – Next synchronizuje pathname po native history.
-  useEffect(() => {
-    const zUrl = branaPohledZPathname(pathname, host);
-
-    if (!zUrl) {
-      return;
-    }
-
-    if (ignorovatPathnameRef.current === pathname) {
-      ignorovatPathnameRef.current = null;
-      return;
-    }
-
-    if (zUrl === pohledRef.current && !prechodRef.current) {
-      return;
-    }
-
-    if (zUrl === pohledRef.current && prechodRef.current?.na === zUrl) {
-      return;
-    }
-
-    prepnoutPohled(zUrl, { historie: "none" });
-  }, [pathname, host, prepnoutPohled]);
-
-  const onPrechodBezi = useCallback(() => {
-    setPrechod((stav) => (stav ? { ...stav, bezi: true } : null));
-  }, []);
-
-  const onPrechodHotovo = useCallback(() => {
-    setPrechod(null);
-  }, []);
-
-  const onSwipe = useCallback(
-    (smer: "predchozi" | "nasledujici") => {
-      const cil = sousedniBranaStranka(pohledRef.current, smer, host);
-
-      if (cil) {
-        prepnoutPohled(cil.id);
-      }
-    },
-    [host, prepnoutPohled],
-  );
-
-  const onNavClick = (
-    event: React.MouseEvent<HTMLAnchorElement>,
-    cil: BranaVerejnaStranka,
-  ) => {
-    if (
-      event.metaKey ||
-      event.ctrlKey ||
-      event.shiftKey ||
-      event.altKey ||
-      event.button !== 0
-    ) {
-      return;
-    }
-
-    event.preventDefault();
-    prepnoutPohled(cil);
-  };
-
-  const listovaniPrechod: BranaListovaniPrechod | null = prechod
-    ? {
-        smer: prechod.smer,
-        bezi: prechod.bezi,
-        odjezd: (
-          <SeznamAkciPohledu
-            pohled={prechod.z}
-            data={data}
-            konfiguracePohledu={konfiguracePohledu}
-          />
-        ),
-        prijezd: (
-          <SeznamAkciPohledu
-            pohled={prechod.na}
-            data={data}
-            konfiguracePohledu={konfiguracePohledu}
-          />
-        ),
-      }
-    : null;
-
-  const klidovySeznam: ReactNode = (
-    <SeznamAkciPohledu
-      pohled={pohled}
-      data={data}
-      konfiguracePohledu={konfiguracePohledu}
-    />
   );
 
   const pata = (
@@ -465,57 +224,8 @@ export function BranaObrazovka({
 
   return (
     <BranaAktualizaceProvider>
-      <BranaKotvaScrollProvider config={kotvaScroll}>
-        <BranaObrazovkaVnitrni
-          pohled={pohled}
-          kotvaScroll={kotvaScroll}
-          navigace={navigace}
-          vzkazHref={vzkazHref}
-          onNavClick={onNavClick}
-          listovaniPrechod={listovaniPrechod}
-          klidovySeznam={klidovySeznam}
-          pata={pata}
-          onPrechodBezi={onPrechodBezi}
-          onPrechodHotovo={onPrechodHotovo}
-          onSwipe={onSwipe}
-        />
-      </BranaKotvaScrollProvider>
-    </BranaAktualizaceProvider>
-  );
-}
-
-function BranaObrazovkaVnitrni({
-  pohled,
-  kotvaScroll,
-  navigace,
-  vzkazHref,
-  onNavClick,
-  listovaniPrechod,
-  klidovySeznam,
-  pata,
-  onPrechodBezi,
-  onPrechodHotovo,
-  onSwipe,
-}: {
-  pohled: BranaVerejnaStranka;
-  kotvaScroll: ReturnType<typeof kotvaScrollProStranku>;
-  navigace: ReturnType<typeof useBranaNavigace>;
-  vzkazHref: string;
-  onNavClick: (
-    event: React.MouseEvent<HTMLAnchorElement>,
-    cil: BranaVerejnaStranka,
-  ) => void;
-  listovaniPrechod: BranaListovaniPrechod | null;
-  klidovySeznam: ReactNode;
-  pata: ReactNode;
-  onPrechodBezi: () => void;
-  onPrechodHotovo: () => void;
-  onSwipe: (smer: "predchozi" | "nasledujici") => void;
-}) {
-  const kontext = useBranaKotvaScroll();
-
-  return (
-    <div className="brana-obrazovka">
+    <BranaKotvaScrollProvider config={kotvaScroll}>
+      <div className="brana-obrazovka">
       <div className="brana-horni-celek">
         <header className="brana-horni-lista">
           <div className="brana-ikona-misto">
@@ -554,11 +264,13 @@ function BranaObrazovkaVnitrni({
               key={polozka.id}
               href={polozka.href}
               className={
-                polozka.id === pohled
+                polozka.id === aktivniStranka
                   ? "brana-nav-polozka brana-nav-polozka-vybrana"
                   : "brana-nav-polozka"
               }
-              onClick={(event) => onNavClick(event, polozka.id)}
+              onClick={() => {
+                pripravitBranaListovani(aktivniStranka, polozka.id);
+              }}
             >
               {polozka.label}
             </Link>
@@ -573,22 +285,20 @@ function BranaObrazovkaVnitrni({
           />
         ) : (
           <p className="brana-casova-kotva" aria-label="Časová kotva">
-            {textCasoveKotvy(pohled)}
+            {textCasoveKotvy(aktivniStranka)}
           </p>
         )}
       </div>
 
       <BranaSwipeObsah
+        aktivniStranka={aktivniStranka}
         scrollovat={!!kotvaScroll}
         pata={pata}
-        prechod={listovaniPrechod}
-        onPrechodBezi={onPrechodBezi}
-        onPrechodHotovo={onPrechodHotovo}
-        onSwipe={onSwipe}
-        registerScrollRoot={kontext?.registerScrollRoot}
       >
-        {klidovySeznam}
+        {seznamAkci}
       </BranaSwipeObsah>
-    </div>
+      </div>
+    </BranaKotvaScrollProvider>
+    </BranaAktualizaceProvider>
   );
 }
