@@ -42,7 +42,7 @@ import {
   zavritVyzvuPlochy,
 } from "@/lib/brana/vyzva-plocha";
 
-/** Krátké čekání na BIP po kliknutí (user gesture často BIP teprve spustí). */
+/** Krátké UI „Připravuji…“ při kliku bez BIP – bez odloženého prompt(). */
 const BRANA_PRIPRAVA_MAX_MS = 2_000;
 const TEXT_PRIPRAVA = "Připravuji přidání na plochu…";
 
@@ -250,9 +250,10 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
       return;
     }
 
-    // Jeden aktivní pokus – blokuje souběžné kliky i při okamžitém BIP.
+    // Jeden aktivní pokus – blokuje souběžné kliky.
     pripravujiRef.current = true;
 
+    // BIP už uložený: prompt() ihned v návaznosti na klik (bez await/pollingu předtím).
     if (okamzita.typ === "PROMPT") {
       try {
         const vysledek = await vyvolatInstalacniDialog();
@@ -272,57 +273,24 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
       return;
     }
 
-    // Bez uloženého BIP: krátce čekej (klik často BIP teprve spustí). Bez Chrome intentu.
+    // Bez BIP: jen krátké UI „Připravuji…“, pak CTA zpět.
+    // Nikdy nevolej prompt() po async čekání – pozdní BIP jen pro další klik.
     setPripravuji(true);
     obnovitStav();
 
     try {
-      const deadline = Date.now() + BRANA_PRIPRAVA_MAX_MS;
-
       await new Promise<void>((resolve) => {
-        let hotovo = false;
-        let interval = 0;
-        let zrusPrompt = () => {};
+        const timeout = window.setTimeout(() => {
+          uklidCekaniRef.current = null;
+          resolve();
+        }, BRANA_PRIPRAVA_MAX_MS);
 
-        const dokonci = () => {
-          if (hotovo) {
-            return;
-          }
-
-          hotovo = true;
-          window.clearInterval(interval);
-          zrusPrompt();
+        uklidCekaniRef.current = () => {
+          window.clearTimeout(timeout);
           uklidCekaniRef.current = null;
           resolve();
         };
-
-        zrusPrompt = priZmeneInstalacnihoPromptu(() => {
-          if (jeInstalacniPromptKDispozici()) {
-            dokonci();
-          }
-        });
-
-        interval = window.setInterval(() => {
-          if (jeInstalacniPromptKDispozici() || Date.now() >= deadline) {
-            dokonci();
-          }
-        }, 100);
-
-        uklidCekaniRef.current = dokonci;
-
-        if (jeInstalacniPromptKDispozici()) {
-          dokonci();
-        }
       });
-
-      if (mountedRef.current && jeInstalacniPromptKDispozici()) {
-        const vysledek = await vyvolatInstalacniDialog();
-
-        if (mountedRef.current && vysledek === "accepted") {
-          zavritVyzvuPlochy();
-          skrytVyzvu();
-        }
-      }
     } finally {
       uklidCekaniRef.current?.();
       uklidCekaniRef.current = null;
