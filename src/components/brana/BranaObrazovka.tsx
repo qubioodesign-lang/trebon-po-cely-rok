@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment } from "react";
+import { Fragment, useState, type MouseEvent } from "react";
 import { dnesVPraze, formatDenDatum } from "@/lib/brana/cas";
 import { kotvaScrollovani7Dni, kotvaScrollovaniVikend, kotvaScrollovaniVyhled, textCasoveKotvy } from "@/lib/brana/casova-kotva";
 import type { BranaVerejnaStranka } from "@/lib/brana/navigace-stranky";
@@ -158,28 +158,52 @@ export function BranaObrazovka({
   data: dataProp,
   konfiguracePohledu,
 }: BranaObrazovkaProps) {
+  const [pohled, setPohled] = useState<BranaVerejnaStranka>(aktivniStranka);
   const data = dataProp ?? nactiBranaSdilenaPohledovaData();
   const opakovani =
-    konfiguracePohledu?.find((polozka) => polozka.id === aktivniStranka)
+    konfiguracePohledu?.find((polozka) => polozka.id === pohled)
       ?.opakovaniSeznamu ?? opakovaniSeznamu;
   const navigace = useBranaNavigace();
   const vzkazHref = useBranaVerejnaCesta("vzkaz");
   const trebonHref = useBranaOdkazNaTrebon();
-  const kotvaScroll = kotvaScrollProStranku(aktivniStranka);
-  const pocetBloku = aktivniStranka === "vyhled" ? 2 : opakovani;
+  const kotvaScroll = kotvaScrollProStranku(pohled);
+  const pocetBloku = pohled === "vyhled" ? 2 : opakovani;
+
+  const prepnoutPohledKlikem = (cil: BranaVerejnaStranka) => {
+    setPohled(cil);
+  };
+
+  const onNavClick = (
+    event: MouseEvent<HTMLAnchorElement>,
+    cil: BranaVerejnaStranka,
+  ) => {
+    if (
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey ||
+      event.button !== 0
+    ) {
+      pripravitBranaListovani(pohled, cil);
+      return;
+    }
+
+    event.preventDefault();
+    prepnoutPohledKlikem(cil);
+  };
 
   const seznamAkci = (
     <>
       {Array.from({ length: pocetBloku }, (_, blok) => (
         <Fragment key={`blok-${blok}`}>
-          {zobrazitDenniPredel(aktivniStranka, blok) ? (
+          {zobrazitDenniPredel(pohled, blok) ? (
             <BranaDenniPredel />
           ) : null}
           <ul className="brana-seznam-akci">
-            {akceProBlok(data, aktivniStranka, blok).map((akce, indexVBloku) => {
+            {akceProBlok(data, pohled, blok).map((akce, indexVBloku) => {
               const { typ, misto, nazev, cas } = rozlozAkci(akce);
               const globalniIndex =
-                aktivniStranka === "vyhled"
+                pohled === "vyhled"
                   ? blok * data.vyhledPredelIndex + indexVBloku
                   : indexVBloku;
 
@@ -204,7 +228,7 @@ export function BranaObrazovka({
                     ) : null}
                   </div>
                   <span className="brana-akce-cas">
-                    {udajVpravo(data, aktivniStranka, globalniIndex, cas)}
+                    {udajVpravo(data, pohled, globalniIndex, cas)}
                   </span>
                 </li>
               );
@@ -273,13 +297,11 @@ export function BranaObrazovka({
               key={polozka.id}
               href={polozka.href}
               className={
-                polozka.id === aktivniStranka
+                polozka.id === pohled
                   ? "brana-nav-polozka brana-nav-polozka-vybrana"
                   : "brana-nav-polozka"
               }
-              onClick={() => {
-                pripravitBranaListovani(aktivniStranka, polozka.id);
-              }}
+              onClick={(event) => onNavClick(event, polozka.id)}
             >
               {polozka.label}
             </Link>
@@ -294,13 +316,13 @@ export function BranaObrazovka({
           />
         ) : (
           <p className="brana-casova-kotva" aria-label="Časová kotva">
-            {textCasoveKotvy(aktivniStranka)}
+            {textCasoveKotvy(pohled)}
           </p>
         )}
       </div>
 
       <BranaSwipeObsah
-        aktivniStranka={aktivniStranka}
+        aktivniStranka={pohled}
         scrollovat={!!kotvaScroll}
         pata={pata}
       >
