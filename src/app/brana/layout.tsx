@@ -7,9 +7,11 @@ import {
   BRANA_IKONA_LAUNCHER_URL,
   BRANA_NAZEV,
   BRANA_POPIS,
-  BRANA_PWA_DEN_BARVA,
 } from "@/lib/brana";
 import "./brana.css";
+
+/** Splash / systémové okolí PWA – stejná světle modrá jako ikona. */
+const BRANA_SPLASH_BARVA = "#4585C5";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.trebonpocelyrok.cz"),
@@ -64,7 +66,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: BRANA_PWA_DEN_BARVA,
+  themeColor: BRANA_SPLASH_BARVA,
 };
 
 export default async function BranaLayout({

@@ -6,7 +6,6 @@ import {
   jeNocniRezimVPraze,
 } from "@/lib/brana/cas";
 import {
-  BRANA_PWA_DEN_BARVA,
   BRANA_PWA_NOC_BARVA,
 } from "@/lib/brana/konstanty";
 import type { BranaPozadiVarianta } from "@/lib/brana/pozadi-varianty";
@@ -22,6 +21,9 @@ import { BranaIosInstalacniVrstva } from "./BranaIosInstalacniVrstva";
 import { BranaRegistracePWA } from "./BranaRegistracePWA";
 import { BranaVyzvaPlocha } from "./BranaVyzvaPlocha";
 
+/** Denní systémová / splash barva – shodná s manifestem. */
+const BRANA_THEME_DEN = "#4585C5";
+
 type BranaDenniDobaObalProps = {
   vychoziNocRezim: boolean;
   variantaPozadi?: BranaPozadiVarianta;
@@ -34,7 +36,7 @@ type BranaDenniDobaObalProps = {
 };
 
 function nastavThemeColor(nocRezim: boolean) {
-  const barva = nocRezim ? BRANA_PWA_NOC_BARVA : BRANA_PWA_DEN_BARVA;
+  const barva = nocRezim ? BRANA_PWA_NOC_BARVA : BRANA_THEME_DEN;
   const meta = document.querySelector('meta[name="theme-color"]');
 
   if (meta) {

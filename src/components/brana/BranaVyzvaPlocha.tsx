@@ -12,11 +12,7 @@ import {
   type KeyboardEvent,
   type MouseEvent,
 } from "react";
-import {
-  aktualniStrankaUrl,
-  BRANA_TEKST_OTEVRIT_V_CHROMU,
-  pripravitOtevreniVChromu,
-} from "@/lib/brana/otevrit-v-chromu";
+import { aktualniStrankaUrl } from "@/lib/brana/otevrit-v-chromu";
 import {
   BRANA_PWA_DEN_BARVA,
   BRANA_PWA_NOC_BARVA,
@@ -33,12 +29,7 @@ import {
   priZmeneInstalacnihoPromptu,
   vyvolatInstalacniDialog,
 } from "@/lib/brana/pwa-instalace";
-import {
-  vymazatEmbeddedAndroidKontext,
-  vycistitEmbeddedPoInstalaci,
-  zapamatovatEmbeddedAndroidKontext,
-  zpracovatOtevreniVChromu,
-} from "@/lib/brana/vlozeny-android-prohlizec";
+import { vycistitEmbeddedPoInstalaci } from "@/lib/brana/vlozeny-android-prohlizec";
 import {
   bylaVyzvaPlochyZobrazena,
   jeVyzvaPlochyZavrena,
@@ -110,14 +101,6 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     [vstup],
   );
 
-  const cesta = useMemo(() => {
-    if (!viditelnost.viditelna) {
-      return { typ: "ZATIM_NEDOSTUPNA" as const };
-    }
-
-    return urcitBranaCestuPoKliknuti(vstup);
-  }, [viditelnost, vstup]);
-
   const skrytVyzvu = useCallback(() => {
     setPripravena(false);
   }, []);
@@ -154,11 +137,6 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   }, [zobraz]);
 
   useEffect(() => {
-    const praveOtevrenoVChromu = zpracovatOtevreniVChromu();
-    if (!praveOtevrenoVChromu) {
-      zapamatovatEmbeddedAndroidKontext();
-    }
-
     if (jeBranaSpustenaJakoPwa()) {
       vycistitEmbeddedPoInstalaci();
     }
@@ -259,11 +237,6 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
       return;
     }
 
-    if (okamzita.typ === "CHROME_INTENT") {
-      window.location.href = okamzita.url;
-      return;
-    }
-
     pripravujiRef.current = true;
     setPripravuji(true);
     obnovitStav();
@@ -311,16 +284,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     obnovitStav();
   }, [obnovitStav, skrytVyzvu]);
 
-  const otevritVChromu = (udalost: MouseEvent<HTMLAnchorElement>) => {
-    vymazatEmbeddedAndroidKontext();
-    udalost.currentTarget.href = pripravitOtevreniVChromu(aktualniStrankaUrl());
-  };
-
   const hlavniKlavesa = (udalost: KeyboardEvent<HTMLElement>) => {
-    if (cesta.typ === "CHROME_INTENT" && !pripravuji) {
-      return;
-    }
-
     if (udalost.key === "Enter" || udalost.key === " ") {
       udalost.preventDefault();
       void hlavniKlik();
@@ -335,11 +299,9 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   const stylObalu: CSSProperties | undefined =
     topPx !== null ? { top: `${topPx}px` } : undefined;
 
-  const chromeOdkaz = cesta.typ === "CHROME_INTENT" && !pripravuji;
   const tridaPlochy = [
     "brana-vyzva-plocha",
     pripravena ? "brana-vyzva-plocha--viditelna" : "",
-    chromeOdkaz ? "brana-vyzva-plocha--vice-radku" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -349,9 +311,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
       className="brana-vyzva-plocha-obal"
       style={stylObalu}
       role="region"
-      aria-label={
-        chromeOdkaz ? BRANA_TEKST_OTEVRIT_V_CHROMU : "Přidat BRÁNU na plochu"
-      }
+      aria-label="Přidat BRÁNU na plochu"
     >
       <div className={tridaPlochy} style={{ backgroundColor: podklad }}>
         <button
@@ -363,48 +323,32 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
           <span aria-hidden>×</span>
         </button>
 
-        {chromeOdkaz ? (
-          <a
-            href={cesta.url}
-            onClick={otevritVChromu}
-            className="brana-vyzva-plocha-hlavni brana-vyzva-plocha-hlavni--odkaz"
-            aria-label={BRANA_TEKST_OTEVRIT_V_CHROMU}
-          >
-            <span className="brana-vyzva-plocha-text brana-vyzva-plocha-text--vice-radku">
-              {BRANA_TEKST_OTEVRIT_V_CHROMU}
-            </span>
+        <div
+          className="brana-vyzva-plocha-hlavni"
+          role="button"
+          tabIndex={0}
+          aria-label={pripravuji ? TEXT_PRIPRAVA : "Přidat BRÁNU na plochu"}
+          aria-busy={pripravuji || undefined}
+          onClick={() => void hlavniKlik()}
+          onKeyDown={hlavniKlavesa}
+        >
+          <span className="brana-vyzva-plocha-text">
+            {pripravuji ? (
+              TEXT_PRIPRAVA
+            ) : (
+              <>
+                Přidat{" "}
+                <span className="brana-vyzva-plocha-znacka">BRÁNU</span> na
+                plochu
+              </>
+            )}
+          </span>
+          {!pripravuji ? (
             <span className="brana-vyzva-plocha-sipka" aria-hidden>
               →
             </span>
-          </a>
-        ) : (
-          <div
-            className="brana-vyzva-plocha-hlavni"
-            role="button"
-            tabIndex={0}
-            aria-label={pripravuji ? TEXT_PRIPRAVA : "Přidat BRÁNU na plochu"}
-            aria-busy={pripravuji || undefined}
-            onClick={() => void hlavniKlik()}
-            onKeyDown={hlavniKlavesa}
-          >
-            <span className="brana-vyzva-plocha-text">
-              {pripravuji ? (
-                TEXT_PRIPRAVA
-              ) : (
-                <>
-                  Přidat{" "}
-                  <span className="brana-vyzva-plocha-znacka">BRÁNU</span> na
-                  plochu
-                </>
-              )}
-            </span>
-            {!pripravuji ? (
-              <span className="brana-vyzva-plocha-sipka" aria-hidden>
-                →
-              </span>
-            ) : null}
-          </div>
-        )}
+          ) : null}
+        </div>
       </div>
     </div>
   );

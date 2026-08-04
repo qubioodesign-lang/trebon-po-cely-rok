@@ -1,11 +1,7 @@
 import { otevritIosInstalacniVrstvu } from "@/lib/brana/ios-instalacni-vrstva";
-import { pripravitOtevreniVChromu } from "@/lib/brana/otevrit-v-chromu";
 import { jeSafari } from "@/lib/brana/pwa-instalacni-navod";
 import { jeInstalacniPromptKDispozici } from "@/lib/brana/pwa-instalace";
-import {
-  jeAndroid,
-  potrebujeOtevritVChromu,
-} from "@/lib/brana/vlozeny-android-prohlizec";
+import { jeAndroid } from "@/lib/brana/vlozeny-android-prohlizec";
 import { jeIOS } from "@/lib/uloziste";
 
 /** Důvod skrytí výzvy – odděleně od volby cesty po kliknutí. */
@@ -19,10 +15,12 @@ export type BranaVyzvaViditelnost =
   | { viditelna: true }
   | { viditelna: false; duvod: BranaVyzvaViditelnostDuvod };
 
-/** Technická cesta po klepnutí na výzvu – uživateli se nezobrazuje. */
+/**
+ * Technická cesta po klepnutí na výzvu.
+ * CHROME_INTENT záměrně neexistuje – veřejná výzva nikdy nevede do Chromu.
+ */
 export type BranaCestaPoKliknuti =
   | { typ: "PROMPT" }
-  | { typ: "CHROME_INTENT"; url: string }
   | {
       typ: "IOS_INSTALACE";
       varianta: "SAFARI" | "JINY_PROHLIZEC";
@@ -45,10 +43,6 @@ export type BranaInstalacniStav =
     }
   | {
       typ: "PROMPT";
-    }
-  | {
-      typ: "CHROME_INTENT";
-      url: string;
     }
   | {
       typ: "IOS_INSTALACE";
@@ -74,7 +68,7 @@ function jeMobilniProstredi(): boolean {
  * Neřeší, zda se výzva smí zobrazit.
  */
 export function urcitBranaCestuPoKliknuti(
-  vstup: Pick<BranaInstalacniStavVstup, "aktualniUrl">,
+  _vstup: Pick<BranaInstalacniStavVstup, "aktualniUrl">,
 ): BranaCestaPoKliknuti {
   // SSR: bez window/navigator nelze určit cestu.
   if (typeof window === "undefined") {
@@ -90,14 +84,6 @@ export function urcitBranaCestuPoKliknuti(
 
   if (jeInstalacniPromptKDispozici()) {
     return { typ: "PROMPT" };
-  }
-
-  if (potrebujeOtevritVChromu()) {
-    const url = pripravitOtevreniVChromu(vstup.aktualniUrl);
-
-    if (url) {
-      return { typ: "CHROME_INTENT", url };
-    }
   }
 
   return { typ: "ZATIM_NEDOSTUPNA" };
@@ -136,10 +122,6 @@ export function popisBranaInstalacniStav(stav: BranaInstalacniStav): string {
 
   if (stav.typ === "IOS_INSTALACE") {
     return `IOS_INSTALACE / ${stav.varianta}`;
-  }
-
-  if (stav.typ === "CHROME_INTENT") {
-    return "CHROME_INTENT";
   }
 
   return "PROMPT";
