@@ -92,10 +92,9 @@ export function urcitBranaCestuPoKliknuti(
 }
 
 /**
- * Zda se výzva smí zobrazit.
- * Produktová politika (8 s + zájem) platí pro všechny podporované mobilní větve.
- * Android/Chrome navíc vyžaduje skutečně uložený beforeinstallprompt.
- * iOS zůstává jen na produktové politice (vlastní návod, bez BIP).
+ * Zda se výzva smí zobrazit – pouze produktová politika (ne technická cesta).
+ * Android/Chrome: CTA může být vidět i před BIP; po kliknutí se krátce čeká na prompt.
+ * iOS: zdvořilost + zájem, klik otevře vlastní návod.
  */
 export function urcitBranaVyzvaViditelnost(
   vstup: BranaInstalacniStavVstup,
@@ -114,16 +113,6 @@ export function urcitBranaVyzvaViditelnost(
 
   if (!(vstup.politikaZobrazeniSplnena ?? vstup.prodlevaUplynula)) {
     return { viditelna: false, duvod: "CEKANI_NA_PRODLENI" };
-  }
-
-  // iOS: zdvořilost + zájem stačí – klik otevře vlastní návod.
-  if (jeIOS()) {
-    return { viditelna: true };
-  }
-
-  // Android / Chrome: bez uloženého BIP by klik vedl jen na ZATIM_NEDOSTUPNA.
-  if (!jeInstalacniPromptKDispozici()) {
-    return { viditelna: false, duvod: "BEZ_INSTALACNIHO_PROMPTU" };
   }
 
   return { viditelna: true };
@@ -161,7 +150,7 @@ export function urcitBranaInstalacniStav(
   const cesta = urcitBranaCestuPoKliknuti(vstup);
 
   if (cesta.typ === "ZATIM_NEDOSTUPNA") {
-    // Android CTA už vyžaduje BIP; tento stav je hlavně kompatibilní/diagnostický.
+    // Výzva může být vidět i bez promptu – kompatibilní API nemá samostatný typ.
     return { typ: "SKRYTO", duvod: "BEZ_FUNKCNI_AKCE" };
   }
 
