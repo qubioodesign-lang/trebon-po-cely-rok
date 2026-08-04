@@ -12,6 +12,10 @@ import {
 import type { BranaPozadiVarianta } from "@/lib/brana/pozadi-varianty";
 import type { BranaVerejnaStranka } from "@/lib/brana/navigace-stranky";
 import { opakovaniSeznamuAkci } from "@/lib/brana/navigace-stranky";
+import type {
+  BranaKonfiguracePohledu,
+  BranaSdilenaPohledovaData,
+} from "@/lib/brana/pohledy-data";
 import { BranaDesktopPozadi } from "./BranaDesktopPozadi";
 import { BranaObrazovka } from "./BranaObrazovka";
 import { BranaPozadi } from "./pozadi/BranaPozadi";
@@ -23,6 +27,8 @@ type BranaDenniDobaObalProps = {
   vychoziNocRezim: boolean;
   variantaPozadi?: BranaPozadiVarianta;
   stranka?: BranaVerejnaStranka;
+  pohledovaData?: BranaSdilenaPohledovaData;
+  konfiguracePohledu?: BranaKonfiguracePohledu[];
   children?: ReactNode;
   desktopPanel?: ReactNode;
 };
@@ -38,6 +44,8 @@ function nastavThemeColor(nocRezim: boolean) {
 
 export function BranaDenniDobaObal({
   stranka = "dnes",
+  pohledovaData,
+  konfiguracePohledu,
   variantaPozadi,
   vychoziNocRezim,
   children,
@@ -91,7 +99,12 @@ export function BranaDenniDobaObal({
             {children ?? (
               <BranaObrazovka
                 aktivniStranka={stranka}
-                opakovaniSeznamu={opakovaniSeznamuAkci(stranka)}
+                opakovaniSeznamu={
+                  konfiguracePohledu?.find((polozka) => polozka.id === stranka)
+                    ?.opakovaniSeznamu ?? opakovaniSeznamuAkci(stranka)
+                }
+                data={pohledovaData}
+                konfiguracePohledu={konfiguracePohledu}
               />
             )}
             <BranaVyzvaPlocha nocRezim={nocRezim} />

@@ -4,12 +4,12 @@ import Link from "next/link";
 import { Fragment } from "react";
 import { dnesVPraze, formatDenDatum } from "@/lib/brana/cas";
 import { kotvaScrollovani7Dni, kotvaScrollovaniVikend, kotvaScrollovaniVyhled, textCasoveKotvy } from "@/lib/brana/casova-kotva";
-import { BRANA_REFERENCNI_AKCE } from "@/lib/brana/referencni-akce";
-import {
-  BRANA_VYHLED_DATUMY,
-  BRANA_VYHLED_PREDEL_INDEX,
-} from "@/lib/brana/referencni-vyhled-datumy";
 import type { BranaVerejnaStranka } from "@/lib/brana/navigace-stranky";
+import {
+  nactiBranaSdilenaPohledovaData,
+  type BranaKonfiguracePohledu,
+  type BranaSdilenaPohledovaData,
+} from "@/lib/brana/pohledy-data";
 import {
   useBranaNavigace,
   useBranaOdkazNaTrebon,
@@ -53,7 +53,7 @@ function rozdelTypAkce(mistoNeboTyp: string): { typ: string; zbytek: string } {
   return { typ: mistoNeboTyp, zbytek: "" };
 }
 
-function rozlozAkci(akce: (typeof BRANA_REFERENCNI_AKCE)[number]): {
+function rozlozAkci(akce: BranaSdilenaPohledovaData["akce"][number]): {
   typ: string;
   misto: string;
   nazev: string;
@@ -86,6 +86,8 @@ function zalomPredlozky(text: string): string {
 type BranaObrazovkaProps = {
   aktivniStranka?: BranaVerejnaStranka;
   opakovaniSeznamu?: number;
+  data?: BranaSdilenaPohledovaData;
+  konfiguracePohledu?: BranaKonfiguracePohledu[];
 };
 
 function kotvaScrollProStranku(
@@ -124,25 +126,27 @@ function zobrazitDenniPredel(stranka: BranaVerejnaStranka, blok: number): boolea
 }
 
 function akceProBlok(
+  data: BranaSdilenaPohledovaData,
   stranka: BranaVerejnaStranka,
   blok: number,
-): (typeof BRANA_REFERENCNI_AKCE)[number][] {
+): BranaSdilenaPohledovaData["akce"] {
   if (stranka !== "vyhled") {
-    return BRANA_REFERENCNI_AKCE;
+    return data.akce;
   }
 
   return blok === 0
-    ? BRANA_REFERENCNI_AKCE.slice(0, BRANA_VYHLED_PREDEL_INDEX)
-    : BRANA_REFERENCNI_AKCE.slice(BRANA_VYHLED_PREDEL_INDEX);
+    ? data.akce.slice(0, data.vyhledPredelIndex)
+    : data.akce.slice(data.vyhledPredelIndex);
 }
 
 function udajVpravo(
+  data: BranaSdilenaPohledovaData,
   stranka: BranaVerejnaStranka,
   index: number,
   cas: string,
 ): string {
   if (stranka === "vyhled") {
-    return BRANA_VYHLED_DATUMY[index] ?? cas;
+    return data.vyhledDatumy[index] ?? cas;
   }
 
   return cas;
@@ -151,13 +155,18 @@ function udajVpravo(
 export function BranaObrazovka({
   aktivniStranka = "dnes",
   opakovaniSeznamu = 1,
+  data: dataProp,
+  konfiguracePohledu,
 }: BranaObrazovkaProps) {
+  const data = dataProp ?? nactiBranaSdilenaPohledovaData();
+  const opakovani =
+    konfiguracePohledu?.find((polozka) => polozka.id === aktivniStranka)
+      ?.opakovaniSeznamu ?? opakovaniSeznamu;
   const navigace = useBranaNavigace();
   const vzkazHref = useBranaVerejnaCesta("vzkaz");
   const trebonHref = useBranaOdkazNaTrebon();
   const kotvaScroll = kotvaScrollProStranku(aktivniStranka);
-  const pocetBloku =
-    aktivniStranka === "vyhled" ? 2 : opakovaniSeznamu;
+  const pocetBloku = aktivniStranka === "vyhled" ? 2 : opakovani;
 
   const seznamAkci = (
     <>
@@ -167,11 +176,11 @@ export function BranaObrazovka({
             <BranaDenniPredel />
           ) : null}
           <ul className="brana-seznam-akci">
-            {akceProBlok(aktivniStranka, blok).map((akce, indexVBloku) => {
+            {akceProBlok(data, aktivniStranka, blok).map((akce, indexVBloku) => {
               const { typ, misto, nazev, cas } = rozlozAkci(akce);
               const globalniIndex =
                 aktivniStranka === "vyhled"
-                  ? blok * BRANA_VYHLED_PREDEL_INDEX + indexVBloku
+                  ? blok * data.vyhledPredelIndex + indexVBloku
                   : indexVBloku;
 
               return (
@@ -195,7 +204,7 @@ export function BranaObrazovka({
                     ) : null}
                   </div>
                   <span className="brana-akce-cas">
-                    {udajVpravo(aktivniStranka, globalniIndex, cas)}
+                    {udajVpravo(data, aktivniStranka, globalniIndex, cas)}
                   </span>
                 </li>
               );
