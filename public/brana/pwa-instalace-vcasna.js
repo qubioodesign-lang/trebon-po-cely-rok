@@ -1,22 +1,30 @@
+/**
+ * Tenký early listener BIP pro BRÁNU.
+ * Jediný store: window.__branaPwaInstalacniPrompt
+ * Jediný guard: window.__branaPwaPosluchaceRegistrovani
+ */
 (function () {
-  try {
-    var url = new URL(window.location.href);
-    if (url.searchParams.get("otevrenoVChromu") === "1") {
-      sessionStorage.removeItem("brana_embedded_android");
-      sessionStorage.setItem("brana_plny_chrome", "1");
-    }
-  } catch (e) {
-    // ignorovat – hlavní logika běží v bundlu
+  if (window.__branaPwaPosluchaceRegistrovani) {
+    return;
   }
-})();
 
-window.addEventListener(
-  "beforeinstallprompt",
-  function (e) {
+  window.__branaPwaPosluchaceRegistrovani = true;
+
+  function oznamit() {
+    window.dispatchEvent(new Event("brana-bip-ready"));
+  }
+
+  window.addEventListener("beforeinstallprompt", function (e) {
     e.preventDefault();
     window.__branaPwaInstalacniPrompt = e;
-    window.__branaPwaVcasnyPrompt = e;
-    window.dispatchEvent(new Event("brana-pwa-prompt"));
-  },
-  { capture: true },
-);
+    oznamit();
+  });
+
+  window.addEventListener("appinstalled", function () {
+    if (window.__branaPwaInstalacniPrompt) {
+      delete window.__branaPwaInstalacniPrompt;
+    }
+    oznamit();
+    window.dispatchEvent(new Event("brana-appinstalled"));
+  });
+})();

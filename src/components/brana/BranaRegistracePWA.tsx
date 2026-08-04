@@ -4,11 +4,15 @@ import { useEffect } from "react";
 import { inicializovatBranaPwaInstalaci } from "@/lib/brana/pwa-instalace";
 import { ziskatNeboRegistrovatBranaServiceWorker } from "@/lib/brana/service-worker";
 
-if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+if (typeof window !== "undefined") {
+  // BIP init nezávisí na SW – early skript / modulový fallback.
   inicializovatBranaPwaInstalaci();
-  void ziskatNeboRegistrovatBranaServiceWorker().catch(() => {
-    // Service worker není kritický pro základní zobrazení BRÁNY
-  });
+
+  if ("serviceWorker" in navigator) {
+    void ziskatNeboRegistrovatBranaServiceWorker().catch(() => {
+      // Service worker není kritický pro základní zobrazení BRÁNY
+    });
+  }
 }
 
 /** Registruje SW a PWA posluchače – SW jen na subdoméně (viz service-worker.ts). */

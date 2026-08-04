@@ -92,9 +92,9 @@ export function urcitBranaCestuPoKliknuti(
 }
 
 /**
- * Zda se výzva smí zobrazit – pouze produktová politika (ne technická cesta).
- * Android/Chrome: CTA může být vidět i před BIP; po kliknutí se krátce čeká na prompt.
- * iOS: zdvořilost + zájem, klik otevře vlastní návod.
+ * Zda se výzva smí zobrazit.
+ * iOS: produktová politika (bez BIP gate).
+ * Android: produktová politika ∧ uložený beforeinstallprompt.
  */
 export function urcitBranaVyzvaViditelnost(
   vstup: BranaInstalacniStavVstup,
@@ -113,6 +113,16 @@ export function urcitBranaVyzvaViditelnost(
 
   if (!(vstup.politikaZobrazeniSplnena ?? vstup.prodlevaUplynula)) {
     return { viditelna: false, duvod: "CEKANI_NA_PRODLENI" };
+  }
+
+  // iOS: BIP se nevyžaduje – má vlastní instalační vrstvu.
+  if (jeIOS()) {
+    return { viditelna: true };
+  }
+
+  // Android: veřejné CTA jen s připraveným BIP (žádný mrtvý klik).
+  if (!jeInstalacniPromptKDispozici()) {
+    return { viditelna: false, duvod: "BEZ_INSTALACNIHO_PROMPTU" };
   }
 
   return { viditelna: true };

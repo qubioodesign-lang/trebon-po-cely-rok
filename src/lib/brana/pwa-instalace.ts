@@ -7,13 +7,17 @@ export type BeforeInstallPromptEvent = Event & {
 
 declare global {
   interface Window {
-    /** Zachycený včasným synchronním skriptem – může přijít před načtením bundlu. */
-    __branaPwaVcasnyPrompt?: BeforeInstallPromptEvent;
-    /** Jediné úložiště promptu sdílené mezi všemi JS chunky. */
+    /** Jediné úložiště beforeinstallprompt (early skript i modul). */
     __branaPwaInstalacniPrompt?: BeforeInstallPromptEvent;
+    /** Guard: listener BIP/appinstalled už registrován (early nebo modul). */
     __branaPwaPosluchaceRegistrovani?: boolean;
+    /** Guard: React bridge (event → Set) už napojen. */
+    __branaPwaModulNotifikace?: boolean;
   }
 }
+
+const BRANA_BIP_READY = "brana-bip-ready";
+const BRANA_APPINSTALLED = "brana-appinstalled";
 
 const posluchaciPromptu = new Set<() => void>();
 const posluchaciInstalace = new Set<() => void>();
@@ -24,48 +28,39 @@ function oznamitZmenuPromptu(): void {
   });
 }
 
-/** Sloučí včasný prompt ze skriptu do sdíleného window úložiště. */
-function synchronizovatPromptZeWindow(): void {
-  const vcasny = window.__branaPwaVcasnyPrompt;
-
-  if (!vcasny) {
-    return;
-  }
-
-  window.__branaPwaInstalacniPrompt = vcasny;
-  delete window.__branaPwaVcasnyPrompt;
-  oznamitZmenuPromptu();
+function oznamitAppInstalled(): void {
+  posluchaciInstalace.forEach((posluchac) => {
+    posluchac();
+  });
 }
 
 function ziskatUlozenyPrompt(): BeforeInstallPromptEvent | null {
-  synchronizovatPromptZeWindow();
+  if (typeof window === "undefined") {
+    return null;
+  }
+
   return window.__branaPwaInstalacniPrompt ?? null;
 }
 
 function ulozitPrompt(udalost: BeforeInstallPromptEvent): void {
   udalost.preventDefault();
   window.__branaPwaInstalacniPrompt = udalost;
-  delete window.__branaPwaVcasnyPrompt;
+  // Modul oznamuje Set přímo; early skript používá window event → bridge.
   oznamitZmenuPromptu();
 }
 
 function zahoditPrompt(): void {
-  if (!window.__branaPwaInstalacniPrompt && !window.__branaPwaVcasnyPrompt) {
+  if (typeof window === "undefined" || !window.__branaPwaInstalacniPrompt) {
     return;
   }
 
   delete window.__branaPwaInstalacniPrompt;
-  delete window.__branaPwaVcasnyPrompt;
   oznamitZmenuPromptu();
 }
 
 /** BRÁNA běží jako nainstalovaná PWA (display-mode: standalone nebo iOS). */
 export function jeBranaSpustenaJakoPwa(): boolean {
   return jePWA();
-}
-
-export function zachytitInstalacniPrompt(udalost: Event): void {
-  ulozitPrompt(udalost as BeforeInstallPromptEvent);
 }
 
 export function jeInstalacniPromptKDispozici(): boolean {
@@ -76,8 +71,13 @@ export function zahoditInstalacniPrompt(): void {
   zahoditPrompt();
 }
 
+/**
+ * Přihlášení ke změně BIP store.
+ * Okamžitě synchronizuje aktuální stav (BIP zachycený před hydratací).
+ */
 export function priZmeneInstalacnihoPromptu(posluchac: () => void): () => void {
   posluchaciPromptu.add(posluchac);
+  posluchac();
 
   return () => {
     posluchaciPromptu.delete(posluchac);
@@ -92,47 +92,62 @@ export function priAppInstalled(posluchac: () => void): () => void {
   };
 }
 
+/** Napojí early skript (window eventy) na React Set – vždy, i když BIP listener už běží. */
+function napojitModuloveNotifikace(): void {
+  if (typeof window === "undefined" || window.__branaPwaModulNotifikace) {
+    return;
+  }
+
+  window.__branaPwaModulNotifikace = true;
+
+  window.addEventListener(BRANA_BIP_READY, () => {
+    oznamitZmenuPromptu();
+  });
+
+  window.addEventListener(BRANA_APPINSTALLED, () => {
+    oznamitAppInstalled();
+  });
+
+  if (window.__branaPwaInstalacniPrompt) {
+    oznamitZmenuPromptu();
+  }
+}
+
 /**
- * Registruje globální posluchače co nejdříve po načtení stránky BRÁNY.
- * Opakované volání je bezpečné – stav posluchačů je na window kvůli duplicitním chunkům.
+ * Registruje BIP/appinstalled jen pokud early skript ještě neběžel.
+ * Notifikační bridge napojí vždy.
  */
 export function inicializovatBranaPwaInstalaci(): void {
-  if (typeof window === "undefined" || window.__branaPwaPosluchaceRegistrovani) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  napojitModuloveNotifikace();
+
+  if (window.__branaPwaPosluchaceRegistrovani) {
     return;
   }
 
   window.__branaPwaPosluchaceRegistrovani = true;
 
-  synchronizovatPromptZeWindow();
-
-  window.addEventListener("brana-pwa-prompt", synchronizovatPromptZeWindow);
-
   window.addEventListener("beforeinstallprompt", (udalost) => {
-    zachytitInstalacniPrompt(udalost);
+    ulozitPrompt(udalost as BeforeInstallPromptEvent);
   });
 
   window.addEventListener("appinstalled", () => {
     zahoditPrompt();
-    try {
-      sessionStorage.removeItem("brana_embedded_android");
-    } catch {
-      // sessionStorage nemusí být dostupné
-    }
-    posluchaciInstalace.forEach((posluchac) => {
-      posluchac();
-    });
+    oznamitAppInstalled();
   });
 }
 
 /**
- * Horní limit čekání na prompt() + userChoice.
- * Chrání UI před nekonečným „Připravuji…“, když Promise visí bez dialogu.
+ * Horní limit jen pro visící userChoice – prompt() se volá hned v gestu.
  */
 export const BRANA_INSTALACNI_DIALOG_MAX_MS = 8_000;
 
 let dialogProbiha = false;
 
-/** Vyvolá systémový instalační dialog prohlížeče; uloženou událost zahodí. */
+/** Vyvolá systémový dialog; před prompt() žádné await/polling. */
 export async function vyvolatInstalacniDialog(): Promise<
   "accepted" | "dismissed" | "nedostupny"
 > {
@@ -140,21 +155,26 @@ export async function vyvolatInstalacniDialog(): Promise<
     return "nedostupny";
   }
 
+  // Lock hned – zabrání souběžnému druhému prompt() ze stejného gesta.
+  dialogProbiha = true;
+
   const prompt = ziskatUlozenyPrompt();
 
   if (!prompt) {
+    dialogProbiha = false;
     return "nedostupny";
   }
 
-  dialogProbiha = true;
   delete window.__branaPwaInstalacniPrompt;
-  delete window.__branaPwaVcasnyPrompt;
   oznamitZmenuPromptu();
 
   try {
+    // prompt() hned – žádný await předtím.
+    const promptPromise = prompt.prompt();
+
     const vysledek = await Promise.race([
       (async (): Promise<"accepted" | "dismissed"> => {
-        await prompt.prompt();
+        await promptPromise;
         const { outcome } = await prompt.userChoice;
         return outcome;
       })(),
