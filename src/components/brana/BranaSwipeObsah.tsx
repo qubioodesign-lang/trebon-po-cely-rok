@@ -6,6 +6,7 @@ import {
   useLayoutEffect,
   useRef,
   type CSSProperties,
+  type MutableRefObject,
   type ReactNode,
 } from "react";
 
@@ -50,6 +51,8 @@ type BranaSwipeObsahProps = {
   onPrechodHotovo: () => void;
   onSwipe: (smer: "predchozi" | "nasledujici") => void;
   registerScrollRoot?: (element: HTMLElement | null) => void;
+  /** Ref na section.brana-prostor-obsah (scrollovací kořen). */
+  scrollRootRef?: MutableRefObject<HTMLElement | null>;
 };
 
 /** Obsahová plocha s vodorovným swipe a živým listováním mezi pohledy. */
@@ -62,17 +65,22 @@ export function BranaSwipeObsah({
   onPrechodHotovo,
   onSwipe,
   registerScrollRoot,
+  scrollRootRef,
 }: BranaSwipeObsahProps) {
   const stavRef = useRef<TouchStav | null>(null);
   const prechodCleanupRef = useRef<(() => void) | null>(null);
 
   const spojenyRef = useCallback(
     (element: HTMLElement | null) => {
+      if (scrollRootRef) {
+        scrollRootRef.current = element;
+      }
+
       if (scrollovat) {
         registerScrollRoot?.(element);
       }
     },
-    [scrollovat, registerScrollRoot],
+    [scrollovat, registerScrollRoot, scrollRootRef],
   );
 
   useLayoutEffect(() => {

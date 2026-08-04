@@ -8,6 +8,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type MutableRefObject,
   type ReactNode,
 } from "react";
 import { dnesVPraze, formatDenDatum } from "@/lib/brana/cas";
@@ -281,6 +282,7 @@ export function BranaObrazovka({
   const pohledRef = useRef(pohled);
   const prechodRef = useRef(prechod);
   const ignorovatPathnameRef = useRef<string | null>(null);
+  const scrollRootRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     pohledRef.current = pohled;
@@ -334,6 +336,12 @@ export function BranaObrazovka({
           aktualizujUrl(na);
         }
         return;
+      }
+
+      // Skutečné přepnutí – nový pohled vždy od začátku seznamu.
+      const scrollRoot = scrollRootRef.current;
+      if (scrollRoot) {
+        scrollRoot.scrollTop = 0;
       }
 
       const smer: 1 | -1 = indexNa > indexZ ? 1 : -1;
@@ -478,6 +486,7 @@ export function BranaObrazovka({
           onPrechodBezi={onPrechodBezi}
           onPrechodHotovo={onPrechodHotovo}
           onSwipe={onSwipe}
+          scrollRootRef={scrollRootRef}
         />
       </BranaKotvaScrollProvider>
     </BranaAktualizaceProvider>
@@ -496,6 +505,7 @@ function BranaObrazovkaVnitrni({
   onPrechodBezi,
   onPrechodHotovo,
   onSwipe,
+  scrollRootRef,
 }: {
   pohled: BranaVerejnaStranka;
   kotvaScroll: ReturnType<typeof kotvaScrollProStranku>;
@@ -511,6 +521,7 @@ function BranaObrazovkaVnitrni({
   onPrechodBezi: () => void;
   onPrechodHotovo: () => void;
   onSwipe: (smer: "predchozi" | "nasledujici") => void;
+  scrollRootRef: MutableRefObject<HTMLElement | null>;
 }) {
   const kontext = useBranaKotvaScroll();
 
@@ -586,6 +597,7 @@ function BranaObrazovkaVnitrni({
         onPrechodHotovo={onPrechodHotovo}
         onSwipe={onSwipe}
         registerScrollRoot={kontext?.registerScrollRoot}
+        scrollRootRef={scrollRootRef}
       >
         {klidovySeznam}
       </BranaSwipeObsah>
