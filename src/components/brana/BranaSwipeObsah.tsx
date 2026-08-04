@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -124,6 +123,7 @@ type BranaSwipeObsahProps = {
   /** Zápatí mimo listovací panely, stále uvnitř scrollovací plochy. */
   pata: ReactNode;
   scrollovat?: boolean;
+  onSwipe: (smer: "predchozi" | "nasledujici") => void;
 };
 
 /** Obsahová plocha s vodorovným swipe mezi hlavními pohledy BRÁNY. */
@@ -132,8 +132,8 @@ export function BranaSwipeObsah({
   children,
   pata,
   scrollovat = false,
+  onSwipe,
 }: BranaSwipeObsahProps) {
-  const router = useRouter();
   const host = useBranaHost();
   const kontext = useBranaKotvaScroll();
   const stavRef = useRef<TouchStav | null>(null);
@@ -242,10 +242,12 @@ export function BranaSwipeObsah({
   const naviguj = (smer: "predchozi" | "nasledujici") => {
     const cil = sousedniBranaStranka(aktivniStranka, smer, host);
 
-    if (cil) {
-      pripravitBranaListovani(aktivniStranka, cil.id);
-      router.push(cil.href);
+    if (!cil) {
+      return;
     }
+
+    pripravitBranaListovani(aktivniStranka, cil.id);
+    onSwipe(smer);
   };
 
   const onTouchStart = (event: React.TouchEvent<HTMLElement>) => {

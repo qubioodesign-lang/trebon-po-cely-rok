@@ -5,7 +5,10 @@ import { Fragment, useState, type MouseEvent } from "react";
 import { dnesVPraze, formatDenDatum } from "@/lib/brana/cas";
 import { kotvaScrollovani7Dni, kotvaScrollovaniVikend, kotvaScrollovaniVyhled, textCasoveKotvy } from "@/lib/brana/casova-kotva";
 import { branaVerejnaCesta } from "@/lib/brana/cesty";
-import type { BranaVerejnaStranka } from "@/lib/brana/navigace-stranky";
+import {
+  sousedniBranaStranka,
+  type BranaVerejnaStranka,
+} from "@/lib/brana/navigace-stranky";
 import {
   nactiBranaSdilenaPohledovaData,
   type BranaKonfiguracePohledu,
@@ -207,6 +210,14 @@ export function BranaObrazovka({
     prepnoutPohledKlikem(cil);
   };
 
+  const onSwipe = (smer: "predchozi" | "nasledujici") => {
+    const cil = sousedniBranaStranka(pohled, smer, host);
+
+    if (cil) {
+      prepnoutPohledKlikem(cil.id);
+    }
+  };
+
   const seznamAkci = (
     <>
       {Array.from({ length: pocetBloku }, (_, blok) => (
@@ -337,9 +348,11 @@ export function BranaObrazovka({
       </div>
 
       <BranaSwipeObsah
+        key={pohled}
         aktivniStranka={pohled}
         scrollovat={!!kotvaScroll}
         pata={pata}
+        onSwipe={onSwipe}
       >
         {seznamAkci}
       </BranaSwipeObsah>
