@@ -9,7 +9,8 @@ export type BranaVyzvaViditelnostDuvod =
   | "NAINSTALOVANO"
   | "ZAVRENO_UZIVATELEM"
   | "CEKANI_NA_PRODLENI"
-  | "DESKTOP_NEBO_NEPODPOROVANO";
+  | "DESKTOP_NEBO_NEPODPOROVANO"
+  | "BEZ_INSTALACNIHO_PROMPTU";
 
 export type BranaVyzvaViditelnost =
   | { viditelna: true }
@@ -33,6 +34,7 @@ export type BranaInstalacniStavSkrytoDuvod =
   | "ZAVRENO_UZIVATELEM"
   | "CEKANI_NA_PRODLENI"
   | "DESKTOP_NEBO_NEPODPOROVANO"
+  | "BEZ_INSTALACNIHO_PROMPTU"
   | "BEZ_FUNKCNI_AKCE";
 
 /** @deprecated Kompatibilní tvar pro diagnostiku – preferuj viditelnost + cestu. */
@@ -90,7 +92,10 @@ export function urcitBranaCestuPoKliknuti(
 }
 
 /**
- * Zda se výzva smí zobrazit – pouze produktová politika (ne technická cesta).
+ * Zda se výzva smí zobrazit.
+ * Produktová politika (8 s + zájem) platí pro všechny podporované mobilní větve.
+ * Android/Chrome navíc vyžaduje skutečně uložený beforeinstallprompt.
+ * iOS zůstává jen na produktové politice (vlastní návod, bez BIP).
  */
 export function urcitBranaVyzvaViditelnost(
   vstup: BranaInstalacniStavVstup,
@@ -109,6 +114,16 @@ export function urcitBranaVyzvaViditelnost(
 
   if (!(vstup.politikaZobrazeniSplnena ?? vstup.prodlevaUplynula)) {
     return { viditelna: false, duvod: "CEKANI_NA_PRODLENI" };
+  }
+
+  // iOS: zdvořilost + zájem stačí – klik otevře vlastní návod.
+  if (jeIOS()) {
+    return { viditelna: true };
+  }
+
+  // Android / Chrome: bez uloženého BIP by klik vedl jen na ZATIM_NEDOSTUPNA.
+  if (!jeInstalacniPromptKDispozici()) {
+    return { viditelna: false, duvod: "BEZ_INSTALACNIHO_PROMPTU" };
   }
 
   return { viditelna: true };
@@ -146,7 +161,7 @@ export function urcitBranaInstalacniStav(
   const cesta = urcitBranaCestuPoKliknuti(vstup);
 
   if (cesta.typ === "ZATIM_NEDOSTUPNA") {
-    // Výzva může být vidět i bez promptu – kompatibilní API nemá samostatný typ.
+    // Android CTA už vyžaduje BIP; tento stav je hlavně kompatibilní/diagnostický.
     return { typ: "SKRYTO", duvod: "BEZ_FUNKCNI_AKCE" };
   }
 

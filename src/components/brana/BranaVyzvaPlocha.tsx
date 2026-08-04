@@ -24,6 +24,7 @@ import {
 } from "@/lib/brana/pwa-instalacni-stav";
 import {
   jeBranaSpustenaJakoPwa,
+  jeInstalacniPromptKDispozici,
   priAppInstalled,
   priZmeneInstalacnihoPromptu,
   vyvolatInstalacniDialog,
@@ -145,8 +146,12 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
 
     return priZmeneInstalacnihoPromptu(() => {
       obnovitStav();
+      // Pozdní BIP po 8 s + zájmu: zobraz CTA bez reloadu.
+      if (jeInstalacniPromptKDispozici() && smiSeZobrazitVyzvaPlochy()) {
+        zobraz();
+      }
     });
-  }, [obnovitStav]);
+  }, [obnovitStav, zobraz]);
 
   useEffect(() => {
     sledovatPohledVyzvyPlochy(pohledVyzvyZPathname(pathname));
