@@ -42,7 +42,7 @@ import {
   zavritVyzvuPlochy,
 } from "@/lib/brana/vyzva-plocha";
 
-/** Krátké UI „Připravuji…“ při kliku bez BIP – bez odloženého prompt(). */
+/** Krátké čekání na pozdní BIP po kliknutí – přesně jako v db1ec6f. */
 const BRANA_PRIPRAVA_MAX_MS = 2_000;
 const TEXT_PRIPRAVA = "Připravuji přidání na plochu…";
 
@@ -86,7 +86,6 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   const [naInstalacnimOriginu, setNaInstalacnimOriginu] = useState(false);
   const pripravujiRef = useRef(false);
   const mountedRef = useRef(true);
-  const uklidCekaniRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     setNaInstalacnimOriginu(jeBranaSubdomenaHost(window.location.host));
@@ -97,8 +96,6 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
 
     return () => {
       mountedRef.current = false;
-      uklidCekaniRef.current?.();
-      uklidCekaniRef.current = null;
       pripravujiRef.current = false;
     };
   }, []);
@@ -107,15 +104,16 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     setPrepoctiVerze((verze) => verze + 1);
   }, []);
 
-  const vstup = useMemo(
-    () => ({
+  const vstup = useMemo(() => {
+    void prepoctiVerze;
+
+    return {
       vyzvaZavrena: jeVyzvaPlochyZavrena(),
       nainstalovano: jeBranaSpustenaJakoPwa(),
       politikaZobrazeniSplnena: politikaSplnena,
       aktualniUrl: aktualniStrankaUrl(),
-    }),
-    [prepoctiVerze, politikaSplnena],
-  );
+    };
+  }, [prepoctiVerze, politikaSplnena]);
 
   const viditelnost = useMemo(
     () => urcitBranaVyzvaViditelnost(vstup),
@@ -166,12 +164,8 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
 
     return priZmeneInstalacnihoPromptu(() => {
       obnovitStav();
-      // Pozdní BIP jen připraví cestu / zobrazí CTA – dialog jen po uživatelském kliku.
-      if (jeInstalacniPromptKDispozici() && smiSeZobrazitVyzvaPlochy()) {
-        zobraz();
-      }
     });
-  }, [obnovitStav, zobraz]);
+  }, [obnovitStav]);
 
   useEffect(() => {
     sledovatPohledVyzvyPlochy(pohledVyzvyZPathname(pathname));
@@ -245,16 +239,9 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
       aktualniUrl: aktualniStrankaUrl(),
     });
 
-    if (okamzita.typ === "IOS_INSTALACE") {
-      otevritBranaIosInstalacniObrazovku(okamzita.varianta);
-      return;
-    }
-
-    // Jeden aktivní pokus – blokuje souběžné kliky.
-    pripravujiRef.current = true;
-
-    // BIP už uložený: prompt() ihned v návaznosti na klik (bez await/pollingu předtím).
     if (okamzita.typ === "PROMPT") {
+      pripravujiRef.current = true;
+
       try {
         const vysledek = await vyvolatInstalacniDialog();
 
@@ -273,33 +260,59 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
       return;
     }
 
-    // Bez BIP: jen krátké UI „Připravuji…“, pak CTA zpět.
-    // Nikdy nevolej prompt() po async čekání – pozdní BIP jen pro další klik.
+    if (okamzita.typ === "IOS_INSTALACE") {
+      otevritBranaIosInstalacniObrazovku(okamzita.varianta);
+      return;
+    }
+
+    // db1ec6f: krátké čekání na pozdní BIP, pak prompt() – bez Chrome větve.
+    pripravujiRef.current = true;
     setPripravuji(true);
     obnovitStav();
 
-    try {
-      await new Promise<void>((resolve) => {
-        const timeout = window.setTimeout(() => {
-          uklidCekaniRef.current = null;
-          resolve();
-        }, BRANA_PRIPRAVA_MAX_MS);
+    const deadline = Date.now() + BRANA_PRIPRAVA_MAX_MS;
 
-        uklidCekaniRef.current = () => {
-          window.clearTimeout(timeout);
-          uklidCekaniRef.current = null;
-          resolve();
-        };
+    await new Promise<void>((resolve) => {
+      let hotovo = false;
+
+      const dokonci = () => {
+        if (hotovo) {
+          return;
+        }
+
+        hotovo = true;
+        window.clearInterval(interval);
+        zrusPrompt();
+        resolve();
+      };
+
+      const zrusPrompt = priZmeneInstalacnihoPromptu(() => {
+        if (jeInstalacniPromptKDispozici()) {
+          dokonci();
+        }
       });
-    } finally {
-      uklidCekaniRef.current?.();
-      uklidCekaniRef.current = null;
-      pripravujiRef.current = false;
 
-      if (mountedRef.current) {
-        setPripravuji(false);
-        obnovitStav();
+      const interval = window.setInterval(() => {
+        if (jeInstalacniPromptKDispozici() || Date.now() >= deadline) {
+          dokonci();
+        }
+      }, 100);
+    });
+
+    if (jeInstalacniPromptKDispozici()) {
+      const vysledek = await vyvolatInstalacniDialog();
+
+      if (mountedRef.current && vysledek === "accepted") {
+        zavritVyzvuPlochy();
+        skrytVyzvu();
       }
+    }
+
+    pripravujiRef.current = false;
+
+    if (mountedRef.current) {
+      setPripravuji(false);
+      obnovitStav();
     }
   }, [obnovitStav, skrytVyzvu]);
 
