@@ -42,6 +42,10 @@ import {
   zavritVyzvuPlochy,
 } from "@/lib/brana/vyzva-plocha";
 
+/** Krátké UI „Připravuji…“ při kliku bez BIP – bez odloženého prompt(). */
+const BRANA_PRIPRAVA_MAX_MS = 2_000;
+const TEXT_PRIPRAVA = "Připravuji přidání na plochu…";
+
 type BranaVyzvaPlochaProps = {
   nocRezim: boolean;
 };
@@ -75,12 +79,14 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   const [pripravena, setPripravena] = useState(() =>
     bylaVyzvaPlochyZobrazena(),
   );
+  const [pripravuji, setPripravuji] = useState(false);
   const [topPx, setTopPx] = useState<number | null>(null);
   const [prepoctiVerze, setPrepoctiVerze] = useState(0);
   /** Instalační výzva jen na subdoméně – www /brana není druhá PWA. */
   const [naInstalacnimOriginu, setNaInstalacnimOriginu] = useState(false);
-  const dialogProbihaRef = useRef(false);
+  const pripravujiRef = useRef(false);
   const mountedRef = useRef(true);
+  const uklidCekaniRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     setNaInstalacnimOriginu(jeBranaSubdomenaHost(window.location.host));
@@ -91,7 +97,9 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
 
     return () => {
       mountedRef.current = false;
-      dialogProbihaRef.current = false;
+      uklidCekaniRef.current?.();
+      uklidCekaniRef.current = null;
+      pripravujiRef.current = false;
     };
   }, []);
 
@@ -99,15 +107,15 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     setPrepoctiVerze((verze) => verze + 1);
   }, []);
 
-  const vstup = useMemo(() => {
-    void prepoctiVerze;
-    return {
+  const vstup = useMemo(
+    () => ({
       vyzvaZavrena: jeVyzvaPlochyZavrena(),
       nainstalovano: jeBranaSpustenaJakoPwa(),
       politikaZobrazeniSplnena: politikaSplnena,
       aktualniUrl: aktualniStrankaUrl(),
-    };
-  }, [prepoctiVerze, politikaSplnena]);
+    }),
+    [prepoctiVerze, politikaSplnena],
+  );
 
   const viditelnost = useMemo(
     () => urcitBranaVyzvaViditelnost(vstup),
@@ -154,8 +162,11 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
       vycistitEmbeddedPoInstalaci();
     }
 
+    obnovitStav();
+
     return priZmeneInstalacnihoPromptu(() => {
       obnovitStav();
+      // Pozdní BIP jen připraví cestu / zobrazí CTA – dialog jen po uživatelském kliku.
       if (jeInstalacniPromptKDispozici() && smiSeZobrazitVyzvaPlochy()) {
         zobraz();
       }
@@ -226,7 +237,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   };
 
   const hlavniKlik = useCallback(async () => {
-    if (dialogProbihaRef.current) {
+    if (pripravujiRef.current) {
       return;
     }
 
@@ -239,31 +250,61 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
       return;
     }
 
-    if (okamzita.typ !== "PROMPT" || !jeInstalacniPromptKDispozici()) {
-      obnovitStav();
+    // Jeden aktivní pokus – blokuje souběžné kliky.
+    pripravujiRef.current = true;
+
+    // BIP už uložený: prompt() ihned v návaznosti na klik (bez await/pollingu předtím).
+    if (okamzita.typ === "PROMPT") {
+      try {
+        const vysledek = await vyvolatInstalacniDialog();
+
+        if (mountedRef.current && vysledek === "accepted") {
+          zavritVyzvuPlochy();
+          skrytVyzvu();
+        }
+      } finally {
+        pripravujiRef.current = false;
+
+        if (mountedRef.current) {
+          obnovitStav();
+        }
+      }
+
       return;
     }
 
-    dialogProbihaRef.current = true;
+    // Bez BIP: jen krátké UI „Připravuji…“, pak CTA zpět.
+    // Nikdy nevolej prompt() po async čekání – pozdní BIP jen pro další klik.
+    setPripravuji(true);
+    obnovitStav();
 
     try {
-      const vysledek = await vyvolatInstalacniDialog();
+      await new Promise<void>((resolve) => {
+        const timeout = window.setTimeout(() => {
+          uklidCekaniRef.current = null;
+          resolve();
+        }, BRANA_PRIPRAVA_MAX_MS);
 
-      if (mountedRef.current && vysledek === "accepted") {
-        zavritVyzvuPlochy();
-        skrytVyzvu();
-      }
+        uklidCekaniRef.current = () => {
+          window.clearTimeout(timeout);
+          uklidCekaniRef.current = null;
+          resolve();
+        };
+      });
     } finally {
-      dialogProbihaRef.current = false;
+      uklidCekaniRef.current?.();
+      uklidCekaniRef.current = null;
+      pripravujiRef.current = false;
 
       if (mountedRef.current) {
+        setPripravuji(false);
         obnovitStav();
       }
     }
   }, [obnovitStav, skrytVyzvu]);
 
   const hlavniKlavesa = (udalost: KeyboardEvent<HTMLElement>) => {
-    if (dialogProbihaRef.current) {
+    if (pripravuji) {
       return;
     }
 
@@ -309,17 +350,27 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
           className="brana-vyzva-plocha-hlavni"
           role="button"
           tabIndex={0}
-          aria-label="Přidat BRÁNU na plochu"
+          aria-label={pripravuji ? TEXT_PRIPRAVA : "Přidat BRÁNU na plochu"}
+          aria-busy={pripravuji || undefined}
           onClick={() => void hlavniKlik()}
           onKeyDown={hlavniKlavesa}
         >
           <span className="brana-vyzva-plocha-text">
-            Přidat{" "}
-            <span className="brana-vyzva-plocha-znacka">BRÁNU</span> na plochu
+            {pripravuji ? (
+              TEXT_PRIPRAVA
+            ) : (
+              <>
+                Přidat{" "}
+                <span className="brana-vyzva-plocha-znacka">BRÁNU</span> na
+                plochu
+              </>
+            )}
           </span>
-          <span className="brana-vyzva-plocha-sipka" aria-hidden>
-            →
-          </span>
+          {!pripravuji ? (
+            <span className="brana-vyzva-plocha-sipka" aria-hidden>
+              →
+            </span>
+          ) : null}
         </div>
       </div>
     </div>
