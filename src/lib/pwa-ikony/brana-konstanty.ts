@@ -4,8 +4,8 @@ export const BRANA_IKONA_TEXT_VELIKOST = 140;
 /** Mezera mezi nápisem a linkou – +50 % oproti 24 px @ 512 (linka posunuta dolů) */
 export const BRANA_IKONA_MEZERA_TEXT_LINKA = 36;
 
-/** Tloušťka linky @ 512 – opticky jako 1px linka u horního nápisu Třeboně (15px text) */
-export const BRANA_IKONA_LINKA_TLOUSTKA = 9;
+/** Tloušťka linky – dvojnásobek předchozích 10 px @ 512 */
+export const BRANA_IKONA_LINKA_TLOUSTKA = 20;
 
 /**
  * Oranžová linky – teplejší odstín odlesku na vodě (denní pozadí BRÁNY).

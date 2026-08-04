@@ -6,37 +6,28 @@ import {
   jeNocniRezimVPraze,
 } from "@/lib/brana/cas";
 import {
+  BRANA_PWA_DEN_BARVA,
   BRANA_PWA_NOC_BARVA,
 } from "@/lib/brana/konstanty";
 import type { BranaPozadiVarianta } from "@/lib/brana/pozadi-varianty";
 import type { BranaVerejnaStranka } from "@/lib/brana/navigace-stranky";
-import type {
-  BranaKonfiguracePohledu,
-  BranaSdilenaPohledovaData,
-} from "@/lib/brana/pohledy-data";
+import { opakovaniSeznamuAkci } from "@/lib/brana/navigace-stranky";
 import { BranaDesktopPozadi } from "./BranaDesktopPozadi";
 import { BranaObrazovka } from "./BranaObrazovka";
 import { BranaPozadi } from "./pozadi/BranaPozadi";
-import { BranaIosInstalacniVrstva } from "./BranaIosInstalacniVrstva";
 import { BranaRegistracePWA } from "./BranaRegistracePWA";
 import { BranaVyzvaPlocha } from "./BranaVyzvaPlocha";
-
-/** Denní systémová / splash barva – shodná s manifestem. */
-const BRANA_THEME_DEN = "#4585C5";
 
 type BranaDenniDobaObalProps = {
   vychoziNocRezim: boolean;
   variantaPozadi?: BranaPozadiVarianta;
   stranka?: BranaVerejnaStranka;
-  /** Povinné pro veřejný shell pěti pohledů; u vzkazu s children netřeba. */
-  pohledovaData?: BranaSdilenaPohledovaData;
-  konfiguracePohledu?: BranaKonfiguracePohledu[];
   children?: ReactNode;
   desktopPanel?: ReactNode;
 };
 
 function nastavThemeColor(nocRezim: boolean) {
-  const barva = nocRezim ? BRANA_PWA_NOC_BARVA : BRANA_THEME_DEN;
+  const barva = nocRezim ? BRANA_PWA_NOC_BARVA : BRANA_PWA_DEN_BARVA;
   const meta = document.querySelector('meta[name="theme-color"]');
 
   if (meta) {
@@ -46,8 +37,6 @@ function nastavThemeColor(nocRezim: boolean) {
 
 export function BranaDenniDobaObal({
   stranka = "dnes",
-  pohledovaData,
-  konfiguracePohledu,
   variantaPozadi,
   vychoziNocRezim,
   children,
@@ -98,16 +87,13 @@ export function BranaDenniDobaObal({
           <main
             className={`relative z-[1] flex min-h-dvh flex-1 flex-col ${verejnaTrida}`}
           >
-            {children ??
-              (pohledovaData && konfiguracePohledu ? (
-                <BranaObrazovka
-                  pocatecniPohled={stranka}
-                  data={pohledovaData}
-                  konfiguracePohledu={konfiguracePohledu}
-                />
-              ) : null)}
+            {children ?? (
+              <BranaObrazovka
+                aktivniStranka={stranka}
+                opakovaniSeznamu={opakovaniSeznamuAkci(stranka)}
+              />
+            )}
             <BranaVyzvaPlocha nocRezim={nocRezim} />
-            <BranaIosInstalacniVrstva nocRezim={nocRezim} />
           </main>
         </div>
         {desktopPanel}

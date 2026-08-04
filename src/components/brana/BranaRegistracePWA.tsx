@@ -11,7 +11,7 @@ if (typeof window !== "undefined" && "serviceWorker" in navigator) {
   });
 }
 
-/** Registruje SW a PWA posluchače – SW jen na subdoméně (viz service-worker.ts). */
+/** Registruje service worker a PWA posluchače pro instalovatelnost BRÁNY. */
 export function BranaRegistracePWA() {
   useEffect(() => {
     inicializovatBranaPwaInstalaci();

@@ -132,40 +132,6 @@
 
   .brana-prostor-obsah {
     @apply flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pt-2;
-    overflow-x: hidden;
-  }
-
-  .brana-prostor-obsah-vnitr {
-    @apply w-full shrink-0;
-  }
-
-  .brana-listovani-viewport {
-    @apply relative w-full shrink-0 overflow-hidden;
-  }
-
-  .brana-listovani-panel {
-    @apply w-full;
-    will-change: transform;
-  }
-
-  .brana-listovani-panel--odjezd {
-    @apply absolute left-0 top-0;
-    pointer-events: none;
-  }
-
-  .brana-listovani-panel--prijezd {
-    @apply relative;
-  }
-
-  .brana-listovani-panel--bezi {
-    transition: transform var(--brana-listovani-trvani, 360ms)
-      var(--brana-listovani-easing, cubic-bezier(0.4, 0, 0.2, 1));
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .brana-listovani-panel--bezi {
-      transition: none;
-    }
   }
 
   .brana-seznam-akci {
@@ -227,11 +193,7 @@
     @apply inline-block shrink-0 text-[0.9375rem] font-medium leading-snug tracking-tight text-white no-underline;
   }
 
-  .brana-pata-odkaz-text {
-    @apply relative inline-block;
-  }
-
-  .brana-pata-odkaz-text::after {
+  .brana-pata-odkaz::after {
     content: "";
     display: block;
     width: calc(100% - 0.15em);
@@ -256,48 +218,6 @@
     top: 15.5rem;
     left: 50%;
     transform: translateX(-50%);
-  }
-
-  .brana-ios-instalace-vrstva {
-    @apply pointer-events-auto fixed inset-0 z-50 flex items-center justify-center px-6;
-  }
-
-  .brana-ios-instalace-vrstva--den {
-    background-color: rgba(20, 76, 140, 0.78);
-  }
-
-  .brana-ios-instalace-vrstva--noc {
-    background-color: rgba(10, 20, 32, 0.82);
-  }
-
-  .brana-ios-instalace-zavrit {
-    @apply absolute right-6 border-0 bg-transparent p-0 text-white/70 transition-colors duration-300;
-    top: calc(2rem + env(safe-area-inset-top, 0px));
-    font-size: 1.25rem;
-    line-height: 1;
-    min-width: 2.5rem;
-    min-height: 2.5rem;
-  }
-
-  .brana-ios-instalace-zavrit:hover,
-  .brana-ios-instalace-zavrit:focus-visible {
-    @apply text-white outline-none;
-  }
-
-  .brana-ios-instalace-obsah {
-    @apply flex max-w-sm flex-col items-center text-center;
-  }
-
-  .brana-ios-instalace-nadpis {
-    @apply mb-8 text-sm font-light tracking-wide text-white/70;
-  }
-
-  .brana-ios-instalace-radek {
-    @apply text-[1.0625rem] font-light leading-snug tracking-wide text-white;
-  }
-
-  .brana-ios-instalace-radek + .brana-ios-instalace-radek {
-    @apply mt-3;
   }
 
   .brana-vzkaz-nadpis {

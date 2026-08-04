@@ -1,7 +1,10 @@
-import { otevritIosInstalacniVrstvu } from "@/lib/brana/ios-instalacni-vrstva";
+import { pripravitOtevreniVChromu } from "@/lib/brana/otevrit-v-chromu";
 import { jeSafari } from "@/lib/brana/pwa-instalacni-navod";
 import { jeInstalacniPromptKDispozici } from "@/lib/brana/pwa-instalace";
-import { jeAndroid } from "@/lib/brana/vlozeny-android-prohlizec";
+import {
+  jeAndroid,
+  potrebujeOtevritVChromu,
+} from "@/lib/brana/vlozeny-android-prohlizec";
 import { jeIOS } from "@/lib/uloziste";
 
 /** Důvod skrytí výzvy – odděleně od volby cesty po kliknutí. */
@@ -9,19 +12,16 @@ export type BranaVyzvaViditelnostDuvod =
   | "NAINSTALOVANO"
   | "ZAVRENO_UZIVATELEM"
   | "CEKANI_NA_PRODLENI"
-  | "DESKTOP_NEBO_NEPODPOROVANO"
-  | "BEZ_INSTALACNIHO_PROMPTU";
+  | "DESKTOP_NEBO_NEPODPOROVANO";
 
 export type BranaVyzvaViditelnost =
   | { viditelna: true }
   | { viditelna: false; duvod: BranaVyzvaViditelnostDuvod };
 
-/**
- * Technická cesta po klepnutí na výzvu.
- * CHROME_INTENT záměrně neexistuje – veřejná výzva nikdy nevede do Chromu.
- */
+/** Technická cesta po klepnutí na výzvu – uživateli se nezobrazuje. */
 export type BranaCestaPoKliknuti =
   | { typ: "PROMPT" }
+  | { typ: "CHROME_INTENT"; url: string }
   | {
       typ: "IOS_INSTALACE";
       varianta: "SAFARI" | "JINY_PROHLIZEC";
@@ -34,7 +34,6 @@ export type BranaInstalacniStavSkrytoDuvod =
   | "ZAVRENO_UZIVATELEM"
   | "CEKANI_NA_PRODLENI"
   | "DESKTOP_NEBO_NEPODPOROVANO"
-  | "BEZ_INSTALACNIHO_PROMPTU"
   | "BEZ_FUNKCNI_AKCE";
 
 /** @deprecated Kompatibilní tvar pro diagnostiku – preferuj viditelnost + cestu. */
@@ -45,6 +44,10 @@ export type BranaInstalacniStav =
     }
   | {
       typ: "PROMPT";
+    }
+  | {
+      typ: "CHROME_INTENT";
+      url: string;
     }
   | {
       typ: "IOS_INSTALACE";
@@ -70,7 +73,7 @@ function jeMobilniProstredi(): boolean {
  * Neřeší, zda se výzva smí zobrazit.
  */
 export function urcitBranaCestuPoKliknuti(
-  _vstup: Pick<BranaInstalacniStavVstup, "aktualniUrl">,
+  vstup: Pick<BranaInstalacniStavVstup, "aktualniUrl">,
 ): BranaCestaPoKliknuti {
   // SSR: bez window/navigator nelze určit cestu.
   if (typeof window === "undefined") {
@@ -88,13 +91,19 @@ export function urcitBranaCestuPoKliknuti(
     return { typ: "PROMPT" };
   }
 
+  if (potrebujeOtevritVChromu()) {
+    const url = pripravitOtevreniVChromu(vstup.aktualniUrl);
+
+    if (url) {
+      return { typ: "CHROME_INTENT", url };
+    }
+  }
+
   return { typ: "ZATIM_NEDOSTUPNA" };
 }
 
 /**
  * Zda se výzva smí zobrazit – pouze produktová politika (ne technická cesta).
- * Android/Chrome: CTA může být vidět i před BIP; po kliknutí se krátce čeká na prompt.
- * iOS: zdvořilost + zájem, klik otevře vlastní návod.
  */
 export function urcitBranaVyzvaViditelnost(
   vstup: BranaInstalacniStavVstup,
@@ -128,6 +137,10 @@ export function popisBranaInstalacniStav(stav: BranaInstalacniStav): string {
     return `IOS_INSTALACE / ${stav.varianta}`;
   }
 
+  if (stav.typ === "CHROME_INTENT") {
+    return "CHROME_INTENT";
+  }
+
   return "PROMPT";
 }
 
@@ -157,9 +170,12 @@ export function urcitBranaInstalacniStav(
   return cesta;
 }
 
-/** Otevře celoobrazovkovou iOS instalační vrstvu (pokračování stejné cesty). */
+/**
+ * Fáze 2: otevře samostatnou iOS instalační obrazovku.
+ * Zatím bez route a bez UI – handler je připraven pro navázání.
+ */
 export function otevritBranaIosInstalacniObrazovku(
-  varianta: "SAFARI" | "JINY_PROHLIZEC",
+  _varianta: "SAFARI" | "JINY_PROHLIZEC",
 ): void {
-  otevritIosInstalacniVrstvu(varianta);
+  void _varianta;
 }

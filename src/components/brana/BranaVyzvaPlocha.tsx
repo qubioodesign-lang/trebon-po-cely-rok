@@ -12,8 +12,11 @@ import {
   type KeyboardEvent,
   type MouseEvent,
 } from "react";
-import { jeBranaSubdomenaHost } from "@/lib/brana/cesty";
-import { aktualniStrankaUrl } from "@/lib/brana/otevrit-v-chromu";
+import {
+  aktualniStrankaUrl,
+  BRANA_TEKST_OTEVRIT_V_CHROMU,
+  pripravitOtevreniVChromu,
+} from "@/lib/brana/otevrit-v-chromu";
 import {
   BRANA_PWA_DEN_BARVA,
   BRANA_PWA_NOC_BARVA,
@@ -30,7 +33,12 @@ import {
   priZmeneInstalacnihoPromptu,
   vyvolatInstalacniDialog,
 } from "@/lib/brana/pwa-instalace";
-import { vycistitEmbeddedPoInstalaci } from "@/lib/brana/vlozeny-android-prohlizec";
+import {
+  vymazatEmbeddedAndroidKontext,
+  vycistitEmbeddedPoInstalaci,
+  zapamatovatEmbeddedAndroidKontext,
+  zpracovatOtevreniVChromu,
+} from "@/lib/brana/vlozeny-android-prohlizec";
 import {
   bylaVyzvaPlochyZobrazena,
   jeVyzvaPlochyZavrena,
@@ -42,7 +50,6 @@ import {
   zavritVyzvuPlochy,
 } from "@/lib/brana/vyzva-plocha";
 
-/** Krátké UI „Připravuji…“ při kliku bez BIP – bez odloženého prompt(). */
 const BRANA_PRIPRAVA_MAX_MS = 2_000;
 const TEXT_PRIPRAVA = "Připravuji přidání na plochu…";
 
@@ -82,26 +89,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   const [pripravuji, setPripravuji] = useState(false);
   const [topPx, setTopPx] = useState<number | null>(null);
   const [prepoctiVerze, setPrepoctiVerze] = useState(0);
-  /** Instalační výzva jen na subdoméně – www /brana není druhá PWA. */
-  const [naInstalacnimOriginu, setNaInstalacnimOriginu] = useState(false);
   const pripravujiRef = useRef(false);
-  const mountedRef = useRef(true);
-  const uklidCekaniRef = useRef<(() => void) | null>(null);
-
-  useEffect(() => {
-    setNaInstalacnimOriginu(jeBranaSubdomenaHost(window.location.host));
-  }, []);
-
-  useEffect(() => {
-    mountedRef.current = true;
-
-    return () => {
-      mountedRef.current = false;
-      uklidCekaniRef.current?.();
-      uklidCekaniRef.current = null;
-      pripravujiRef.current = false;
-    };
-  }, []);
 
   const obnovitStav = useCallback(() => {
     setPrepoctiVerze((verze) => verze + 1);
@@ -121,6 +109,14 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     () => urcitBranaVyzvaViditelnost(vstup),
     [vstup],
   );
+
+  const cesta = useMemo(() => {
+    if (!viditelnost.viditelna) {
+      return { typ: "ZATIM_NEDOSTUPNA" as const };
+    }
+
+    return urcitBranaCestuPoKliknuti(vstup);
+  }, [viditelnost, vstup]);
 
   const skrytVyzvu = useCallback(() => {
     setPripravena(false);
@@ -158,6 +154,11 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   }, [zobraz]);
 
   useEffect(() => {
+    const praveOtevrenoVChromu = zpracovatOtevreniVChromu();
+    if (!praveOtevrenoVChromu) {
+      zapamatovatEmbeddedAndroidKontext();
+    }
+
     if (jeBranaSpustenaJakoPwa()) {
       vycistitEmbeddedPoInstalaci();
     }
@@ -166,12 +167,8 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
 
     return priZmeneInstalacnihoPromptu(() => {
       obnovitStav();
-      // Pozdní BIP jen připraví cestu / zobrazí CTA – dialog jen po uživatelském kliku.
-      if (jeInstalacniPromptKDispozici() && smiSeZobrazitVyzvaPlochy()) {
-        zobraz();
-      }
     });
-  }, [obnovitStav, zobraz]);
+  }, [obnovitStav]);
 
   useEffect(() => {
     sledovatPohledVyzvyPlochy(pohledVyzvyZPathname(pathname));
@@ -245,66 +242,82 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
       aktualniUrl: aktualniStrankaUrl(),
     });
 
+    if (okamzita.typ === "PROMPT") {
+      const vysledek = await vyvolatInstalacniDialog();
+
+      if (vysledek === "accepted") {
+        zavritVyzvuPlochy();
+        skrytVyzvu();
+      }
+
+      obnovitStav();
+      return;
+    }
+
     if (okamzita.typ === "IOS_INSTALACE") {
       otevritBranaIosInstalacniObrazovku(okamzita.varianta);
       return;
     }
 
-    // Jeden aktivní pokus – blokuje souběžné kliky.
-    pripravujiRef.current = true;
-
-    // BIP už uložený: prompt() ihned v návaznosti na klik (bez await/pollingu předtím).
-    if (okamzita.typ === "PROMPT") {
-      try {
-        const vysledek = await vyvolatInstalacniDialog();
-
-        if (mountedRef.current && vysledek === "accepted") {
-          zavritVyzvuPlochy();
-          skrytVyzvu();
-        }
-      } finally {
-        pripravujiRef.current = false;
-
-        if (mountedRef.current) {
-          obnovitStav();
-        }
-      }
-
+    if (okamzita.typ === "CHROME_INTENT") {
+      window.location.href = okamzita.url;
       return;
     }
 
-    // Bez BIP: jen krátké UI „Připravuji…“, pak CTA zpět.
-    // Nikdy nevolej prompt() po async čekání – pozdní BIP jen pro další klik.
+    pripravujiRef.current = true;
     setPripravuji(true);
     obnovitStav();
 
-    try {
-      await new Promise<void>((resolve) => {
-        const timeout = window.setTimeout(() => {
-          uklidCekaniRef.current = null;
-          resolve();
-        }, BRANA_PRIPRAVA_MAX_MS);
+    const deadline = Date.now() + BRANA_PRIPRAVA_MAX_MS;
 
-        uklidCekaniRef.current = () => {
-          window.clearTimeout(timeout);
-          uklidCekaniRef.current = null;
-          resolve();
-        };
+    await new Promise<void>((resolve) => {
+      let hotovo = false;
+
+      const dokonci = () => {
+        if (hotovo) {
+          return;
+        }
+
+        hotovo = true;
+        window.clearInterval(interval);
+        zrusPrompt();
+        resolve();
+      };
+
+      const zrusPrompt = priZmeneInstalacnihoPromptu(() => {
+        if (jeInstalacniPromptKDispozici()) {
+          dokonci();
+        }
       });
-    } finally {
-      uklidCekaniRef.current?.();
-      uklidCekaniRef.current = null;
-      pripravujiRef.current = false;
 
-      if (mountedRef.current) {
-        setPripravuji(false);
-        obnovitStav();
+      const interval = window.setInterval(() => {
+        if (jeInstalacniPromptKDispozici() || Date.now() >= deadline) {
+          dokonci();
+        }
+      }, 100);
+    });
+
+    if (jeInstalacniPromptKDispozici()) {
+      const vysledek = await vyvolatInstalacniDialog();
+
+      if (vysledek === "accepted") {
+        zavritVyzvuPlochy();
+        skrytVyzvu();
       }
     }
+
+    pripravujiRef.current = false;
+    setPripravuji(false);
+    obnovitStav();
   }, [obnovitStav, skrytVyzvu]);
 
+  const otevritVChromu = (udalost: MouseEvent<HTMLAnchorElement>) => {
+    vymazatEmbeddedAndroidKontext();
+    udalost.currentTarget.href = pripravitOtevreniVChromu(aktualniStrankaUrl());
+  };
+
   const hlavniKlavesa = (udalost: KeyboardEvent<HTMLElement>) => {
-    if (pripravuji) {
+    if (cesta.typ === "CHROME_INTENT" && !pripravuji) {
       return;
     }
 
@@ -314,7 +327,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     }
   };
 
-  if (!naInstalacnimOriginu || !viditelnost.viditelna) {
+  if (!viditelnost.viditelna) {
     return null;
   }
 
@@ -322,9 +335,11 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   const stylObalu: CSSProperties | undefined =
     topPx !== null ? { top: `${topPx}px` } : undefined;
 
+  const chromeOdkaz = cesta.typ === "CHROME_INTENT" && !pripravuji;
   const tridaPlochy = [
     "brana-vyzva-plocha",
     pripravena ? "brana-vyzva-plocha--viditelna" : "",
+    chromeOdkaz ? "brana-vyzva-plocha--vice-radku" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -334,7 +349,9 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
       className="brana-vyzva-plocha-obal"
       style={stylObalu}
       role="region"
-      aria-label="Přidat BRÁNU na plochu"
+      aria-label={
+        chromeOdkaz ? BRANA_TEKST_OTEVRIT_V_CHROMU : "Přidat BRÁNU na plochu"
+      }
     >
       <div className={tridaPlochy} style={{ backgroundColor: podklad }}>
         <button
@@ -346,32 +363,48 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
           <span aria-hidden>×</span>
         </button>
 
-        <div
-          className="brana-vyzva-plocha-hlavni"
-          role="button"
-          tabIndex={0}
-          aria-label={pripravuji ? TEXT_PRIPRAVA : "Přidat BRÁNU na plochu"}
-          aria-busy={pripravuji || undefined}
-          onClick={() => void hlavniKlik()}
-          onKeyDown={hlavniKlavesa}
-        >
-          <span className="brana-vyzva-plocha-text">
-            {pripravuji ? (
-              TEXT_PRIPRAVA
-            ) : (
-              <>
-                Přidat{" "}
-                <span className="brana-vyzva-plocha-znacka">BRÁNU</span> na
-                plochu
-              </>
-            )}
-          </span>
-          {!pripravuji ? (
+        {chromeOdkaz ? (
+          <a
+            href={cesta.url}
+            onClick={otevritVChromu}
+            className="brana-vyzva-plocha-hlavni brana-vyzva-plocha-hlavni--odkaz"
+            aria-label={BRANA_TEKST_OTEVRIT_V_CHROMU}
+          >
+            <span className="brana-vyzva-plocha-text brana-vyzva-plocha-text--vice-radku">
+              {BRANA_TEKST_OTEVRIT_V_CHROMU}
+            </span>
             <span className="brana-vyzva-plocha-sipka" aria-hidden>
               →
             </span>
-          ) : null}
-        </div>
+          </a>
+        ) : (
+          <div
+            className="brana-vyzva-plocha-hlavni"
+            role="button"
+            tabIndex={0}
+            aria-label={pripravuji ? TEXT_PRIPRAVA : "Přidat BRÁNU na plochu"}
+            aria-busy={pripravuji || undefined}
+            onClick={() => void hlavniKlik()}
+            onKeyDown={hlavniKlavesa}
+          >
+            <span className="brana-vyzva-plocha-text">
+              {pripravuji ? (
+                TEXT_PRIPRAVA
+              ) : (
+                <>
+                  Přidat{" "}
+                  <span className="brana-vyzva-plocha-znacka">BRÁNU</span> na
+                  plochu
+                </>
+              )}
+            </span>
+            {!pripravuji ? (
+              <span className="brana-vyzva-plocha-sipka" aria-hidden>
+                →
+              </span>
+            ) : null}
+          </div>
+        )}
       </div>
     </div>
   );

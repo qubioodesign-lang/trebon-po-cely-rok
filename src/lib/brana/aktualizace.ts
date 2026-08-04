@@ -1,10 +1,10 @@
-import {
-  dnesVPraze,
-  okamzikVPraze,
-  okamzikZPrahy,
-  pridatDny,
-  type BranaDatum,
-} from "./cas";
+import { dnesVPraze, okamzikVPraze, okamzikZPrahy, pridatDny } from "./cas";
+
+/** Čas poslední aktualizace obsahu – později nahradit hodnotou z redakce. */
+export type BranaCasAktualizace = {
+  hodina: number;
+  minuta: number;
+};
 
 const RANO = { hodina: 6, minuta: 0 } as const;
 const ODPOLEDNE = { hodina: 15, minuta: 30 } as const;
@@ -13,97 +13,38 @@ function minutyOdPulnoci(hodina: number, minuta: number): number {
   return hodina * 60 + minuta;
 }
 
-function stejneKalendarniDatum(a: BranaDatum, b: BranaDatum): boolean {
-  return a.rok === b.rok && a.mesic === b.mesic && a.den === b.den;
-}
-
-function formatCasAktualizace(hodina: number, minuta: number): string {
-  return `${hodina}:${String(minuta).padStart(2, "0")}`;
-}
-
 /**
- * Dočasný zdroj timestampu poslední publikace podle rytmu 6:00 / 15:30
- * v Europe/Prague. Později nahradit skutečným timestampem z redakce.
+ * Dočasný zdroj času aktualizace podle pravidel 6:00 / 15:30 v Europe/Prague.
+ * Později nahradit časem posledního uložení z redakčního systému.
  */
-export function zdrojCasuAktualizace(okamzik: Date = new Date()): Date {
+export function zdrojCasuAktualizace(
+  okamzik: Date = new Date(),
+): BranaCasAktualizace {
   const { hodina, minuta } = okamzikVPraze(okamzik);
   const minuty = minutyOdPulnoci(hodina, minuta);
   const rano = minutyOdPulnoci(RANO.hodina, RANO.minuta);
   const odpoledne = minutyOdPulnoci(ODPOLEDNE.hodina, ODPOLEDNE.minuta);
-  const dnes = dnesVPraze(okamzik);
 
   if (minuty >= rano && minuty < odpoledne) {
-    return okamzikZPrahy(
-      dnes.rok,
-      dnes.mesic,
-      dnes.den,
-      RANO.hodina,
-      RANO.minuta,
-    );
+    return RANO;
   }
 
-  if (minuty >= odpoledne) {
-    return okamzikZPrahy(
-      dnes.rok,
-      dnes.mesic,
-      dnes.den,
-      ODPOLEDNE.hodina,
-      ODPOLEDNE.minuta,
-    );
-  }
-
-  const vcera = pridatDny(dnes, -1);
-  return okamzikZPrahy(
-    vcera.rok,
-    vcera.mesic,
-    vcera.den,
-    ODPOLEDNE.hodina,
-    ODPOLEDNE.minuta,
-  );
+  return ODPOLEDNE;
 }
 
-/**
- * Obecné formátování textu aktualizace z timestampu publikace
- * vůči aktuálnímu okamžiku – obojí v Europe/Prague.
- */
-export function formatTextAktualizace(
-  publikace: Date,
-  ted: Date = new Date(),
-): string {
-  const pub = okamzikVPraze(publikace);
-  const nyni = okamzikVPraze(ted);
-  const cas = formatCasAktualizace(pub.hodina, pub.minuta);
-  const denPublikace: BranaDatum = {
-    rok: pub.rok,
-    mesic: pub.mesic,
-    den: pub.den,
-  };
-  const denTed: BranaDatum = {
-    rok: nyni.rok,
-    mesic: nyni.mesic,
-    den: nyni.den,
-  };
-
-  if (stejneKalendarniDatum(denPublikace, denTed)) {
-    return `Aktualizováno dnes v ${cas}`;
-  }
-
-  if (stejneKalendarniDatum(denPublikace, pridatDny(denTed, -1))) {
-    return `Aktualizováno včera v ${cas}`;
-  }
-
-  return `Aktualizováno ${pub.den}. ${pub.mesic}. v ${cas}`;
+/** Formátovaný text „Aktualizováno dnes v …“ pro zadaný zdroj času. */
+export function formatTextAktualizace(cas: BranaCasAktualizace): string {
+  const hodina = cas.hodina;
+  const minuta = String(cas.minuta).padStart(2, "0");
+  return `Aktualizováno dnes v ${hodina}:${minuta}`;
 }
 
 /** Text aktualizace pro aktuální okamžik v Europe/Prague. */
 export function textAktualizaceVPraze(okamzik: Date = new Date()): string {
-  return formatTextAktualizace(zdrojCasuAktualizace(okamzik), okamzik);
+  return formatTextAktualizace(zdrojCasuAktualizace(okamzik));
 }
 
-/**
- * Okamžik další změny zobrazeného textu aktualizace (pro plánování na klientu).
- * Hranice: 00:00, 6:00 a 15:30 v Europe/Prague.
- */
+/** Okamžik další změny zobrazeného času aktualizace (pro plánování na klientu). */
 export function dalsiZmenaAktualizaceVPraze(
   okamzik: Date = new Date(),
 ): Date {
@@ -125,7 +66,13 @@ export function dalsiZmenaAktualizaceVPraze(
 
   if (minuty >= odpoledne) {
     const zitra = pridatDny(datum, 1);
-    return okamzikZPrahy(zitra.rok, zitra.mesic, zitra.den, 0, 0);
+    return okamzikZPrahy(
+      zitra.rok,
+      zitra.mesic,
+      zitra.den,
+      RANO.hodina,
+      RANO.minuta,
+    );
   }
 
   return okamzikZPrahy(

@@ -124,52 +124,26 @@ export function inicializovatBranaPwaInstalaci(): void {
   });
 }
 
-/**
- * Horní limit čekání na prompt() + userChoice.
- * Chrání UI před nekonečným „Připravuji…“, když Promise visí bez dialogu.
- */
-export const BRANA_INSTALACNI_DIALOG_MAX_MS = 8_000;
-
-let dialogProbiha = false;
-
 /** Vyvolá systémový instalační dialog prohlížeče; uloženou událost zahodí. */
 export async function vyvolatInstalacniDialog(): Promise<
   "accepted" | "dismissed" | "nedostupny"
 > {
-  if (dialogProbiha) {
-    return "nedostupny";
-  }
-
   const prompt = ziskatUlozenyPrompt();
 
   if (!prompt) {
     return "nedostupny";
   }
 
-  dialogProbiha = true;
   delete window.__branaPwaInstalacniPrompt;
   delete window.__branaPwaVcasnyPrompt;
   oznamitZmenuPromptu();
 
   try {
-    const vysledek = await Promise.race([
-      (async (): Promise<"accepted" | "dismissed"> => {
-        await prompt.prompt();
-        const { outcome } = await prompt.userChoice;
-        return outcome;
-      })(),
-      new Promise<"dismissed">((resolve) => {
-        window.setTimeout(() => {
-          resolve("dismissed");
-        }, BRANA_INSTALACNI_DIALOG_MAX_MS);
-      }),
-    ]);
-
-    return vysledek;
+    await prompt.prompt();
+    const { outcome } = await prompt.userChoice;
+    return outcome;
   } catch {
     return "dismissed";
-  } finally {
-    dialogProbiha = false;
   }
 }
 
