@@ -245,90 +245,94 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
       aktualniUrl: aktualniStrankaUrl(),
     });
 
-    if (okamzita.typ === "PROMPT") {
-      const vysledek = await vyvolatInstalacniDialog();
-
-      if (!mountedRef.current) {
-        return;
-      }
-
-      if (vysledek === "accepted") {
-        zavritVyzvuPlochy();
-        skrytVyzvu();
-      }
-
-      obnovitStav();
-      return;
-    }
-
     if (okamzita.typ === "IOS_INSTALACE") {
       otevritBranaIosInstalacniObrazovku(okamzita.varianta);
       return;
     }
 
-    // Bez uloženého BIP: krátce čekej (klik často BIP teprve spustí). Bez Chrome intentu.
+    // Jeden aktivní pokus – blokuje souběžné kliky i při okamžitém BIP.
     pripravujiRef.current = true;
+
+    if (okamzita.typ === "PROMPT") {
+      try {
+        const vysledek = await vyvolatInstalacniDialog();
+
+        if (mountedRef.current && vysledek === "accepted") {
+          zavritVyzvuPlochy();
+          skrytVyzvu();
+        }
+      } finally {
+        pripravujiRef.current = false;
+
+        if (mountedRef.current) {
+          obnovitStav();
+        }
+      }
+
+      return;
+    }
+
+    // Bez uloženého BIP: krátce čekej (klik často BIP teprve spustí). Bez Chrome intentu.
     setPripravuji(true);
     obnovitStav();
 
-    const deadline = Date.now() + BRANA_PRIPRAVA_MAX_MS;
+    try {
+      const deadline = Date.now() + BRANA_PRIPRAVA_MAX_MS;
 
-    await new Promise<void>((resolve) => {
-      let hotovo = false;
-      let interval = 0;
-      let zrusPrompt = () => {};
+      await new Promise<void>((resolve) => {
+        let hotovo = false;
+        let interval = 0;
+        let zrusPrompt = () => {};
 
-      const dokonci = () => {
-        if (hotovo) {
-          return;
-        }
+        const dokonci = () => {
+          if (hotovo) {
+            return;
+          }
 
-        hotovo = true;
-        window.clearInterval(interval);
-        zrusPrompt();
-        uklidCekaniRef.current = null;
-        resolve();
-      };
+          hotovo = true;
+          window.clearInterval(interval);
+          zrusPrompt();
+          uklidCekaniRef.current = null;
+          resolve();
+        };
 
-      zrusPrompt = priZmeneInstalacnihoPromptu(() => {
+        zrusPrompt = priZmeneInstalacnihoPromptu(() => {
+          if (jeInstalacniPromptKDispozici()) {
+            dokonci();
+          }
+        });
+
+        interval = window.setInterval(() => {
+          if (jeInstalacniPromptKDispozici() || Date.now() >= deadline) {
+            dokonci();
+          }
+        }, 100);
+
+        uklidCekaniRef.current = dokonci;
+
         if (jeInstalacniPromptKDispozici()) {
           dokonci();
         }
       });
 
-      interval = window.setInterval(() => {
-        if (jeInstalacniPromptKDispozici() || Date.now() >= deadline) {
-          dokonci();
+      if (mountedRef.current && jeInstalacniPromptKDispozici()) {
+        const vysledek = await vyvolatInstalacniDialog();
+
+        if (mountedRef.current && vysledek === "accepted") {
+          zavritVyzvuPlochy();
+          skrytVyzvu();
         }
-      }, 100);
-
-      uklidCekaniRef.current = dokonci;
-
-      if (jeInstalacniPromptKDispozici()) {
-        dokonci();
       }
-    });
+    } finally {
+      uklidCekaniRef.current?.();
+      uklidCekaniRef.current = null;
+      pripravujiRef.current = false;
 
-    if (!mountedRef.current) {
-      return;
-    }
-
-    if (jeInstalacniPromptKDispozici()) {
-      const vysledek = await vyvolatInstalacniDialog();
-
-      if (!mountedRef.current) {
-        return;
-      }
-
-      if (vysledek === "accepted") {
-        zavritVyzvuPlochy();
-        skrytVyzvu();
+      if (mountedRef.current) {
+        setPripravuji(false);
+        obnovitStav();
       }
     }
-
-    pripravujiRef.current = false;
-    setPripravuji(false);
-    obnovitStav();
   }, [obnovitStav, skrytVyzvu]);
 
   const hlavniKlavesa = (udalost: KeyboardEvent<HTMLElement>) => {
