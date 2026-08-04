@@ -1,7 +1,16 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useRef, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
+import { BRANA_NAVIGACE_POLOZKY } from "@/lib/brana/cesty";
 import { sousedniBranaStranka } from "@/lib/brana/navigace-stranky";
 import type { BranaVerejnaStranka } from "@/lib/brana/navigace-stranky";
 import { useBranaHost } from "@/lib/brana/use-brana-cesty";
@@ -9,6 +18,8 @@ import { useBranaKotvaScroll } from "./BranaKotvaScrollProvider";
 
 const MIN_VZDALENOST_SWIPE = 50;
 const PRAH_ROZHODNUTI_SMERU = 10;
+const LISTOVANI_TRVANI_MS = 360;
+const LISTOVANI_EASING = "cubic-bezier(0.4, 0, 0.2, 1)";
 
 type TouchStav = {
   aktivni: boolean;
@@ -17,6 +28,85 @@ type TouchStav = {
   startX: number;
   startY: number;
 };
+
+type ListovaniPending = {
+  html: string;
+  /** 1 = dopředu (starý doleva, nový zprava), -1 = zpět */
+  smer: 1 | -1;
+  na: BranaVerejnaStranka;
+};
+
+type PrechodStav = {
+  html: string;
+  smer: 1 | -1;
+  bezi: boolean;
+};
+
+let listovaniPending: ListovaniPending | null = null;
+let zachytitZivyObsahHtml: (() => string | null) | null = null;
+
+function indexStranky(stranka: BranaVerejnaStranka): number {
+  return BRANA_NAVIGACE_POLOZKY.findIndex((polozka) => polozka.id === stranka);
+}
+
+function preferujeReducedMotion(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+/**
+ * Připraví vizuální snapshot a směr před navigací (swipe i klik).
+ * Nikdy neblokuje navigaci – při nejistotě pending nenastaví.
+ */
+export function pripravitBranaListovani(
+  z: BranaVerejnaStranka,
+  na: BranaVerejnaStranka,
+): void {
+  if (z === na) {
+    return;
+  }
+
+  if (preferujeReducedMotion()) {
+    listovaniPending = null;
+    return;
+  }
+
+  const indexZ = indexStranky(z);
+  const indexNa = indexStranky(na);
+
+  if (indexZ < 0 || indexNa < 0) {
+    listovaniPending = null;
+    return;
+  }
+
+  const html = zachytitZivyObsahHtml?.();
+
+  if (!html) {
+    listovaniPending = null;
+    return;
+  }
+
+  listovaniPending = {
+    html,
+    smer: indexNa > indexZ ? 1 : -1,
+    na,
+  };
+}
+
+function vzitListovaniPending(
+  ocekavana: BranaVerejnaStranka,
+): ListovaniPending | null {
+  if (!listovaniPending || listovaniPending.na !== ocekavana) {
+    return null;
+  }
+
+  const pending = listovaniPending;
+  listovaniPending = null;
+  return pending;
+}
 
 function jeInteraktivniPrvek(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) {
@@ -31,6 +121,8 @@ function jeInteraktivniPrvek(target: EventTarget | null): boolean {
 type BranaSwipeObsahProps = {
   aktivniStranka: BranaVerejnaStranka;
   children: ReactNode;
+  /** Zápatí mimo listovací panely, stále uvnitř scrollovací plochy. */
+  pata: ReactNode;
   scrollovat?: boolean;
 };
 
@@ -38,14 +130,36 @@ type BranaSwipeObsahProps = {
 export function BranaSwipeObsah({
   aktivniStranka,
   children,
+  pata,
   scrollovat = false,
 }: BranaSwipeObsahProps) {
   const router = useRouter();
   const host = useBranaHost();
   const kontext = useBranaKotvaScroll();
   const stavRef = useRef<TouchStav | null>(null);
+  const zivyObsahRef = useRef<HTMLDivElement | null>(null);
+  const odjezdRef = useRef<HTMLDivElement | null>(null);
+  const prechodCleanupRef = useRef<(() => void) | null>(null);
 
-  const ref = useCallback(
+  const [prechod, setPrechod] = useState<PrechodStav | null>(() => {
+    if (typeof window === "undefined" || preferujeReducedMotion()) {
+      return null;
+    }
+
+    const pending = vzitListovaniPending(aktivniStranka);
+
+    if (!pending) {
+      return null;
+    }
+
+    return {
+      html: pending.html,
+      smer: pending.smer,
+      bezi: false,
+    };
+  });
+
+  const spojenyRef = useCallback(
     (element: HTMLElement | null) => {
       if (scrollovat) {
         kontext?.registerScrollRoot(element);
@@ -53,6 +167,73 @@ export function BranaSwipeObsah({
     },
     [scrollovat, kontext],
   );
+
+  useEffect(() => {
+    zachytitZivyObsahHtml = () => {
+      const el = zivyObsahRef.current;
+
+      if (!el) {
+        return null;
+      }
+
+      return el.innerHTML;
+    };
+
+    return () => {
+      zachytitZivyObsahHtml = null;
+      prechodCleanupRef.current?.();
+      prechodCleanupRef.current = null;
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!prechod || prechod.bezi) {
+      return;
+    }
+
+    let zruseno = false;
+    let raf2 = 0;
+    const raf1 = window.requestAnimationFrame(() => {
+      raf2 = window.requestAnimationFrame(() => {
+        if (zruseno) {
+          return;
+        }
+
+        setPrechod((stav) => (stav ? { ...stav, bezi: true } : null));
+      });
+    });
+
+    prechodCleanupRef.current = () => {
+      zruseno = true;
+      window.cancelAnimationFrame(raf1);
+      window.cancelAnimationFrame(raf2);
+    };
+
+    return () => {
+      zruseno = true;
+      window.cancelAnimationFrame(raf1);
+      window.cancelAnimationFrame(raf2);
+      prechodCleanupRef.current = null;
+    };
+  }, [prechod]);
+
+  useEffect(() => {
+    if (!prechod?.bezi) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setPrechod(null);
+    }, LISTOVANI_TRVANI_MS + 80);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [prechod?.bezi]);
+
+  const dokoncPrechod = useCallback(() => {
+    setPrechod(null);
+  }, []);
 
   const zrusitSledovani = () => {
     stavRef.current = null;
@@ -62,6 +243,7 @@ export function BranaSwipeObsah({
     const cil = sousedniBranaStranka(aktivniStranka, smer, host);
 
     if (cil) {
+      pripravitBranaListovani(aktivniStranka, cil.id);
       router.push(cil.href);
     }
   };
@@ -143,9 +325,25 @@ export function BranaSwipeObsah({
     naviguj("predchozi");
   };
 
+  const odjezdTransform = prechod
+    ? prechod.bezi
+      ? `translate3d(${-prechod.smer * 100}%, 0, 0)`
+      : "translate3d(0, 0, 0)"
+    : undefined;
+  const prijezdTransform = prechod
+    ? prechod.bezi
+      ? "translate3d(0, 0, 0)"
+      : `translate3d(${prechod.smer * 100}%, 0, 0)`
+    : undefined;
+
+  const viewportStyle = {
+    ["--brana-listovani-trvani" as string]: `${LISTOVANI_TRVANI_MS}ms`,
+    ["--brana-listovani-easing" as string]: LISTOVANI_EASING,
+  } as CSSProperties;
+
   return (
     <section
-      ref={ref}
+      ref={spojenyRef}
       className="brana-prostor-obsah"
       aria-label="Akce"
       onTouchStart={onTouchStart}
@@ -153,7 +351,46 @@ export function BranaSwipeObsah({
       onTouchEnd={onTouchEnd}
       onTouchCancel={zrusitSledovani}
     >
-      {children}
+      {prechod ? (
+        <div className="brana-listovani-viewport" style={viewportStyle}>
+          <div
+            ref={odjezdRef}
+            className={
+              prechod.bezi
+                ? "brana-listovani-panel brana-listovani-panel--odjezd brana-listovani-panel--bezi"
+                : "brana-listovani-panel brana-listovani-panel--odjezd"
+            }
+            style={{ transform: odjezdTransform }}
+            aria-hidden="true"
+            inert
+            dangerouslySetInnerHTML={{ __html: prechod.html }}
+          />
+          <div
+            ref={zivyObsahRef}
+            className={
+              prechod.bezi
+                ? "brana-listovani-panel brana-listovani-panel--prijezd brana-listovani-panel--bezi"
+                : "brana-listovani-panel brana-listovani-panel--prijezd"
+            }
+            style={{ transform: prijezdTransform }}
+            onTransitionEnd={(event) => {
+              if (
+                event.target === event.currentTarget &&
+                event.propertyName === "transform"
+              ) {
+                dokoncPrechod();
+              }
+            }}
+          >
+            {children}
+          </div>
+        </div>
+      ) : (
+        <div ref={zivyObsahRef} className="brana-prostor-obsah-vnitr">
+          {children}
+        </div>
+      )}
+      {pata}
     </section>
   );
 }

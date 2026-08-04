@@ -20,7 +20,7 @@ import {
   BranaCasovaKotvaScrollovana,
   BranaKotvaScrollProvider,
 } from "./BranaKotvaScrollProvider";
-import { BranaSwipeObsah } from "./BranaSwipeObsah";
+import { BranaSwipeObsah, pripravitBranaListovani } from "./BranaSwipeObsah";
 import { BranaIkonaObalka } from "./BranaIkony";
 import { BranaTlacitkoSdileni } from "./BranaTlacitkoSdileni";
 import { BranaTextAktualizace, BranaAktualizaceProvider } from "./BranaTextAktualizace";
@@ -159,7 +159,7 @@ export function BranaObrazovka({
   const pocetBloku =
     aktivniStranka === "vyhled" ? 2 : opakovaniSeznamu;
 
-  const obsahSeznamu = (
+  const seznamAkci = (
     <>
       {Array.from({ length: pocetBloku }, (_, blok) => (
         <Fragment key={`blok-${blok}`}>
@@ -203,21 +203,23 @@ export function BranaObrazovka({
           </ul>
         </Fragment>
       ))}
-
-      <footer className="brana-pata">
-        <div className="brana-pata-stred">
-          <Link href={trebonHref} className="brana-pata-odkaz">
-            <span className="brana-pata-odkaz-text">Třeboň po celý rok</span>{" "}
-            <span className="brana-pata-odkaz-sipka" aria-hidden>
-              →
-            </span>
-          </Link>
-        </div>
-        <p className="brana-pata-aktualizace">
-          <BranaTextAktualizace />
-        </p>
-      </footer>
     </>
+  );
+
+  const pata = (
+    <footer className="brana-pata">
+      <div className="brana-pata-stred">
+        <Link href={trebonHref} className="brana-pata-odkaz">
+          <span className="brana-pata-odkaz-text">Třeboň po celý rok</span>{" "}
+          <span className="brana-pata-odkaz-sipka" aria-hidden>
+            →
+          </span>
+        </Link>
+      </div>
+      <p className="brana-pata-aktualizace">
+        <BranaTextAktualizace />
+      </p>
+    </footer>
   );
 
   return (
@@ -266,6 +268,9 @@ export function BranaObrazovka({
                   ? "brana-nav-polozka brana-nav-polozka-vybrana"
                   : "brana-nav-polozka"
               }
+              onClick={() => {
+                pripravitBranaListovani(aktivniStranka, polozka.id);
+              }}
             >
               {polozka.label}
             </Link>
@@ -288,8 +293,9 @@ export function BranaObrazovka({
       <BranaSwipeObsah
         aktivniStranka={aktivniStranka}
         scrollovat={!!kotvaScroll}
+        pata={pata}
       >
-        {obsahSeznamu}
+        {seznamAkci}
       </BranaSwipeObsah>
       </div>
     </BranaKotvaScrollProvider>
