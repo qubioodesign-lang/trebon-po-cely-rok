@@ -6,12 +6,12 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
-  useRef,
   useState,
   type CSSProperties,
   type KeyboardEvent,
   type MouseEvent,
 } from "react";
+import { jeBranaSubdomenaHost } from "@/lib/brana/cesty";
 import { aktualniStrankaUrl } from "@/lib/brana/otevrit-v-chromu";
 import {
   BRANA_PWA_DEN_BARVA,
@@ -24,7 +24,6 @@ import {
 } from "@/lib/brana/pwa-instalacni-stav";
 import {
   jeBranaSpustenaJakoPwa,
-  jeInstalacniPromptKDispozici,
   priAppInstalled,
   priZmeneInstalacnihoPromptu,
   vyvolatInstalacniDialog,
@@ -40,9 +39,6 @@ import {
   zbyvajiciZdvorilostVyzvyPlochy,
   zavritVyzvuPlochy,
 } from "@/lib/brana/vyzva-plocha";
-
-const BRANA_PRIPRAVA_MAX_MS = 2_000;
-const TEXT_PRIPRAVA = "Připravuji přidání na plochu…";
 
 type BranaVyzvaPlochaProps = {
   nocRezim: boolean;
@@ -77,10 +73,14 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   const [pripravena, setPripravena] = useState(() =>
     bylaVyzvaPlochyZobrazena(),
   );
-  const [pripravuji, setPripravuji] = useState(false);
   const [topPx, setTopPx] = useState<number | null>(null);
   const [prepoctiVerze, setPrepoctiVerze] = useState(0);
-  const pripravujiRef = useRef(false);
+  /** Instalační výzva jen na subdoméně – www /brana není druhá PWA. */
+  const [naInstalacnimOriginu, setNaInstalacnimOriginu] = useState(false);
+
+  useEffect(() => {
+    setNaInstalacnimOriginu(jeBranaSubdomenaHost(window.location.host));
+  }, []);
 
   const obnovitStav = useCallback(() => {
     setPrepoctiVerze((verze) => verze + 1);
@@ -212,10 +212,6 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   };
 
   const hlavniKlik = useCallback(async () => {
-    if (pripravujiRef.current) {
-      return;
-    }
-
     const okamzita = urcitBranaCestuPoKliknuti({
       aktualniUrl: aktualniStrankaUrl(),
     });
@@ -237,51 +233,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
       return;
     }
 
-    pripravujiRef.current = true;
-    setPripravuji(true);
-    obnovitStav();
-
-    const deadline = Date.now() + BRANA_PRIPRAVA_MAX_MS;
-
-    await new Promise<void>((resolve) => {
-      let hotovo = false;
-
-      const dokonci = () => {
-        if (hotovo) {
-          return;
-        }
-
-        hotovo = true;
-        window.clearInterval(interval);
-        zrusPrompt();
-        resolve();
-      };
-
-      const zrusPrompt = priZmeneInstalacnihoPromptu(() => {
-        if (jeInstalacniPromptKDispozici()) {
-          dokonci();
-        }
-      });
-
-      const interval = window.setInterval(() => {
-        if (jeInstalacniPromptKDispozici() || Date.now() >= deadline) {
-          dokonci();
-        }
-      }, 100);
-    });
-
-    if (jeInstalacniPromptKDispozici()) {
-      const vysledek = await vyvolatInstalacniDialog();
-
-      if (vysledek === "accepted") {
-        zavritVyzvuPlochy();
-        skrytVyzvu();
-      }
-    }
-
-    pripravujiRef.current = false;
-    setPripravuji(false);
-    obnovitStav();
+    // Bez uloženého beforeinstallprompt – žádné „Připravuji…“, Chrome ani intent.
   }, [obnovitStav, skrytVyzvu]);
 
   const hlavniKlavesa = (udalost: KeyboardEvent<HTMLElement>) => {
@@ -291,7 +243,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     }
   };
 
-  if (!viditelnost.viditelna) {
+  if (!naInstalacnimOriginu || !viditelnost.viditelna) {
     return null;
   }
 
@@ -327,27 +279,17 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
           className="brana-vyzva-plocha-hlavni"
           role="button"
           tabIndex={0}
-          aria-label={pripravuji ? TEXT_PRIPRAVA : "Přidat BRÁNU na plochu"}
-          aria-busy={pripravuji || undefined}
+          aria-label="Přidat BRÁNU na plochu"
           onClick={() => void hlavniKlik()}
           onKeyDown={hlavniKlavesa}
         >
           <span className="brana-vyzva-plocha-text">
-            {pripravuji ? (
-              TEXT_PRIPRAVA
-            ) : (
-              <>
-                Přidat{" "}
-                <span className="brana-vyzva-plocha-znacka">BRÁNU</span> na
-                plochu
-              </>
-            )}
+            Přidat <span className="brana-vyzva-plocha-znacka">BRÁNU</span> na
+            plochu
           </span>
-          {!pripravuji ? (
-            <span className="brana-vyzva-plocha-sipka" aria-hidden>
-              →
-            </span>
-          ) : null}
+          <span className="brana-vyzva-plocha-sipka" aria-hidden>
+            →
+          </span>
         </div>
       </div>
     </div>

@@ -25,10 +25,12 @@ export function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  if (pathname === "/brana/sw.js") {
-    const response = NextResponse.next();
-    response.headers.set("Service-Worker-Allowed", "/");
-    return response;
+  // Kořenový alias BRÁNA SW – prohlížeč vidí /sw.js (přirozený max scope /).
+  // Tělo zůstává public/brana/sw.js; www /sw.js middleware vůbec neřeší.
+  if (pathname === "/sw.js") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/brana/sw.js";
+    return NextResponse.rewrite(url);
   }
 
   if (
