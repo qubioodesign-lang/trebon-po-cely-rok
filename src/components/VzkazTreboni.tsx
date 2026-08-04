@@ -9,6 +9,11 @@ import {
 } from "react";
 import {
   ODKLAD_OBALKY_MS,
+  VZKAZ_HISTORIE_CESTA,
+  VZKAZ_HISTORIE_STAV,
+  existujeVzkazHistorieZaznam,
+  jeVzkazHistorieStav,
+  jeVzkazHistorieUrl,
   maZobrazitObalkuVzkazu,
   obalkaUzBylaZobrazenaVRelaci,
   oznacitObalkuJakoZobrazenou,
@@ -55,9 +60,18 @@ function IkonaObalky() {
   );
 }
 
+function vycistitVzkazUrl(): void {
+  if (!jeVzkazHistorieUrl()) {
+    return;
+  }
+
+  window.history.replaceState(window.history.state, "", "/");
+}
+
 /**
  * Obálka pro vracející se návštěvníky a psaní vzkazu Třeboni.
  * Bez animací – tiše se objeví po 15 s od otevření webu.
+ * Modal má vlastní history entry (/?vzkaz), aby systémové Zpět nevypínalo PWA.
  */
 export function VzkazTreboni() {
   const [zobrazitObalku, setZobrazitObalku] = useState(false);
@@ -68,6 +82,22 @@ export function VzkazTreboni() {
   const [odsazeniDole, setOdsazeniDole] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const odesilaRef = useRef(false);
+  const modalOtevrenRef = useRef(false);
+  /** True, pokud tato instance přidala (nebo vlastní) history entry modalu. */
+  const historieVlozenaRef = useRef(false);
+
+  const resetModalnihoStavu = useCallback(() => {
+    odesilaRef.current = false;
+    setModalOtevren(false);
+    setStav("psani");
+    setText("");
+    setChybovaZprava(null);
+    setOdsazeniDole(0);
+  }, []);
+
+  useEffect(() => {
+    modalOtevrenRef.current = modalOtevren;
+  }, [modalOtevren]);
 
   useEffect(() => {
     if (obalkaUzBylaZobrazenaVRelaci()) {
@@ -86,6 +116,40 @@ export function VzkazTreboni() {
 
     return () => window.clearTimeout(casovac);
   }, []);
+
+  // Přímé otevření /?vzkaz bez našeho pushState → galerie, čistá URL.
+  useEffect(() => {
+    if (!jeVzkazHistorieUrl()) {
+      return;
+    }
+
+    if (jeVzkazHistorieStav(window.history.state)) {
+      return;
+    }
+
+    vycistitVzkazUrl();
+  }, []);
+
+  useEffect(() => {
+    const priPopState = () => {
+      if (!modalOtevrenRef.current && !historieVlozenaRef.current) {
+        if (jeVzkazHistorieUrl() && !jeVzkazHistorieStav(window.history.state)) {
+          vycistitVzkazUrl();
+        }
+        return;
+      }
+
+      historieVlozenaRef.current = false;
+      resetModalnihoStavu();
+
+      if (jeVzkazHistorieUrl() && !jeVzkazHistorieStav(window.history.state)) {
+        vycistitVzkazUrl();
+      }
+    };
+
+    window.addEventListener("popstate", priPopState);
+    return () => window.removeEventListener("popstate", priPopState);
+  }, [resetModalnihoStavu]);
 
   useEffect(() => {
     if (!modalOtevren || typeof window === "undefined" || !window.visualViewport) {
@@ -109,14 +173,37 @@ export function VzkazTreboni() {
     };
   }, [modalOtevren]);
 
-  const zavritModal = useCallback(() => {
-    odesilaRef.current = false;
-    setModalOtevren(false);
-    setStav("psani");
-    setText("");
-    setChybovaZprava(null);
-    setOdsazeniDole(0);
+  const otevritModal = useCallback(() => {
+    if (modalOtevrenRef.current) {
+      return;
+    }
+
+    setModalOtevren(true);
+
+    // Už máme právě jeden modalový záznam – další pushState nepřidávej.
+    if (historieVlozenaRef.current || existujeVzkazHistorieZaznam()) {
+      historieVlozenaRef.current = true;
+      return;
+    }
+
+    // Orfaní ?vzkaz bez state: nejdřív srovnej na /, pak jeden push.
+    if (jeVzkazHistorieUrl()) {
+      window.history.replaceState(null, "", "/");
+    }
+
+    window.history.pushState(VZKAZ_HISTORIE_STAV, "", VZKAZ_HISTORIE_CESTA);
+    historieVlozenaRef.current = true;
   }, []);
+
+  const zavritModal = useCallback(() => {
+    if (historieVlozenaRef.current || existujeVzkazHistorieZaznam()) {
+      window.history.back();
+      return;
+    }
+
+    resetModalnihoStavu();
+    vycistitVzkazUrl();
+  }, [resetModalnihoStavu]);
 
   const handleOdeslat = async (event: FormEvent) => {
     event.preventDefault();
@@ -177,7 +264,7 @@ export function VzkazTreboni() {
       {zobrazitObalku && !modalOtevren && (
         <button
           type="button"
-          onClick={() => setModalOtevren(true)}
+          onClick={otevritModal}
           className="fixed z-[25] text-white/70 transition-colors duration-300 hover:text-white/95 focus-visible:text-white/95 focus-visible:outline-none"
           style={{
             right: "0.5rem",
