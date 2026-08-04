@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Fragment, useState, type MouseEvent } from "react";
 import { dnesVPraze, formatDenDatum } from "@/lib/brana/cas";
 import { kotvaScrollovani7Dni, kotvaScrollovaniVikend, kotvaScrollovaniVyhled, textCasoveKotvy } from "@/lib/brana/casova-kotva";
+import { branaVerejnaCesta } from "@/lib/brana/cesty";
 import type { BranaVerejnaStranka } from "@/lib/brana/navigace-stranky";
 import {
   nactiBranaSdilenaPohledovaData,
@@ -11,6 +12,7 @@ import {
   type BranaSdilenaPohledovaData,
 } from "@/lib/brana/pohledy-data";
 import {
+  useBranaHost,
   useBranaNavigace,
   useBranaOdkazNaTrebon,
   useBranaVerejnaCesta,
@@ -163,6 +165,7 @@ export function BranaObrazovka({
   const opakovani =
     konfiguracePohledu?.find((polozka) => polozka.id === pohled)
       ?.opakovaniSeznamu ?? opakovaniSeznamu;
+  const host = useBranaHost();
   const navigace = useBranaNavigace();
   const vzkazHref = useBranaVerejnaCesta("vzkaz");
   const trebonHref = useBranaOdkazNaTrebon();
@@ -170,7 +173,19 @@ export function BranaObrazovka({
   const pocetBloku = pohled === "vyhled" ? 2 : opakovani;
 
   const prepnoutPohledKlikem = (cil: BranaVerejnaStranka) => {
+    if (cil === pohled) {
+      return;
+    }
+
     setPohled(cil);
+
+    const cesta = branaVerejnaCesta(cil, host);
+    const aktualni = `${window.location.pathname}${window.location.search}`;
+    const cilova = `${cesta}${window.location.search}`;
+
+    if (aktualni !== cilova) {
+      window.history.pushState(null, "", cilova);
+    }
   };
 
   const onNavClick = (
