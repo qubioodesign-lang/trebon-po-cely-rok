@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useState, type MouseEvent } from "react";
+import { Fragment } from "react";
 import { dnesVPraze, formatDenDatum } from "@/lib/brana/cas";
 import { kotvaScrollovani7Dni, kotvaScrollovaniVikend, kotvaScrollovaniVyhled, textCasoveKotvy } from "@/lib/brana/casova-kotva";
-import { branaVerejnaCesta } from "@/lib/brana/cesty";
 import type { BranaVerejnaStranka } from "@/lib/brana/navigace-stranky";
 import {
   nactiBranaSdilenaPohledovaData,
@@ -12,7 +11,6 @@ import {
   type BranaSdilenaPohledovaData,
 } from "@/lib/brana/pohledy-data";
 import {
-  useBranaHost,
   useBranaNavigace,
   useBranaOdkazNaTrebon,
   useBranaVerejnaCesta,
@@ -160,51 +158,23 @@ export function BranaObrazovka({
   data: dataProp,
   konfiguracePohledu,
 }: BranaObrazovkaProps) {
-  const [pohled, setPohled] = useState<BranaVerejnaStranka>(aktivniStranka);
+  const pohled = aktivniStranka;
   const data = dataProp ?? nactiBranaSdilenaPohledovaData();
   const opakovani =
     konfiguracePohledu?.find((polozka) => polozka.id === pohled)
       ?.opakovaniSeznamu ?? opakovaniSeznamu;
-  const host = useBranaHost();
   const navigace = useBranaNavigace();
   const vzkazHref = useBranaVerejnaCesta("vzkaz");
   const trebonHref = useBranaOdkazNaTrebon();
   const kotvaScroll = kotvaScrollProStranku(pohled);
   const pocetBloku = pohled === "vyhled" ? 2 : opakovani;
 
-  const prepnoutPohledKlikem = (cil: BranaVerejnaStranka) => {
+  const onNavClick = (cil: BranaVerejnaStranka) => {
     if (cil === pohled) {
       return;
     }
 
-    setPohled(cil);
-
-    const cesta = branaVerejnaCesta(cil, host);
-    const aktualni = `${window.location.pathname}${window.location.search}`;
-    const cilova = `${cesta}${window.location.search}`;
-
-    if (aktualni !== cilova) {
-      window.history.pushState(null, "", cilova);
-    }
-  };
-
-  const onNavClick = (
-    event: MouseEvent<HTMLAnchorElement>,
-    cil: BranaVerejnaStranka,
-  ) => {
-    if (
-      event.metaKey ||
-      event.ctrlKey ||
-      event.shiftKey ||
-      event.altKey ||
-      event.button !== 0
-    ) {
-      pripravitBranaListovani(pohled, cil);
-      return;
-    }
-
-    event.preventDefault();
-    prepnoutPohledKlikem(cil);
+    pripravitBranaListovani(pohled, cil);
   };
 
   const seznamAkci = (
@@ -316,7 +286,7 @@ export function BranaObrazovka({
                   ? "brana-nav-polozka brana-nav-polozka-vybrana"
                   : "brana-nav-polozka"
               }
-              onClick={(event) => onNavClick(event, polozka.id)}
+              onClick={() => onNavClick(polozka.id)}
             >
               {polozka.label}
             </Link>
