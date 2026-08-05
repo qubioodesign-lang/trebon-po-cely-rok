@@ -192,27 +192,22 @@ export function BranaSwipeObsah({
     }
 
     let zruseno = false;
-    let raf2 = 0;
-    const raf1 = window.requestAnimationFrame(() => {
-      raf2 = window.requestAnimationFrame(() => {
-        if (zruseno) {
-          return;
-        }
+    const raf = window.requestAnimationFrame(() => {
+      if (zruseno) {
+        return;
+      }
 
-        setPrechod((stav) => (stav ? { ...stav, bezi: true } : null));
-      });
+      setPrechod((stav) => (stav ? { ...stav, bezi: true } : null));
     });
 
     prechodCleanupRef.current = () => {
       zruseno = true;
-      window.cancelAnimationFrame(raf1);
-      window.cancelAnimationFrame(raf2);
+      window.cancelAnimationFrame(raf);
     };
 
     return () => {
       zruseno = true;
-      window.cancelAnimationFrame(raf1);
-      window.cancelAnimationFrame(raf2);
+      window.cancelAnimationFrame(raf);
       prechodCleanupRef.current = null;
     };
   }, [prechod]);
