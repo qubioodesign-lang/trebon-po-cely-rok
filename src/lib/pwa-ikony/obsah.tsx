@@ -5,15 +5,20 @@ import {
 import { meritkaBranaIkony, BRANA_IKONA_POZADI, BRANA_IKONA_AKCENT } from "./brana-konstanty";
 import {
   meritkaTrebonPismenoT,
+  TREBON_LAUNCHER_LINKA_TLOUSTKA,
   TREBON_SPLASH_LINKA_TLOUSTKA,
 } from "./trebon-konstanty";
 
 type VariantaPwaIkony = "trebon" | "brana";
 
-/** Dočasná diagnostická ikona – pozadí BRÁNY + upravená linka */
+/** Launcher linka Třeboně – vlastní tloušťka, nezávislá na BRÁNĚ */
 function meritkaDiagnostickaLinkaTrebon(velikost: number) {
-  const { text, mezeraTextLinka, linkaTloustka, posunDolu } =
-    meritkaBranaIkony(velikost);
+  const { text, mezeraTextLinka, posunDolu } = meritkaBranaIkony(velikost);
+  const pomer = velikost / 512;
+  const linkaTloustka = Math.max(
+    1,
+    Math.round(TREBON_LAUNCHER_LINKA_TLOUSTKA * pomer),
+  );
 
   const y = posunDolu + text + mezeraTextLinka - linkaTloustka;
 

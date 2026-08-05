@@ -50,8 +50,14 @@ export function meritkaTrebonPismenoT(velikost: number, linkaY: number) {
 }
 
 /**
+ * Tloušťka oranžové linky launcher ikony Třeboně @ 512 px.
+ * Oddělená od BRÁNY – nesmí se měnit při úpravě BRANA_IKONA_LINKA_TLOUSTKA.
+ */
+export const TREBON_LAUNCHER_LINKA_TLOUSTKA = 9;
+
+/**
  * Tloušťka oranžové linky na splash ikoně @ 512 px.
- * ≈ 2/3 launcher linky (20 px) – stejná poloha a délka, jen tenčí pruh.
+ * Stejná poloha a délka jako launcher, silnější pruh.
  */
 export const TREBON_SPLASH_LINKA_TLOUSTKA = 13;
 
