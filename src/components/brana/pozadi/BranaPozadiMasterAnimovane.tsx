@@ -5,7 +5,6 @@ import {
   BRANA_POZADI_DEN_MASTER,
   BRANA_POZADI_NOC_MASTER,
 } from "@/lib/brana/konstanty";
-import { BRANA_IKONA_POZADI } from "@/lib/pwa-ikony/brana-konstanty";
 
 type BranaPozadiMasterAnimovaneProps = {
   nocRezim: boolean;
@@ -42,10 +41,7 @@ export function BranaPozadiMasterAnimovane({
         }
       >
         <div className="brana-pozadi-obraz" />
-        <div
-          className="brana-pozadi-modra-klid"
-          style={{ backgroundColor: BRANA_IKONA_POZADI }}
-        />
+        <div className="brana-pozadi-modra-klid" />
       </div>
       <div
         className={`brana-pozadi-vrstva brana-pozadi-vrstva--noc${nocRezim ? " brana-pozadi-vrstva--viditelna" : ""}`}
