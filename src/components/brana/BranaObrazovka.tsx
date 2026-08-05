@@ -281,6 +281,7 @@ export function BranaObrazovka({
             <Link
               key={polozka.id}
               href={polozka.href}
+              prefetch={true}
               className={
                 polozka.id === pohled
                   ? "brana-nav-polozka brana-nav-polozka-vybrana"
