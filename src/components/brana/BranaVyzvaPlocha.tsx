@@ -89,12 +89,10 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   const [pripravuji, setPripravuji] = useState(false);
   const [topPx, setTopPx] = useState<number | null>(null);
   const [prepoctiVerze, setPrepoctiVerze] = useState(0);
-  const [stavInstalaceUstalen, setStavInstalaceUstalen] = useState(false);
   const pripravujiRef = useRef(false);
 
   const obnovitStav = useCallback(() => {
     setPrepoctiVerze((verze) => verze + 1);
-    setStavInstalaceUstalen(true);
   }, []);
 
   const vstup = useMemo(
@@ -337,14 +335,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   const stylObalu: CSSProperties | undefined =
     topPx !== null ? { top: `${topPx}px` } : undefined;
 
-  const chromeOdkaz =
-    cesta.typ === "CHROME_INTENT" &&
-    !pripravuji &&
-    stavInstalaceUstalen;
-  const cekaNaUstaleniChrome =
-    cesta.typ === "CHROME_INTENT" &&
-    !pripravuji &&
-    !stavInstalaceUstalen;
+  const chromeOdkaz = cesta.typ === "CHROME_INTENT" && !pripravuji;
   const tridaPlochy = [
     "brana-vyzva-plocha",
     pripravena ? "brana-vyzva-plocha--viditelna" : "",
@@ -386,24 +377,6 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
               →
             </span>
           </a>
-        ) : cekaNaUstaleniChrome ? (
-          <div className="brana-vyzva-plocha-hlavni" aria-hidden>
-            <span
-              className="brana-vyzva-plocha-text"
-              style={{ visibility: "hidden" }}
-            >
-              Přidat{" "}
-              <span className="brana-vyzva-plocha-znacka">BRÁNU</span> na
-              plochu
-            </span>
-            <span
-              className="brana-vyzva-plocha-sipka"
-              style={{ visibility: "hidden" }}
-              aria-hidden
-            >
-              →
-            </span>
-          </div>
         ) : (
           <div
             className="brana-vyzva-plocha-hlavni"
