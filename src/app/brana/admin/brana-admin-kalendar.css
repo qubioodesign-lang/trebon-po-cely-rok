@@ -6,14 +6,23 @@
 
 .brana-admin-kalendar {
   --brana-admin-akce-accent: #cf9168;
+  /* Položky ~ obsahová šířka veřejné BRÁNY (max-w-md − px-6); za časem zůstane volný prostor */
+  --brana-admin-polozky-sirka: 24rem;
+  --brana-admin-datum-sirka: 9rem;
+  --brana-admin-den-mezera: 0.5rem;
   background: #fff;
+  max-width: calc(
+    var(--brana-admin-datum-sirka) + var(--brana-admin-den-mezera) +
+      var(--brana-admin-polozky-sirka)
+  );
 }
 
 .brana-admin-kalendar-den {
   display: grid;
-  grid-template-columns: minmax(7.5rem, 9rem) minmax(0, 1fr);
+  grid-template-columns: minmax(7.5rem, var(--brana-admin-datum-sirka))
+    minmax(0, var(--brana-admin-polozky-sirka));
   align-items: start;
-  column-gap: 0.5rem;
+  column-gap: var(--brana-admin-den-mezera);
   padding-top: 1rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid rgb(229 229 229 / 0.6);
@@ -33,6 +42,11 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  /* Stejná šířka jako denní řádek – centrované jen v pracovním bloku, ne přes celou stránku */
+  max-width: calc(
+    var(--brana-admin-datum-sirka) + var(--brana-admin-den-mezera) +
+      var(--brana-admin-polozky-sirka)
+  );
   padding-top: 0.75rem;
   padding-bottom: 0.75rem;
 }
