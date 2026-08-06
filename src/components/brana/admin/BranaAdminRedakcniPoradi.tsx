@@ -100,7 +100,11 @@ export function BranaAdminRedakcniPoradi({ pocatecniPolozky }: Props) {
 
       <div className="space-y-3">
         <h3 className="text-base font-normal text-text">MIMO PRVNÍ KOSTRU</h3>
-        <RedakcniTabulka polozky={mimo} onChange={aktualizovat} />
+        <RedakcniTabulka
+          polozky={mimo}
+          onChange={aktualizovat}
+          pracovniRadek
+        />
       </div>
     </div>
   );
@@ -109,21 +113,24 @@ export function BranaAdminRedakcniPoradi({ pocatecniPolozky }: Props) {
 function RedakcniTabulka({
   polozky,
   onChange,
+  pracovniRadek = false,
 }: {
   polozky: BranaRedakcniPolozkaStav[];
   onChange: (
     id: string,
     zmena: Partial<BranaRedakcniPolozkaStav>,
   ) => void;
+  /** Vizuální prázdný řádek – nepatří do dat, neukládá se */
+  pracovniRadek?: boolean;
 }) {
   return (
     <table className="w-full table-fixed border-collapse text-left">
       <colgroup>
         <col className="w-[3.75rem]" />
-        <col className="w-[34%]" />
-        <col className="w-[3.75rem]" />
-        <col className="w-[3.75rem]" />
-        <col className="w-[3.75rem]" />
+        <col className="w-[30%]" />
+        <col className="w-[5rem]" />
+        <col className="w-[6.5rem]" />
+        <col className="w-[4.5rem]" />
         <col />
       </colgroup>
       <thead>
@@ -241,6 +248,30 @@ function RedakcniTabulka({
             </td>
           </tr>
         ))}
+        {pracovniRadek ? (
+          <tr className="border-b border-text-velmiJemny/15" aria-hidden="true">
+            <td className="py-2 pr-2 align-top">
+              <select className={VSTUP} disabled tabIndex={-1} value="" aria-hidden="true">
+                <option value="" />
+              </select>
+            </td>
+            <td className="py-2 pr-3 pl-1 align-top text-sm text-text" />
+            <td className={`${ODD} py-2 px-1 align-top`}>
+              <input type="text" className={VSTUP} disabled tabIndex={-1} value="" readOnly aria-hidden="true" />
+            </td>
+            <td className={`${ODD} py-2 px-1 align-top`}>
+              <input type="text" className={VSTUP} disabled tabIndex={-1} value="" readOnly aria-hidden="true" />
+            </td>
+            <td className={`${ODD} py-2 px-1 align-top`}>
+              <select className={VSTUP} disabled tabIndex={-1} value="" aria-hidden="true">
+                <option value="" />
+              </select>
+            </td>
+            <td className={`${ODD} py-2 pl-3 align-top`}>
+              <input type="text" className={VSTUP} disabled tabIndex={-1} value="" readOnly aria-hidden="true" />
+            </td>
+          </tr>
+        ) : null}
       </tbody>
     </table>
   );
