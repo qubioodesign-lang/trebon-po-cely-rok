@@ -58,8 +58,13 @@ async function nacistTextZPrivateBlob(): Promise<BlobCteniTextu> {
       ...volby,
     });
 
-    if (!vysledek?.stream) {
-      throw new Error("Blob get vrátil prázdnou odpověď.");
+    // Vercel Blob get() vrací null, pokud objekt ještě neexistuje
+    if (vysledek === null) {
+      return { stav: "neexistuje" };
+    }
+
+    if (!vysledek.stream) {
+      throw new Error("Blob get vrátil odpověď bez použitelného streamu.");
     }
 
     const text = await new Response(vysledek.stream).text();
