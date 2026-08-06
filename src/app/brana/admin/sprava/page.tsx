@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { branaAdminInterniCesta } from "@/lib/brana/admin";
 
-/** Kořen administrace BRÁNY – přesměrování na výchozí sekci Správy (Kalendář) */
-export default function StrankaBranaAdmin() {
+/** Správa – výchozí přesměrování na Kalendář */
+export default function StrankaBranaAdminSprava() {
   redirect(branaAdminInterniCesta("sprava", "kalendar"));
 }
