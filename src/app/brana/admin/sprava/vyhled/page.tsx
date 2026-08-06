@@ -2,8 +2,8 @@ import { headers } from "next/headers";
 import { BranaAdminObal } from "@/components/brana/admin/BranaAdminObal";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 
-/** Správa → Zdroje – zatím pouze nadpis */
-export default async function StrankaBranaAdminZdroje() {
+/** Správa → Výhled – prázdná pracovní plocha (stejný základní vzhled jako Kalendář) */
+export default async function StrankaBranaAdminVyhled() {
   if (!(await jeAdminPrihlasen())) {
     return null;
   }
@@ -14,18 +14,20 @@ export default async function StrankaBranaAdminZdroje() {
     <BranaAdminObal
       host={host}
       aktivniCast="sprava"
-      aktivniSpravaSekce="zdroje"
+      aktivniSpravaSekce="vyhled"
     >
       <section
-        className="space-y-3"
-        aria-labelledby="brana-admin-zdroje-nadpis"
+        className="space-y-3 bg-white"
+        aria-labelledby="brana-admin-vyhled-nadpis"
       >
         <h2
-          id="brana-admin-zdroje-nadpis"
+          id="brana-admin-vyhled-nadpis"
           className="text-base font-normal text-text"
         >
-          Zdroje
+          Výhled
         </h2>
+
+        <div role="region" aria-label="Výhled" />
       </section>
     </BranaAdminObal>
   );

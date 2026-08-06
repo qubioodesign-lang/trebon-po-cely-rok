@@ -5,7 +5,12 @@ import { BRANA_ADMIN_CESTA } from "./konstanty";
 export type BranaAdminHlavniCast = "sprava" | "analytika";
 
 /** Sekce uvnitř Správy – připravené pro budoucí funkce */
-export type BranaAdminSpravaSekce = "kalendar" | "zdroje" | "zaloha";
+export type BranaAdminSpravaSekce =
+  | "kalendar"
+  | "vyhled"
+  | "redakcni-poradi"
+  | "zdroje"
+  | "zaloha";
 
 export type BranaAdminNavPolozka<T extends string> = {
   id: T;
@@ -22,10 +27,17 @@ export const BRANA_ADMIN_HLAVNI_CASTI = [
 
 /**
  * Sekce Správy.
- * Kalendář je zamýšlený hlavní pracovní prostor; Zdroje a Záloha se připojí později.
+ * Kalendář, Výhled, Redakční pořadí a Zdroje tvoří základní redakční strukturu;
+ * Záloha zůstává připravená pro pozdější napojení.
  */
 export const BRANA_ADMIN_SPRAVA_SEKCE = [
   { id: "kalendar", label: "Kalendář", segment: "kalendar" },
+  { id: "vyhled", label: "Výhled", segment: "vyhled" },
+  {
+    id: "redakcni-poradi",
+    label: "Redakční pořadí",
+    segment: "redakcni-poradi",
+  },
   { id: "zdroje", label: "Zdroje", segment: "zdroje" },
   { id: "zaloha", label: "Záloha", segment: "zaloha" },
 ] as const satisfies ReadonlyArray<BranaAdminNavPolozka<BranaAdminSpravaSekce>>;
