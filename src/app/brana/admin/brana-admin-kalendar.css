@@ -1,0 +1,97 @@
+/*
+ * Styly pracovního kalendáře – pouze administrace BRÁNY.
+ * Typografie položky převzata z veřejných definic .brana-akce-* / .brana-seznam-akci
+ * (velikost 0.9375rem, leading-snug, mřížka, oranžová #cf9168), bez úpravy veřejného CSS.
+ */
+
+.brana-admin-kalendar {
+  --brana-admin-akce-accent: #cf9168;
+  background: #fff;
+}
+
+.brana-admin-kalendar-den {
+  display: grid;
+  grid-template-columns: minmax(7.5rem, 9rem) minmax(0, 1fr);
+  column-gap: 1rem;
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgb(229 229 229 / 0.6);
+}
+
+.brana-admin-kalendar-datum {
+  margin: 0;
+  padding-top: 0.125rem;
+  font-size: 0.9375rem;
+  font-weight: 400;
+  line-height: 1.375;
+  white-space: nowrap;
+  color: var(--text, #1a1a1a);
+}
+
+.brana-admin-kalendar-orientace {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+
+.brana-admin-kalendar-orientace-linka {
+  flex: 1 1 auto;
+  height: 1.5px;
+  background: rgb(115 115 115 / 0.7);
+}
+
+.brana-admin-kalendar-orientace-popisek {
+  flex: 0 0 auto;
+  font-size: 0.625rem;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  color: #525252;
+}
+
+/* Položka akce – stejná struktura a míry jako veřejná BRÁNA, barvy pro světlé pozadí */
+.brana-admin-seznam-akci {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.brana-admin-seznam-akci > li + li {
+  margin-top: 0.75rem;
+}
+
+.brana-admin-seznam-akci > li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: 0.75rem;
+  font-size: 0.9375rem;
+  font-weight: 400;
+  line-height: 1.375;
+  color: var(--text, #1a1a1a);
+}
+
+.brana-admin-akce-obsah {
+  min-width: 0;
+}
+
+.brana-admin-akce-radek {
+  min-width: 0;
+}
+
+.brana-admin-akce-typ {
+  color: var(--brana-admin-akce-accent);
+}
+
+.brana-admin-akce-nazev {
+  display: block;
+}
+
+.brana-admin-akce-cas {
+  flex-shrink: 0;
+  justify-self: end;
+  white-space: nowrap;
+  font-size: calc(0.9375rem * 0.875);
+  color: var(--text-jemny, #6b6b6b);
+}

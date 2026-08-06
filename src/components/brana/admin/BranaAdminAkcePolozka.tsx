@@ -1,7 +1,7 @@
 /**
  * Jedna publikační položka v administraci BRÁNY.
  * Pouze vykreslení CO / KDE / názvu / údaje vpravo.
- * Typografie přes existující třídy .brana-akce-* (beze změny veřejné BRÁNY).
+ * Vzhled: brana-admin-kalendar.css (kopie měr z veřejné BRÁNY).
  */
 export type BranaAdminAkcePolozkaProps = {
   typ: string;
@@ -18,14 +18,18 @@ export function BranaAdminAkcePolozka({
 }: BranaAdminAkcePolozkaProps) {
   return (
     <li>
-      <div className="brana-akce-obsah">
-        <div className="brana-akce-radek">
-          <span className="brana-akce-typ">{typ}</span>
-          {misto ? <span className="brana-akce-misto"> {misto}</span> : null}
+      <div className="brana-admin-akce-obsah">
+        <div className="brana-admin-akce-radek">
+          <span className="brana-admin-akce-typ">{typ}</span>
+          {misto ? (
+            <span className="brana-admin-akce-misto"> {misto}</span>
+          ) : null}
         </div>
-        {nazev ? <span className="brana-akce-nazev">{nazev}</span> : null}
+        {nazev ? (
+          <span className="brana-admin-akce-nazev">{nazev}</span>
+        ) : null}
       </div>
-      <span className="brana-akce-cas">{udajVpravo}</span>
+      <span className="brana-admin-akce-cas">{udajVpravo}</span>
     </li>
   );
 }

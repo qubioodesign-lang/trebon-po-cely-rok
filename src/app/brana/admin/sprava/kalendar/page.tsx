@@ -6,6 +6,7 @@ import {
   type BranaAkceVstup,
 } from "@/lib/brana/admin/akce-rozlozeni";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
+import "../../brana-admin-kalendar.css";
 
 type UkazkovyDen = {
   datumLabel: string;
@@ -83,7 +84,7 @@ export default async function StrankaBranaAdminKalendar() {
       aktivniSpravaSekce="kalendar"
     >
       <section
-        className="space-y-3 bg-white"
+        className="brana-admin-kalendar space-y-3"
         aria-labelledby="brana-admin-kalendar-nadpis"
       >
         <h2
@@ -93,18 +94,14 @@ export default async function StrankaBranaAdminKalendar() {
           Pracovní kalendář
         </h2>
 
-        <div
-          className="bg-white"
-          role="region"
-          aria-label="Pracovní kalendář"
-        >
+        <div role="region" aria-label="Pracovní kalendář">
           {UKAZKOVE_DNY.map((den) => (
             <div key={den.datumLabel}>
               <article className="brana-admin-kalendar-den">
                 <h3 className="brana-admin-kalendar-datum">{den.datumLabel}</h3>
                 <div>
                   {den.polozky.length > 0 ? (
-                    <ul className="brana-seznam-akci">
+                    <ul className="brana-admin-seznam-akci">
                       {den.polozky.map((akce) => {
                         const { typ, misto, nazev, cas } = rozlozAkci(akce);
                         return (
