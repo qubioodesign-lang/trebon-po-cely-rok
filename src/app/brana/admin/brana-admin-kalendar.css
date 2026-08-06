@@ -12,7 +12,8 @@
 .brana-admin-kalendar-den {
   display: grid;
   grid-template-columns: minmax(7.5rem, 9rem) minmax(0, 1fr);
-  column-gap: 1rem;
+  align-items: start;
+  column-gap: 0.5rem;
   padding-top: 1rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid rgb(229 229 229 / 0.6);
@@ -20,7 +21,7 @@
 
 .brana-admin-kalendar-datum {
   margin: 0;
-  padding-top: 0.125rem;
+  padding: 0;
   font-size: 0.9375rem;
   font-weight: 400;
   line-height: 1.375;
@@ -58,7 +59,7 @@
 }
 
 .brana-admin-seznam-akci > li + li {
-  margin-top: 0.75rem;
+  margin-top: 0.375rem;
 }
 
 .brana-admin-seznam-akci > li {
