@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BranaAdminOdhlaseni } from "@/components/brana/admin/BranaAdminOdhlaseni";
 import {
   BRANA_ADMIN_HLAVNI_CASTI,
   BRANA_ADMIN_NAZEV,
@@ -29,7 +30,12 @@ export function BranaAdminObal({
   return (
     <>
       <header className="brana-admin-hlavicka space-y-3">
-        <h1 className="brana-admin-nadpis">{BRANA_ADMIN_NAZEV.toLowerCase()}</h1>
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="brana-admin-nadpis">
+            {BRANA_ADMIN_NAZEV.toLowerCase()}
+          </h1>
+          <BranaAdminOdhlaseni />
+        </div>
 
         <nav
           className="flex flex-wrap gap-4"
