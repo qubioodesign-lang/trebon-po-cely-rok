@@ -7,16 +7,85 @@ import {
 } from "@/lib/brana/admin/redakcni-kostra";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 
+/** Jemné svislé oddělení – stejný tón jako vodorovné linky administrace */
+const ODD = "border-l border-text-velmiJemny/15";
+
 function RadekTabulky({ polozka }: { polozka: BranaRedakcniPolozka }) {
   return (
     <tr className="border-b border-text-velmiJemny/15">
-      <td className="py-2 pr-3 align-top text-sm text-text">{polozka.pouzivat}</td>
-      <td className="py-2 pr-3 align-top text-sm text-text">{polozka.polozka}</td>
-      <td className="py-2 pr-3 align-top text-sm text-text" />
-      <td className="py-2 pr-3 align-top text-sm text-text" />
-      <td className="py-2 pr-3 align-top text-sm text-text" />
-      <td className="py-2 align-top text-sm text-text" />
+      <td className="whitespace-nowrap py-2 pr-2 align-top text-sm text-text">
+        {polozka.pouzivat}
+      </td>
+      <td className="py-2 pr-3 pl-1 align-top text-sm text-text">
+        {polozka.polozka}
+      </td>
+      <td className={`${ODD} py-2 px-2 align-top text-sm text-text`} />
+      <td className={`${ODD} py-2 px-2 align-top text-sm text-text`} />
+      <td className={`${ODD} py-2 px-2 align-top text-sm text-text`} />
+      <td className={`${ODD} py-2 pl-3 align-top text-sm text-text`} />
     </tr>
+  );
+}
+
+function HlavickaTabulky() {
+  return (
+    <thead>
+      <tr className="border-b border-text-velmiJemny/25">
+        <th className="whitespace-nowrap py-2 pr-2 text-sm font-medium text-text">
+          Používat
+        </th>
+        <th className="py-2 pr-3 pl-1 text-sm font-medium text-text">
+          Položka
+        </th>
+        <th
+          className={`${ODD} whitespace-nowrap py-2 px-2 text-sm font-medium text-text`}
+        >
+          Priorita
+        </th>
+        <th
+          className={`${ODD} whitespace-nowrap py-2 px-2 text-sm font-medium text-text`}
+        >
+          Subpriorita
+        </th>
+        <th
+          className={`${ODD} whitespace-nowrap py-2 px-2 text-sm font-medium text-text`}
+        >
+          Výhled
+        </th>
+        <th className={`${ODD} py-2 pl-3 text-sm font-medium text-text`}>
+          Poznámka
+        </th>
+      </tr>
+    </thead>
+  );
+}
+
+function RedakcniTabulka({
+  polozky,
+}: {
+  polozky: readonly BranaRedakcniPolozka[];
+}) {
+  return (
+    <table className="w-full table-fixed border-collapse text-left">
+      <colgroup>
+        {/* Používat – co nejužší */}
+        <col className="w-[4.5rem]" />
+        {/* Položka – hlavní pracovní sloupec v levé polovině */}
+        <col className="w-[28%]" />
+        {/* Priorita / Subpriorita / Výhled – stejně úzké */}
+        <col className="w-[5.5rem]" />
+        <col className="w-[5.5rem]" />
+        <col className="w-[5.5rem]" />
+        {/* Poznámka – zbývající prostor vpravo */}
+        <col />
+      </colgroup>
+      <HlavickaTabulky />
+      <tbody>
+        {polozky.map((polozka) => (
+          <RadekTabulky key={polozka.polozka} polozka={polozka} />
+        ))}
+      </tbody>
+    </table>
   );
 }
 
@@ -45,69 +114,11 @@ export default async function StrankaBranaAdminRedakcniPoradi() {
           Redakční pořadí
         </h2>
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[40rem] border-collapse text-left">
-            <thead>
-              <tr className="border-b border-text-velmiJemny/25">
-                <th className="py-2 pr-3 text-sm font-medium text-text">
-                  Používat
-                </th>
-                <th className="py-2 pr-3 text-sm font-medium text-text">
-                  Položka
-                </th>
-                <th className="py-2 pr-3 text-sm font-medium text-text">
-                  Priorita
-                </th>
-                <th className="py-2 pr-3 text-sm font-medium text-text">
-                  Subpriorita
-                </th>
-                <th className="py-2 pr-3 text-sm font-medium text-text">
-                  Výhled
-                </th>
-                <th className="py-2 text-sm font-medium text-text">Poznámka</th>
-              </tr>
-            </thead>
-            <tbody>
-              {BRANA_REDAKCNI_KOSTRA.map((polozka) => (
-                <RadekTabulky key={polozka.polozka} polozka={polozka} />
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <RedakcniTabulka polozky={BRANA_REDAKCNI_KOSTRA} />
 
         <div className="space-y-3">
           <h3 className="text-base font-normal text-text">MIMO PRVNÍ KOSTRU</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[40rem] border-collapse text-left">
-              <thead>
-                <tr className="border-b border-text-velmiJemny/25">
-                  <th className="py-2 pr-3 text-sm font-medium text-text">
-                    Používat
-                  </th>
-                  <th className="py-2 pr-3 text-sm font-medium text-text">
-                    Položka
-                  </th>
-                  <th className="py-2 pr-3 text-sm font-medium text-text">
-                    Priorita
-                  </th>
-                  <th className="py-2 pr-3 text-sm font-medium text-text">
-                    Subpriorita
-                  </th>
-                  <th className="py-2 pr-3 text-sm font-medium text-text">
-                    Výhled
-                  </th>
-                  <th className="py-2 text-sm font-medium text-text">
-                    Poznámka
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {BRANA_REDAKCNI_MIMO_KOSTRA.map((polozka) => (
-                  <RadekTabulky key={polozka.polozka} polozka={polozka} />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <RedakcniTabulka polozky={BRANA_REDAKCNI_MIMO_KOSTRA} />
         </div>
       </section>
     </BranaAdminObal>
