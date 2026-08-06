@@ -1,10 +1,74 @@
 import { headers } from "next/headers";
+import { BranaAdminAkcePolozka } from "@/components/brana/admin/BranaAdminAkcePolozka";
 import { BranaAdminObal } from "@/components/brana/admin/BranaAdminObal";
+import {
+  rozlozAkci,
+  type BranaAkceVstup,
+} from "@/lib/brana/admin/akce-rozlozeni";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 
-const POCET_RADKU = 30;
+type UkazkovyDen = {
+  datumLabel: string;
+  polozky: BranaAkceVstup[];
+  /** Orientační linka hned pod tímto dnem */
+  orientacePoDni?: "zitra" | "schvaleno";
+};
 
-/** Správa → Kalendář – pracovní plocha redaktora (řádky dnů + dvě orientační linky) */
+/** Statická ukázka rozložení – bez výpočtů a datové logiky */
+const UKAZKOVE_DNY: UkazkovyDen[] = [
+  {
+    datumLabel: "Čtvrtek 6. 8.",
+    polozky: [
+      {
+        mistoNeboTyp: "Kino Aurora",
+        nazev: "Bobr a přátelé",
+        cas: "19:30",
+      },
+      {
+        mistoNeboTyp: "Divadlo J. K. Tyla",
+        nazev: "Svědomitě nepřipravení",
+        cas: "19:30",
+      },
+      {
+        mistoNeboTyp: "Divadlo",
+        nazev: "Jak se Petr Vok na Třeboň stěhovati ráčil",
+        cas: "18:20",
+      },
+    ],
+    orientacePoDni: "zitra",
+  },
+  {
+    datumLabel: "Pátek 7. 8.",
+    polozky: [],
+    orientacePoDni: "schvaleno",
+  },
+  {
+    datumLabel: "Sobota 8. 8.",
+    polozky: [],
+  },
+];
+
+function OrientacniLinka({
+  popisek,
+  ariaLabel,
+}: {
+  popisek: string;
+  ariaLabel: string;
+}) {
+  return (
+    <div
+      className="brana-admin-kalendar-orientace"
+      role="separator"
+      aria-label={ariaLabel}
+    >
+      <div className="brana-admin-kalendar-orientace-linka" />
+      <span className="brana-admin-kalendar-orientace-popisek">{popisek}</span>
+      <div className="brana-admin-kalendar-orientace-linka" />
+    </div>
+  );
+}
+
+/** Správa → Kalendář – svislá osa dnů s publikačními položkami */
 export default async function StrankaBranaAdminKalendar() {
   if (!(await jeAdminPrihlasen())) {
     return null;
@@ -19,55 +83,61 @@ export default async function StrankaBranaAdminKalendar() {
       aktivniSpravaSekce="kalendar"
     >
       <section
-        className="flex min-h-0 flex-1 flex-col space-y-3 bg-white"
+        className="space-y-3 bg-white"
         aria-labelledby="brana-admin-kalendar-nadpis"
       >
         <h2
           id="brana-admin-kalendar-nadpis"
-          className="shrink-0 text-base font-normal text-neutral-800"
+          className="text-base font-normal text-text"
         >
           Pracovní kalendář
         </h2>
 
         <div
-          className="relative min-h-[calc(100dvh-11rem)] flex-1 bg-white"
+          className="bg-white"
           role="region"
           aria-label="Pracovní kalendář"
         >
-          <div className="absolute inset-0 flex flex-col">
-            {Array.from({ length: POCET_RADKU }, (_, index) => (
-              <div
-                key={index}
-                className="min-h-11 flex-1 border-b border-neutral-200/55"
-                aria-hidden="true"
-              />
-            ))}
-          </div>
+          {UKAZKOVE_DNY.map((den) => (
+            <div key={den.datumLabel}>
+              <article className="brana-admin-kalendar-den">
+                <h3 className="brana-admin-kalendar-datum">{den.datumLabel}</h3>
+                <div>
+                  {den.polozky.length > 0 ? (
+                    <ul className="brana-seznam-akci">
+                      {den.polozky.map((akce) => {
+                        const { typ, misto, nazev, cas } = rozlozAkci(akce);
+                        return (
+                          <BranaAdminAkcePolozka
+                            key={`${akce.mistoNeboTyp}-${akce.nazev}-${akce.cas}`}
+                            typ={typ}
+                            misto={misto}
+                            nazev={nazev}
+                            udajVpravo={cas}
+                          />
+                        );
+                      })}
+                    </ul>
+                  ) : (
+                    <div className="min-h-11" aria-hidden="true" />
+                  )}
+                </div>
+              </article>
 
-          {/* Orientační značky – čitelnější kontrast, stále střídmé */}
-          <div
-            className="pointer-events-none absolute inset-x-0 top-[12.5%] z-10 flex items-center gap-3"
-            role="separator"
-            aria-label="Zítra se publikuje"
-          >
-            <div className="h-[1.5px] flex-1 bg-neutral-500/70" />
-            <span className="shrink-0 text-[0.625rem] font-normal tracking-[0.12em] text-neutral-600">
-              ZÍTRA SE PUBLIKUJE
-            </span>
-            <div className="h-[1.5px] flex-1 bg-neutral-500/70" />
-          </div>
-
-          <div
-            className="pointer-events-none absolute inset-x-0 top-[28.125%] z-10 flex items-center gap-3"
-            role="separator"
-            aria-label="Schváleno k publikaci"
-          >
-            <div className="h-[1.5px] flex-1 bg-neutral-500/70" />
-            <span className="shrink-0 text-[0.625rem] font-normal tracking-[0.12em] text-neutral-600">
-              SCHVÁLENO K PUBLIKACI
-            </span>
-            <div className="h-[1.5px] flex-1 bg-neutral-500/70" />
-          </div>
+              {den.orientacePoDni === "zitra" ? (
+                <OrientacniLinka
+                  popisek="ZÍTRA SE PUBLIKUJE"
+                  ariaLabel="Zítra se publikuje"
+                />
+              ) : null}
+              {den.orientacePoDni === "schvaleno" ? (
+                <OrientacniLinka
+                  popisek="SCHVÁLENO K PUBLIKACI"
+                  ariaLabel="Schváleno k publikaci"
+                />
+              ) : null}
+            </div>
+          ))}
         </div>
       </section>
     </BranaAdminObal>
