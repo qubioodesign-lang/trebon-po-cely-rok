@@ -9,7 +9,6 @@ const BRANA_CISTE_CESTY = new Set([
   "/7-dni",
   "/vyhled",
   "/vzkaz",
-  "/admin",
 ]);
 
 function jeBranaSubdomena(request: NextRequest): boolean {
@@ -31,12 +30,20 @@ export function middleware(request: NextRequest) {
     return response;
   }
 
+  // /brana/* včetně /brana/admin/* – bez dalšího přepisu (žádné /brana/brana/...)
   if (
     pathname.startsWith("/api/") ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/brana/")
   ) {
     return NextResponse.next();
+  }
+
+  // Administrace: /admin i všechny nested /admin/* → /brana/admin/*
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = `/brana${pathname}`;
+    return NextResponse.rewrite(url);
   }
 
   if (!BRANA_CISTE_CESTY.has(pathname)) {
