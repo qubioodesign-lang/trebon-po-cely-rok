@@ -250,7 +250,27 @@ function httpRequestNaOvereneAdresy(
   const puvodniHostname = cil.hostname.replace(/^\[|\]$/g, "");
 
   return new Promise((resolve, reject) => {
+    // DOČASNÁ DIAGNOSTIKA – odstranit po získání produkčního důkazu.
+    const requestStartedAt = Date.now();
+    const logPhase = (
+      phase: string,
+      extra: Record<string, string | number | boolean | null | undefined> = {},
+    ) => {
+      console.error("[BRANA_SCAN_NET_PHASE]", {
+        phase,
+        protocol: cil.protocol,
+        requestHostnameIsIP: isIP(
+          typeof pinned.address === "string" ? pinned.address : "",
+        ),
+        family: pinned.family,
+        port: cil.port || (cil.protocol === "https:" ? 443 : 80),
+        elapsedMs: Date.now() - requestStartedAt,
+        ...extra,
+      });
+    };
+
     if (signal.aborted) {
+      logPhase("abort-signal");
       reject(new Error("Načtení zdroje vypršelo."));
       return;
     }
@@ -307,10 +327,22 @@ function httpRequestNaOvereneAdresy(
       resolvedFamilies: overeneAdresy.map((a) => a.family),
     });
 
+    // DOČASNÁ DIAGNOSTIKA – odstranit po získání produkčního důkazu.
+    logPhase("before-request");
+
     const req = transport.request(requestOptions, (res) => {
+      // DOČASNÁ DIAGNOSTIKA – odstranit po získání produkčního důkazu.
+      logPhase("response", { statusCode: res.statusCode ?? null });
+
       const kusy: Buffer[] = [];
       let celkem = 0;
+      let firstDataLogged = false;
       res.on("data", (chunk: Buffer) => {
+        // DOČASNÁ DIAGNOSTIKA – odstranit po získání produkčního důkazu.
+        if (!firstDataLogged) {
+          firstDataLogged = true;
+          logPhase("first-data");
+        }
         celkem += chunk.length;
         if (celkem > FETCH_MAX_BYTU) {
           req.destroy();
@@ -320,6 +352,8 @@ function httpRequestNaOvereneAdresy(
         kusy.push(chunk);
       });
       res.on("end", () => {
+        // DOČASNÁ DIAGNOSTIKA – odstranit po získání produkčního důkazu.
+        logPhase("response-end");
         resolve({
           status: res.statusCode ?? 0,
           headers: res.headers,
@@ -330,12 +364,58 @@ function httpRequestNaOvereneAdresy(
       res.on("error", reject);
     });
 
+    // DOČASNÁ DIAGNOSTIKA – odstranit po získání produkčního důkazu.
+    req.on("socket", (socket) => {
+      const socketFamily =
+        "remoteFamily" in socket && typeof socket.remoteFamily === "string"
+          ? socket.remoteFamily
+          : undefined;
+      const encrypted =
+        "encrypted" in socket ? Boolean(socket.encrypted) : false;
+      logPhase("socket", {
+        socketFamily: socketFamily ?? null,
+        encrypted,
+      });
+      socket.on("connect", () => {
+        const connectFamily =
+          "remoteFamily" in socket && typeof socket.remoteFamily === "string"
+            ? socket.remoteFamily
+            : undefined;
+        logPhase("connect", {
+          socketFamily: connectFamily ?? null,
+          encrypted:
+            "encrypted" in socket ? Boolean(socket.encrypted) : false,
+        });
+      });
+      // TLS: secureConnect existuje na TLSSocket.
+      if (
+        cil.protocol === "https:" &&
+        "on" in socket &&
+        typeof (socket as { on?: unknown }).on === "function"
+      ) {
+        socket.on("secureConnect", () => {
+          logPhase("secureConnect", {
+            socketFamily:
+              "remoteFamily" in socket &&
+              typeof socket.remoteFamily === "string"
+                ? socket.remoteFamily
+                : null,
+            encrypted: true,
+          });
+        });
+      }
+    });
+
     const onAbort = () => {
+      // DOČASNÁ DIAGNOSTIKA – odstranit po získání produkčního důkazu.
+      logPhase("abort-listener");
       req.destroy();
       reject(new Error("Načtení zdroje vypršelo."));
     };
     signal.addEventListener("abort", onAbort, { once: true });
     req.on("timeout", () => {
+      // DOČASNÁ DIAGNOSTIKA – odstranit po získání produkčního důkazu.
+      logPhase("req-timeout");
       req.destroy();
       reject(new Error("Načtení zdroje vypršelo."));
     });
@@ -366,7 +446,15 @@ async function nacistTeloZdroje(
   url: string,
 ): Promise<{ text: string; contentType: string | null }> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  // DOČASNÁ DIAGNOSTIKA – odstranit po získání produkčního důkazu.
+  const abortSignalStartedAt = Date.now();
+  const timeout = setTimeout(() => {
+    console.error("[BRANA_SCAN_NET_PHASE]", {
+      phase: "abort-signal",
+      elapsedMs: Date.now() - abortSignalStartedAt,
+    });
+    controller.abort();
+  }, FETCH_TIMEOUT_MS);
 
   try {
     let aktualni = overitUrlProFetch(url);
