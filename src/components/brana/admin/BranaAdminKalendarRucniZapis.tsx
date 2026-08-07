@@ -92,8 +92,17 @@ function SeznamDnu({
                       cas: udalost.cas,
                     });
                     const jeRucni = udalost.redakcniPolozkaId === null;
+                    const cekaNaSchvaleni =
+                      udalost.stavSchvaleni === "CEKA_NA_SCHVALENI";
                     return (
-                      <li key={`${udalost.id}-${den.isoDen}`}>
+                      <li
+                        key={`${udalost.id}-${den.isoDen}`}
+                        className={
+                          cekaNaSchvaleni
+                            ? "brana-admin-akce-ceka-na-schvaleni"
+                            : undefined
+                        }
+                      >
                         <div className="brana-admin-akce-obsah">
                           <div className="brana-admin-akce-radek">
                             <span className="brana-admin-akce-typ">{typ}</span>
@@ -107,6 +116,11 @@ function SeznamDnu({
                           {nazev ? (
                             <span className="brana-admin-akce-nazev">
                               {nazev}
+                            </span>
+                          ) : null}
+                          {cekaNaSchvaleni ? (
+                            <span className="brana-admin-akce-ceka-stitok">
+                              Čeká na schválení
                             </span>
                           ) : null}
                           {rucniAkce && jeRucni ? (

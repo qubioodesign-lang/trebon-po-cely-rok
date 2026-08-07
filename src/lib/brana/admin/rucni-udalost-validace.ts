@@ -108,6 +108,8 @@ export function validovatRucniUdalostVstup(
       mistoNeboTyp,
       nazev,
       rucniPoziceVDni,
+      /** Ruční zápis redaktora – vždy schváleno, bez schvalovacího workflow */
+      stavSchvaleni: "SCHVALENO",
     },
   };
 }

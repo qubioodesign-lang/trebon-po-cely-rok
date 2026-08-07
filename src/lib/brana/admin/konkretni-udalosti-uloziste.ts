@@ -7,7 +7,11 @@ import {
   maBranaAdminBlobKonfiguraci,
   ziskatVolbyBranaAdminBlob,
 } from "./env-blob-brana-admin";
-import type { BranaKonkretniUdalost } from "./konkretni-udalost";
+import {
+  jeBranaStavSchvaleni,
+  normalizovatStavSchvaleni,
+  type BranaKonkretniUdalost,
+} from "./konkretni-udalost";
 import { validovatRucniUdalostVstup } from "./rucni-udalost-validace";
 
 /**
@@ -59,24 +63,54 @@ function vychoziDokument(): BranaKonkretniUdalostiDokument {
   };
 }
 
-function jeRucniUdalostZBlobu(hodnota: unknown): hodnota is BranaKonkretniUdalost {
+/**
+ * Ruční událost z Blobu.
+ * Pole stavSchvaleni smí chybět (starší záznamy) – pak SCHVALENO.
+ * Neplatná hodnota pole dokument invaliduje (bez tichého přepisu).
+ */
+function jeRucniUdalostZBlobu(hodnota: unknown): boolean {
   if (!hodnota || typeof hodnota !== "object") {
     return false;
   }
   const u = hodnota as Record<string, unknown>;
-  return (
-    typeof u.id === "string" &&
-    u.id.length > 0 &&
-    u.redakcniPolozkaId === null &&
-    typeof u.datumOd === "string" &&
-    typeof u.datumDo === "string" &&
-    typeof u.cas === "string" &&
-    typeof u.mistoNeboTyp === "string" &&
-    typeof u.nazev === "string" &&
-    typeof u.rucniPoziceVDni === "number" &&
-    Number.isInteger(u.rucniPoziceVDni) &&
-    u.rucniPoziceVDni >= 0
-  );
+  if (
+    !(
+      typeof u.id === "string" &&
+      u.id.length > 0 &&
+      u.redakcniPolozkaId === null &&
+      typeof u.datumOd === "string" &&
+      typeof u.datumDo === "string" &&
+      typeof u.cas === "string" &&
+      typeof u.mistoNeboTyp === "string" &&
+      typeof u.nazev === "string" &&
+      typeof u.rucniPoziceVDni === "number" &&
+      Number.isInteger(u.rucniPoziceVDni) &&
+      u.rucniPoziceVDni >= 0
+    )
+  ) {
+    return false;
+  }
+  if (u.stavSchvaleni !== undefined && !jeBranaStavSchvaleni(u.stavSchvaleni)) {
+    return false;
+  }
+  return true;
+}
+
+function normalizovatRucniUdalostZBlobu(
+  hodnota: unknown,
+): BranaKonkretniUdalost {
+  const u = hodnota as Record<string, unknown>;
+  return {
+    id: u.id as string,
+    redakcniPolozkaId: null,
+    datumOd: u.datumOd as string,
+    datumDo: u.datumDo as string,
+    cas: u.cas as string,
+    mistoNeboTyp: u.mistoNeboTyp as string,
+    nazev: u.nazev as string,
+    rucniPoziceVDni: u.rucniPoziceVDni as number,
+    stavSchvaleni: normalizovatStavSchvaleni(u.stavSchvaleni),
+  };
 }
 
 function parsovatDokument(
@@ -101,7 +135,7 @@ function parsovatDokument(
   return {
     verzeUloziste: VERZE_ULOZISTE,
     posledniScanDokoncen: data.posledniScanDokoncen,
-    udalosti: data.udalosti,
+    udalosti: data.udalosti.map(normalizovatRucniUdalostZBlobu),
   };
 }
 

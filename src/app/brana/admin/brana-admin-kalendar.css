@@ -110,3 +110,23 @@
   font-size: calc(0.9375rem * 0.875);
   color: var(--text-jemny, #6b6b6b);
 }
+
+/* Čeká na schválení – jemné odlišení, bez změny pořadí */
+.brana-admin-seznam-akci > li.brana-admin-akce-ceka-na-schvaleni {
+  background: rgb(207 145 104 / 0.08);
+  margin-left: -0.35rem;
+  margin-right: -0.35rem;
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
+  padding-top: 0.2rem;
+  padding-bottom: 0.2rem;
+}
+
+.brana-admin-akce-ceka-stitok {
+  display: block;
+  margin-top: 0.125rem;
+  font-size: 0.6875rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: var(--text-jemny, #6b6b6b);
+}

@@ -5,6 +5,12 @@
 
 import { maDatumOdPatritDoVyhledu } from "./obdobi-7-dni";
 
+/**
+ * Stav schválení k budoucí publikaci.
+ * Pouze dvě hodnoty – bez zamítnutí, expirace ani jiných workflow stavů.
+ */
+export type BranaStavSchvaleni = "CEKA_NA_SCHVALENI" | "SCHVALENO";
+
 export type BranaKonkretniUdalost = {
   /** Identita konkrétní události (ne redakční katalog) */
   id: string;
@@ -26,7 +32,28 @@ export type BranaKonkretniUdalost = {
    * U automatických událostí null.
    */
   rucniPoziceVDni: number | null;
+  /**
+   * Schválení k publikaci.
+   * Starší záznamy bez pole se čtou jako SCHVALENO (viz normalizovatStavSchvaleni).
+   */
+  stavSchvaleni: BranaStavSchvaleni;
 };
+
+export function jeBranaStavSchvaleni(
+  hodnota: unknown,
+): hodnota is BranaStavSchvaleni {
+  return hodnota === "CEKA_NA_SCHVALENI" || hodnota === "SCHVALENO";
+}
+
+/**
+ * Chybějící / neznámá hodnota → SCHVALENO.
+ * Zajišťuje, že současný obsah Kalendáře nezůstane „čekající“.
+ */
+export function normalizovatStavSchvaleni(
+  hodnota: unknown,
+): BranaStavSchvaleni {
+  return hodnota === "CEKA_NA_SCHVALENI" ? "CEKA_NA_SCHVALENI" : "SCHVALENO";
+}
 
 export type BranaRedakcniPoradiProKalendar = {
   priorita: number | null;
