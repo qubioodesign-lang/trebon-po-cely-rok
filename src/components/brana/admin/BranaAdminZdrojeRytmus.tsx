@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { ulozitBranaZdrojeDlouhodobyIntervalAkce } from "@/app/brana/admin/actions";
 import {
   BRANA_DLOUHODOBY_INTERVALY_DNI,
   BRANA_ZDROJE_RYTMUS_VYCHOZI,
@@ -11,21 +12,52 @@ import {
 } from "@/lib/brana/admin/zdroj";
 
 const VSTUP =
-  "border border-text-velmiJemny/25 bg-transparent px-1.5 py-1 text-sm text-text outline-none focus:border-text-jemny/50";
+  "border border-text-velmiJemny/25 bg-transparent px-1.5 py-1 text-sm text-text outline-none focus:border-text-jemny/50 disabled:opacity-50";
 
 type Props = {
-  vychoziDlouhodobyIntervalDni?: BranaDlouhodobyIntervalDni;
+  dlouhodobyIntervalDni: BranaDlouhodobyIntervalDni;
+  /** false při chybě čtení Blobu – select se zablokuje */
+  uloziteniPovoleno: boolean;
+  chybaCteni?: string | null;
 };
 
 /**
- * Malé nastavení rytmu kontroly podle typu zdroje.
- * Zatím bez trvalého uložení – výchozí hodnota 21 dní zůstává v modelu.
+ * Nastavení rytmu kontroly podle typu zdroje.
+ * Dlouhodobý interval se ukládá do PRIVATE Blobu; rychlý rytmus je pevný.
  */
 export function BranaAdminZdrojeRytmus({
-  vychoziDlouhodobyIntervalDni = BRANA_ZDROJE_RYTMUS_VYCHOZI.dlouhodobyIntervalDni,
+  dlouhodobyIntervalDni: pocatecniInterval,
+  uloziteniPovoleno,
+  chybaCteni = null,
 }: Props) {
   const [dlouhodobyIntervalDni, setDlouhodobyIntervalDni] =
-    useState<BranaDlouhodobyIntervalDni>(vychoziDlouhodobyIntervalDni);
+    useState<BranaDlouhodobyIntervalDni>(pocatecniInterval);
+  const [chyba, setChyba] = useState<string | null>(chybaCteni);
+  const [pending, startTransition] = useTransition();
+
+  function zmenitInterval(novaHodnota: BranaDlouhodobyIntervalDni) {
+    if (!uloziteniPovoleno || pending) {
+      return;
+    }
+    if (novaHodnota === dlouhodobyIntervalDni) {
+      return;
+    }
+
+    const predchozi = dlouhodobyIntervalDni;
+    setChyba(null);
+    setDlouhodobyIntervalDni(novaHodnota);
+
+    startTransition(async () => {
+      const vysledek =
+        await ulozitBranaZdrojeDlouhodobyIntervalAkce(novaHodnota);
+      if (!vysledek.uspech) {
+        setDlouhodobyIntervalDni(predchozi);
+        setChyba(vysledek.chyba);
+        return;
+      }
+      setDlouhodobyIntervalDni(vysledek.dlouhodobyIntervalDni);
+    });
+  }
 
   return (
     <div className="space-y-3" aria-label="Rytmus kontroly zdrojů">
@@ -38,10 +70,11 @@ export function BranaAdminZdrojeRytmus({
           <select
             className={VSTUP}
             value={String(dlouhodobyIntervalDni)}
+            disabled={!uloziteniPovoleno || pending}
             onChange={(e) => {
               const cislo = Number(e.target.value);
               if (jeDlouhodobyIntervalDni(cislo)) {
-                setDlouhodobyIntervalDni(cislo);
+                zmenitInterval(cislo);
               }
             }}
             aria-label="Interval kontroly dlouhodobých zdrojů"
@@ -64,6 +97,12 @@ export function BranaAdminZdrojeRytmus({
           {popisekRychlehoRytmu(BRANA_ZDROJE_RYTMUS_VYCHOZI.rychlyRytmus)}
         </p>
       </div>
+
+      {chyba ? (
+        <p className="text-sm text-text" role="alert">
+          {chyba}
+        </p>
+      ) : null}
     </div>
   );
 }

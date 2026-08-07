@@ -13,6 +13,11 @@ import { ulozitRedakcniPoradi } from "@/lib/brana/admin/redakcni-poradi-uloziste
 import { validovatRedakcniPoradiVstup } from "@/lib/brana/admin/redakcni-poradi-validace";
 import type { BranaRedakcniPolozkaStav } from "@/lib/brana/admin/redakcni-kostra";
 import { validovatRucniUdalostVstup } from "@/lib/brana/admin/rucni-udalost-validace";
+import type { BranaDlouhodobyIntervalDni } from "@/lib/brana/admin/zdroj";
+import {
+  ulozitDlouhodobyIntervalDni,
+  validovatDlouhodobyIntervalVstup,
+} from "@/lib/brana/admin/zdroje-nastaveni-uloziste";
 
 export type BranaRedakcniUlozitVysledek =
   | { uspech: true; polozky: BranaRedakcniPolozkaStav[] }
@@ -24,6 +29,10 @@ export type BranaRucniUdalostVysledek =
 
 export type BranaScanStavVysledek =
   | { uspech: true }
+  | { uspech: false; chyba: string };
+
+export type BranaZdrojeIntervalVysledek =
+  | { uspech: true; dlouhodobyIntervalDni: BranaDlouhodobyIntervalDni }
   | { uspech: false; chyba: string };
 
 /** Uloží celé redakční pořadí – pouze pro přihlášeného admina */
@@ -156,6 +165,40 @@ export async function smazatRucniKonkretniUdalostAkce(
     return {
       uspech: false,
       chyba: detail ?? "Událost se nepodařilo smazat.",
+    };
+  }
+}
+
+/** Uloží společný interval kontroly dlouhodobých zdrojů (14 / 21 / 30) */
+export async function ulozitBranaZdrojeDlouhodobyIntervalAkce(
+  interval: unknown,
+): Promise<BranaZdrojeIntervalVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  const validace = validovatDlouhodobyIntervalVstup(interval);
+  if (!validace.ok) {
+    return { uspech: false, chyba: validace.chyba };
+  }
+
+  try {
+    const dokument = await ulozitDlouhodobyIntervalDni(
+      validace.dlouhodobyIntervalDni,
+    );
+    revalidatePath("/brana/admin/sprava/zdroje");
+    return {
+      uspech: true,
+      dlouhodobyIntervalDni: dokument.dlouhodobyIntervalDni,
+    };
+  } catch (error) {
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "Interval se nepodařilo uložit.",
     };
   }
 }

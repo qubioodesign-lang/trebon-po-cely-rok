@@ -1,7 +1,14 @@
 import { headers } from "next/headers";
 import { BranaAdminObal } from "@/components/brana/admin/BranaAdminObal";
 import { BranaAdminZdrojeRytmus } from "@/components/brana/admin/BranaAdminZdrojeRytmus";
-import { popisekTypuZdroje } from "@/lib/brana/admin/zdroj";
+import {
+  BRANA_DLOUHODOBY_INTERVAL_VYCHOZI,
+  popisekTypuZdroje,
+} from "@/lib/brana/admin/zdroj";
+import {
+  BRANA_ZDROJE_NASTAVENI_CHYBA_CTENI,
+  nacistZdrojeNastaveni,
+} from "@/lib/brana/admin/zdroje-nastaveni-uloziste";
 import { ukazkoveZdrojePodleTypu } from "@/lib/brana/admin/ukazkove-zdroje";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 
@@ -10,13 +17,18 @@ const SKUPINY = [
   { typ: "RYCHLY" as const, nadpis: "Rychlé" },
 ];
 
-/** Správa → Zdroje – ukázkové zdroje + nastavení rytmu kontroly */
+/** Správa → Zdroje – ukázkové zdroje + trvalé nastavení rytmu kontroly */
 export default async function StrankaBranaAdminZdroje() {
   if (!(await jeAdminPrihlasen())) {
     return null;
   }
 
   const host = (await headers()).get("host");
+  const nastaveni = await nacistZdrojeNastaveni();
+  const uloziteniPovoleno = nastaveni.ok;
+  const dlouhodobyIntervalDni = nastaveni.ok
+    ? nastaveni.dlouhodobyIntervalDni
+    : BRANA_DLOUHODOBY_INTERVAL_VYCHOZI;
 
   return (
     <BranaAdminObal
@@ -35,7 +47,13 @@ export default async function StrankaBranaAdminZdroje() {
           Zdroje
         </h2>
 
-        <BranaAdminZdrojeRytmus />
+        <BranaAdminZdrojeRytmus
+          dlouhodobyIntervalDni={dlouhodobyIntervalDni}
+          uloziteniPovoleno={uloziteniPovoleno}
+          chybaCteni={
+            uloziteniPovoleno ? null : BRANA_ZDROJE_NASTAVENI_CHYBA_CTENI
+          }
+        />
 
         {SKUPINY.map((skupina) => {
           const zdroje = ukazkoveZdrojePodleTypu(skupina.typ);
