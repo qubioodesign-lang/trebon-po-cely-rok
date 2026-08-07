@@ -1,8 +1,15 @@
 import { headers } from "next/headers";
 import { BranaAdminObal } from "@/components/brana/admin/BranaAdminObal";
+import { popisekTypuZdroje } from "@/lib/brana/admin/zdroj";
+import { ukazkoveZdrojePodleTypu } from "@/lib/brana/admin/ukazkove-zdroje";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 
-/** Správa → Zdroje – zatím pouze nadpis */
+const SKUPINY = [
+  { typ: "DLOUHODOBY" as const, nadpis: "Dlouhodobé" },
+  { typ: "RYCHLY" as const, nadpis: "Rychlé" },
+];
+
+/** Správa → Zdroje – základ seznamu známých zdrojů (ukázková data) */
 export default async function StrankaBranaAdminZdroje() {
   if (!(await jeAdminPrihlasen())) {
     return null;
@@ -17,7 +24,7 @@ export default async function StrankaBranaAdminZdroje() {
       aktivniSpravaSekce="zdroje"
     >
       <section
-        className="space-y-3"
+        className="space-y-6"
         aria-labelledby="brana-admin-zdroje-nadpis"
       >
         <h2
@@ -26,6 +33,35 @@ export default async function StrankaBranaAdminZdroje() {
         >
           Zdroje
         </h2>
+
+        {SKUPINY.map((skupina) => {
+          const zdroje = ukazkoveZdrojePodleTypu(skupina.typ);
+          return (
+            <div
+              key={skupina.typ}
+              className="space-y-2"
+              role="region"
+              aria-label={skupina.nadpis}
+            >
+              <h3 className="text-sm font-normal text-text-jemny">
+                {skupina.nadpis}
+              </h3>
+              <ul className="space-y-1.5">
+                {zdroje.map((zdroj) => (
+                  <li
+                    key={zdroj.id}
+                    className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-sm text-text"
+                  >
+                    <span>{zdroj.nazev}</span>
+                    <span className="text-text-velmiJemny">
+                      {popisekTypuZdroje(zdroj.typ)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
       </section>
     </BranaAdminObal>
   );
