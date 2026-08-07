@@ -509,3 +509,107 @@ export async function schvalitKonkretniUdalost(
   await ulozitDokument(overeni);
   return schvalena;
 }
+
+export type BranaScanAutomatickaUdalostVstup = {
+  redakcniPolozkaId: string;
+  datumOd: string;
+  datumDo: string;
+  cas: string;
+  mistoNeboTyp: string;
+  nazev: string;
+};
+
+export type PridatCekajiciZeScanuVysledek = {
+  pridano: number;
+  jizExistuje: number;
+};
+
+function jeDuplicitniAutomatickaUdalost(
+  existujici: BranaKonkretniUdalost,
+  kandidat: BranaScanAutomatickaUdalostVstup,
+): boolean {
+  return (
+    existujici.redakcniPolozkaId === kandidat.redakcniPolozkaId &&
+    existujici.datumOd === kandidat.datumOd &&
+    existujici.cas.trim() === kandidat.cas.trim() &&
+    existujici.nazev.trim().toLowerCase() === kandidat.nazev.trim().toLowerCase()
+  );
+}
+
+/**
+ * Append automatických událostí ze scanu ve stavu CEKA_NA_SCHVALENI.
+ * Jedno načtení → deduplikace → validace → jeden put.
+ * Nemění posledniScanDokoncen (ruční scan jednoho zdroje ≠ konec redakční fáze).
+ * Při chybě čtení nebo žádné nové události nic nezapisuje.
+ */
+export async function pridatCekajiciAutomatickeUdalostiZeScanu(
+  kandidati: readonly BranaScanAutomatickaUdalostVstup[],
+): Promise<PridatCekajiciZeScanuVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    throw new Error("Nejste přihlášeni.");
+  }
+
+  if (!maBranaAdminBlobKonfiguraci()) {
+    throw new Error(
+      "Nelze uložit výsledek scanu: chybí BLOB_BRANA_ADMIN_STORE_ID nebo BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
+    );
+  }
+
+  const dokument = await nacistDokumentProZapis();
+  let pridano = 0;
+  let jizExistuje = 0;
+  const nove = dokument.udalosti.slice();
+
+  for (const kandidat of kandidati) {
+    const redakcniPolozkaId = kandidat.redakcniPolozkaId.trim();
+    if (!redakcniPolozkaId) {
+      continue;
+    }
+
+    const normalizovany: BranaScanAutomatickaUdalostVstup = {
+      redakcniPolozkaId,
+      datumOd: kandidat.datumOd.trim(),
+      datumDo: kandidat.datumDo.trim(),
+      cas: kandidat.cas.trim(),
+      mistoNeboTyp: kandidat.mistoNeboTyp.trim(),
+      nazev: kandidat.nazev.trim(),
+    };
+
+    if (!normalizovany.nazev || !normalizovany.datumOd) {
+      continue;
+    }
+
+    if (nove.some((u) => jeDuplicitniAutomatickaUdalost(u, normalizovany))) {
+      jizExistuje += 1;
+      continue;
+    }
+
+    const nova: BranaKonkretniUdalost = {
+      id: `auto-${crypto.randomUUID()}`,
+      redakcniPolozkaId: normalizovany.redakcniPolozkaId,
+      datumOd: normalizovany.datumOd,
+      datumDo: normalizovany.datumDo || normalizovany.datumOd,
+      cas: normalizovany.cas,
+      mistoNeboTyp: normalizovany.mistoNeboTyp,
+      nazev: normalizovany.nazev,
+      rucniPoziceVDni: null,
+      stavSchvaleni: "CEKA_NA_SCHVALENI",
+    };
+    nove.push(nova);
+    pridano += 1;
+  }
+
+  if (pridano === 0) {
+    return { pridano, jizExistuje };
+  }
+
+  dokument.udalosti = nove;
+
+  const overeni = parsovatDokument(dokument);
+  if (!overeni) {
+    throw new Error("Výsledný dokument neprošel validací. Nic nebylo uloženo.");
+  }
+
+  await ulozitDokument(overeni);
+  return { pridano, jizExistuje };
+}

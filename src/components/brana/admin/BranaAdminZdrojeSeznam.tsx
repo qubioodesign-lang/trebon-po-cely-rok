@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import {
   pridatBranaZdrojAkce,
+  skenovatBranaZdrojAkce,
   smazatBranaZdrojAkce,
   upravitBranaZdrojAkce,
 } from "@/app/brana/admin/actions";
@@ -37,8 +38,8 @@ const PRAZDNY: FormularStav = {
 };
 
 /**
- * Inline správa produkčního seznamu známých zdrojů.
- * Bez skenování URL – jen název, typ a adresa.
+ * Inline správa produkčního seznamu známých zdrojů
+ * a ruční Skenovat u konkrétního zdroje (bez dávky / scheduleru).
  */
 export function BranaAdminZdrojeSeznam({
   zdroje: pocatecniZdroje,
@@ -52,6 +53,7 @@ export function BranaAdminZdrojeSeznam({
   const [chyba, setChyba] = useState<string | null>(chybaCteni);
   const [zprava, setZprava] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [skenovaneId, setSkenovaneId] = useState<string | null>(null);
 
   function resetovatFormular() {
     setEditovaneId(null);
@@ -138,6 +140,29 @@ export function BranaAdminZdrojeSeznam({
         zavrit();
       }
       setZprava("Zdroj smazán");
+    });
+  }
+
+  function skenovat(zdroj: BranaZdroj) {
+    if (!zapisPovolen) {
+      return;
+    }
+    setChyba(null);
+    setZprava(null);
+    setSkenovaneId(zdroj.id);
+    startTransition(async () => {
+      try {
+        const vysledek = await skenovatBranaZdrojAkce(zdroj.id);
+        if (!vysledek.uspech) {
+          setChyba(vysledek.chyba);
+          return;
+        }
+        setZprava(
+          `Nalezeno: ${vysledek.nalezeno} · Přidáno do Kalendáře: ${vysledek.pridanoDoKalendare} · Již existuje: ${vysledek.jizExistuje} · Nezařazeno: ${vysledek.nezarazeno}`,
+        );
+      } finally {
+        setSkenovaneId(null);
+      }
     });
   }
 
@@ -275,6 +300,16 @@ export function BranaAdminZdrojeSeznam({
                   <p className="break-all text-text-jemny">{zdroj.url}</p>
                   {zapisPovolen ? (
                     <div className="flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={() => skenovat(zdroj)}
+                        disabled={pending}
+                        className="text-xs font-light text-text-jemny underline-offset-2 hover:underline disabled:opacity-50"
+                      >
+                        {skenovaneId === zdroj.id && pending
+                          ? "Skenuji…"
+                          : "Skenovat"}
+                      </button>
                       <button
                         type="button"
                         onClick={() => otevritUpravu(zdroj)}

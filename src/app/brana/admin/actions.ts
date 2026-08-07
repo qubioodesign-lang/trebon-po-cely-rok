@@ -14,6 +14,10 @@ import { ulozitRedakcniPoradi } from "@/lib/brana/admin/redakcni-poradi-uloziste
 import { validovatRedakcniPoradiVstup } from "@/lib/brana/admin/redakcni-poradi-validace";
 import type { BranaRedakcniPolozkaStav } from "@/lib/brana/admin/redakcni-kostra";
 import { validovatRucniUdalostVstup } from "@/lib/brana/admin/rucni-udalost-validace";
+import {
+  skenovatZnamyZdroj,
+  type BranaSkenovatZdrojVysledek,
+} from "@/lib/brana/admin/skenovat-zdroj";
 import type { BranaDlouhodobyIntervalDni, BranaZdroj } from "@/lib/brana/admin/zdroj";
 import {
   ulozitDlouhodobyIntervalDni,
@@ -237,6 +241,38 @@ export async function ulozitBranaZdrojeDlouhodobyIntervalAkce(
     return {
       uspech: false,
       chyba: detail ?? "Interval se nepodařilo uložit.",
+    };
+  }
+}
+
+export type BranaSkenovatZdrojAkceVysledek =
+  | ({ uspech: true } & BranaSkenovatZdrojVysledek)
+  | { uspech: false; chyba: string };
+
+/**
+ * Ruční scan jednoho známého zdroje.
+ * Klient předá pouze id – URL bere server z data/brana-zdroje.json.
+ */
+export async function skenovatBranaZdrojAkce(
+  zdrojId: string,
+): Promise<BranaSkenovatZdrojAkceVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  try {
+    const vysledek = await skenovatZnamyZdroj(zdrojId);
+    revalidatePath("/brana/admin/sprava/zdroje");
+    revalidatePath("/brana/admin/sprava/kalendar");
+    return { uspech: true, ...vysledek };
+  } catch (error) {
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "Scan zdroje se nepodařil.",
     };
   }
 }

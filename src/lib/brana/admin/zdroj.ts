@@ -1,6 +1,6 @@
 /**
  * Známý redakční zdroj BRÁNY a společné nastavení rytmu kontroly podle typu.
- * Samotné skenování se řeší později.
+ * Ruční scan jednoho zdroje: skenovat-zdroj.ts (bez scheduleru).
  */
 
 /** Dva typy známých zdrojů */
