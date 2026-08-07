@@ -3,6 +3,8 @@
  * Kalendář a Výhled jsou dva pohledy na stejná data – bez duplikace záznamů.
  */
 
+import { maDatumOdPatritDoVyhledu } from "./obdobi-7-dni";
+
 export type BranaKonkretniUdalost = {
   /** Identita konkrétní události (ne redakční katalog) */
   id: string;
@@ -116,14 +118,19 @@ export type BranaVyhledRokSkupina = {
 };
 
 /**
- * Projekce Výhledu: každá událost jednou, jen když redakční Výhled = ANO.
+ * Projekce Výhledu: každá událost jednou, jen když redakční Výhled = ANO
+ * a datumOd ještě není v období obdobi7DniVPraze ani v minulosti.
+ * Redakční Výhled = ANO se nemění – filtruje se jen zobrazení konkrétní události.
  * Skupiny podle roku data začátku.
  */
 export function projektujVyhledPodleRoku(
   udalosti: readonly BranaKonkretniUdalost[],
   maVyhledAno: (redakcniPolozkaId: string) => boolean,
 ): BranaVyhledRokSkupina[] {
-  const vybrane = udalosti.filter((u) => maVyhledAno(u.redakcniPolozkaId));
+  const vybrane = udalosti.filter(
+    (u) =>
+      maVyhledAno(u.redakcniPolozkaId) && maDatumOdPatritDoVyhledu(u.datumOd),
+  );
   const podleRoku = new Map<number, BranaKonkretniUdalost[]>();
 
   for (const udalost of vybrane) {
