@@ -293,3 +293,106 @@ export async function pridatRucniKonkretniUdalost(
   await ulozitDokument(dokument);
   return nova;
 }
+
+/**
+ * Aktualizuje jednu existující ruční událost podle id.
+ * Při chybě čtení nic nezapisuje. Ukázková data a Redakční pořadí nemění.
+ */
+export async function upravitRucniKonkretniUdalost(
+  id: string,
+  vstup: unknown,
+): Promise<BranaKonkretniUdalost> {
+  if (!(await jeAdminPrihlasen())) {
+    throw new Error("Nejste přihlášeni.");
+  }
+
+  if (!maBranaAdminBlobKonfiguraci()) {
+    throw new Error(
+      "Nelze uložit událost: chybí BLOB_BRANA_ADMIN_STORE_ID nebo BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
+    );
+  }
+
+  const idTrim = typeof id === "string" ? id.trim() : "";
+  if (!idTrim) {
+    throw new Error("Chybí id události.");
+  }
+
+  const validace = validovatRucniUdalostVstup(vstup);
+  if (!validace.ok) {
+    throw new Error(validace.chyba);
+  }
+
+  const dokument = await nacistDokumentProZapis();
+
+  if (!dokument.posledniScanDokoncen) {
+    throw new Error(
+      "Ruční zápis je dostupný až po dokončení posledního scanu.",
+    );
+  }
+
+  const index = dokument.udalosti.findIndex((u) => u.id === idTrim);
+  if (index < 0) {
+    throw new Error("Ruční událost nebyla nalezena.");
+  }
+
+  const aktualizovana: BranaKonkretniUdalost = {
+    id: idTrim,
+    ...validace.udalost,
+  };
+
+  const noveUdalosti = dokument.udalosti.slice();
+  noveUdalosti[index] = aktualizovana;
+  dokument.udalosti = noveUdalosti;
+
+  const overeni = parsovatDokument(dokument);
+  if (!overeni) {
+    throw new Error("Výsledný dokument neprošel validací. Nic nebylo uloženo.");
+  }
+
+  await ulozitDokument(overeni);
+  return aktualizovana;
+}
+
+/**
+ * Odstraní jednu ruční událost podle id.
+ * Při chybě čtení nic nezapisuje.
+ */
+export async function smazatRucniKonkretniUdalost(id: string): Promise<void> {
+  if (!(await jeAdminPrihlasen())) {
+    throw new Error("Nejste přihlášeni.");
+  }
+
+  if (!maBranaAdminBlobKonfiguraci()) {
+    throw new Error(
+      "Nelze smazat událost: chybí BLOB_BRANA_ADMIN_STORE_ID nebo BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
+    );
+  }
+
+  const idTrim = typeof id === "string" ? id.trim() : "";
+  if (!idTrim) {
+    throw new Error("Chybí id události.");
+  }
+
+  const dokument = await nacistDokumentProZapis();
+
+  if (!dokument.posledniScanDokoncen) {
+    throw new Error(
+      "Ruční zápis je dostupný až po dokončení posledního scanu.",
+    );
+  }
+
+  const pred = dokument.udalosti.length;
+  const noveUdalosti = dokument.udalosti.filter((u) => u.id !== idTrim);
+  if (noveUdalosti.length === pred) {
+    throw new Error("Ruční událost nebyla nalezena.");
+  }
+
+  dokument.udalosti = noveUdalosti;
+
+  const overeni = parsovatDokument(dokument);
+  if (!overeni) {
+    throw new Error("Výsledný dokument neprošel validací. Nic nebylo uloženo.");
+  }
+
+  await ulozitDokument(overeni);
+}

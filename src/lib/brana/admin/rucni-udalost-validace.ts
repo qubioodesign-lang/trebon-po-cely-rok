@@ -33,6 +33,27 @@ function jePlatnyIsoDen(iso: string): boolean {
   );
 }
 
+/**
+ * Přijme číslo včetně 0. Nulu nesmí vyhodnotit jako chybějící hodnotu.
+ * Číselný řetězec ("0") se normalizuje – obrana proti serializaci přes hranici akce.
+ */
+function normalizovatRucniPoziciVDni(hodnota: unknown): number | null {
+  if (typeof hodnota === "number") {
+    if (!Number.isInteger(hodnota) || hodnota < 0) {
+      return null;
+    }
+    return hodnota;
+  }
+  if (typeof hodnota === "string" && hodnota.trim() !== "") {
+    const cislo = Number(hodnota.trim());
+    if (!Number.isInteger(cislo) || cislo < 0) {
+      return null;
+    }
+    return cislo;
+  }
+  return null;
+}
+
 export function validovatRucniUdalostVstup(
   vstup: unknown,
 ): ValidaceRucniUdalostiVysledek {
@@ -47,7 +68,7 @@ export function validovatRucniUdalostVstup(
   const mistoNeboTyp =
     typeof data.mistoNeboTyp === "string" ? data.mistoNeboTyp.trim() : "";
   const nazev = typeof data.nazev === "string" ? data.nazev.trim() : "";
-  const rucniPoziceVDni = data.rucniPoziceVDni;
+  const rucniPoziceVDni = normalizovatRucniPoziciVDni(data.rucniPoziceVDni);
 
   if (!jePlatnyIsoDen(datumOd)) {
     return { ok: false, chyba: "Datum OD není platné." };
@@ -73,11 +94,7 @@ export function validovatRucniUdalostVstup(
   if (nazev.length > 200) {
     return { ok: false, chyba: "Název je příliš dlouhý." };
   }
-  if (
-    typeof rucniPoziceVDni !== "number" ||
-    !Number.isInteger(rucniPoziceVDni) ||
-    rucniPoziceVDni < 0
-  ) {
+  if (rucniPoziceVDni === null) {
     return { ok: false, chyba: "Neplatné místo v dni." };
   }
 

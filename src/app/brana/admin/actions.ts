@@ -6,6 +6,8 @@ import type { BranaKonkretniUdalost } from "@/lib/brana/admin/konkretni-udalost"
 import {
   nastavitPosledniScanDokoncen,
   pridatRucniKonkretniUdalost,
+  smazatRucniKonkretniUdalost,
+  upravitRucniKonkretniUdalost,
 } from "@/lib/brana/admin/konkretni-udalosti-uloziste";
 import { ulozitRedakcniPoradi } from "@/lib/brana/admin/redakcni-poradi-uloziste";
 import { validovatRedakcniPoradiVstup } from "@/lib/brana/admin/redakcni-poradi-validace";
@@ -100,6 +102,60 @@ export async function pridatRucniKonkretniUdalostAkce(
     return {
       uspech: false,
       chyba: detail ?? "Událost se neuložila.",
+    };
+  }
+}
+
+/** Aktualizuje existující ruční událost – stejné id, bez kopie */
+export async function upravitRucniKonkretniUdalostAkce(
+  id: string,
+  vstup: unknown,
+): Promise<BranaRucniUdalostVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  const validace = validovatRucniUdalostVstup(vstup);
+  if (!validace.ok) {
+    return { uspech: false, chyba: validace.chyba };
+  }
+
+  try {
+    const udalost = await upravitRucniKonkretniUdalost(id, validace.udalost);
+    revalidatePath("/brana/admin/sprava/kalendar");
+    return { uspech: true, udalost };
+  } catch (error) {
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "Událost se neuložila.",
+    };
+  }
+}
+
+/** Smaže jednu ruční událost podle id */
+export async function smazatRucniKonkretniUdalostAkce(
+  id: string,
+): Promise<BranaScanStavVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  try {
+    await smazatRucniKonkretniUdalost(id);
+    revalidatePath("/brana/admin/sprava/kalendar");
+    return { uspech: true };
+  } catch (error) {
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "Událost se nepodařilo smazat.",
     };
   }
 }

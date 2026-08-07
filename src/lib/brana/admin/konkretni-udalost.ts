@@ -140,10 +140,12 @@ export function seradUdalostiDne(
     if (udalost.redakcniPolozkaId !== null) {
       continue;
     }
-    const slot = Math.max(
-      0,
-      Math.min(udalost.rucniPoziceVDni ?? automaticke.length, automaticke.length),
-    );
+    // 0 = na začátek dne – nesmí spadnout do fallbacku (žádné || / truthy kontroly).
+    const surovaPozice = udalost.rucniPoziceVDni;
+    const slot =
+      surovaPozice === null || surovaPozice === undefined
+        ? automaticke.length
+        : Math.max(0, Math.min(surovaPozice, automaticke.length));
     const seznam = podleSlotu.get(slot) ?? [];
     seznam.push(udalost);
     podleSlotu.set(slot, seznam);
