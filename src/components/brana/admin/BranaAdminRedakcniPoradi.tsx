@@ -129,7 +129,7 @@ function RedakcniTabulka({
     id: string,
     zmena: Partial<BranaRedakcniPolozkaStav>,
   ) => void;
-  /** Aktivní ANO řádky – zamčené kromě Používat */
+  /** Aktivní ANO řádky – zamčená pouze Položka */
   zamceno?: boolean;
   /** Vizuální prázdný řádek – nepatří do dat, neukládá se */
   pracovniRadek?: boolean;
@@ -217,9 +217,7 @@ function RedakcniTabulka({
                 value={cisloNaText(radek.priorita)}
                 maxLength={3}
                 placeholder=""
-                disabled={zamceno}
                 onChange={(e) => {
-                  if (zamceno) return;
                   const raw = e.target.value.replace(/\D/g, "").slice(0, 3);
                   onChange(radek.id, {
                     priorita: textNaCislo(raw),
@@ -235,9 +233,7 @@ function RedakcniTabulka({
                 aria-label={`Subpriorita – ${radek.polozka}`}
                 value={cisloNaText(radek.subpriorita)}
                 maxLength={3}
-                disabled={zamceno}
                 onChange={(e) => {
-                  if (zamceno) return;
                   const raw = e.target.value.replace(/\D/g, "").slice(0, 3);
                   onChange(radek.id, {
                     subpriorita: textNaCislo(raw),
@@ -250,9 +246,7 @@ function RedakcniTabulka({
                 className={VSTUP}
                 aria-label={`Výhled – ${radek.polozka}`}
                 value={radek.vyhled ?? ""}
-                disabled={zamceno}
                 onChange={(e) => {
-                  if (zamceno) return;
                   const v = e.target.value;
                   const vyhled: BranaRedakcniVyhled =
                     v === "ANO" || v === "NE" ? v : null;
@@ -271,9 +265,7 @@ function RedakcniTabulka({
                 aria-label={`Poznámka – ${radek.polozka}`}
                 value={radek.poznamka}
                 maxLength={BRANA_REDAKCNI_POZNAMKA_MAX}
-                disabled={zamceno}
                 onChange={(e) => {
-                  if (zamceno) return;
                   onChange(radek.id, {
                     poznamka: e.target.value.slice(0, BRANA_REDAKCNI_POZNAMKA_MAX),
                   });
