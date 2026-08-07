@@ -1,53 +1,11 @@
 import { headers } from "next/headers";
 import { BranaAdminAkcePolozka } from "@/components/brana/admin/BranaAdminAkcePolozka";
 import { BranaAdminObal } from "@/components/brana/admin/BranaAdminObal";
-import {
-  rozlozAkci,
-  type BranaAkceVstup,
-} from "@/lib/brana/admin/akce-rozlozeni";
+import { rozlozAkci } from "@/lib/brana/admin/akce-rozlozeni";
+import { projektujKalendarDny } from "@/lib/brana/admin/konkretni-udalost";
+import { UKAZKOVE_KONKRETNI_UDALOSTI } from "@/lib/brana/admin/ukazkove-udalosti";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 import "../../brana-admin-kalendar.css";
-
-type UkazkovyDen = {
-  datumLabel: string;
-  polozky: BranaAkceVstup[];
-  /** Orientační linka hned pod tímto dnem */
-  orientacePoDni?: "zitra" | "schvaleno";
-};
-
-/** Statická ukázka rozložení – bez výpočtů a datové logiky */
-const UKAZKOVE_DNY: UkazkovyDen[] = [
-  {
-    datumLabel: "Čtvrtek 6. 8.",
-    polozky: [
-      {
-        mistoNeboTyp: "Kino Aurora",
-        nazev: "Bobr a přátelé",
-        cas: "19:30",
-      },
-      {
-        mistoNeboTyp: "Divadlo J. K. Tyla",
-        nazev: "Svědomitě nepřipravení",
-        cas: "19:30",
-      },
-      {
-        mistoNeboTyp: "Divadlo",
-        nazev: "Jak se Petr Vok na Třeboň stěhovati ráčil",
-        cas: "18:20",
-      },
-    ],
-    orientacePoDni: "zitra",
-  },
-  {
-    datumLabel: "Pátek 7. 8.",
-    polozky: [],
-    orientacePoDni: "schvaleno",
-  },
-  {
-    datumLabel: "Sobota 8. 8.",
-    polozky: [],
-  },
-];
 
 function OrientacniLinka({
   popisek,
@@ -69,13 +27,14 @@ function OrientacniLinka({
   );
 }
 
-/** Správa → Kalendář – svislá osa dnů s publikačními položkami */
+/** Správa → Kalendář – projekce konkrétních událostí do dnů (vč. vícedenních) */
 export default async function StrankaBranaAdminKalendar() {
   if (!(await jeAdminPrihlasen())) {
     return null;
   }
 
   const host = (await headers()).get("host");
+  const dny = projektujKalendarDny(UKAZKOVE_KONKRETNI_UDALOSTI);
 
   return (
     <BranaAdminObal
@@ -95,22 +54,26 @@ export default async function StrankaBranaAdminKalendar() {
         </h2>
 
         <div role="region" aria-label="Pracovní kalendář">
-          {UKAZKOVE_DNY.map((den) => (
-            <div key={den.datumLabel}>
+          {dny.map((den, index) => (
+            <div key={den.isoDen}>
               <article className="brana-admin-kalendar-den">
                 <h3 className="brana-admin-kalendar-datum">{den.datumLabel}</h3>
                 <div>
-                  {den.polozky.length > 0 ? (
+                  {den.udalosti.length > 0 ? (
                     <ul className="brana-admin-seznam-akci">
-                      {den.polozky.map((akce) => {
-                        const { typ, misto, nazev, cas } = rozlozAkci(akce);
+                      {den.udalosti.map((udalost) => {
+                        const { typ, misto, nazev } = rozlozAkci({
+                          mistoNeboTyp: udalost.mistoNeboTyp,
+                          nazev: udalost.nazev,
+                          cas: udalost.cas,
+                        });
                         return (
                           <BranaAdminAkcePolozka
-                            key={`${akce.mistoNeboTyp}-${akce.nazev}-${akce.cas}`}
+                            key={`${udalost.id}-${den.isoDen}`}
                             typ={typ}
                             misto={misto}
                             nazev={nazev}
-                            udajVpravo={cas}
+                            udajVpravo={udalost.cas}
                           />
                         );
                       })}
@@ -121,13 +84,13 @@ export default async function StrankaBranaAdminKalendar() {
                 </div>
               </article>
 
-              {den.orientacePoDni === "zitra" ? (
+              {index === 0 ? (
                 <OrientacniLinka
                   popisek="ZÍTRA SE PUBLIKUJE"
                   ariaLabel="Zítra se publikuje"
                 />
               ) : null}
-              {den.orientacePoDni === "schvaleno" ? (
+              {index === 1 ? (
                 <OrientacniLinka
                   popisek="SCHVÁLENO K PUBLIKACI"
                   ariaLabel="Schváleno k publikaci"
