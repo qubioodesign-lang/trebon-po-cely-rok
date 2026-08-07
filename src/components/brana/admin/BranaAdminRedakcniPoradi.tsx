@@ -137,7 +137,7 @@ function RedakcniTabulka({
   return (
     <table className="w-full table-fixed border-collapse text-left">
       <colgroup>
-        <col className="w-[3.75rem]" />
+        <col className="w-[4.75rem]" />
         <col className="w-[30%]" />
         <col className="w-[5rem]" />
         <col className="w-[6.5rem]" />
