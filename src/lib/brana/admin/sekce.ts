@@ -9,6 +9,7 @@ export type BranaAdminSpravaSekce =
   | "kalendar"
   | "vyhled"
   | "redakcni-poradi"
+  | "nezarazene"
   | "zdroje"
   | "zaloha";
 
@@ -27,7 +28,7 @@ export const BRANA_ADMIN_HLAVNI_CASTI = [
 
 /**
  * Sekce Správy.
- * Kalendář, Výhled, Redakční pořadí a Zdroje tvoří základní redakční strukturu;
+ * Kalendář, Výhled, Redakční pořadí, Nezařazené a Zdroje tvoří základní redakční strukturu;
  * Záloha zůstává připravená pro pozdější napojení.
  */
 export const BRANA_ADMIN_SPRAVA_SEKCE = [
@@ -38,6 +39,7 @@ export const BRANA_ADMIN_SPRAVA_SEKCE = [
     label: "Redakční pořadí",
     segment: "redakcni-poradi",
   },
+  { id: "nezarazene", label: "Nezařazené", segment: "nezarazene" },
   { id: "zdroje", label: "Zdroje", segment: "zdroje" },
   { id: "zaloha", label: "Záloha", segment: "zaloha" },
 ] as const satisfies ReadonlyArray<BranaAdminNavPolozka<BranaAdminSpravaSekce>>;
