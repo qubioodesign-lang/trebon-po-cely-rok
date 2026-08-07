@@ -267,8 +267,34 @@ function httpRequestNaOvereneAdresy(
           Host: cil.host,
         },
         // Spojení jen na právě ověřenou IP – žádné nové DNS při connect.
-        lookup: (_hostname, _options, callback) => {
-          callback(null, pinned.address, pinned.family);
+        // Node 24 volá lookup s options.all === true a očekává pole adres.
+        lookup: (_hostname, options, callback) => {
+          const all =
+            typeof options === "object" &&
+            options !== null &&
+            "all" in options &&
+            (options as { all?: boolean }).all === true;
+          if (all) {
+            (
+              callback as (
+                err: NodeJS.ErrnoException | null,
+                addresses: LookupAddress[],
+              ) => void
+            )(null, [
+              {
+                address: pinned.address,
+                family: pinned.family,
+              },
+            ]);
+            return;
+          }
+          (
+            callback as (
+              err: NodeJS.ErrnoException | null,
+              address: string,
+              family: number,
+            ) => void
+          )(null, pinned.address, pinned.family);
         },
         timeout: FETCH_TIMEOUT_MS,
         servername: cil.hostname.replace(/^\[|\]$/g, ""),
