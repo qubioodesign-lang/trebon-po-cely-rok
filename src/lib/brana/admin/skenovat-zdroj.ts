@@ -201,8 +201,8 @@ function overitUrlProFetch(url: string): URL {
 
 /**
  * Přeloží hostname a ověří VŠECHNY resolved adresy.
- * Pinuje ověřený seznam do následného TCP spojení (custom lookup),
- * aby request nešel na jinou IP než tu právě zkontrolovanou.
+ * Následný TCP/TLS connect jde přímo na ověřenou pinned IP
+ * (bez DNS / custom lookup při socket connection).
  */
 async function resolvovatAOveritHostname(
   hostname: string,
@@ -246,6 +246,8 @@ function httpRequestNaOvereneAdresy(
 ): Promise<FetchVysledek> {
   const transport = cil.protocol === "https:" ? https : http;
   const pinned = overeneAdresy[0];
+  // Původní hostname pro Host / SNI / ověření certifikátu (nikoli pinned IP).
+  const puvodniHostname = cil.hostname.replace(/^\[|\]$/g, "");
 
   return new Promise((resolve, reject) => {
     if (signal.aborted) {
@@ -256,48 +258,22 @@ function httpRequestNaOvereneAdresy(
     const req = transport.request(
       {
         protocol: cil.protocol,
-        hostname: cil.hostname.replace(/^\[|\]$/g, ""),
+        // TCP přímo na ověřenou IP – Node přeskočí DNS (isIP(hostname)).
+        hostname: pinned.address,
         port: cil.port || (cil.protocol === "https:" ? 443 : 80),
         path: `${cil.pathname}${cil.search}`,
         method: "GET",
+        family: pinned.family,
         headers: {
           Accept:
             "text/html, application/xhtml+xml, application/ld+json, application/json;q=0.9, */*;q=0.8",
           "User-Agent": "BranaAdminScan/1.0",
+          // Host zůstává původní hostname (+ nestandardní port z URL).
           Host: cil.host,
         },
-        // Spojení jen na právě ověřenou IP – žádné nové DNS při connect.
-        // Node 24 volá lookup s options.all === true a očekává pole adres.
-        lookup: (_hostname, options, callback) => {
-          const all =
-            typeof options === "object" &&
-            options !== null &&
-            "all" in options &&
-            (options as { all?: boolean }).all === true;
-          if (all) {
-            (
-              callback as (
-                err: NodeJS.ErrnoException | null,
-                addresses: LookupAddress[],
-              ) => void
-            )(null, [
-              {
-                address: pinned.address,
-                family: pinned.family,
-              },
-            ]);
-            return;
-          }
-          (
-            callback as (
-              err: NodeJS.ErrnoException | null,
-              address: string,
-              family: number,
-            ) => void
-          )(null, pinned.address, pinned.family);
-        },
         timeout: FETCH_TIMEOUT_MS,
-        servername: cil.hostname.replace(/^\[|\]$/g, ""),
+        // HTTPS: SNI + ověření certifikátu proti původnímu hostname, ne proti IP.
+        servername: puvodniHostname,
       },
       (res) => {
         const kusy: Buffer[] = [];
