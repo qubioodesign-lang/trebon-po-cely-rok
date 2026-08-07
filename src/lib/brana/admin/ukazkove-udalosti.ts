@@ -65,22 +65,6 @@ export const UKAZKOVE_KONKRETNI_UDALOSTI: readonly BranaKonkretniUdalost[] = [
     rucniPoziceVDni: null,
     stavSchvaleni: "SCHVALENO",
   },
-  /**
-   * Dočasná admin-only ukázka pro ověření CEKA_NA_SCHVALENI v Kalendáři.
-   * Vazba divadlo-jk-tyla (Výhled NE) – neobjeví se ve Výhledu.
-   * Nezapisuje se do PRIVATE Blobu.
-   */
-  {
-    id: "ukazka-test-ceka-na-schvaleni-2026-10-05",
-    redakcniPolozkaId: "divadlo-jk-tyla",
-    datumOd: "2026-10-05",
-    datumDo: "2026-10-05",
-    cas: "12:00",
-    mistoNeboTyp: "Testovací místo",
-    nazev: "TEST – čeká na schválení",
-    rucniPoziceVDni: null,
-    stavSchvaleni: "CEKA_NA_SCHVALENI",
-  },
 ];
 
 export function maUkazkovyVyhledAno(

@@ -8,7 +8,6 @@ import {
   schvalitKonkretniUdalostAkce,
   smazatRucniKonkretniUdalostAkce,
   upravitRucniKonkretniUdalostAkce,
-  vytvoritTestCekajiciUdalostAkce,
 } from "@/app/brana/admin/actions";
 import { rozlozAkci } from "@/lib/brana/admin/akce-rozlozeni";
 import type {
@@ -382,23 +381,6 @@ export function BranaAdminKalendarRucniZapis({
     });
   }
 
-  function vytvoritTestCekajici() {
-    if (!rucniZapisPovolen) {
-      return;
-    }
-    setChyba(null);
-    setZprava(null);
-    startTransition(async () => {
-      const vysledek = await vytvoritTestCekajiciUdalostAkce();
-      if (!vysledek.uspech) {
-        setChyba(vysledek.chyba);
-        return;
-      }
-      setZprava(vysledek.zprava);
-      router.refresh();
-    });
-  }
-
   return (
     <div className="space-y-3">
       {rucniZapisPovolen && !posledniScanDokoncen ? (
@@ -415,17 +397,6 @@ export function BranaAdminKalendarRucniZapis({
             {pending ? "Ukládám…" : "Označit poslední scan jako dokončený"}
           </button>
         </div>
-      ) : null}
-
-      {rucniZapisPovolen ? (
-        <button
-          type="button"
-          onClick={vytvoritTestCekajici}
-          disabled={pending}
-          className="text-xs font-light text-text-velmiJemny underline-offset-2 hover:underline disabled:opacity-50"
-        >
-          TEST: Vytvořit test čekající událost
-        </button>
       ) : null}
 
       {muzeEditovat && !otevreno ? (
