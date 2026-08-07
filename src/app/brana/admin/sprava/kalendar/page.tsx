@@ -1,8 +1,17 @@
 import { headers } from "next/headers";
 import { BranaAdminAkcePolozka } from "@/components/brana/admin/BranaAdminAkcePolozka";
+import { BranaAdminKalendarRucniZapis } from "@/components/brana/admin/BranaAdminKalendarRucniZapis";
 import { BranaAdminObal } from "@/components/brana/admin/BranaAdminObal";
 import { rozlozAkci } from "@/lib/brana/admin/akce-rozlozeni";
-import { projektujKalendarDny } from "@/lib/brana/admin/konkretni-udalost";
+import {
+  projektujKalendarDny,
+  type BranaKonkretniUdalost,
+} from "@/lib/brana/admin/konkretni-udalost";
+import {
+  BRANA_KONKRETNI_UDALOSTI_CHYBA_CTENI,
+  nacistKonkretniUdalosti,
+} from "@/lib/brana/admin/konkretni-udalosti-uloziste";
+import { nacistRedakcniPoradi } from "@/lib/brana/admin/redakcni-poradi-uloziste";
 import { UKAZKOVE_KONKRETNI_UDALOSTI } from "@/lib/brana/admin/ukazkove-udalosti";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 import "../../brana-admin-kalendar.css";
@@ -34,7 +43,43 @@ export default async function StrankaBranaAdminKalendar() {
   }
 
   const host = (await headers()).get("host");
-  const dny = projektujKalendarDny(UKAZKOVE_KONKRETNI_UDALOSTI);
+  const [uloziste, redakcni] = await Promise.all([
+    nacistKonkretniUdalosti(),
+    nacistRedakcniPoradi(),
+  ]);
+
+  const rucniUdalosti = uloziste.ok ? uloziste.udalosti : [];
+  const posledniScanDokoncen = uloziste.ok
+    ? uloziste.posledniScanDokoncen
+    : false;
+
+  const poradiPodleId = new Map(
+    redakcni.ok
+      ? redakcni.polozky.map(
+          (p) =>
+            [
+              p.id,
+              { priorita: p.priorita, subpriorita: p.subpriorita },
+            ] as const,
+        )
+      : [],
+  );
+
+  const vsechnyUdalosti: BranaKonkretniUdalost[] = [
+    ...UKAZKOVE_KONKRETNI_UDALOSTI,
+    ...rucniUdalosti,
+  ];
+
+  const dny = projektujKalendarDny(vsechnyUdalosti, (id) =>
+    poradiPodleId.get(id),
+  );
+
+  const automatickePodleDne: Record<string, BranaKonkretniUdalost[]> = {};
+  for (const den of dny) {
+    automatickePodleDne[den.isoDen] = den.udalosti.filter(
+      (u) => u.redakcniPolozkaId !== null,
+    );
+  }
 
   return (
     <BranaAdminObal
@@ -52,6 +97,17 @@ export default async function StrankaBranaAdminKalendar() {
         >
           Pracovní kalendář
         </h2>
+
+        {!uloziste.ok ? (
+          <p className="text-sm text-text" role="alert">
+            {BRANA_KONKRETNI_UDALOSTI_CHYBA_CTENI}
+          </p>
+        ) : (
+          <BranaAdminKalendarRucniZapis
+            posledniScanDokoncen={posledniScanDokoncen}
+            automatickePodleDne={automatickePodleDne}
+          />
+        )}
 
         <div role="region" aria-label="Pracovní kalendář">
           {dny.map((den, index) => (

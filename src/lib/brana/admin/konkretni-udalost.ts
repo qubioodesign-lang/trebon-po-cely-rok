@@ -8,8 +8,11 @@ import { maDatumOdPatritDoVyhledu } from "./obdobi-7-dni";
 export type BranaKonkretniUdalost = {
   /** Identita konkrétní události (ne redakční katalog) */
   id: string;
-  /** Stabilní ID položky Redakčního pořadí */
-  redakcniPolozkaId: string;
+  /**
+   * Stabilní ID položky Redakčního pořadí.
+   * null = ručně vložená výjimečná událost bez vazby na pravidlo.
+   */
+  redakcniPolozkaId: string | null;
   /** ISO datum YYYY-MM-DD */
   datumOd: string;
   /** ISO datum YYYY-MM-DD (stejné jako od = jednodenní) */
@@ -17,6 +20,17 @@ export type BranaKonkretniUdalost = {
   cas: string;
   mistoNeboTyp: string;
   nazev: string;
+  /**
+   * Pořadí ruční události v dni (jen když redakcniPolozkaId === null).
+   * 0 = před první automatickou; N = za N-tou automatickou.
+   * U automatických událostí null.
+   */
+  rucniPoziceVDni: number | null;
+};
+
+export type BranaRedakcniPoradiProKalendar = {
+  priorita: number | null;
+  subpriorita: number | null;
 };
 
 function parsujIsoDen(iso: string): Date {
@@ -86,12 +100,78 @@ export type BranaKalendarDen = {
   udalosti: BranaKonkretniUdalost[];
 };
 
+function cisloRazeni(hodnota: number | null): number {
+  return hodnota === null ? Number.MAX_SAFE_INTEGER : hodnota;
+}
+
+/**
+ * Seřadí události jednoho dne:
+ * automatické podle Priorita → Subpriorita (čas se nepoužívá),
+ * ruční vsunuté podle rucniPoziceVDni.
+ */
+export function seradUdalostiDne(
+  udalosti: readonly BranaKonkretniUdalost[],
+  poradiRedakcni?: (
+    redakcniPolozkaId: string,
+  ) => BranaRedakcniPoradiProKalendar | undefined,
+): BranaKonkretniUdalost[] {
+  const automaticke = udalosti
+    .filter((u) => u.redakcniPolozkaId !== null)
+    .slice()
+    .sort((a, b) => {
+      const pa = poradiRedakcni?.(a.redakcniPolozkaId as string);
+      const pb = poradiRedakcni?.(b.redakcniPolozkaId as string);
+      const cmpP =
+        cisloRazeni(pa?.priorita ?? null) - cisloRazeni(pb?.priorita ?? null);
+      if (cmpP !== 0) {
+        return cmpP;
+      }
+      const cmpS =
+        cisloRazeni(pa?.subpriorita ?? null) -
+        cisloRazeni(pb?.subpriorita ?? null);
+      if (cmpS !== 0) {
+        return cmpS;
+      }
+      return a.id.localeCompare(b.id);
+    });
+
+  const podleSlotu = new Map<number, BranaKonkretniUdalost[]>();
+  for (const udalost of udalosti) {
+    if (udalost.redakcniPolozkaId !== null) {
+      continue;
+    }
+    const slot = Math.max(
+      0,
+      Math.min(udalost.rucniPoziceVDni ?? automaticke.length, automaticke.length),
+    );
+    const seznam = podleSlotu.get(slot) ?? [];
+    seznam.push(udalost);
+    podleSlotu.set(slot, seznam);
+  }
+
+  const vysledek: BranaKonkretniUdalost[] = [];
+  for (let slot = 0; slot <= automaticke.length; slot++) {
+    const rucniVeSlotu = (podleSlotu.get(slot) ?? [])
+      .slice()
+      .sort((a, b) => a.id.localeCompare(b.id));
+    vysledek.push(...rucniVeSlotu);
+    if (slot < automaticke.length) {
+      vysledek.push(automaticke[slot]);
+    }
+  }
+  return vysledek;
+}
+
 /**
  * Projekce událostí do dnů Kalendáře.
  * Vícedenní událost se objeví v každém dni rozsahu – stále stejný záznam (stejné id).
+ * Čas se pro pořadí nepoužívá.
  */
 export function projektujKalendarDny(
   udalosti: readonly BranaKonkretniUdalost[],
+  poradiRedakcni?: (
+    redakcniPolozkaId: string,
+  ) => BranaRedakcniPoradiProKalendar | undefined,
 ): BranaKalendarDen[] {
   const podleDne = new Map<string, BranaKonkretniUdalost[]>();
 
@@ -108,7 +188,7 @@ export function projektujKalendarDny(
     .map((isoDen) => ({
       isoDen,
       datumLabel: formatujDenKalendare(isoDen),
-      udalosti: podleDne.get(isoDen) ?? [],
+      udalosti: seradUdalostiDne(podleDne.get(isoDen) ?? [], poradiRedakcni),
     }));
 }
 
@@ -120,8 +200,7 @@ export type BranaVyhledRokSkupina = {
 /**
  * Projekce Výhledu: každá událost jednou, jen když redakční Výhled = ANO
  * a datumOd ještě není v období obdobi7DniVPraze ani v minulosti.
- * Redakční Výhled = ANO se nemění – filtruje se jen zobrazení konkrétní události.
- * Skupiny podle roku data začátku.
+ * Ruční událost (redakcniPolozkaId = null) se ve Výhledu nezobrazuje.
  */
 export function projektujVyhledPodleRoku(
   udalosti: readonly BranaKonkretniUdalost[],
@@ -129,7 +208,9 @@ export function projektujVyhledPodleRoku(
 ): BranaVyhledRokSkupina[] {
   const vybrane = udalosti.filter(
     (u) =>
-      maVyhledAno(u.redakcniPolozkaId) && maDatumOdPatritDoVyhledu(u.datumOd),
+      u.redakcniPolozkaId !== null &&
+      maVyhledAno(u.redakcniPolozkaId) &&
+      maDatumOdPatritDoVyhledu(u.datumOd),
   );
   const podleRoku = new Map<number, BranaKonkretniUdalost[]>();
 
@@ -149,4 +230,14 @@ export function projektujVyhledPodleRoku(
         return cmp !== 0 ? cmp : a.id.localeCompare(b.id);
       }),
     }));
+}
+
+/** Popisek pro volbu místa v dni (bez čísla pozice) */
+export function popisekVolbyPozice(udalost: BranaKonkretniUdalost): string {
+  const leva = udalost.mistoNeboTyp.trim();
+  const nazev = udalost.nazev.trim();
+  if (leva && nazev) {
+    return `${leva} – ${nazev}`;
+  }
+  return leva || nazev || udalost.id;
 }

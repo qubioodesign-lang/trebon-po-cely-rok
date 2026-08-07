@@ -29,6 +29,7 @@ export const UKAZKOVE_KONKRETNI_UDALOSTI: readonly BranaKonkretniUdalost[] = [
     cas: "19:30",
     mistoNeboTyp: "Kino Aurora",
     nazev: "Bobr a přátelé",
+    rucniPoziceVDni: null,
   },
   {
     id: "ukazka-divadlo-jk-tyla-2026-10-05",
@@ -38,6 +39,7 @@ export const UKAZKOVE_KONKRETNI_UDALOSTI: readonly BranaKonkretniUdalost[] = [
     cas: "19:30",
     mistoNeboTyp: "Divadlo J. K. Tyla",
     nazev: "Svědomitě nepřipravení",
+    rucniPoziceVDni: null,
   },
   {
     id: "ukazka-festival-2026-10-05-08",
@@ -47,6 +49,7 @@ export const UKAZKOVE_KONKRETNI_UDALOSTI: readonly BranaKonkretniUdalost[] = [
     cas: "18:00",
     mistoNeboTyp: "Festival",
     nazev: "Třeboňský divadelní festival",
+    rucniPoziceVDni: null,
   },
   {
     id: "ukazka-zamek-2027-03-12",
@@ -56,6 +59,7 @@ export const UKAZKOVE_KONKRETNI_UDALOSTI: readonly BranaKonkretniUdalost[] = [
     cas: "10:00",
     mistoNeboTyp: "Státní zámek Třeboň",
     nazev: "Jarní prohlídka",
+    rucniPoziceVDni: null,
   },
 ];
 
