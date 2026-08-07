@@ -9,6 +9,7 @@ import {
   schvalitKonkretniUdalost,
   smazatRucniKonkretniUdalost,
   upravitRucniKonkretniUdalost,
+  vytvoritTestCekajiciUdalost,
 } from "@/lib/brana/admin/konkretni-udalosti-uloziste";
 import { ulozitRedakcniPoradi } from "@/lib/brana/admin/redakcni-poradi-uloziste";
 import { validovatRedakcniPoradiVstup } from "@/lib/brana/admin/redakcni-poradi-validace";
@@ -203,6 +204,44 @@ export async function schvalitKonkretniUdalostAkce(
     return {
       uspech: false,
       chyba: detail ?? "Událost se nepodařilo schválit.",
+    };
+  }
+}
+
+export type BranaTestCekajiciVysledek =
+  | {
+      uspech: true;
+      vytvoreno: boolean;
+      udalost: BranaKonkretniUdalost;
+      zprava: string;
+    }
+  | { uspech: false; chyba: string };
+
+/**
+ * DOČASNÁ admin-only akce – maximálně jedna persistovaná CEKA testovací událost.
+ */
+export async function vytvoritTestCekajiciUdalostAkce(): Promise<BranaTestCekajiciVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  try {
+    const vysledek = await vytvoritTestCekajiciUdalost();
+    revalidatePath("/brana/admin/sprava/kalendar");
+    return {
+      uspech: true,
+      vytvoreno: vysledek.vytvoreno,
+      udalost: vysledek.udalost,
+      zprava: vysledek.zprava,
+    };
+  } catch (error) {
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "Testovací událost se nepodařilo vytvořit.",
     };
   }
 }
