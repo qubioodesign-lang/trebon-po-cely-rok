@@ -35,12 +35,9 @@ function sestavVolbyPozice(
 ): VolbaPozice[] {
   const volby: VolbaPozice[] = [{ hodnota: 0, popisek: "Na začátek" }];
   automaticke.forEach((udalost, index) => {
-    const jePosledni = index === automaticke.length - 1;
     volby.push({
       hodnota: index + 1,
-      popisek: jePosledni
-        ? "Na konec"
-        : `Za: ${popisekVolbyPozice(udalost)}`,
+      popisek: `Za: ${popisekVolbyPozice(udalost)}`,
     });
   });
   return volby;
