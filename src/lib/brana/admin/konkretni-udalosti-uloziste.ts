@@ -31,7 +31,10 @@ export type BranaKonkretniUdalostiDokument = {
   verzeUloziste: number;
   /** Odemyká výjimečný ruční zápis – nastaví skutečný scan Zdrojů */
   posledniScanDokoncen: boolean;
-  /** Pouze ručně uložené události (redakcniPolozkaId = null) */
+  /**
+   * Persistované konkrétní události (ruční i budoucí automatické ze scanu).
+   * Ukázková data sem nepatří.
+   */
   udalosti: BranaKonkretniUdalost[];
 };
 
@@ -64,11 +67,12 @@ function vychoziDokument(): BranaKonkretniUdalostiDokument {
 }
 
 /**
- * Ruční událost z Blobu.
+ * Persistovaná událost z Blobu.
+ * - ruční: redakcniPolozkaId = null, rucniPoziceVDni >= 0
+ * - automatická: redakcniPolozkaId neprázdný string, rucniPoziceVDni = null
  * Pole stavSchvaleni smí chybět (starší záznamy) – pak SCHVALENO.
- * Neplatná hodnota pole dokument invaliduje (bez tichého přepisu).
  */
-function jeRucniUdalostZBlobu(hodnota: unknown): boolean {
+function jeUdalostZBlobu(hodnota: unknown): boolean {
   if (!hodnota || typeof hodnota !== "object") {
     return false;
   }
@@ -77,38 +81,57 @@ function jeRucniUdalostZBlobu(hodnota: unknown): boolean {
     !(
       typeof u.id === "string" &&
       u.id.length > 0 &&
-      u.redakcniPolozkaId === null &&
       typeof u.datumOd === "string" &&
       typeof u.datumDo === "string" &&
       typeof u.cas === "string" &&
       typeof u.mistoNeboTyp === "string" &&
-      typeof u.nazev === "string" &&
-      typeof u.rucniPoziceVDni === "number" &&
-      Number.isInteger(u.rucniPoziceVDni) &&
-      u.rucniPoziceVDni >= 0
+      typeof u.nazev === "string"
     )
   ) {
     return false;
   }
+
+  if (u.redakcniPolozkaId === null) {
+    if (
+      typeof u.rucniPoziceVDni !== "number" ||
+      !Number.isInteger(u.rucniPoziceVDni) ||
+      u.rucniPoziceVDni < 0
+    ) {
+      return false;
+    }
+  } else if (typeof u.redakcniPolozkaId === "string") {
+    if (u.redakcniPolozkaId.trim().length === 0) {
+      return false;
+    }
+    if (u.rucniPoziceVDni !== null) {
+      return false;
+    }
+  } else {
+    return false;
+  }
+
   if (u.stavSchvaleni !== undefined && !jeBranaStavSchvaleni(u.stavSchvaleni)) {
     return false;
   }
   return true;
 }
 
-function normalizovatRucniUdalostZBlobu(
-  hodnota: unknown,
-): BranaKonkretniUdalost {
+function normalizovatUdalostZBlobu(hodnota: unknown): BranaKonkretniUdalost {
   const u = hodnota as Record<string, unknown>;
+  const redakcniPolozkaId =
+    u.redakcniPolozkaId === null
+      ? null
+      : (u.redakcniPolozkaId as string).trim();
   return {
-    id: u.id as string,
-    redakcniPolozkaId: null,
+    id: (u.id as string).trim(),
+    redakcniPolozkaId,
     datumOd: u.datumOd as string,
     datumDo: u.datumDo as string,
     cas: u.cas as string,
     mistoNeboTyp: u.mistoNeboTyp as string,
     nazev: u.nazev as string,
-    rucniPoziceVDni: u.rucniPoziceVDni as number,
+    rucniPoziceVDni:
+      redakcniPolozkaId === null ? (u.rucniPoziceVDni as number) : null,
     stavSchvaleni: normalizovatStavSchvaleni(u.stavSchvaleni),
   };
 }
@@ -129,13 +152,13 @@ function parsovatDokument(
   if (!Array.isArray(data.udalosti)) {
     return null;
   }
-  if (!data.udalosti.every(jeRucniUdalostZBlobu)) {
+  if (!data.udalosti.every(jeUdalostZBlobu)) {
     return null;
   }
   return {
     verzeUloziste: VERZE_ULOZISTE,
     posledniScanDokoncen: data.posledniScanDokoncen,
-    udalosti: data.udalosti.map(normalizovatRucniUdalostZBlobu),
+    udalosti: data.udalosti.map(normalizovatUdalostZBlobu),
   };
 }
 
@@ -429,4 +452,60 @@ export async function smazatRucniKonkretniUdalost(id: string): Promise<void> {
   }
 
   await ulozitDokument(overeni);
+}
+
+/**
+ * Schválí jednu persistovanou konkrétní událost:
+ * CEKA_NA_SCHVALENI → SCHVALENO.
+ * Mění pouze stavSchvaleni. Ukázková data neřeší (nejsou v Blobu).
+ * Již SCHVALENO → bez zápisu, vrátí stávající záznam.
+ */
+export async function schvalitKonkretniUdalost(
+  id: string,
+): Promise<BranaKonkretniUdalost> {
+  if (!(await jeAdminPrihlasen())) {
+    throw new Error("Nejste přihlášeni.");
+  }
+
+  if (!maBranaAdminBlobKonfiguraci()) {
+    throw new Error(
+      "Nelze schválit událost: chybí BLOB_BRANA_ADMIN_STORE_ID nebo BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
+    );
+  }
+
+  const idTrim = typeof id === "string" ? id.trim() : "";
+  if (!idTrim) {
+    throw new Error("Chybí id události.");
+  }
+
+  const dokument = await nacistDokumentProZapis();
+  const index = dokument.udalosti.findIndex((u) => u.id === idTrim);
+  if (index < 0) {
+    throw new Error("Událost nebyla nalezena.");
+  }
+
+  const existujici = dokument.udalosti[index];
+  if (existujici.stavSchvaleni === "SCHVALENO") {
+    return existujici;
+  }
+  if (existujici.stavSchvaleni !== "CEKA_NA_SCHVALENI") {
+    throw new Error("Událost nelze schválit.");
+  }
+
+  const schvalena: BranaKonkretniUdalost = {
+    ...existujici,
+    stavSchvaleni: "SCHVALENO",
+  };
+
+  const noveUdalosti = dokument.udalosti.slice();
+  noveUdalosti[index] = schvalena;
+  dokument.udalosti = noveUdalosti;
+
+  const overeni = parsovatDokument(dokument);
+  if (!overeni) {
+    throw new Error("Výsledný dokument neprošel validací. Nic nebylo uloženo.");
+  }
+
+  await ulozitDokument(overeni);
+  return schvalena;
 }

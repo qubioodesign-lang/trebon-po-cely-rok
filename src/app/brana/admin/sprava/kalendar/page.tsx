@@ -87,6 +87,7 @@ export default async function StrankaBranaAdminKalendar() {
           automatickePodleDne={automatickePodleDne}
           dny={dny}
           rucniZapisPovolen={uloziste.ok}
+          persistovaneIdUdalosti={rucniUdalosti.map((u) => u.id)}
         />
       </section>
     </BranaAdminObal>

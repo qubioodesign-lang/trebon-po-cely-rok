@@ -6,6 +6,7 @@ import type { BranaKonkretniUdalost } from "@/lib/brana/admin/konkretni-udalost"
 import {
   nastavitPosledniScanDokoncen,
   pridatRucniKonkretniUdalost,
+  schvalitKonkretniUdalost,
   smazatRucniKonkretniUdalost,
   upravitRucniKonkretniUdalost,
 } from "@/lib/brana/admin/konkretni-udalosti-uloziste";
@@ -178,6 +179,30 @@ export async function smazatRucniKonkretniUdalostAkce(
     return {
       uspech: false,
       chyba: detail ?? "Událost se nepodařilo smazat.",
+    };
+  }
+}
+
+/** Schválí persistovanou událost: CEKA_NA_SCHVALENI → SCHVALENO */
+export async function schvalitKonkretniUdalostAkce(
+  id: string,
+): Promise<BranaRucniUdalostVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  try {
+    const udalost = await schvalitKonkretniUdalost(id);
+    revalidatePath("/brana/admin/sprava/kalendar");
+    return { uspech: true, udalost };
+  } catch (error) {
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "Událost se nepodařilo schválit.",
     };
   }
 }

@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   oznacitPosledniScanDokoncenAkce,
   pridatRucniKonkretniUdalostAkce,
+  schvalitKonkretniUdalostAkce,
   smazatRucniKonkretniUdalostAkce,
   upravitRucniKonkretniUdalostAkce,
 } from "@/app/brana/admin/actions";
@@ -28,6 +30,8 @@ type Props = {
   dny: BranaKalendarDen[];
   /** false při chybě čtení Blobu – formulář a akce se nezobrazí */
   rucniZapisPovolen: boolean;
+  /** Id událostí skutečně persistovaných v PRIVATE Blobu */
+  persistovaneIdUdalosti: readonly string[];
 };
 
 function sestavVolbyPozice(
@@ -67,14 +71,18 @@ function SeznamDnu({
   dny,
   rucniAkce,
   pending,
+  muzeSchvalit,
   onUpravit,
   onSmazat,
+  onSchvalit,
 }: {
   dny: BranaKalendarDen[];
   rucniAkce: boolean;
   pending: boolean;
+  muzeSchvalit: (udalost: BranaKonkretniUdalost) => boolean;
   onUpravit: (udalost: BranaKonkretniUdalost) => void;
   onSmazat: (udalost: BranaKonkretniUdalost) => void;
+  onSchvalit: (udalost: BranaKonkretniUdalost) => void;
 }) {
   return (
     <div role="region" aria-label="Pracovní kalendář">
@@ -94,6 +102,7 @@ function SeznamDnu({
                     const jeRucni = udalost.redakcniPolozkaId === null;
                     const cekaNaSchvaleni =
                       udalost.stavSchvaleni === "CEKA_NA_SCHVALENI";
+                    const zobrazitSchvalit = muzeSchvalit(udalost);
                     return (
                       <li
                         key={`${udalost.id}-${den.isoDen}`}
@@ -123,24 +132,38 @@ function SeznamDnu({
                               Čeká na schválení
                             </span>
                           ) : null}
-                          {rucniAkce && jeRucni ? (
+                          {zobrazitSchvalit || (rucniAkce && jeRucni) ? (
                             <div className="mt-0.5 flex flex-wrap gap-3">
-                              <button
-                                type="button"
-                                onClick={() => onUpravit(udalost)}
-                                disabled={pending}
-                                className="text-xs font-light text-text-jemny underline-offset-2 hover:underline disabled:opacity-50"
-                              >
-                                Upravit
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => onSmazat(udalost)}
-                                disabled={pending}
-                                className="text-xs font-light text-text-jemny underline-offset-2 hover:underline disabled:opacity-50"
-                              >
-                                Smazat
-                              </button>
+                              {zobrazitSchvalit ? (
+                                <button
+                                  type="button"
+                                  onClick={() => onSchvalit(udalost)}
+                                  disabled={pending}
+                                  className="text-xs font-light text-text-jemny underline-offset-2 hover:underline disabled:opacity-50"
+                                >
+                                  Schválit
+                                </button>
+                              ) : null}
+                              {rucniAkce && jeRucni ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => onUpravit(udalost)}
+                                    disabled={pending}
+                                    className="text-xs font-light text-text-jemny underline-offset-2 hover:underline disabled:opacity-50"
+                                  >
+                                    Upravit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => onSmazat(udalost)}
+                                    disabled={pending}
+                                    className="text-xs font-light text-text-jemny underline-offset-2 hover:underline disabled:opacity-50"
+                                  >
+                                    Smazat
+                                  </button>
+                                </>
+                              ) : null}
                             </div>
                           ) : null}
                         </div>
@@ -174,15 +197,18 @@ function SeznamDnu({
 }
 
 /**
- * Výjimečný ruční zápis přímo v Kalendáři (přidat / upravit / smazat).
- * Dostupný pouze po dokončení posledního scanu.
+ * Výjimečný ruční zápis přímo v Kalendáři (přidat / upravit / smazat)
+ * a schválení persistované čekající události.
  */
 export function BranaAdminKalendarRucniZapis({
   posledniScanDokoncen,
   automatickePodleDne,
   dny,
   rucniZapisPovolen,
+  persistovaneIdUdalosti,
 }: Props) {
+  const router = useRouter();
+  const [dnyStav, setDnyStav] = useState(dny);
   const [otevreno, setOtevreno] = useState(false);
   const [editovaneId, setEditovaneId] = useState<string | null>(null);
   const [datumOd, setDatumOd] = useState("");
@@ -195,6 +221,15 @@ export function BranaAdminKalendarRucniZapis({
   const [zprava, setZprava] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  useEffect(() => {
+    setDnyStav(dny);
+  }, [dny]);
+
+  const persistovaneId = useMemo(
+    () => new Set(persistovaneIdUdalosti),
+    [persistovaneIdUdalosti],
+  );
+
   const volbyPozice = useMemo(() => {
     const den = datumOd.trim();
     const automaticke = den ? (automatickePodleDne[den] ?? []) : [];
@@ -203,6 +238,14 @@ export function BranaAdminKalendarRucniZapis({
 
   const muzeEditovat =
     rucniZapisPovolen && posledniScanDokoncen;
+
+  function muzeSchvalit(udalost: BranaKonkretniUdalost): boolean {
+    return (
+      rucniZapisPovolen &&
+      udalost.stavSchvaleni === "CEKA_NA_SCHVALENI" &&
+      persistovaneId.has(udalost.id)
+    );
+  }
 
   function resetovatFormular() {
     setEditovaneId(null);
@@ -269,6 +312,7 @@ export function BranaAdminKalendarRucniZapis({
       }
       setZprava(editovaneId ? "Událost upravena" : "Událost uložena");
       zavrit();
+      router.refresh();
     });
   }
 
@@ -294,6 +338,32 @@ export function BranaAdminKalendarRucniZapis({
         zavrit();
       }
       setZprava("Událost smazána");
+      router.refresh();
+    });
+  }
+
+  function schvalit(udalost: BranaKonkretniUdalost) {
+    if (!muzeSchvalit(udalost)) {
+      return;
+    }
+    setChyba(null);
+    setZprava(null);
+    startTransition(async () => {
+      const vysledek = await schvalitKonkretniUdalostAkce(udalost.id);
+      if (!vysledek.uspech) {
+        setChyba(vysledek.chyba);
+        return;
+      }
+      setDnyStav((predchozi) =>
+        predchozi.map((den) => ({
+          ...den,
+          udalosti: den.udalosti.map((u) =>
+            u.id === vysledek.udalost.id ? vysledek.udalost : u,
+          ),
+        })),
+      );
+      setZprava("Událost schválena");
+      router.refresh();
     });
   }
 
@@ -307,6 +377,7 @@ export function BranaAdminKalendarRucniZapis({
         return;
       }
       setZprava("Poslední scan označen jako dokončený");
+      router.refresh();
     });
   }
 
@@ -454,11 +525,13 @@ export function BranaAdminKalendarRucniZapis({
       ) : null}
 
       <SeznamDnu
-        dny={dny}
+        dny={dnyStav}
         rucniAkce={muzeEditovat}
         pending={pending}
+        muzeSchvalit={muzeSchvalit}
         onUpravit={otevritUpravu}
         onSmazat={smazat}
+        onSchvalit={schvalit}
       />
     </div>
   );
