@@ -2,6 +2,7 @@ import type { BranaRedakcniPolozkaStav } from "./redakcni-kostra";
 import {
   BRANA_REDAKCNI_CISLO_MAX,
   BRANA_REDAKCNI_CISLO_MIN,
+  BRANA_REDAKCNI_POLOZKA_MAX,
   BRANA_REDAKCNI_POZNAMKA_MAX,
   BRANA_REDAKCNI_VSECHNY_VYCHOZI,
   vytvoritVychoziRedakcniPoradi,
@@ -76,9 +77,29 @@ function normalizovatPouzivat(
 }
 
 /**
+ * Redakční text Položka – povinný, trim, max délka.
+ * Není tožné se stabilním id.
+ */
+function normalizovatNazevPolozky(
+  hodnota: unknown,
+): { ok: true; text: string } | { ok: false; chyba: "neplatne" | "prazdne" | "dlouhe" } {
+  if (typeof hodnota !== "string") {
+    return { ok: false, chyba: "neplatne" };
+  }
+  const text = hodnota.trim();
+  if (text === "") {
+    return { ok: false, chyba: "prazdne" };
+  }
+  if (text.length > BRANA_REDAKCNI_POLOZKA_MAX) {
+    return { ok: false, chyba: "dlouhe" };
+  }
+  return { ok: true, text };
+}
+
+/**
  * Validuje a normalizuje kompletní sadu řádků podle stabilních id.
  * Musí obsahovat přesně všech 52 pevných položek, žádné jiné.
- * Název položky a příslušnost ke kostře se berou z katalogu (nelze přejmenovat).
+ * Text Položka se zachová (validovaný); katalog slouží jen jako výchozí při chybějících datech.
  */
 export function validovatRedakcniPoradiVstup(
   vstup: unknown,
@@ -118,11 +139,31 @@ export function validovatRedakcniPoradiVstup(
     }
 
     const data = radek as Record<string, unknown>;
+    const nazev = normalizovatNazevPolozky(data.polozka);
+    if (!nazev.ok) {
+      if (nazev.chyba === "prazdne") {
+        return {
+          ok: false,
+          chyba: `Prázdný text Položka u „${vychozi.id}“.`,
+        };
+      }
+      if (nazev.chyba === "dlouhe") {
+        return {
+          ok: false,
+          chyba: `Text Položka u „${vychozi.id}“ přesahuje ${BRANA_REDAKCNI_POLOZKA_MAX} znaků.`,
+        };
+      }
+      return {
+        ok: false,
+        chyba: `Neplatný text Položka u „${vychozi.id}“.`,
+      };
+    }
+
     const pouzivat = normalizovatPouzivat(data.pouzivat);
     if (pouzivat === "neplatne") {
       return {
         ok: false,
-        chyba: `Neplatné Používat u „${vychozi.polozka}“.`,
+        chyba: `Neplatné Používat u „${nazev.text}“.`,
       };
     }
 
@@ -130,7 +171,7 @@ export function validovatRedakcniPoradiVstup(
     if (priorita === "neplatne") {
       return {
         ok: false,
-        chyba: `Neplatná Priorita u „${vychozi.polozka}“ (povolené ${BRANA_REDAKCNI_CISLO_MIN}–${BRANA_REDAKCNI_CISLO_MAX} nebo prázdné).`,
+        chyba: `Neplatná Priorita u „${nazev.text}“ (povolené ${BRANA_REDAKCNI_CISLO_MIN}–${BRANA_REDAKCNI_CISLO_MAX} nebo prázdné).`,
       };
     }
 
@@ -138,7 +179,7 @@ export function validovatRedakcniPoradiVstup(
     if (subpriorita === "neplatne") {
       return {
         ok: false,
-        chyba: `Neplatná Subpriorita u „${vychozi.polozka}“ (povolené ${BRANA_REDAKCNI_CISLO_MIN}–${BRANA_REDAKCNI_CISLO_MAX} nebo prázdné).`,
+        chyba: `Neplatná Subpriorita u „${nazev.text}“ (povolené ${BRANA_REDAKCNI_CISLO_MIN}–${BRANA_REDAKCNI_CISLO_MAX} nebo prázdné).`,
       };
     }
 
@@ -146,7 +187,7 @@ export function validovatRedakcniPoradiVstup(
     if (vyhled === "neplatne") {
       return {
         ok: false,
-        chyba: `Neplatný Výhled u „${vychozi.polozka}“.`,
+        chyba: `Neplatný Výhled u „${nazev.text}“.`,
       };
     }
 
@@ -155,21 +196,21 @@ export function validovatRedakcniPoradiVstup(
       if (typeof data.poznamka !== "string") {
         return {
           ok: false,
-          chyba: `Neplatná Poznámka u „${vychozi.polozka}“.`,
+          chyba: `Neplatná Poznámka u „${nazev.text}“.`,
         };
       }
       poznamka = data.poznamka.trim();
       if (poznamka.length > BRANA_REDAKCNI_POZNAMKA_MAX) {
         return {
           ok: false,
-          chyba: `Poznámka u „${vychozi.polozka}“ přesahuje ${BRANA_REDAKCNI_POZNAMKA_MAX} znaků.`,
+          chyba: `Poznámka u „${nazev.text}“ přesahuje ${BRANA_REDAKCNI_POZNAMKA_MAX} znaků.`,
         };
       }
     }
 
     vysledek.push({
       id: vychozi.id,
-      polozka: vychozi.polozka,
+      polozka: nazev.text,
       pouzivat,
       priorita,
       subpriorita,
@@ -212,6 +253,7 @@ export function sloucitUlozeneSKostrou(
       return vytvoritVychoziStavPolozky(vychozi);
     }
 
+    const nazev = normalizovatNazevPolozky(ulozeny.polozka);
     const pouzivat = normalizovatPouzivat(ulozeny.pouzivat);
     const prioritaRaw = normalizovatCislo(ulozeny.priorita);
     const subprioritaRaw = normalizovatCislo(ulozeny.subpriorita);
@@ -223,7 +265,7 @@ export function sloucitUlozeneSKostrou(
 
     return {
       id: vychozi.id,
-      polozka: vychozi.polozka,
+      polozka: nazev.ok ? nazev.text : vychozi.polozka,
       pouzivat: pouzivat === "neplatne" ? vychozi.pouzivat : pouzivat,
       priorita: prioritaRaw === "neplatne" ? null : prioritaRaw,
       subpriorita: subprioritaRaw === "neplatne" ? null : subprioritaRaw,

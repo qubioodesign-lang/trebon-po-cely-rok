@@ -3,8 +3,8 @@
 import { useState, useTransition } from "react";
 import { ulozitBranaRedakcniPoradiAkce } from "@/app/brana/admin/actions";
 import {
+  BRANA_REDAKCNI_POLOZKA_MAX,
   BRANA_REDAKCNI_POZNAMKA_MAX,
-  jePolozkaMimoKostruPodleId,
   type BranaRedakcniPolozkaStav,
   type BranaRedakcniPouzivat,
   type BranaRedakcniVyhled,
@@ -14,7 +14,7 @@ import {
 const ODD = "border-l border-text-velmiJemny/15";
 
 const VSTUP =
-  "w-full border border-text-velmiJemny/25 bg-transparent px-1.5 py-1 text-sm text-text outline-none focus:border-text-jemny/50";
+  "w-full border border-text-velmiJemny/25 bg-transparent px-1.5 py-1 text-sm text-text outline-none focus:border-text-jemny/50 disabled:opacity-60";
 
 type Props = {
   pocatecniPolozky: BranaRedakcniPolozkaStav[];
@@ -51,7 +51,14 @@ export function BranaAdminRedakcniPoradi({ pocatecniPolozky }: Props) {
     setChyba(null);
     setPolozky((predchozi) =>
       predchozi.map((radek) =>
-        radek.id === id ? { ...radek, ...zmena, id: radek.id, polozka: radek.polozka, mimoKostru: radek.mimoKostru } : radek,
+        radek.id === id
+          ? {
+              ...radek,
+              ...zmena,
+              id: radek.id,
+              mimoKostru: radek.mimoKostru,
+            }
+          : radek,
       ),
     );
   }
@@ -70,8 +77,9 @@ export function BranaAdminRedakcniPoradi({ pocatecniPolozky }: Props) {
     });
   }
 
-  const kostra = polozky.filter((p) => !jePolozkaMimoKostruPodleId(p.id));
-  const mimo = polozky.filter((p) => jePolozkaMimoKostruPodleId(p.id));
+  /** Sekce podle aktuálního Používat – ne podle historického katalogu */
+  const aktivni = polozky.filter((p) => p.pouzivat === "ANO");
+  const pracovni = polozky.filter((p) => p.pouzivat === "NE");
 
   return (
     <div className="space-y-6">
@@ -96,12 +104,12 @@ export function BranaAdminRedakcniPoradi({ pocatecniPolozky }: Props) {
         ) : null}
       </div>
 
-      <RedakcniTabulka polozky={kostra} onChange={aktualizovat} />
+      <RedakcniTabulka polozky={aktivni} onChange={aktualizovat} zamceno />
 
       <div className="space-y-3">
         <h3 className="text-base font-normal text-text">MIMO PRVNÍ KOSTRU</h3>
         <RedakcniTabulka
-          polozky={mimo}
+          polozky={pracovni}
           onChange={aktualizovat}
           pracovniRadek
         />
@@ -113,6 +121,7 @@ export function BranaAdminRedakcniPoradi({ pocatecniPolozky }: Props) {
 function RedakcniTabulka({
   polozky,
   onChange,
+  zamceno = false,
   pracovniRadek = false,
 }: {
   polozky: BranaRedakcniPolozkaStav[];
@@ -120,6 +129,8 @@ function RedakcniTabulka({
     id: string,
     zmena: Partial<BranaRedakcniPolozkaStav>,
   ) => void;
+  /** Aktivní ANO řádky – zamčené kromě Používat */
+  zamceno?: boolean;
   /** Vizuální prázdný řádek – nepatří do dat, neukládá se */
   pracovniRadek?: boolean;
 }) {
@@ -180,7 +191,22 @@ function RedakcniTabulka({
               </select>
             </td>
             <td className="py-2 pr-3 pl-1 align-top text-sm text-text">
-              {radek.polozka}
+              {zamceno ? (
+                radek.polozka
+              ) : (
+                <input
+                  type="text"
+                  className={VSTUP}
+                  aria-label={`Položka – ${radek.id}`}
+                  value={radek.polozka}
+                  maxLength={BRANA_REDAKCNI_POLOZKA_MAX}
+                  onChange={(e) =>
+                    onChange(radek.id, {
+                      polozka: e.target.value.slice(0, BRANA_REDAKCNI_POLOZKA_MAX),
+                    })
+                  }
+                />
+              )}
             </td>
             <td className={`${ODD} py-2 px-1 align-top`}>
               <input
@@ -191,7 +217,9 @@ function RedakcniTabulka({
                 value={cisloNaText(radek.priorita)}
                 maxLength={3}
                 placeholder=""
+                disabled={zamceno}
                 onChange={(e) => {
+                  if (zamceno) return;
                   const raw = e.target.value.replace(/\D/g, "").slice(0, 3);
                   onChange(radek.id, {
                     priorita: textNaCislo(raw),
@@ -207,7 +235,9 @@ function RedakcniTabulka({
                 aria-label={`Subpriorita – ${radek.polozka}`}
                 value={cisloNaText(radek.subpriorita)}
                 maxLength={3}
+                disabled={zamceno}
                 onChange={(e) => {
+                  if (zamceno) return;
                   const raw = e.target.value.replace(/\D/g, "").slice(0, 3);
                   onChange(radek.id, {
                     subpriorita: textNaCislo(raw),
@@ -220,7 +250,9 @@ function RedakcniTabulka({
                 className={VSTUP}
                 aria-label={`Výhled – ${radek.polozka}`}
                 value={radek.vyhled ?? ""}
+                disabled={zamceno}
                 onChange={(e) => {
+                  if (zamceno) return;
                   const v = e.target.value;
                   const vyhled: BranaRedakcniVyhled =
                     v === "ANO" || v === "NE" ? v : null;
@@ -239,11 +271,13 @@ function RedakcniTabulka({
                 aria-label={`Poznámka – ${radek.polozka}`}
                 value={radek.poznamka}
                 maxLength={BRANA_REDAKCNI_POZNAMKA_MAX}
-                onChange={(e) =>
+                disabled={zamceno}
+                onChange={(e) => {
+                  if (zamceno) return;
                   onChange(radek.id, {
                     poznamka: e.target.value.slice(0, BRANA_REDAKCNI_POZNAMKA_MAX),
-                  })
-                }
+                  });
+                }}
               />
             </td>
           </tr>

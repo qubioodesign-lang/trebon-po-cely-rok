@@ -6,6 +6,9 @@
 /** Max. délka poznámky */
 export const BRANA_REDAKCNI_POZNAMKA_MAX = 200;
 
+/** Max. délka redakčního textu Položka (editovatelný název, ne id) */
+export const BRANA_REDAKCNI_POLOZKA_MAX = 100;
+
 /** Priorita / Subpriorita: prázdné nebo celé nezáporné číslo */
 export const BRANA_REDAKCNI_CISLO_MIN = 0;
 export const BRANA_REDAKCNI_CISLO_MAX = 999;
@@ -18,9 +21,10 @@ export type BranaRedakcniVyhled = "ANO" | "NE" | null;
 export type BranaRedakcniPolozkaVychozi = {
   /** Stabilní identifikátor – nemění se, nesloučí se s názvem */
   id: string;
+  /** Výchozí redakční text – po uložení se bere z Blobu, katalog ho nepřepisuje */
   polozka: string;
   pouzivat: BranaRedakcniPouzivat;
-  /** true = MIMO PRVNÍ KOSTRU */
+  /** true = historicky mimo první kostru (katalog); sekce UI řídí Používat */
   mimoKostru: boolean;
 };
 
