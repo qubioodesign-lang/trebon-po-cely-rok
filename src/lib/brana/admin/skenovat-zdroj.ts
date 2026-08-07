@@ -255,49 +255,80 @@ function httpRequestNaOvereneAdresy(
       return;
     }
 
-    const req = transport.request(
-      {
-        protocol: cil.protocol,
-        // TCP přímo na ověřenou IP – Node přeskočí DNS (isIP(hostname)).
-        hostname: pinned.address,
-        port: cil.port || (cil.protocol === "https:" ? 443 : 80),
-        path: `${cil.pathname}${cil.search}`,
-        method: "GET",
-        family: pinned.family,
-        headers: {
-          Accept:
-            "text/html, application/xhtml+xml, application/ld+json, application/json;q=0.9, */*;q=0.8",
-          "User-Agent": "BranaAdminScan/1.0",
-          // Host zůstává původní hostname (+ nestandardní port z URL).
-          Host: cil.host,
-        },
-        timeout: FETCH_TIMEOUT_MS,
-        // HTTPS: SNI + ověření certifikátu proti původnímu hostname, ne proti IP.
-        servername: puvodniHostname,
+    // Stejné options, které půjdou do transport.request – diagnostika čte přímo je.
+    const requestOptions = {
+      protocol: cil.protocol,
+      // TCP přímo na ověřenou IP – Node přeskočí DNS (isIP(hostname)).
+      hostname: pinned.address,
+      port: cil.port || (cil.protocol === "https:" ? 443 : 80),
+      path: `${cil.pathname}${cil.search}`,
+      method: "GET",
+      family: pinned.family,
+      headers: {
+        Accept:
+          "text/html, application/xhtml+xml, application/ld+json, application/json;q=0.9, */*;q=0.8",
+        "User-Agent": "BranaAdminScan/1.0",
+        // Host zůstává původní hostname (+ nestandardní port z URL).
+        Host: cil.host,
       },
-      (res) => {
-        const kusy: Buffer[] = [];
-        let celkem = 0;
-        res.on("data", (chunk: Buffer) => {
-          celkem += chunk.length;
-          if (celkem > FETCH_MAX_BYTU) {
-            req.destroy();
-            reject(new Error("Odpověď zdroje je příliš velká."));
-            return;
-          }
-          kusy.push(chunk);
+      timeout: FETCH_TIMEOUT_MS,
+      // HTTPS: SNI + ověření certifikátu proti původnímu hostname, ne proti IP.
+      servername: puvodniHostname,
+    };
+
+    // DOČASNÁ DIAGNOSTIKA – odstranit po získání produkčního důkazu.
+    console.error("[BRANA_SCAN_NET_DIAG]", {
+      puvodniHostname,
+      protocol: requestOptions.protocol,
+      pinnedAddressTypeof: typeof pinned.address,
+      pinnedAddressNonEmptyString:
+        typeof pinned.address === "string" && pinned.address.length > 0,
+      pinnedAddressIsIP: isIP(
+        typeof pinned.address === "string" ? pinned.address : "",
+      ),
+      pinnedFamily: pinned.family,
+      requestHostnameTypeof: typeof requestOptions.hostname,
+      requestHostnameIsIP: isIP(
+        typeof requestOptions.hostname === "string"
+          ? requestOptions.hostname
+          : "",
+      ),
+      requestHostnameEqualsPinned:
+        requestOptions.hostname === pinned.address,
+      servername: requestOptions.servername,
+      port: requestOptions.port,
+      family: requestOptions.family,
+      hasCustomLookup: "lookup" in requestOptions,
+      autoSelectFamilyExplicit:
+        "autoSelectFamily" in requestOptions
+          ? (requestOptions as { autoSelectFamily?: boolean }).autoSelectFamily
+          : "nenastaveno",
+      resolvedCount: overeneAdresy.length,
+      resolvedFamilies: overeneAdresy.map((a) => a.family),
+    });
+
+    const req = transport.request(requestOptions, (res) => {
+      const kusy: Buffer[] = [];
+      let celkem = 0;
+      res.on("data", (chunk: Buffer) => {
+        celkem += chunk.length;
+        if (celkem > FETCH_MAX_BYTU) {
+          req.destroy();
+          reject(new Error("Odpověď zdroje je příliš velká."));
+          return;
+        }
+        kusy.push(chunk);
+      });
+      res.on("end", () => {
+        resolve({
+          status: res.statusCode ?? 0,
+          headers: res.headers,
+          body: Buffer.concat(kusy),
+          finalUrl: cil,
         });
-        res.on("end", () => {
-          resolve({
-            status: res.statusCode ?? 0,
-            headers: res.headers,
-            body: Buffer.concat(kusy),
-            finalUrl: cil,
-          });
-        });
-        res.on("error", reject);
-      },
-    );
+      });
+      res.on("error", reject);
+    });
 
     const onAbort = () => {
       req.destroy();
@@ -308,7 +339,25 @@ function httpRequestNaOvereneAdresy(
       req.destroy();
       reject(new Error("Načtení zdroje vypršelo."));
     });
-    req.on("error", reject);
+    req.on("error", (error) => {
+      // DOČASNÁ DIAGNOSTIKA – odstranit po získání produkčního důkazu.
+      if (error instanceof Error) {
+        const nodeErr = error as NodeJS.ErrnoException;
+        console.error("[BRANA_SCAN_NET_DIAG_ERROR]", {
+          name: error.name,
+          message: error.message,
+          code: nodeErr.code,
+          errno: nodeErr.errno,
+          syscall: nodeErr.syscall,
+          stack: error.stack,
+        });
+      } else {
+        console.error("[BRANA_SCAN_NET_DIAG_ERROR]", {
+          nonErrorType: typeof error,
+        });
+      }
+      reject(error);
+    });
     req.end();
   });
 }
