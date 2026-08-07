@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { BranaAdminObal } from "@/components/brana/admin/BranaAdminObal";
+import { BranaAdminZdrojeRytmus } from "@/components/brana/admin/BranaAdminZdrojeRytmus";
 import { popisekTypuZdroje } from "@/lib/brana/admin/zdroj";
 import { ukazkoveZdrojePodleTypu } from "@/lib/brana/admin/ukazkove-zdroje";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
@@ -9,7 +10,7 @@ const SKUPINY = [
   { typ: "RYCHLY" as const, nadpis: "Rychlé" },
 ];
 
-/** Správa → Zdroje – základ seznamu známých zdrojů (ukázková data) */
+/** Správa → Zdroje – ukázkové zdroje + nastavení rytmu kontroly */
 export default async function StrankaBranaAdminZdroje() {
   if (!(await jeAdminPrihlasen())) {
     return null;
@@ -33,6 +34,8 @@ export default async function StrankaBranaAdminZdroje() {
         >
           Zdroje
         </h2>
+
+        <BranaAdminZdrojeRytmus />
 
         {SKUPINY.map((skupina) => {
           const zdroje = ukazkoveZdrojePodleTypu(skupina.typ);
