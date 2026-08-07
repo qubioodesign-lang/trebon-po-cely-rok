@@ -46,7 +46,7 @@ export function dnyTrvaniUdalosti(udalost: BranaKonkretniUdalost): string[] {
   return dny;
 }
 
-/** Formát Výhledu: 5.10. nebo 5.10. až 8.10. – bez roku, času a dne v týdnu */
+/** Formát Výhledu: 5.10. nebo 5.10.–8.10. – bez roku, času a dne v týdnu */
 export function formatujDatumVyhled(udalost: BranaKonkretniUdalost): string {
   const od = parsujIsoDen(udalost.datumOd);
   const doDne = parsujIsoDen(udalost.datumDo);
@@ -55,7 +55,7 @@ export function formatujDatumVyhled(udalost: BranaKonkretniUdalost): string {
     return odText;
   }
   const doText = `${doDne.getUTCDate()}.${doDne.getUTCMonth() + 1}.`;
-  return `${odText} až ${doText}`;
+  return `${odText}–${doText}`;
 }
 
 export function rokUdalosti(udalost: BranaKonkretniUdalost): number {
