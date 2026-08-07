@@ -11,6 +11,8 @@ export type BranaZdroj = {
   id: string;
   nazev: string;
   typ: BranaZdrojTyp;
+  /** Veřejná URL ke kontrole – zatím se jen ukládá */
+  url: string;
 };
 
 /** Společný interval kontroly pro všechny dlouhodobé zdroje */
@@ -37,6 +39,9 @@ export const BRANA_ZDROJE_RYTMUS_VYCHOZI: BranaZdrojeRytmusNastaveni = {
   rychlyRytmus: BRANA_RYCHLY_RYTMUS_VYCHOZI,
 };
 
+export const BRANA_ZDROJ_NAZEV_MAX = 200;
+export const BRANA_ZDROJ_URL_MAX = 2000;
+
 export function popisekTypuZdroje(typ: BranaZdrojTyp): string {
   switch (typ) {
     case "DLOUHODOBY":
@@ -62,7 +67,60 @@ export function popisekRychlehoRytmu(rytmus: BranaRychlyRytmus): string {
 export function jeDlouhodobyIntervalDni(
   hodnota: number,
 ): hodnota is BranaDlouhodobyIntervalDni {
-  return (
-    hodnota === 14 || hodnota === 21 || hodnota === 30
-  );
+  return hodnota === 14 || hodnota === 21 || hodnota === 30;
+}
+
+export function jeBranaZdrojTyp(hodnota: unknown): hodnota is BranaZdrojTyp {
+  return hodnota === "DLOUHODOBY" || hodnota === "RYCHLY";
+}
+
+export function jePlatnaZdrojUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+export type ValidaceZdrojeVysledek =
+  | {
+      ok: true;
+      nazev: string;
+      typ: BranaZdrojTyp;
+      url: string;
+    }
+  | { ok: false; chyba: string };
+
+/** Validace vstupních polí zdroje (bez id – id generuje / zachovává server) */
+export function validovatZdrojVstup(vstup: unknown): ValidaceZdrojeVysledek {
+  if (!vstup || typeof vstup !== "object") {
+    return { ok: false, chyba: "Neplatný vstup." };
+  }
+
+  const data = vstup as Record<string, unknown>;
+  const nazev = typeof data.nazev === "string" ? data.nazev.trim() : "";
+  const url = typeof data.url === "string" ? data.url.trim() : "";
+  const typ = data.typ;
+
+  if (!nazev) {
+    return { ok: false, chyba: "Název nesmí být prázdný." };
+  }
+  if (nazev.length > BRANA_ZDROJ_NAZEV_MAX) {
+    return { ok: false, chyba: "Název je příliš dlouhý." };
+  }
+  if (!jeBranaZdrojTyp(typ)) {
+    return { ok: false, chyba: "Typ musí být Dlouhodobý nebo Rychlý." };
+  }
+  if (!url) {
+    return { ok: false, chyba: "URL nesmí být prázdná." };
+  }
+  if (url.length > BRANA_ZDROJ_URL_MAX) {
+    return { ok: false, chyba: "URL je příliš dlouhá." };
+  }
+  if (!jePlatnaZdrojUrl(url)) {
+    return { ok: false, chyba: "URL musí začínat http:// nebo https://." };
+  }
+
+  return { ok: true, nazev, typ, url };
 }

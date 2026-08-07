@@ -1,34 +1,37 @@
 import { headers } from "next/headers";
 import { BranaAdminObal } from "@/components/brana/admin/BranaAdminObal";
 import { BranaAdminZdrojeRytmus } from "@/components/brana/admin/BranaAdminZdrojeRytmus";
-import {
-  BRANA_DLOUHODOBY_INTERVAL_VYCHOZI,
-  popisekTypuZdroje,
-} from "@/lib/brana/admin/zdroj";
+import { BranaAdminZdrojeSeznam } from "@/components/brana/admin/BranaAdminZdrojeSeznam";
+import { BRANA_DLOUHODOBY_INTERVAL_VYCHOZI } from "@/lib/brana/admin/zdroj";
 import {
   BRANA_ZDROJE_NASTAVENI_CHYBA_CTENI,
   nacistZdrojeNastaveni,
 } from "@/lib/brana/admin/zdroje-nastaveni-uloziste";
-import { ukazkoveZdrojePodleTypu } from "@/lib/brana/admin/ukazkove-zdroje";
+import {
+  BRANA_ZDROJE_CHYBA_CTENI,
+  nacistZdroje,
+} from "@/lib/brana/admin/zdroje-uloziste";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 
-const SKUPINY = [
-  { typ: "DLOUHODOBY" as const, nadpis: "Dlouhodobé" },
-  { typ: "RYCHLY" as const, nadpis: "Rychlé" },
-];
-
-/** Správa → Zdroje – ukázkové zdroje + trvalé nastavení rytmu kontroly */
+/** Správa → Zdroje – rytmus kontroly + produkční seznam známých zdrojů */
 export default async function StrankaBranaAdminZdroje() {
   if (!(await jeAdminPrihlasen())) {
     return null;
   }
 
   const host = (await headers()).get("host");
-  const nastaveni = await nacistZdrojeNastaveni();
-  const uloziteniPovoleno = nastaveni.ok;
+  const [nastaveni, seznam] = await Promise.all([
+    nacistZdrojeNastaveni(),
+    nacistZdroje(),
+  ]);
+
+  const rytmusPovolen = nastaveni.ok;
   const dlouhodobyIntervalDni = nastaveni.ok
     ? nastaveni.dlouhodobyIntervalDni
     : BRANA_DLOUHODOBY_INTERVAL_VYCHOZI;
+
+  const zapisPovolen = seznam.ok;
+  const zdroje = seznam.ok ? seznam.zdroje : [];
 
   return (
     <BranaAdminObal
@@ -49,40 +52,17 @@ export default async function StrankaBranaAdminZdroje() {
 
         <BranaAdminZdrojeRytmus
           dlouhodobyIntervalDni={dlouhodobyIntervalDni}
-          uloziteniPovoleno={uloziteniPovoleno}
+          uloziteniPovoleno={rytmusPovolen}
           chybaCteni={
-            uloziteniPovoleno ? null : BRANA_ZDROJE_NASTAVENI_CHYBA_CTENI
+            rytmusPovolen ? null : BRANA_ZDROJE_NASTAVENI_CHYBA_CTENI
           }
         />
 
-        {SKUPINY.map((skupina) => {
-          const zdroje = ukazkoveZdrojePodleTypu(skupina.typ);
-          return (
-            <div
-              key={skupina.typ}
-              className="space-y-2"
-              role="region"
-              aria-label={skupina.nadpis}
-            >
-              <h3 className="text-sm font-normal text-text-jemny">
-                {skupina.nadpis}
-              </h3>
-              <ul className="space-y-1.5">
-                {zdroje.map((zdroj) => (
-                  <li
-                    key={zdroj.id}
-                    className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-sm text-text"
-                  >
-                    <span>{zdroj.nazev}</span>
-                    <span className="text-text-velmiJemny">
-                      {popisekTypuZdroje(zdroj.typ)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          );
-        })}
+        <BranaAdminZdrojeSeznam
+          zdroje={zdroje}
+          zapisPovolen={zapisPovolen}
+          chybaCteni={zapisPovolen ? null : BRANA_ZDROJE_CHYBA_CTENI}
+        />
       </section>
     </BranaAdminObal>
   );
