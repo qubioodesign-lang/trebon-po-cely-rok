@@ -1,13 +1,14 @@
 import { timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { vyhodnotitBranaCasovyPlanProScheduler } from "@/lib/brana/admin/casovy-motor-uloziste";
+import { skenovatRychleZdrojeAutomaticky } from "@/lib/brana/admin/skenovat-rychle-zdroje-automaticky";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Minimální Vercel Cron trigger:
- * ověří CRON_SECRET → zavolá časový motor → vrátí pouze booleany.
- * Bez scanu, push, Blob put a změny stavových polí.
+ * Vercel Cron trigger:
+ * ověří CRON_SECRET → časový motor → při jeRychlyTermin sekvenční Rychlý scan.
+ * Bez push, bez Dlouhodobého scanu, bez posunu +21 dní.
  */
 
 function jePlatnaCronAutorizace(authHeader: string | null): boolean {
@@ -49,14 +50,28 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const { jeRychlyTermin, jeDlouhodobyTermin } = vysledek.plan;
+
+    if (!jeRychlyTermin) {
+      return NextResponse.json({
+        ok: true,
+        jeRychlyTermin,
+        jeDlouhodobyTermin,
+        rychlyScan: null,
+      });
+    }
+
+    const rychlyScan = await skenovatRychleZdrojeAutomaticky();
+
     return NextResponse.json({
       ok: true,
-      jeRychlyTermin: vysledek.plan.jeRychlyTermin,
-      jeDlouhodobyTermin: vysledek.plan.jeDlouhodobyTermin,
+      jeRychlyTermin,
+      jeDlouhodobyTermin,
+      rychlyScan,
     });
   } catch {
     return NextResponse.json(
-      { ok: false, chyba: "Časový plán se nepodařilo vyhodnotit." },
+      { ok: false, chyba: "Časový plán nebo Rychlý scan se nepodařilo dokončit." },
       { status: 500 },
     );
   }

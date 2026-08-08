@@ -181,16 +181,12 @@ async function nacistDokumentProZapis(): Promise<BranaZdrojeDokument> {
 }
 
 /**
- * Načte známé zdroje.
+ * Načte známé zdroje z PRIVATE Blobu (bez admin kontroly).
  * - Objekt neexistuje → prázdný seznam (Blob se nevytváří).
  * - Jiná chyba / neplatný dokument → ok: false.
  */
-export async function nacistZdroje(): Promise<NacistZdrojeVysledek> {
+async function nacistZdrojeDokument(): Promise<NacistZdrojeVysledek> {
   noStore();
-
-  if (!(await jeAdminPrihlasen())) {
-    throw new Error("Nejste přihlášeni.");
-  }
 
   if (!maBranaAdminBlobKonfiguraci()) {
     zalogovatChybuCteni(
@@ -225,6 +221,27 @@ export async function nacistZdroje(): Promise<NacistZdrojeVysledek> {
     zalogovatChybuCteni("selhání čtení PRIVATE Blobu", error);
     return { ok: false };
   }
+}
+
+/**
+ * Načte známé zdroje.
+ * - Objekt neexistuje → prázdný seznam (Blob se nevytváří).
+ * - Jiná chyba / neplatný dokument → ok: false.
+ */
+export async function nacistZdroje(): Promise<NacistZdrojeVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    throw new Error("Nejste přihlášeni.");
+  }
+
+  return nacistZdrojeDokument();
+}
+
+/**
+ * Read-only načtení pro důvěryhodný scheduler (po ověření CRON_SECRET).
+ * Bez admin session. Žádný put.
+ */
+export async function nacistZdrojeProScheduler(): Promise<NacistZdrojeVysledek> {
+  return nacistZdrojeDokument();
 }
 
 /** Přidá jeden známý zdroj. Ukázková data se nezapisují. */

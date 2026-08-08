@@ -6,12 +6,25 @@ import https from "node:https";
 import { isIP } from "node:net";
 import type { LookupAddress } from "node:dns";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
-import { pridatCekajiciAutomatickeUdalostiZeScanu } from "./konkretni-udalosti-uloziste";
-import { nacistRedakcniPoradi } from "./redakcni-poradi-uloziste";
-import { jePlatnaZdrojUrl } from "./zdroj";
+import {
+  pridatCekajiciAutomatickeUdalostiZeScanu,
+  pridatCekajiciAutomatickeUdalostiZeScanuProScheduler,
+  type BranaScanAutomatickaUdalostVstup,
+  type PridatCekajiciZeScanuVysledek,
+} from "./konkretni-udalosti-uloziste";
+import {
+  nacistRedakcniPoradi,
+  nacistRedakcniPoradiProScheduler,
+  type NacistRedakcniPoradiVysledek,
+} from "./redakcni-poradi-uloziste";
+import { jePlatnaZdrojUrl, type BranaZdroj } from "./zdroj";
 import { parsovatUdalostiZeZdroje } from "./zdroj-scan-parser";
 import { sparovatSRedakcniPolozkou } from "./zdroj-scan-sparovani";
-import { nacistZdroje } from "./zdroje-uloziste";
+import {
+  nacistZdroje,
+  nacistZdrojeProScheduler,
+  type NacistZdrojeVysledek,
+} from "./zdroje-uloziste";
 
 const FETCH_TIMEOUT_MS = 15_000;
 const FETCH_MAX_BYTU = 1_500_000;
@@ -509,28 +522,29 @@ async function nacistTeloZdroje(
 }
 
 /**
- * Ruční scan jednoho známého zdroje podle jeho id.
+ * Jádro scanu jednoho známého zdroje (bez auth).
  * URL bere výhradně ze serverově načteného data/brana-zdroje.json.
- * Nemění posledniScanDokoncen.
+ * Nemění posledniScanDokoncen. Nové události → CEKA_NA_SCHVALENI.
  */
-export async function skenovatZnamyZdroj(
+async function skenovatZnamyZdrojJadro(
   zdrojId: string,
+  nacistZdrojeFn: () => Promise<NacistZdrojeVysledek>,
+  nacistRedakcniFn: () => Promise<NacistRedakcniPoradiVysledek>,
+  pridatCekajiciFn: (
+    kandidati: readonly BranaScanAutomatickaUdalostVstup[],
+  ) => Promise<PridatCekajiciZeScanuVysledek>,
 ): Promise<BranaSkenovatZdrojVysledek> {
-  if (!(await jeAdminPrihlasen())) {
-    throw new Error("Nejste přihlášeni.");
-  }
-
   const id = typeof zdrojId === "string" ? zdrojId.trim() : "";
   if (!id) {
     throw new Error("Chybí id zdroje.");
   }
 
-  const zdroje = await nacistZdroje();
+  const zdroje = await nacistZdrojeFn();
   if (!zdroje.ok) {
     throw new Error("Seznam zdrojů se nepodařilo načíst.");
   }
 
-  const zdroj = zdroje.zdroje.find((z) => z.id === id);
+  const zdroj: BranaZdroj | undefined = zdroje.zdroje.find((z) => z.id === id);
   if (!zdroj) {
     throw new Error("Zdroj nebyl nalezen.");
   }
@@ -538,20 +552,13 @@ export async function skenovatZnamyZdroj(
   const { text, contentType } = await nacistTeloZdroje(zdroj.url);
   const kandidati = parsovatUdalostiZeZdroje(text, contentType);
 
-  const redakcni = await nacistRedakcniPoradi();
+  const redakcni = await nacistRedakcniFn();
   if (!redakcni.ok) {
     throw new Error("Redakční pořadí se nepodařilo načíst. Nic nebylo uloženo.");
   }
 
   let nezarazeno = 0;
-  const kUlozeni: Array<{
-    redakcniPolozkaId: string;
-    datumOd: string;
-    datumDo: string;
-    cas: string;
-    mistoNeboTyp: string;
-    nazev: string;
-  }> = [];
+  const kUlozeni: BranaScanAutomatickaUdalostVstup[] = [];
 
   for (const kandidat of kandidati) {
     const sparovani = sparovatSRedakcniPolozkou(kandidat, redakcni.polozky);
@@ -569,7 +576,7 @@ export async function skenovatZnamyZdroj(
     });
   }
 
-  const ulozeni = await pridatCekajiciAutomatickeUdalostiZeScanu(kUlozeni);
+  const ulozeni = await pridatCekajiciFn(kUlozeni);
 
   return {
     nalezeno: kandidati.length,
@@ -577,4 +584,39 @@ export async function skenovatZnamyZdroj(
     jizExistuje: ulozeni.jizExistuje,
     nezarazeno,
   };
+}
+
+/**
+ * Ruční scan jednoho známého zdroje podle jeho id.
+ * URL bere výhradně ze serverově načteného data/brana-zdroje.json.
+ * Nemění posledniScanDokoncen.
+ */
+export async function skenovatZnamyZdroj(
+  zdrojId: string,
+): Promise<BranaSkenovatZdrojVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    throw new Error("Nejste přihlášeni.");
+  }
+
+  return skenovatZnamyZdrojJadro(
+    zdrojId,
+    nacistZdroje,
+    nacistRedakcniPoradi,
+    pridatCekajiciAutomatickeUdalostiZeScanu,
+  );
+}
+
+/**
+ * Stejný scan jednoho zdroje pro důvěryhodný scheduler (po ověření CRON_SECRET).
+ * Bez admin session. Nemění posledniScanDokoncen. Žádný push.
+ */
+export async function skenovatZnamyZdrojProScheduler(
+  zdrojId: string,
+): Promise<BranaSkenovatZdrojVysledek> {
+  return skenovatZnamyZdrojJadro(
+    zdrojId,
+    nacistZdrojeProScheduler,
+    nacistRedakcniPoradiProScheduler,
+    pridatCekajiciAutomatickeUdalostiZeScanuProScheduler,
+  );
 }

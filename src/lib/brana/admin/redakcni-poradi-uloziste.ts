@@ -78,16 +78,12 @@ async function nacistTextZPrivateBlob(): Promise<BlobCteniTextu> {
 }
 
 /**
- * Načte redakční pořadí z PRIVATE Blob store.
+ * Načte redakční pořadí z PRIVATE Blobu (bez admin kontroly).
  * - Objekt neexistuje → výchozí kostra (editovatelná, Blob se nevytváří).
  * - Jiná chyba / neplatný dokument → ok: false (bez tichého fallbacku).
  */
-export async function nacistRedakcniPoradi(): Promise<NacistRedakcniPoradiVysledek> {
+async function nacistRedakcniPoradiDokument(): Promise<NacistRedakcniPoradiVysledek> {
   noStore();
-
-  if (!(await jeAdminPrihlasen())) {
-    throw new Error("Nejste přihlášeni.");
-  }
 
   if (!maBranaAdminBlobKonfiguraci()) {
     zalogovatChybuCteni(
@@ -128,6 +124,27 @@ export async function nacistRedakcniPoradi(): Promise<NacistRedakcniPoradiVysled
     zalogovatChybuCteni("selhání čtení PRIVATE Blobu", error);
     return { ok: false };
   }
+}
+
+/**
+ * Načte redakční pořadí z PRIVATE Blob store.
+ * - Objekt neexistuje → výchozí kostra (editovatelná, Blob se nevytváří).
+ * - Jiná chyba / neplatný dokument → ok: false (bez tichého fallbacku).
+ */
+export async function nacistRedakcniPoradi(): Promise<NacistRedakcniPoradiVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    throw new Error("Nejste přihlášeni.");
+  }
+
+  return nacistRedakcniPoradiDokument();
+}
+
+/**
+ * Read-only načtení pro důvěryhodný scheduler (po ověření CRON_SECRET).
+ * Bez admin session. Žádný put.
+ */
+export async function nacistRedakcniPoradiProScheduler(): Promise<NacistRedakcniPoradiVysledek> {
+  return nacistRedakcniPoradiDokument();
 }
 
 /**

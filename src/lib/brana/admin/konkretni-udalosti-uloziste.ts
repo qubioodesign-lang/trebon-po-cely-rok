@@ -537,18 +537,14 @@ function jeDuplicitniAutomatickaUdalost(
 }
 
 /**
- * Append automatických událostí ze scanu ve stavu CEKA_NA_SCHVALENI.
+ * Append automatických událostí ze scanu ve stavu CEKA_NA_SCHVALENI (bez admin kontroly).
  * Jedno načtení → deduplikace → validace → jeden put.
- * Nemění posledniScanDokoncen (ruční scan jednoho zdroje ≠ konec redakční fáze).
+ * Nemění posledniScanDokoncen.
  * Při chybě čtení nebo žádné nové události nic nezapisuje.
  */
-export async function pridatCekajiciAutomatickeUdalostiZeScanu(
+async function pridatCekajiciAutomatickeUdalostiZeScanuJadro(
   kandidati: readonly BranaScanAutomatickaUdalostVstup[],
 ): Promise<PridatCekajiciZeScanuVysledek> {
-  if (!(await jeAdminPrihlasen())) {
-    throw new Error("Nejste přihlášeni.");
-  }
-
   if (!maBranaAdminBlobKonfiguraci()) {
     throw new Error(
       "Nelze uložit výsledek scanu: chybí BLOB_BRANA_ADMIN_STORE_ID nebo BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
@@ -612,4 +608,30 @@ export async function pridatCekajiciAutomatickeUdalostiZeScanu(
 
   await ulozitDokument(overeni);
   return { pridano, jizExistuje };
+}
+
+/**
+ * Append automatických událostí ze scanu ve stavu CEKA_NA_SCHVALENI.
+ * Jedno načtení → deduplikace → validace → jeden put.
+ * Nemění posledniScanDokoncen (ruční scan jednoho zdroje ≠ konec redakční fáze).
+ * Při chybě čtení nebo žádné nové události nic nezapisuje.
+ */
+export async function pridatCekajiciAutomatickeUdalostiZeScanu(
+  kandidati: readonly BranaScanAutomatickaUdalostVstup[],
+): Promise<PridatCekajiciZeScanuVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    throw new Error("Nejste přihlášeni.");
+  }
+
+  return pridatCekajiciAutomatickeUdalostiZeScanuJadro(kandidati);
+}
+
+/**
+ * Stejný append CEKA_NA_SCHVALENI pro důvěryhodný scheduler (po ověření CRON_SECRET).
+ * Bez admin session. Nemění posledniScanDokoncen. Žádný push.
+ */
+export async function pridatCekajiciAutomatickeUdalostiZeScanuProScheduler(
+  kandidati: readonly BranaScanAutomatickaUdalostVstup[],
+): Promise<PridatCekajiciZeScanuVysledek> {
+  return pridatCekajiciAutomatickeUdalostiZeScanuJadro(kandidati);
 }
