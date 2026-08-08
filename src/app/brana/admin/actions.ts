@@ -20,9 +20,13 @@ import {
 } from "@/lib/brana/admin/skenovat-zdroj";
 import type { BranaDlouhodobyIntervalDni, BranaZdroj } from "@/lib/brana/admin/zdroj";
 import {
-  ulozitUpozorneniNastaveni,
-  validovatUpozorneniNastaveniVstup,
-  type BranaUpozorneniNastaveniDokument,
+  dokumentNaUi,
+  ulozitPristiDlouhodobouKontrolu,
+  ulozitPushSubscription,
+  validovatPristiDlouhodobouKontroluVstup,
+  validovatPushSubscriptionVstup,
+  vypnoutPushSubscription,
+  type BranaUpozorneniNastaveniProUi,
 } from "@/lib/brana/admin/upozorneni-uloziste";
 import {
   ulozitDlouhodobyIntervalDni,
@@ -51,7 +55,7 @@ export type BranaZdrojeIntervalVysledek =
   | { uspech: false; chyba: string };
 
 export type BranaUpozorneniNastaveniVysledek =
-  | { uspech: true; dokument: BranaUpozorneniNastaveniDokument }
+  | { uspech: true; ui: BranaUpozorneniNastaveniProUi }
   | { uspech: false; chyba: string };
 
 export type BranaZdrojAkceVysledek =
@@ -254,23 +258,27 @@ export async function ulozitBranaZdrojeDlouhodobyIntervalAkce(
   }
 }
 
-/** Uloží nastavení budoucího Scanování + Upozornění (bez odesílání SMS). */
-export async function ulozitBranaUpozorneniNastaveniAkce(
-  vstup: unknown,
+/** Uloží příští dlouhodobou kontrolu (bez změny push subscription). */
+export async function ulozitBranaUpozorneniPristiKontroluAkce(
+  pristiDlouhodobaKontrola: unknown,
 ): Promise<BranaUpozorneniNastaveniVysledek> {
   if (!(await jeAdminPrihlasen())) {
     return { uspech: false, chyba: "Nejste přihlášeni." };
   }
 
-  const validace = validovatUpozorneniNastaveniVstup(vstup);
+  const validace = validovatPristiDlouhodobouKontroluVstup(
+    pristiDlouhodobaKontrola,
+  );
   if (!validace.ok) {
     return { uspech: false, chyba: validace.chyba };
   }
 
   try {
-    const dokument = await ulozitUpozorneniNastaveni(validace.nastaveni);
+    const dokument = await ulozitPristiDlouhodobouKontrolu(
+      validace.pristiDlouhodobaKontrola,
+    );
     revalidatePath("/brana/admin/sprava/upozorneni");
-    return { uspech: true, dokument };
+    return { uspech: true, ui: dokumentNaUi(dokument) };
   } catch (error) {
     const detail =
       error instanceof Error && error.message.trim()
@@ -279,6 +287,57 @@ export async function ulozitBranaUpozorneniNastaveniAkce(
     return {
       uspech: false,
       chyba: detail ?? "Nastavení upozornění se nepodařilo uložit.",
+    };
+  }
+}
+
+/** Uloží / nahradí jedinou PRIVATE PushSubscription a zapne upozornění. */
+export async function ulozitBranaPushSubscriptionAkce(
+  subscription: unknown,
+): Promise<BranaUpozorneniNastaveniVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  const validace = validovatPushSubscriptionVstup(subscription);
+  if (!validace.ok) {
+    return { uspech: false, chyba: validace.chyba };
+  }
+
+  try {
+    const dokument = await ulozitPushSubscription(validace.pushSubscription);
+    revalidatePath("/brana/admin/sprava/upozorneni");
+    return { uspech: true, ui: dokumentNaUi(dokument) };
+  } catch (error) {
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "Push subscription se nepodařilo uložit.",
+    };
+  }
+}
+
+/** Vypne upozornění a odstraní PRIVATE PushSubscription. */
+export async function vypnoutBranaPushSubscriptionAkce(): Promise<BranaUpozorneniNastaveniVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  try {
+    const dokument = await vypnoutPushSubscription();
+    revalidatePath("/brana/admin/sprava/upozorneni");
+    return { uspech: true, ui: dokumentNaUi(dokument) };
+  } catch (error) {
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "Upozornění se nepodařilo vypnout.",
     };
   }
 }

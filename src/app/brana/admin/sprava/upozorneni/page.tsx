@@ -4,11 +4,12 @@ import { BranaAdminUpozorneniFormulare } from "@/components/brana/admin/BranaAdm
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 import {
   BRANA_UPOZORNENI_CHYBA_CTENI,
+  dokumentNaUi,
   nacistUpozorneniNastaveni,
   vychoziUpozorneniNastaveni,
 } from "@/lib/brana/admin/upozorneni-uloziste";
 
-/** Správa → Upozornění – datový základ budoucího scanování a SMS */
+/** Správa → Upozornění – PRIVATE Web Push subscription + kotva dlouhodobé kontroly */
 export default async function StrankaBranaAdminUpozorneni() {
   if (!(await jeAdminPrihlasen())) {
     return null;
@@ -37,7 +38,7 @@ export default async function StrankaBranaAdminUpozorneni() {
         </h2>
 
         <BranaAdminUpozorneniFormulare
-          pocatecni={dokument}
+          pocatecni={dokumentNaUi(dokument)}
           uloziteniPovoleno={uloziteniPovoleno}
           chybaCteni={uloziteniPovoleno ? null : BRANA_UPOZORNENI_CHYBA_CTENI}
         />

@@ -1,30 +1,40 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { ulozitBranaUpozorneniNastaveniAkce } from "@/app/brana/admin/actions";
-import type { BranaUpozorneniNastaveniDokument } from "@/lib/brana/admin/upozorneni-uloziste";
+import {
+  ulozitBranaPushSubscriptionAkce,
+  ulozitBranaUpozorneniPristiKontroluAkce,
+  vypnoutBranaPushSubscriptionAkce,
+} from "@/app/brana/admin/actions";
+import type { BranaUpozorneniNastaveniProUi } from "@/lib/brana/admin/upozorneni-uloziste";
+import {
+  odhlasitBranaPushSubscriptionVProhlizeci,
+  vytvoritBranaPushSubscription,
+} from "@/lib/brana/admin/push-subscription-klient";
 
 const VSTUP =
   "w-full max-w-md border border-text-velmiJemny/25 bg-transparent px-1.5 py-1 text-sm text-text outline-none focus:border-text-jemny/50 disabled:opacity-50";
 
 type Props = {
-  pocatecni: BranaUpozorneniNastaveniDokument;
+  pocatecni: BranaUpozorneniNastaveniProUi;
   uloziteniPovoleno: boolean;
   chybaCteni?: string | null;
 };
 
 /**
- * Jednoduché nastavení budoucího Scanování + Upozornění.
- * Neodesílá SMS; pouze ukládá PRIVATE admin data.
+ * Nastavení interního Web Push + kotvy dlouhodobé kontroly.
+ * Neodesílá push; pouze PRIVATE subscription a datum.
  */
 export function BranaAdminUpozorneniFormulare({
   pocatecni,
   uloziteniPovoleno,
   chybaCteni = null,
 }: Props) {
-  const [telefon, setTelefon] = useState(pocatecni.telefon);
   const [upozorneniAktivni, setUpozorneniAktivni] = useState(
     pocatecni.upozorneniAktivni,
+  );
+  const [maPushSubscription, setMaPushSubscription] = useState(
+    pocatecni.maPushSubscription,
   );
   const [pristiDlouhodobaKontrola, setPristiDlouhodobaKontrola] = useState(
     pocatecni.pristiDlouhodobaKontrola ?? "",
@@ -33,86 +43,108 @@ export function BranaAdminUpozorneniFormulare({
   const [ulozeno, setUlozeno] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  function ulozit() {
+  function aplikujUi(stav: BranaUpozorneniNastaveniProUi) {
+    setUpozorneniAktivni(stav.upozorneniAktivni);
+    setMaPushSubscription(stav.maPushSubscription);
+    setPristiDlouhodobaKontrola(stav.pristiDlouhodobaKontrola ?? "");
+  }
+
+  function zapnout() {
     if (!uloziteniPovoleno || pending) {
       return;
     }
-
     setChyba(null);
     setUlozeno(false);
 
     startTransition(async () => {
-      const vysledek = await ulozitBranaUpozorneniNastaveniAkce({
-        telefon,
-        upozorneniAktivni,
-        pristiDlouhodobaKontrola: pristiDlouhodobaKontrola.trim()
-          ? pristiDlouhodobaKontrola.trim()
-          : null,
-      });
+      try {
+        const subscription = await vytvoritBranaPushSubscription();
+        const vysledek = await ulozitBranaPushSubscriptionAkce(subscription);
+        if (!vysledek.uspech) {
+          setChyba(vysledek.chyba);
+          return;
+        }
+        aplikujUi(vysledek.ui);
+        setUlozeno(true);
+      } catch (error) {
+        const zprava =
+          error instanceof Error && error.message.trim()
+            ? error.message.trim()
+            : "Upozornění se nepodařilo zapnout.";
+        setChyba(zprava);
+      }
+    });
+  }
+
+  function vypnout() {
+    if (!uloziteniPovoleno || pending) {
+      return;
+    }
+    setChyba(null);
+    setUlozeno(false);
+
+    startTransition(async () => {
+      await odhlasitBranaPushSubscriptionVProhlizeci();
+      const vysledek = await vypnoutBranaPushSubscriptionAkce();
       if (!vysledek.uspech) {
         setChyba(vysledek.chyba);
         return;
       }
-      setTelefon(vysledek.dokument.telefon);
-      setUpozorneniAktivni(vysledek.dokument.upozorneniAktivni);
-      setPristiDlouhodobaKontrola(
-        vysledek.dokument.pristiDlouhodobaKontrola ?? "",
+      aplikujUi(vysledek.ui);
+      setUlozeno(true);
+    });
+  }
+
+  function ulozitDatum() {
+    if (!uloziteniPovoleno || pending) {
+      return;
+    }
+    setChyba(null);
+    setUlozeno(false);
+
+    startTransition(async () => {
+      const vysledek = await ulozitBranaUpozorneniPristiKontroluAkce(
+        pristiDlouhodobaKontrola.trim() ? pristiDlouhodobaKontrola.trim() : null,
       );
+      if (!vysledek.uspech) {
+        setChyba(vysledek.chyba);
+        return;
+      }
+      aplikujUi(vysledek.ui);
       setUlozeno(true);
     });
   }
 
   return (
     <div className="space-y-6" aria-label="Nastavení upozornění">
-      <div className="space-y-3">
-        <label className="block space-y-1 text-sm text-text">
-          <span className="text-text-jemny">Telefon pro upozornění</span>
-          <input
-            type="tel"
-            className={VSTUP}
-            value={telefon}
+      <div className="space-y-2">
+        <h3 className="text-sm font-normal text-text-jemny">
+          Upozornění na tomto telefonu
+        </h3>
+        {maPushSubscription && upozorneniAktivni ? (
+          <>
+            <p className="text-sm text-text">
+              Stav: <span className="text-text">AKTIVNÍ</span>
+            </p>
+            <button
+              type="button"
+              className="border border-text-velmiJemny/40 px-3 py-1.5 text-sm text-text disabled:opacity-50"
+              disabled={!uloziteniPovoleno || pending}
+              onClick={vypnout}
+            >
+              {pending ? "Ukládám…" : "Vypnout upozornění na tomto telefonu"}
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            className="border border-text-velmiJemny/40 px-3 py-1.5 text-sm text-text disabled:opacity-50"
             disabled={!uloziteniPovoleno || pending}
-            onChange={(e) => {
-              setTelefon(e.target.value);
-              setUlozeno(false);
-            }}
-            autoComplete="tel"
-            inputMode="tel"
-            aria-label="Telefon pro upozornění"
-          />
-        </label>
-
-        <fieldset className="space-y-1.5">
-          <legend className="text-sm text-text-jemny">Upozornění</legend>
-          <div className="flex flex-wrap gap-4 text-sm text-text">
-            <label className="inline-flex items-center gap-1.5">
-              <input
-                type="radio"
-                name="brana-upozorneni-stav"
-                checked={upozorneniAktivni}
-                disabled={!uloziteniPovoleno || pending}
-                onChange={() => {
-                  setUpozorneniAktivni(true);
-                  setUlozeno(false);
-                }}
-              />
-              AKTIVNÍ
-            </label>
-            <label className="inline-flex items-center gap-1.5">
-              <input
-                type="radio"
-                name="brana-upozorneni-stav"
-                checked={!upozorneniAktivni}
-                disabled={!uloziteniPovoleno || pending}
-                onChange={() => {
-                  setUpozorneniAktivni(false);
-                  setUlozeno(false);
-                }}
-              />
-              VYPNUTO
-            </label>
-          </div>
-        </fieldset>
+            onClick={zapnout}
+          >
+            {pending ? "Ukládám…" : "Zapnout upozornění na tomto telefonu"}
+          </button>
+        )}
       </div>
 
       <div className="space-y-1.5">
@@ -128,9 +160,7 @@ export function BranaAdminUpozorneniFormulare({
         <h3 className="text-sm font-normal text-text-jemny">
           Dlouhodobé zdroje
         </h3>
-        <p className="text-sm text-text">
-          Každých 21 dní · pondělí · 9:00
-        </p>
+        <p className="text-sm text-text">Každých 21 dní · pondělí · 9:00</p>
         <p className="text-sm text-text-jemny">
           Kontrola zdrojů + budoucí schválení/publikování Kalendáře (zatím
           neběží)
@@ -160,9 +190,9 @@ export function BranaAdminUpozorneniFormulare({
           type="button"
           className="border border-text-velmiJemny/40 px-3 py-1.5 text-sm text-text disabled:opacity-50"
           disabled={!uloziteniPovoleno || pending}
-          onClick={ulozit}
+          onClick={ulozitDatum}
         >
-          {pending ? "Ukládám…" : "Uložit"}
+          {pending ? "Ukládám…" : "Uložit datum"}
         </button>
         {ulozeno ? (
           <p className="text-sm text-text-jemny" role="status">

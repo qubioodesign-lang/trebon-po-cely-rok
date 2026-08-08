@@ -11,7 +11,7 @@ import {
 
 /**
  * Objekt v PRIVATE Blob store administrace BRÁNY.
- * Nastavení budoucího Scanování + Upozornění (bez SMS / cronu).
+ * Nastavení budoucího Scanování + interního Web Push (bez odesílání).
  */
 export const BRANA_UPOZORNENI_NASTAVENI_BLOB_CESTA =
   "data/brana-upozorneni-nastaveni.json";
@@ -29,22 +29,35 @@ export const BRANA_UPOZORNENI_DLOUHODOBY_INTERVAL_DNI = 21;
 
 const TELEFON_MAX_DELKA = 32;
 
+/** Jedna interní PushSubscription – bez historie / multi-device. */
+export type BranaPushSubscription = {
+  endpoint: string;
+  expirationTime: number | null;
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
+};
+
 export type BranaUpozorneniNastaveniDokument = {
+  /** Dočasná neaktivní rezerva – UI Web Push už nepoužívá */
   telefon: string;
   upozorneniAktivni: boolean;
+  pushSubscription: BranaPushSubscription | null;
   /** ISO YYYY-MM-DD – pondělí; čas 9:00 Europe/Prague je systémový */
   pristiDlouhodobaKontrola: string | null;
   /** ISO YYYY-MM-DD – vyplní budoucí dlouhodobý cyklus po dokončení */
   posledniDokoncenaDlouhodobaKontrola: string | null;
-  /** ISO YYYY-MM-DD – den posledního rychlého upozornění (max 1 SMS / den) */
+  /** ISO YYYY-MM-DD – den posledního rychlého upozornění (max 1 / den) */
   posledniUpozorneniRychle: string | null;
   /** ISO YYYY-MM-DD – den posledního dlouhodobého upozornění */
   posledniUpozorneniDlouhodobe: string | null;
 };
 
-export type BranaUpozorneniNastaveniVstup = {
-  telefon: string;
+/** Veřejný pohled pro admin UI – bez endpoint/keys. */
+export type BranaUpozorneniNastaveniProUi = {
   upozorneniAktivni: boolean;
+  maPushSubscription: boolean;
   pristiDlouhodobaKontrola: string | null;
 };
 
@@ -61,10 +74,21 @@ export function vychoziUpozorneniNastaveni(): BranaUpozorneniNastaveniDokument {
   return {
     telefon: "",
     upozorneniAktivni: false,
+    pushSubscription: null,
     pristiDlouhodobaKontrola: null,
     posledniDokoncenaDlouhodobaKontrola: null,
     posledniUpozorneniRychle: null,
     posledniUpozorneniDlouhodobe: null,
+  };
+}
+
+export function dokumentNaUi(
+  dokument: BranaUpozorneniNastaveniDokument,
+): BranaUpozorneniNastaveniProUi {
+  return {
+    upozorneniAktivni: dokument.upozorneniAktivni,
+    maPushSubscription: dokument.pushSubscription !== null,
+    pristiDlouhodobaKontrola: dokument.pristiDlouhodobaKontrola,
   };
 }
 
@@ -106,7 +130,6 @@ export function validovatTelefonVstup(
   if (telefon.length === 0) {
     return { ok: true, telefon: "" };
   }
-  // Trim only – bez přepisování formátu; + předvolba a číslice / mezery / pomlčky.
   if (!/^\+?[0-9][0-9\s\-()]{0,30}$/.test(telefon)) {
     return {
       ok: false,
@@ -140,45 +163,49 @@ export function validovatPristiDlouhodobouKontroluVstup(
   return { ok: true, pristiDlouhodobaKontrola: den };
 }
 
-export function validovatUpozorneniNastaveniVstup(
-  vstup: unknown,
+export function validovatPushSubscriptionVstup(
+  hodnota: unknown,
 ):
-  | { ok: true; nastaveni: BranaUpozorneniNastaveniVstup }
+  | { ok: true; pushSubscription: BranaPushSubscription }
   | { ok: false; chyba: string } {
-  if (!vstup || typeof vstup !== "object") {
-    return { ok: false, chyba: "Neplatný vstup nastavení upozornění." };
+  if (!hodnota || typeof hodnota !== "object") {
+    return { ok: false, chyba: "Push subscription není platná." };
   }
-  const raw = vstup as Record<string, unknown>;
-
-  const telefon = validovatTelefonVstup(raw.telefon);
-  if (!telefon.ok) {
-    return telefon;
+  const raw = hodnota as Record<string, unknown>;
+  if (typeof raw.endpoint !== "string" || !raw.endpoint.trim()) {
+    return { ok: false, chyba: "Push subscription nemá platný endpoint." };
   }
-
-  if (typeof raw.upozorneniAktivni !== "boolean") {
-    return { ok: false, chyba: "Stav upozornění musí být ANO nebo NE." };
-  }
-
-  if (raw.upozorneniAktivni === true && telefon.telefon.length === 0) {
+  if (
+    !(
+      raw.expirationTime === null ||
+      (typeof raw.expirationTime === "number" &&
+        Number.isFinite(raw.expirationTime))
+    )
+  ) {
     return {
       ok: false,
-      chyba: "Pro aktivní upozornění je nutné zadat telefon.",
+      chyba: "Push subscription má neplatný expirationTime.",
     };
   }
-
-  const pristi = validovatPristiDlouhodobouKontroluVstup(
-    raw.pristiDlouhodobaKontrola,
-  );
-  if (!pristi.ok) {
-    return pristi;
+  if (!raw.keys || typeof raw.keys !== "object") {
+    return { ok: false, chyba: "Push subscription nemá platné klíče." };
   }
-
+  const keys = raw.keys as Record<string, unknown>;
+  if (typeof keys.p256dh !== "string" || !keys.p256dh.trim()) {
+    return { ok: false, chyba: "Push subscription nemá platný klíč p256dh." };
+  }
+  if (typeof keys.auth !== "string" || !keys.auth.trim()) {
+    return { ok: false, chyba: "Push subscription nemá platný klíč auth." };
+  }
   return {
     ok: true,
-    nastaveni: {
-      telefon: telefon.telefon,
-      upozorneniAktivni: raw.upozorneniAktivni,
-      pristiDlouhodobaKontrola: pristi.pristiDlouhodobaKontrola,
+    pushSubscription: {
+      endpoint: raw.endpoint.trim(),
+      expirationTime: raw.expirationTime as number | null,
+      keys: {
+        p256dh: keys.p256dh.trim(),
+        auth: keys.auth.trim(),
+      },
     },
   };
 }
@@ -200,8 +227,9 @@ function validovatVolitelnyIsoDenPole(
 }
 
 /**
- * Validace celého PRIVATE dokumentu (všech 6 polí) před put.
- * Zahrnuje vztah: aktivní upozornění ⇒ neprázdný validní telefon.
+ * Validace celého PRIVATE dokumentu před put.
+ * AKTIVNÍ ⇒ musí existovat validní pushSubscription.
+ * pushSubscription === null ⇒ upozorneniAktivni musí být false.
  */
 export function validovatUpozorneniDokument(
   vstup: unknown,
@@ -213,13 +241,50 @@ export function validovatUpozorneniDokument(
   }
   const raw = vstup as Record<string, unknown>;
 
-  const editovatelne = validovatUpozorneniNastaveniVstup({
-    telefon: raw.telefon,
-    upozorneniAktivni: raw.upozorneniAktivni,
-    pristiDlouhodobaKontrola: raw.pristiDlouhodobaKontrola,
-  });
-  if (!editovatelne.ok) {
-    return editovatelne;
+  const telefon = validovatTelefonVstup(raw.telefon ?? "");
+  if (!telefon.ok) {
+    return telefon;
+  }
+
+  if (typeof raw.upozorneniAktivni !== "boolean") {
+    return { ok: false, chyba: "Stav upozornění musí být ANO nebo NE." };
+  }
+
+  let pushSubscription: BranaPushSubscription | null = null;
+  if (raw.pushSubscription !== null && raw.pushSubscription !== undefined) {
+    const sub = validovatPushSubscriptionVstup(raw.pushSubscription);
+    if (!sub.ok) {
+      return sub;
+    }
+    pushSubscription = sub.pushSubscription;
+  }
+
+  if (raw.upozorneniAktivni === true && pushSubscription === null) {
+    return {
+      ok: false,
+      chyba: "Pro aktivní upozornění je nutná platná push subscription.",
+    };
+  }
+
+  if (pushSubscription === null && raw.upozorneniAktivni === true) {
+    return {
+      ok: false,
+      chyba: "Pro aktivní upozornění je nutná platná push subscription.",
+    };
+  }
+
+  if (pushSubscription === null && raw.upozorneniAktivni !== false) {
+    return {
+      ok: false,
+      chyba: "Bez push subscription musí být upozornění vypnutá.",
+    };
+  }
+
+  const pristi = validovatPristiDlouhodobouKontroluVstup(
+    raw.pristiDlouhodobaKontrola ?? null,
+  );
+  if (!pristi.ok) {
+    return pristi;
   }
 
   const posledniDokoncena = validovatVolitelnyIsoDenPole(
@@ -249,7 +314,10 @@ export function validovatUpozorneniDokument(
   return {
     ok: true,
     dokument: {
-      ...editovatelne.nastaveni,
+      telefon: telefon.telefon,
+      upozorneniAktivni: raw.upozorneniAktivni,
+      pushSubscription,
+      pristiDlouhodobaKontrola: pristi.pristiDlouhodobaKontrola,
       posledniDokoncenaDlouhodobaKontrola: posledniDokoncena.hodnota,
       posledniUpozorneniRychle: posledniRychle.hodnota,
       posledniUpozorneniDlouhodobe: posledniDlouhodobe.hodnota,
@@ -260,7 +328,27 @@ export function validovatUpozorneniDokument(
 function parsovatDokument(
   parsed: unknown,
 ): BranaUpozorneniNastaveniDokument | null {
-  const validace = validovatUpozorneniDokument(parsed);
+  if (!parsed || typeof parsed !== "object") {
+    return null;
+  }
+  const raw = parsed as Record<string, unknown>;
+  // Starší dokumenty bez pushSubscription → null.
+  const sPush =
+    "pushSubscription" in raw
+      ? raw
+      : { ...raw, pushSubscription: null, upozorneniAktivni: false };
+
+  // Starší dokumenty s aktivním telefonem bez subscription → bezpečně VYPNUTO.
+  if (
+    sPush.upozorneniAktivni === true &&
+    (sPush.pushSubscription === null || sPush.pushSubscription === undefined)
+  ) {
+    const opraveno = { ...sPush, upozorneniAktivni: false };
+    const validace = validovatUpozorneniDokument(opraveno);
+    return validace.ok ? validace.dokument : null;
+  }
+
+  const validace = validovatUpozorneniDokument(sPush);
   if (!validace.ok) {
     return null;
   }
@@ -323,6 +411,26 @@ async function ulozitDokument(
   );
 }
 
+async function nacistNeboVychoziDokument(): Promise<BranaUpozorneniNastaveniDokument> {
+  const cteni = await nacistTextZPrivateBlob();
+  if (cteni.stav === "neexistuje") {
+    return vychoziUpozorneniNastaveni();
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(cteni.text) as unknown;
+  } catch {
+    throw new Error(BRANA_UPOZORNENI_CHYBA_CTENI);
+  }
+
+  const stary = parsovatDokument(parsed);
+  if (!stary) {
+    throw new Error(BRANA_UPOZORNENI_CHYBA_CTENI);
+  }
+  return stary;
+}
+
 /**
  * Načte nastavení upozornění.
  * - Objekt neexistuje → výchozí VYPNUTO (Blob se nevytváří).
@@ -370,12 +478,9 @@ export async function nacistUpozorneniNastaveni(): Promise<NacistUpozorneniNasta
   }
 }
 
-/**
- * Uloží editovatelná pole nastavení upozornění.
- * Stavová pole posledních upozornění / dokončené kontroly zachová.
- */
-export async function ulozitUpozorneniNastaveni(
-  vstup: BranaUpozorneniNastaveniVstup,
+/** Uloží pouze příští dlouhodobou kontrolu; ostatní pole zachová. */
+export async function ulozitPristiDlouhodobouKontrolu(
+  pristiDlouhodobaKontrola: string | null,
 ): Promise<BranaUpozorneniNastaveniDokument> {
   if (!(await jeAdminPrihlasen())) {
     throw new Error("Nejste přihlášeni.");
@@ -387,48 +492,80 @@ export async function ulozitUpozorneniNastaveni(
     );
   }
 
-  const validace = validovatUpozorneniNastaveniVstup(vstup);
-  if (!validace.ok) {
-    throw new Error(validace.chyba);
+  const pristi = validovatPristiDlouhodobouKontroluVstup(
+    pristiDlouhodobaKontrola,
+  );
+  if (!pristi.ok) {
+    throw new Error(pristi.chyba);
   }
 
-  const cteni = await nacistTextZPrivateBlob();
-
-  let stavova: Pick<
-    BranaUpozorneniNastaveniDokument,
-    | "posledniDokoncenaDlouhodobaKontrola"
-    | "posledniUpozorneniRychle"
-    | "posledniUpozorneniDlouhodobe"
-  > = {
-    posledniDokoncenaDlouhodobaKontrola: null,
-    posledniUpozorneniRychle: null,
-    posledniUpozorneniDlouhodobe: null,
+  const stary = await nacistNeboVychoziDokument();
+  const vyslednyNavrh: BranaUpozorneniNastaveniDokument = {
+    ...stary,
+    pristiDlouhodobaKontrola: pristi.pristiDlouhodobaKontrola,
   };
 
-  if (cteni.stav !== "neexistuje") {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(cteni.text) as unknown;
-    } catch {
-      throw new Error(BRANA_UPOZORNENI_CHYBA_CTENI);
-    }
-
-    const stary = parsovatDokument(parsed);
-    if (!stary) {
-      throw new Error(BRANA_UPOZORNENI_CHYBA_CTENI);
-    }
-
-    stavova = {
-      posledniDokoncenaDlouhodobaKontrola:
-        stary.posledniDokoncenaDlouhodobaKontrola,
-      posledniUpozorneniRychle: stary.posledniUpozorneniRychle,
-      posledniUpozorneniDlouhodobe: stary.posledniUpozorneniDlouhodobe,
-    };
+  const celek = validovatUpozorneniDokument(vyslednyNavrh);
+  if (!celek.ok) {
+    throw new Error(celek.chyba);
   }
 
+  await ulozitDokument(celek.dokument);
+  return celek.dokument;
+}
+
+/** Uloží / nahradí jedinou PushSubscription a zapne upozornění. */
+export async function ulozitPushSubscription(
+  subscription: unknown,
+): Promise<BranaUpozorneniNastaveniDokument> {
+  if (!(await jeAdminPrihlasen())) {
+    throw new Error("Nejste přihlášeni.");
+  }
+
+  if (!maBranaAdminBlobKonfiguraci()) {
+    throw new Error(
+      "Nelze uložit nastavení upozornění: chybí BLOB_BRANA_ADMIN_STORE_ID nebo BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
+    );
+  }
+
+  const sub = validovatPushSubscriptionVstup(subscription);
+  if (!sub.ok) {
+    throw new Error(sub.chyba);
+  }
+
+  const stary = await nacistNeboVychoziDokument();
   const vyslednyNavrh: BranaUpozorneniNastaveniDokument = {
-    ...validace.nastaveni,
-    ...stavova,
+    ...stary,
+    pushSubscription: sub.pushSubscription,
+    upozorneniAktivni: true,
+  };
+
+  const celek = validovatUpozorneniDokument(vyslednyNavrh);
+  if (!celek.ok) {
+    throw new Error(celek.chyba);
+  }
+
+  await ulozitDokument(celek.dokument);
+  return celek.dokument;
+}
+
+/** Odstraní PushSubscription a vypne upozornění. */
+export async function vypnoutPushSubscription(): Promise<BranaUpozorneniNastaveniDokument> {
+  if (!(await jeAdminPrihlasen())) {
+    throw new Error("Nejste přihlášeni.");
+  }
+
+  if (!maBranaAdminBlobKonfiguraci()) {
+    throw new Error(
+      "Nelze uložit nastavení upozornění: chybí BLOB_BRANA_ADMIN_STORE_ID nebo BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
+    );
+  }
+
+  const stary = await nacistNeboVychoziDokument();
+  const vyslednyNavrh: BranaUpozorneniNastaveniDokument = {
+    ...stary,
+    pushSubscription: null,
+    upozorneniAktivni: false,
   };
 
   const celek = validovatUpozorneniDokument(vyslednyNavrh);
