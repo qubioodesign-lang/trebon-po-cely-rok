@@ -432,16 +432,12 @@ async function nacistNeboVychoziDokument(): Promise<BranaUpozorneniNastaveniDoku
 }
 
 /**
- * Načte nastavení upozornění.
+ * Načte nastavení upozornění z PRIVATE Blobu (bez admin kontroly).
  * - Objekt neexistuje → výchozí VYPNUTO (Blob se nevytváří).
  * - Jiná chyba / neplatný dokument → ok: false.
  */
-export async function nacistUpozorneniNastaveni(): Promise<NacistUpozorneniNastaveniVysledek> {
+async function nacistUpozorneniNastaveniDokument(): Promise<NacistUpozorneniNastaveniVysledek> {
   noStore();
-
-  if (!(await jeAdminPrihlasen())) {
-    throw new Error("Nejste přihlášeni.");
-  }
 
   if (!maBranaAdminBlobKonfiguraci()) {
     zalogovatChybuCteni(
@@ -476,6 +472,27 @@ export async function nacistUpozorneniNastaveni(): Promise<NacistUpozorneniNasta
     zalogovatChybuCteni("selhání čtení PRIVATE Blobu", error);
     return { ok: false };
   }
+}
+
+/**
+ * Načte nastavení upozornění.
+ * - Objekt neexistuje → výchozí VYPNUTO (Blob se nevytváří).
+ * - Jiná chyba / neplatný dokument → ok: false.
+ */
+export async function nacistUpozorneniNastaveni(): Promise<NacistUpozorneniNastaveniVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    throw new Error("Nejste přihlášeni.");
+  }
+
+  return nacistUpozorneniNastaveniDokument();
+}
+
+/**
+ * Read-only načtení pro důvěryhodný scheduler (po ověření CRON_SECRET).
+ * Bez admin session. Žádný put.
+ */
+export async function nacistUpozorneniNastaveniProScheduler(): Promise<NacistUpozorneniNastaveniVysledek> {
+  return nacistUpozorneniNastaveniDokument();
 }
 
 /** Uloží pouze příští dlouhodobou kontrolu; ostatní pole zachová. */
