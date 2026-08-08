@@ -20,6 +20,11 @@ import {
 } from "@/lib/brana/admin/skenovat-zdroj";
 import type { BranaDlouhodobyIntervalDni, BranaZdroj } from "@/lib/brana/admin/zdroj";
 import {
+  ulozitUpozorneniNastaveni,
+  validovatUpozorneniNastaveniVstup,
+  type BranaUpozorneniNastaveniDokument,
+} from "@/lib/brana/admin/upozorneni-uloziste";
+import {
   ulozitDlouhodobyIntervalDni,
   validovatDlouhodobyIntervalVstup,
 } from "@/lib/brana/admin/zdroje-nastaveni-uloziste";
@@ -43,6 +48,10 @@ export type BranaScanStavVysledek =
 
 export type BranaZdrojeIntervalVysledek =
   | { uspech: true; dlouhodobyIntervalDni: BranaDlouhodobyIntervalDni }
+  | { uspech: false; chyba: string };
+
+export type BranaUpozorneniNastaveniVysledek =
+  | { uspech: true; dokument: BranaUpozorneniNastaveniDokument }
   | { uspech: false; chyba: string };
 
 export type BranaZdrojAkceVysledek =
@@ -241,6 +250,35 @@ export async function ulozitBranaZdrojeDlouhodobyIntervalAkce(
     return {
       uspech: false,
       chyba: detail ?? "Interval se nepodařilo uložit.",
+    };
+  }
+}
+
+/** Uloží nastavení budoucího Scanování + Upozornění (bez odesílání SMS). */
+export async function ulozitBranaUpozorneniNastaveniAkce(
+  vstup: unknown,
+): Promise<BranaUpozorneniNastaveniVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  const validace = validovatUpozorneniNastaveniVstup(vstup);
+  if (!validace.ok) {
+    return { uspech: false, chyba: validace.chyba };
+  }
+
+  try {
+    const dokument = await ulozitUpozorneniNastaveni(validace.nastaveni);
+    revalidatePath("/brana/admin/sprava/upozorneni");
+    return { uspech: true, dokument };
+  } catch (error) {
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "Nastavení upozornění se nepodařilo uložit.",
     };
   }
 }
