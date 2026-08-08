@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   oznacitPosledniScanDokoncenAkce,
   pridatRucniKonkretniUdalostAkce,
-  schvalitKonkretniUdalostAkce,
+  schvalitKontroluAkce,
   smazatRucniKonkretniUdalostAkce,
   upravitAutomatickouCekaUdalostAkce,
   upravitRucniKonkretniUdalostAkce,
@@ -73,23 +73,19 @@ function SeznamDnu({
   dny,
   rucniAkce,
   pending,
-  muzeSchvalit,
   muzeUpravitAutomatickou,
   muzeVyrazitAutomatickou,
   onUpravit,
   onSmazat,
-  onSchvalit,
   onVyrazit,
 }: {
   dny: BranaKalendarDen[];
   rucniAkce: boolean;
   pending: boolean;
-  muzeSchvalit: (udalost: BranaKonkretniUdalost) => boolean;
   muzeUpravitAutomatickou: (udalost: BranaKonkretniUdalost) => boolean;
   muzeVyrazitAutomatickou: (udalost: BranaKonkretniUdalost) => boolean;
   onUpravit: (udalost: BranaKonkretniUdalost) => void;
   onSmazat: (udalost: BranaKonkretniUdalost) => void;
-  onSchvalit: (udalost: BranaKonkretniUdalost) => void;
   onVyrazit: (udalost: BranaKonkretniUdalost) => void;
 }) {
   return (
@@ -110,12 +106,10 @@ function SeznamDnu({
                     const jeRucni = udalost.redakcniPolozkaId === null;
                     const cekaNaSchvaleni =
                       udalost.stavSchvaleni === "CEKA_NA_SCHVALENI";
-                    const zobrazitSchvalit = muzeSchvalit(udalost);
                     const zobrazitAutoUpravit =
                       muzeUpravitAutomatickou(udalost);
                     const zobrazitVyrazit = muzeVyrazitAutomatickou(udalost);
                     const zobrazitAkce =
-                      zobrazitSchvalit ||
                       zobrazitAutoUpravit ||
                       zobrazitVyrazit ||
                       (rucniAkce && jeRucni);
@@ -150,16 +144,6 @@ function SeznamDnu({
                           ) : null}
                           {zobrazitAkce ? (
                             <div className="mt-0.5 flex flex-wrap gap-3">
-                              {zobrazitSchvalit ? (
-                                <button
-                                  type="button"
-                                  onClick={() => onSchvalit(udalost)}
-                                  disabled={pending}
-                                  className="text-xs font-light text-text-jemny underline-offset-2 hover:underline disabled:opacity-50"
-                                >
-                                  Schválit
-                                </button>
-                              ) : null}
                               {zobrazitAutoUpravit ? (
                                 <button
                                   type="button"
@@ -234,7 +218,7 @@ function SeznamDnu({
 
 /**
  * Výjimečný ruční zápis přímo v Kalendáři (přidat / upravit / smazat),
- * úprava / vyřazení automatické CEKA a schválení persistované čekající události.
+ * úprava / vyřazení automatické CEKA a hromadné Schválit kontrolu.
  */
 export function BranaAdminKalendarRucniZapis({
   posledniScanDokoncen,
@@ -268,6 +252,23 @@ export function BranaAdminKalendarRucniZapis({
     [persistovaneIdUdalosti],
   );
 
+  /** Explicitní unikátní ID zobrazených persistovaných automatických CEKA. */
+  const idCekaKeSchvaleniKontroly = useMemo(() => {
+    const idSet = new Set<string>();
+    for (const den of dnyStav) {
+      for (const udalost of den.udalosti) {
+        if (
+          persistovaneId.has(udalost.id) &&
+          udalost.redakcniPolozkaId !== null &&
+          udalost.stavSchvaleni === "CEKA_NA_SCHVALENI"
+        ) {
+          idSet.add(udalost.id);
+        }
+      }
+    }
+    return [...idSet];
+  }, [dnyStav, persistovaneId]);
+
   const volbyPozice = useMemo(() => {
     const den = datumOd.trim();
     const automaticke = den ? (automatickePodleDne[den] ?? []) : [];
@@ -284,14 +285,6 @@ export function BranaAdminKalendarRucniZapis({
   function maStabilniScanKlic(udalost: BranaKonkretniUdalost): boolean {
     return (
       typeof udalost.scanKlic === "string" && udalost.scanKlic.trim().length > 0
-    );
-  }
-
-  function muzeSchvalit(udalost: BranaKonkretniUdalost): boolean {
-    return (
-      rucniZapisPovolen &&
-      udalost.stavSchvaleni === "CEKA_NA_SCHVALENI" &&
-      persistovaneId.has(udalost.id)
     );
   }
 
@@ -439,27 +432,34 @@ export function BranaAdminKalendarRucniZapis({
     });
   }
 
-  function schvalit(udalost: BranaKonkretniUdalost) {
-    if (!muzeSchvalit(udalost)) {
+  function schvalitKontrolu() {
+    if (!rucniZapisPovolen || idCekaKeSchvaleniKontroly.length === 0) {
       return;
     }
     setChyba(null);
     setZprava(null);
     startTransition(async () => {
-      const vysledek = await schvalitKonkretniUdalostAkce(udalost.id);
+      const vysledek = await schvalitKontroluAkce(idCekaKeSchvaleniKontroly);
       if (!vysledek.uspech) {
         setChyba(vysledek.chyba);
         return;
       }
+      const schvalenaId = new Set(idCekaKeSchvaleniKontroly);
       setDnyStav((predchozi) =>
         predchozi.map((den) => ({
           ...den,
           udalosti: den.udalosti.map((u) =>
-            u.id === vysledek.udalost.id ? vysledek.udalost : u,
+            schvalenaId.has(u.id)
+              ? { ...u, stavSchvaleni: "SCHVALENO" as const }
+              : u,
           ),
         })),
       );
-      setZprava("Událost schválena");
+      setZprava(
+        vysledek.pocetSchvalenych === 1
+          ? "Kontrola schválena (1 událost)"
+          : `Kontrola schválena (${vysledek.pocetSchvalenych} událostí)`,
+      );
       router.refresh();
     });
   }
@@ -535,6 +535,17 @@ export function BranaAdminKalendarRucniZapis({
           className="text-sm font-light text-text-jemny underline-offset-2 hover:underline"
         >
           Přidat událost
+        </button>
+      ) : null}
+
+      {rucniZapisPovolen && idCekaKeSchvaleniKontroly.length > 0 ? (
+        <button
+          type="button"
+          onClick={schvalitKontrolu}
+          disabled={pending}
+          className="text-sm font-light text-text-jemny underline-offset-2 hover:underline disabled:opacity-50"
+        >
+          {pending ? "Ukládám…" : "Schválit kontrolu"}
         </button>
       ) : null}
 
@@ -661,12 +672,10 @@ export function BranaAdminKalendarRucniZapis({
         dny={dnyStav}
         rucniAkce={muzeEditovat}
         pending={pending}
-        muzeSchvalit={muzeSchvalit}
         muzeUpravitAutomatickou={muzeUpravitAutomatickou}
         muzeVyrazitAutomatickou={muzeVyrazitAutomatickou}
         onUpravit={otevritUpravu}
         onSmazat={smazat}
-        onSchvalit={schvalit}
         onVyrazit={vyrazit}
       />
     </div>

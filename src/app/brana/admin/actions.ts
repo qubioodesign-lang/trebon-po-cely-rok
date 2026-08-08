@@ -7,6 +7,7 @@ import {
   nastavitPosledniScanDokoncen,
   pridatRucniKonkretniUdalost,
   schvalitKonkretniUdalost,
+  schvalitKontroluKonkretnichUdalosti,
   smazatRucniKonkretniUdalost,
   upravitAutomatickouCekaUdalost,
   upravitRucniKonkretniUdalost,
@@ -54,6 +55,10 @@ export type BranaRucniUdalostVysledek =
 
 export type BranaScanStavVysledek =
   | { uspech: true }
+  | { uspech: false; chyba: string };
+
+export type BranaSchvalitKontroluVysledek =
+  | { uspech: true; pocetSchvalenych: number }
   | { uspech: false; chyba: string };
 
 export type BranaZdrojeIntervalVysledek =
@@ -226,6 +231,40 @@ export async function schvalitKonkretniUdalostAkce(
     return {
       uspech: false,
       chyba: detail ?? "Událost se nepodařilo schválit.",
+    };
+  }
+}
+
+/**
+ * Hromadně schválí explicitní seznam automatických CEKA (Schválit kontrolu).
+ * Fail-closed: neplatné ID → žádný zápis.
+ */
+export async function schvalitKontroluAkce(
+  ids: unknown,
+): Promise<BranaSchvalitKontroluVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  if (!Array.isArray(ids)) {
+    return { uspech: false, chyba: "Neplatný seznam událostí." };
+  }
+
+  try {
+    const vysledek = await schvalitKontroluKonkretnichUdalosti(
+      ids as string[],
+    );
+    revalidatePath("/brana/admin/sprava/kalendar");
+    revalidatePath("/brana/admin/sprava/vyhled");
+    return { uspech: true, pocetSchvalenych: vysledek.pocetSchvalenych };
+  } catch (error) {
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "Kontrolu se nepodařilo schválit.",
     };
   }
 }

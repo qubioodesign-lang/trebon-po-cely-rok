@@ -527,6 +527,93 @@ export async function schvalitKonkretniUdalost(
 }
 
 /**
+ * Hromadně schválí explicitní seznam ID: CEKA_NA_SCHVALENI → SCHVALENO.
+ * Fail-closed: jakékoli neplatné ID → žádný zápis.
+ * scanKlic není podmínkou. Nemění +21 ani jiná stavová pole.
+ */
+export async function schvalitKontroluKonkretnichUdalosti(
+  ids: readonly string[],
+): Promise<{ pocetSchvalenych: number }> {
+  if (!(await jeAdminPrihlasen())) {
+    throw new Error("Nejste přihlášeni.");
+  }
+
+  if (!maBranaAdminBlobKonfiguraci()) {
+    throw new Error(
+      "Nelze schválit kontrolu: chybí BLOB_BRANA_ADMIN_STORE_ID nebo BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
+    );
+  }
+
+  const unikani: string[] = [];
+  const videna = new Set<string>();
+  for (const surove of ids) {
+    if (typeof surove !== "string") {
+      throw new Error("Neplatné id v dávce. Nic nebylo uloženo.");
+    }
+    const idTrim = surove.trim();
+    if (!idTrim) {
+      throw new Error("Neplatné id v dávce. Nic nebylo uloženo.");
+    }
+    if (videna.has(idTrim)) {
+      continue;
+    }
+    videna.add(idTrim);
+    unikani.push(idTrim);
+  }
+
+  if (unikani.length === 0) {
+    throw new Error("Chybí id událostí ke schválení.");
+  }
+
+  const dokument = await nacistDokumentProZapis();
+  const podleId = new Map(dokument.udalosti.map((u) => [u.id, u] as const));
+  const indexyKeSchvaleni: number[] = [];
+
+  for (const id of unikani) {
+    const existujici = podleId.get(id);
+    if (!existujici) {
+      throw new Error(
+        "Kontrolu nelze schválit: některá událost nebyla nalezena. Nic nebylo uloženo.",
+      );
+    }
+    if (existujici.redakcniPolozkaId === null) {
+      throw new Error(
+        "Kontrolu nelze schválit: dávka obsahuje ruční událost. Nic nebylo uloženo.",
+      );
+    }
+    if (existujici.stavSchvaleni !== "CEKA_NA_SCHVALENI") {
+      throw new Error(
+        "Kontrolu nelze schválit: dávka obsahuje položku, která už není čekající. Nic nebylo uloženo.",
+      );
+    }
+    const index = dokument.udalosti.findIndex((u) => u.id === id);
+    if (index < 0) {
+      throw new Error(
+        "Kontrolu nelze schválit: některá událost nebyla nalezena. Nic nebylo uloženo.",
+      );
+    }
+    indexyKeSchvaleni.push(index);
+  }
+
+  const noveUdalosti = dokument.udalosti.slice();
+  for (const index of indexyKeSchvaleni) {
+    noveUdalosti[index] = {
+      ...noveUdalosti[index],
+      stavSchvaleni: "SCHVALENO",
+    };
+  }
+  dokument.udalosti = noveUdalosti;
+
+  const overeni = parsovatDokument(dokument);
+  if (!overeni) {
+    throw new Error("Výsledný dokument neprošel validací. Nic nebylo uloženo.");
+  }
+
+  await ulozitDokument(overeni);
+  return { pocetSchvalenych: indexyKeSchvaleni.length };
+}
+
+/**
  * Upraví obsah automatické CEKA události se stabilním scanKlic.
  * Zachová id, redakcniPolozkaId, scanKlic, rucniPoziceVDni=null, CEKA_NA_SCHVALENI.
  * Bez scanKlic → fail-closed (úprava by rozbila obsahový fallback dedup).
