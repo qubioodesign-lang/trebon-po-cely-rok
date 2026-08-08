@@ -28,6 +28,7 @@ import {
   vypnoutPushSubscription,
   type BranaUpozorneniNastaveniProUi,
 } from "@/lib/brana/admin/upozorneni-uloziste";
+import { odeslatBranaTestovaciPush } from "@/lib/brana/admin/odeslat-testovaci-push";
 import {
   ulozitDlouhodobyIntervalDni,
   validovatDlouhodobyIntervalVstup,
@@ -340,6 +341,19 @@ export async function vypnoutBranaPushSubscriptionAkce(): Promise<BranaUpozornen
       chyba: detail ?? "Upozornění se nepodařilo vypnout.",
     };
   }
+}
+
+export type BranaTestovaciPushAkceVysledek =
+  | { uspech: true }
+  | { uspech: false; chyba: string };
+
+/** Ručně odešle jedno testovací Web Push na PRIVATE BRÁNA subscription. */
+export async function odeslatBranaTestovaciPushAkce(): Promise<BranaTestovaciPushAkceVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  return odeslatBranaTestovaciPush();
 }
 
 export type BranaSkenovatZdrojAkceVysledek =

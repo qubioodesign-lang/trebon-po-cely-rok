@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import {
+  odeslatBranaTestovaciPushAkce,
   ulozitBranaPushSubscriptionAkce,
   ulozitBranaUpozorneniPristiKontroluAkce,
   vypnoutBranaPushSubscriptionAkce,
@@ -22,8 +23,7 @@ type Props = {
 };
 
 /**
- * Nastavení interního Web Push + kotvy dlouhodobé kontroly.
- * Neodesílá push; pouze PRIVATE subscription a datum.
+ * Nastavení interního Web Push + ruční testovací push + kotva dlouhodobé kontroly.
  */
 export function BranaAdminUpozorneniFormulare({
   pocatecni,
@@ -41,7 +41,11 @@ export function BranaAdminUpozorneniFormulare({
   );
   const [chyba, setChyba] = useState<string | null>(chybaCteni);
   const [ulozeno, setUlozeno] = useState(false);
+  const [testOdeslan, setTestOdeslan] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  const muzePoslatTest =
+    uloziteniPovoleno && upozorneniAktivni && maPushSubscription;
 
   function aplikujUi(stav: BranaUpozorneniNastaveniProUi) {
     setUpozorneniAktivni(stav.upozorneniAktivni);
@@ -55,6 +59,7 @@ export function BranaAdminUpozorneniFormulare({
     }
     setChyba(null);
     setUlozeno(false);
+    setTestOdeslan(false);
 
     startTransition(async () => {
       try {
@@ -82,6 +87,7 @@ export function BranaAdminUpozorneniFormulare({
     }
     setChyba(null);
     setUlozeno(false);
+    setTestOdeslan(false);
 
     startTransition(async () => {
       await odhlasitBranaPushSubscriptionVProhlizeci();
@@ -95,12 +101,31 @@ export function BranaAdminUpozorneniFormulare({
     });
   }
 
+  function poslatTest() {
+    if (!muzePoslatTest || pending) {
+      return;
+    }
+    setChyba(null);
+    setUlozeno(false);
+    setTestOdeslan(false);
+
+    startTransition(async () => {
+      const vysledek = await odeslatBranaTestovaciPushAkce();
+      if (!vysledek.uspech) {
+        setChyba(vysledek.chyba);
+        return;
+      }
+      setTestOdeslan(true);
+    });
+  }
+
   function ulozitDatum() {
     if (!uloziteniPovoleno || pending) {
       return;
     }
     setChyba(null);
     setUlozeno(false);
+    setTestOdeslan(false);
 
     startTransition(async () => {
       const vysledek = await ulozitBranaUpozorneniPristiKontroluAkce(
@@ -126,6 +151,9 @@ export function BranaAdminUpozorneniFormulare({
             <p className="text-sm text-text">
               Stav: <span className="text-text">AKTIVNÍ</span>
             </p>
+            <p className="text-sm text-text-jemny">
+              Tento telefon je přihlášen k upozorněním.
+            </p>
             <button
               type="button"
               className="border border-text-velmiJemny/40 px-3 py-1.5 text-sm text-text disabled:opacity-50"
@@ -134,6 +162,21 @@ export function BranaAdminUpozorneniFormulare({
             >
               {pending ? "Ukládám…" : "Vypnout upozornění na tomto telefonu"}
             </button>
+            <div className="pt-1">
+              <button
+                type="button"
+                className="border border-text-velmiJemny/40 px-3 py-1.5 text-sm text-text disabled:opacity-50"
+                disabled={!muzePoslatTest || pending}
+                onClick={poslatTest}
+              >
+                {pending ? "Odesílám…" : "Poslat testovací upozornění"}
+              </button>
+              {testOdeslan ? (
+                <p className="mt-1.5 text-sm text-text-jemny" role="status">
+                  Testovací upozornění odesláno.
+                </p>
+              ) : null}
+            </div>
           </>
         ) : (
           <button
