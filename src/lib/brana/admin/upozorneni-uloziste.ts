@@ -3,7 +3,7 @@ import "server-only";
 import { BlobNotFoundError, get, put } from "@vercel/blob";
 import { unstable_noStore as noStore } from "next/cache";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
-import { okamzikVPraze, okamzikZPrahy } from "@/lib/brana/cas";
+import { okamzikVPraze, okamzikZPrahy, pridatDny } from "@/lib/brana/cas";
 import {
   maBranaAdminBlobKonfiguraci,
   ziskatVolbyBranaAdminBlob,
@@ -622,6 +622,134 @@ export async function ulozitPosledniUpozorneniRychleProScheduler(
   const vyslednyNavrh: BranaUpozorneniNastaveniDokument = {
     ...stary,
     posledniUpozorneniRychle: den.hodnota,
+  };
+
+  const celek = validovatUpozorneniDokument(vyslednyNavrh);
+  if (!celek.ok) {
+    throw new Error(celek.chyba);
+  }
+
+  await ulozitDokument(celek.dokument);
+  return celek.dokument;
+}
+
+function formatovatIsoDenZBranaDatumu(rok: number, mesic: number, den: number): string {
+  return `${rok}-${String(mesic).padStart(2, "0")}-${String(den).padStart(2, "0")}`;
+}
+
+/**
+ * Další 21denní kotva = dokončená pondělní kotva + 21 kalendářních dní (stále pondělí).
+ * Nepoužívá „dnešek +21“ jako náhradní význam.
+ */
+export function vypocitatPristiDlouhodobouKontroluPoDokoncení(
+  dokoncenaKotvaIso: string,
+): { ok: true; pristi: string } | { ok: false; chyba: string } {
+  if (!jeIsoDen(dokoncenaKotvaIso) || !jePondeliIsoDen(dokoncenaKotvaIso)) {
+    return {
+      ok: false,
+      chyba: "Dokončená kotva musí být pondělí ve formátu RRRR-MM-DD.",
+    };
+  }
+
+  const [rok, mesic, den] = dokoncenaKotvaIso.split("-").map(Number);
+  const dalsi = pridatDny(
+    { rok, mesic, den },
+    BRANA_UPOZORNENI_DLOUHODOBY_INTERVAL_DNI,
+  );
+  const pristi = formatovatIsoDenZBranaDatumu(dalsi.rok, dalsi.mesic, dalsi.den);
+
+  if (!jePondeliIsoDen(pristi)) {
+    return {
+      ok: false,
+      chyba: "Výsledné datum po +21 dnech není pondělí.",
+    };
+  }
+
+  return { ok: true, pristi };
+}
+
+/**
+ * Jedním PRIVATE read-modify-write: záznam dokončeného 21denního checkpointu
+ * a posun pristiDlouhodobaKontrola = dokončená kotva + 21 dní.
+ * Volat až po úspěšném Dlouhodobém batch. Bez admin session.
+ */
+export async function dokoncitDlouhodobouKontroluProScheduler(
+  datumVPraze: string,
+): Promise<{
+  dokument: BranaUpozorneniNastaveniDokument;
+  pristiDlouhodobaKontrola: string;
+}> {
+  if (!maBranaAdminBlobKonfiguraci()) {
+    throw new Error(
+      "Nelze dokončit dlouhodobou kontrolu: chybí BLOB_BRANA_ADMIN_STORE_ID nebo BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
+    );
+  }
+
+  if (!jeIsoDen(datumVPraze)) {
+    throw new Error("Datum checkpointu musí být ve formátu RRRR-MM-DD.");
+  }
+
+  const stary = await nacistNeboVychoziDokument();
+
+  if (stary.pristiDlouhodobaKontrola !== datumVPraze) {
+    throw new Error(
+      "Kotva pristiDlouhodobaKontrola neodpovídá datu právě dokončeného checkpointu.",
+    );
+  }
+
+  const dalsi = vypocitatPristiDlouhodobouKontroluPoDokoncení(
+    stary.pristiDlouhodobaKontrola,
+  );
+  if (!dalsi.ok) {
+    throw new Error(dalsi.chyba);
+  }
+
+  const vyslednyNavrh: BranaUpozorneniNastaveniDokument = {
+    ...stary,
+    posledniDokoncenaDlouhodobaKontrola: datumVPraze,
+    pristiDlouhodobaKontrola: dalsi.pristi,
+  };
+
+  const celek = validovatUpozorneniDokument(vyslednyNavrh);
+  if (!celek.ok) {
+    throw new Error(celek.chyba);
+  }
+
+  await ulozitDokument(celek.dokument);
+  return {
+    dokument: celek.dokument,
+    pristiDlouhodobaKontrola: dalsi.pristi,
+  };
+}
+
+/**
+ * Zápis posledniUpozorneniDlouhodobe pro důvěryhodný scheduler (po ověření CRON_SECRET).
+ * Pouze YYYY-MM-DD. Nemění ostatní pole (včetně dokončeného checkpointu / +21).
+ * Volat výhradně po úspěšném webpush.sendNotification Pravidelného push.
+ */
+export async function ulozitPosledniUpozorneniDlouhodobeProScheduler(
+  posledniUpozorneniDlouhodobe: string,
+): Promise<BranaUpozorneniNastaveniDokument> {
+  if (!maBranaAdminBlobKonfiguraci()) {
+    throw new Error(
+      "Nelze uložit nastavení upozornění: chybí BLOB_BRANA_ADMIN_STORE_ID nebo BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
+    );
+  }
+
+  const den = validovatVolitelnyIsoDenPole(
+    posledniUpozorneniDlouhodobe,
+    "Poslední dlouhodobé upozornění",
+  );
+  if (!den.ok || den.hodnota === null) {
+    throw new Error(
+      "Poslední dlouhodobé upozornění musí být datum ve formátu RRRR-MM-DD.",
+    );
+  }
+
+  const stary = await nacistNeboVychoziDokument();
+  const vyslednyNavrh: BranaUpozorneniNastaveniDokument = {
+    ...stary,
+    posledniUpozorneniDlouhodobe: den.hodnota,
   };
 
   const celek = validovatUpozorneniDokument(vyslednyNavrh);
