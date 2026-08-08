@@ -6,30 +6,37 @@ import {
   formatujDatumVyhled,
   projektujVyhledPodleRoku,
 } from "@/lib/brana/admin/konkretni-udalost";
-import { nacistRedakcniPoradi } from "@/lib/brana/admin/redakcni-poradi-uloziste";
 import {
-  UKAZKOVE_KONKRETNI_UDALOSTI,
-  maUkazkovyVyhledAno,
-} from "@/lib/brana/admin/ukazkove-udalosti";
+  BRANA_KONKRETNI_UDALOSTI_CHYBA_CTENI,
+  nacistKonkretniUdalosti,
+} from "@/lib/brana/admin/konkretni-udalosti-uloziste";
+import { nacistRedakcniPoradi } from "@/lib/brana/admin/redakcni-poradi-uloziste";
+import { maUkazkovyVyhledAno } from "@/lib/brana/admin/ukazkove-udalosti";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 import "../../brana-admin-kalendar.css";
 
-/** Správa → Výhled – druhý pohled na stejné konkrétní události */
+/** Správa → Výhled – druhý pohled na stejné konkrétní události (PRIVATE Blob) */
 export default async function StrankaBranaAdminVyhled() {
   if (!(await jeAdminPrihlasen())) {
     return null;
   }
 
   const host = (await headers()).get("host");
-  const redakcni = await nacistRedakcniPoradi();
+  const [uloziste, redakcni] = await Promise.all([
+    nacistKonkretniUdalosti(),
+    nacistRedakcniPoradi(),
+  ]);
+
   const vyhledPodleId = new Map(
     redakcni.ok
       ? redakcni.polozky.map((p) => [p.id, p.vyhled] as const)
       : [],
   );
 
+  const realneUdalosti = uloziste.ok ? uloziste.udalosti : [];
+
   const skupiny = projektujVyhledPodleRoku(
-    UKAZKOVE_KONKRETNI_UDALOSTI,
+    realneUdalosti,
     (redakcniPolozkaId) =>
       maUkazkovyVyhledAno(redakcniPolozkaId, vyhledPodleId.get(redakcniPolozkaId)),
   );
@@ -50,6 +57,12 @@ export default async function StrankaBranaAdminVyhled() {
         >
           Výhled
         </h2>
+
+        {!uloziste.ok ? (
+          <p className="text-sm text-text" role="alert">
+            {BRANA_KONKRETNI_UDALOSTI_CHYBA_CTENI}
+          </p>
+        ) : null}
 
         <div role="region" aria-label="Výhled">
           {skupiny.length === 0 ? (
