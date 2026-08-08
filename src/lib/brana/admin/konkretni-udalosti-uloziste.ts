@@ -10,6 +10,7 @@ import {
 import {
   jeBranaStavSchvaleni,
   normalizovatStavSchvaleni,
+  vytvoritScanKlicAutomatickeUdalosti,
   type BranaKonkretniUdalost,
 } from "./konkretni-udalost";
 import { validovatRucniUdalostVstup } from "./rucni-udalost-validace";
@@ -71,6 +72,7 @@ function vychoziDokument(): BranaKonkretniUdalostiDokument {
  * - ruční: redakcniPolozkaId = null, rucniPoziceVDni >= 0
  * - automatická: redakcniPolozkaId neprázdný string, rucniPoziceVDni = null
  * Pole stavSchvaleni smí chybět (starší záznamy) – pak SCHVALENO.
+ * Pole scanKlic smí chybět (starší / ruční záznamy).
  */
 function jeUdalostZBlobu(hodnota: unknown): boolean {
   if (!hodnota || typeof hodnota !== "object") {
@@ -113,6 +115,15 @@ function jeUdalostZBlobu(hodnota: unknown): boolean {
   if (u.stavSchvaleni !== undefined && !jeBranaStavSchvaleni(u.stavSchvaleni)) {
     return false;
   }
+
+  if (
+    u.scanKlic !== undefined &&
+    u.scanKlic !== null &&
+    (typeof u.scanKlic !== "string" || u.scanKlic.trim().length === 0)
+  ) {
+    return false;
+  }
+
   return true;
 }
 
@@ -122,6 +133,10 @@ function normalizovatUdalostZBlobu(hodnota: unknown): BranaKonkretniUdalost {
     u.redakcniPolozkaId === null
       ? null
       : (u.redakcniPolozkaId as string).trim();
+  const scanKlic =
+    typeof u.scanKlic === "string" && u.scanKlic.trim().length > 0
+      ? u.scanKlic.trim()
+      : undefined;
   return {
     id: (u.id as string).trim(),
     redakcniPolozkaId,
@@ -133,6 +148,7 @@ function normalizovatUdalostZBlobu(hodnota: unknown): BranaKonkretniUdalost {
     rucniPoziceVDni:
       redakcniPolozkaId === null ? (u.rucniPoziceVDni as number) : null,
     stavSchvaleni: normalizovatStavSchvaleni(u.stavSchvaleni),
+    ...(scanKlic !== undefined ? { scanKlic } : {}),
   };
 }
 
@@ -527,7 +543,17 @@ export type PridatCekajiciZeScanuVysledek = {
 function jeDuplicitniAutomatickaUdalost(
   existujici: BranaKonkretniUdalost,
   kandidat: BranaScanAutomatickaUdalostVstup,
+  kandidatScanKlic: string,
 ): boolean {
+  // Stav (CEKA / SCHVALENO / VYRAZENO) se záměrně neřeší.
+  if (
+    typeof existujici.scanKlic === "string" &&
+    existujici.scanKlic.length > 0
+  ) {
+    return existujici.scanKlic === kandidatScanKlic;
+  }
+
+  // Fallback pro starší záznamy bez scanKlic.
   return (
     existujici.redakcniPolozkaId === kandidat.redakcniPolozkaId &&
     existujici.datumOd === kandidat.datumOd &&
@@ -575,7 +601,18 @@ async function pridatCekajiciAutomatickeUdalostiZeScanuJadro(
       continue;
     }
 
-    if (nove.some((u) => jeDuplicitniAutomatickaUdalost(u, normalizovany))) {
+    const scanKlic = vytvoritScanKlicAutomatickeUdalosti({
+      redakcniPolozkaId: normalizovany.redakcniPolozkaId,
+      datumOd: normalizovany.datumOd,
+      cas: normalizovany.cas,
+      nazev: normalizovany.nazev,
+    });
+
+    if (
+      nove.some((u) =>
+        jeDuplicitniAutomatickaUdalost(u, normalizovany, scanKlic),
+      )
+    ) {
       jizExistuje += 1;
       continue;
     }
@@ -590,6 +627,7 @@ async function pridatCekajiciAutomatickeUdalostiZeScanuJadro(
       nazev: normalizovany.nazev,
       rucniPoziceVDni: null,
       stavSchvaleni: "CEKA_NA_SCHVALENI",
+      scanKlic,
     };
     nove.push(nova);
     pridano += 1;

@@ -6,10 +6,13 @@
 import { maDatumOdPatritDoVyhledu } from "./obdobi-7-dni";
 
 /**
- * Stav schválení k budoucí publikaci.
- * Pouze dvě hodnoty – bez zamítnutí, expirace ani jiných workflow stavů.
+ * Stav schválení / vyřazení k budoucí publikaci.
+ * VYRAZENO = redaktor odmítl automatický nález (záznam zůstává kvůli dedupu).
  */
-export type BranaStavSchvaleni = "CEKA_NA_SCHVALENI" | "SCHVALENO";
+export type BranaStavSchvaleni =
+  | "CEKA_NA_SCHVALENI"
+  | "SCHVALENO"
+  | "VYRAZENO";
 
 export type BranaKonkretniUdalost = {
   /** Identita konkrétní události (ne redakční katalog) */
@@ -37,22 +40,55 @@ export type BranaKonkretniUdalost = {
    * Starší záznamy bez pole se čtou jako SCHVALENO (viz normalizovatStavSchvaleni).
    */
   stavSchvaleni: BranaStavSchvaleni;
+  /**
+   * Neměnná identita původního automatického scan nálezu.
+   * Chybí u starších / ručních záznamů. Nezobrazuje se v UI.
+   */
+  scanKlic?: string;
 };
 
 export function jeBranaStavSchvaleni(
   hodnota: unknown,
 ): hodnota is BranaStavSchvaleni {
-  return hodnota === "CEKA_NA_SCHVALENI" || hodnota === "SCHVALENO";
+  return (
+    hodnota === "CEKA_NA_SCHVALENI" ||
+    hodnota === "SCHVALENO" ||
+    hodnota === "VYRAZENO"
+  );
 }
 
 /**
  * Chybějící / neznámá hodnota → SCHVALENO.
- * Zajišťuje, že současný obsah Kalendáře nezůstane „čekající“.
+ * VYRAZENO a CEKA_NA_SCHVALENI se zachovají.
  */
 export function normalizovatStavSchvaleni(
   hodnota: unknown,
 ): BranaStavSchvaleni {
-  return hodnota === "CEKA_NA_SCHVALENI" ? "CEKA_NA_SCHVALENI" : "SCHVALENO";
+  if (hodnota === "CEKA_NA_SCHVALENI") {
+    return "CEKA_NA_SCHVALENI";
+  }
+  if (hodnota === "VYRAZENO") {
+    return "VYRAZENO";
+  }
+  return "SCHVALENO";
+}
+
+/**
+ * Deterministický klíč původního automatického nálezu.
+ * Normalizace odpovídá současnému obsahovému dedupu (trim; název lower).
+ */
+export function vytvoritScanKlicAutomatickeUdalosti(args: {
+  redakcniPolozkaId: string;
+  datumOd: string;
+  cas: string;
+  nazev: string;
+}): string {
+  return [
+    args.redakcniPolozkaId.trim(),
+    args.datumOd.trim(),
+    args.cas.trim(),
+    args.nazev.trim().toLowerCase(),
+  ].join("\0");
 }
 
 export type BranaRedakcniPoradiProKalendar = {
