@@ -8,12 +8,17 @@ import {
   pridatRucniKonkretniUdalost,
   schvalitKonkretniUdalost,
   smazatRucniKonkretniUdalost,
+  upravitAutomatickouCekaUdalost,
   upravitRucniKonkretniUdalost,
+  vyrazitAutomatickouCekaUdalost,
 } from "@/lib/brana/admin/konkretni-udalosti-uloziste";
 import { ulozitRedakcniPoradi } from "@/lib/brana/admin/redakcni-poradi-uloziste";
 import { validovatRedakcniPoradiVstup } from "@/lib/brana/admin/redakcni-poradi-validace";
 import type { BranaRedakcniPolozkaStav } from "@/lib/brana/admin/redakcni-kostra";
-import { validovatRucniUdalostVstup } from "@/lib/brana/admin/rucni-udalost-validace";
+import {
+  validovatAutomatickouCekaUpravuVstup,
+  validovatRucniUdalostVstup,
+} from "@/lib/brana/admin/rucni-udalost-validace";
 import {
   skenovatZnamyZdroj,
   type BranaSkenovatZdrojVysledek,
@@ -221,6 +226,62 @@ export async function schvalitKonkretniUdalostAkce(
     return {
       uspech: false,
       chyba: detail ?? "Událost se nepodařilo schválit.",
+    };
+  }
+}
+
+/** Upraví automatickou CEKA událost se scanKlic – zůstává CEKA_NA_SCHVALENI */
+export async function upravitAutomatickouCekaUdalostAkce(
+  id: string,
+  vstup: unknown,
+): Promise<BranaRucniUdalostVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  const validace = validovatAutomatickouCekaUpravuVstup(vstup);
+  if (!validace.ok) {
+    return { uspech: false, chyba: validace.chyba };
+  }
+
+  try {
+    const udalost = await upravitAutomatickouCekaUdalost(id, validace.uprava);
+    revalidatePath("/brana/admin/sprava/kalendar");
+    revalidatePath("/brana/admin/sprava/vyhled");
+    return { uspech: true, udalost };
+  } catch (error) {
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "Událost se neuložila.",
+    };
+  }
+}
+
+/** Vyřadí automatickou CEKA: CEKA_NA_SCHVALENI → VYRAZENO (záznam zůstává) */
+export async function vyrazitAutomatickouCekaUdalostAkce(
+  id: string,
+): Promise<BranaRucniUdalostVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  try {
+    const udalost = await vyrazitAutomatickouCekaUdalost(id);
+    revalidatePath("/brana/admin/sprava/kalendar");
+    revalidatePath("/brana/admin/sprava/vyhled");
+    return { uspech: true, udalost };
+  } catch (error) {
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "Událost se nepodařilo vyřadit.",
     };
   }
 }

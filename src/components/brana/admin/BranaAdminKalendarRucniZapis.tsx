@@ -7,7 +7,9 @@ import {
   pridatRucniKonkretniUdalostAkce,
   schvalitKonkretniUdalostAkce,
   smazatRucniKonkretniUdalostAkce,
+  upravitAutomatickouCekaUdalostAkce,
   upravitRucniKonkretniUdalostAkce,
+  vyrazitAutomatickouCekaUdalostAkce,
 } from "@/app/brana/admin/actions";
 import { rozlozAkci } from "@/lib/brana/admin/akce-rozlozeni";
 import type {
@@ -72,17 +74,23 @@ function SeznamDnu({
   rucniAkce,
   pending,
   muzeSchvalit,
+  muzeUpravitAutomatickou,
+  muzeVyrazitAutomatickou,
   onUpravit,
   onSmazat,
   onSchvalit,
+  onVyrazit,
 }: {
   dny: BranaKalendarDen[];
   rucniAkce: boolean;
   pending: boolean;
   muzeSchvalit: (udalost: BranaKonkretniUdalost) => boolean;
+  muzeUpravitAutomatickou: (udalost: BranaKonkretniUdalost) => boolean;
+  muzeVyrazitAutomatickou: (udalost: BranaKonkretniUdalost) => boolean;
   onUpravit: (udalost: BranaKonkretniUdalost) => void;
   onSmazat: (udalost: BranaKonkretniUdalost) => void;
   onSchvalit: (udalost: BranaKonkretniUdalost) => void;
+  onVyrazit: (udalost: BranaKonkretniUdalost) => void;
 }) {
   return (
     <div role="region" aria-label="Pracovní kalendář">
@@ -103,6 +111,14 @@ function SeznamDnu({
                     const cekaNaSchvaleni =
                       udalost.stavSchvaleni === "CEKA_NA_SCHVALENI";
                     const zobrazitSchvalit = muzeSchvalit(udalost);
+                    const zobrazitAutoUpravit =
+                      muzeUpravitAutomatickou(udalost);
+                    const zobrazitVyrazit = muzeVyrazitAutomatickou(udalost);
+                    const zobrazitAkce =
+                      zobrazitSchvalit ||
+                      zobrazitAutoUpravit ||
+                      zobrazitVyrazit ||
+                      (rucniAkce && jeRucni);
                     return (
                       <li
                         key={`${udalost.id}-${den.isoDen}`}
@@ -132,7 +148,7 @@ function SeznamDnu({
                               Čeká na schválení
                             </span>
                           ) : null}
-                          {zobrazitSchvalit || (rucniAkce && jeRucni) ? (
+                          {zobrazitAkce ? (
                             <div className="mt-0.5 flex flex-wrap gap-3">
                               {zobrazitSchvalit ? (
                                 <button
@@ -142,6 +158,26 @@ function SeznamDnu({
                                   className="text-xs font-light text-text-jemny underline-offset-2 hover:underline disabled:opacity-50"
                                 >
                                   Schválit
+                                </button>
+                              ) : null}
+                              {zobrazitAutoUpravit ? (
+                                <button
+                                  type="button"
+                                  onClick={() => onUpravit(udalost)}
+                                  disabled={pending}
+                                  className="text-xs font-light text-text-jemny underline-offset-2 hover:underline disabled:opacity-50"
+                                >
+                                  Upravit
+                                </button>
+                              ) : null}
+                              {zobrazitVyrazit ? (
+                                <button
+                                  type="button"
+                                  onClick={() => onVyrazit(udalost)}
+                                  disabled={pending}
+                                  className="text-xs font-light text-text-jemny underline-offset-2 hover:underline disabled:opacity-50"
+                                >
+                                  Vyřadit
                                 </button>
                               ) : null}
                               {rucniAkce && jeRucni ? (
@@ -197,8 +233,8 @@ function SeznamDnu({
 }
 
 /**
- * Výjimečný ruční zápis přímo v Kalendáři (přidat / upravit / smazat)
- * a schválení persistované čekající události.
+ * Výjimečný ruční zápis přímo v Kalendáři (přidat / upravit / smazat),
+ * úprava / vyřazení automatické CEKA a schválení persistované čekající události.
  */
 export function BranaAdminKalendarRucniZapis({
   posledniScanDokoncen,
@@ -211,6 +247,8 @@ export function BranaAdminKalendarRucniZapis({
   const [dnyStav, setDnyStav] = useState(dny);
   const [otevreno, setOtevreno] = useState(false);
   const [editovaneId, setEditovaneId] = useState<string | null>(null);
+  /** true = úprava automatické CEKA (bez místa v dni) */
+  const [editaceAutomaticke, setEditaceAutomaticke] = useState(false);
   const [datumOd, setDatumOd] = useState("");
   const [datumDo, setDatumDo] = useState("");
   const [cas, setCas] = useState("");
@@ -239,6 +277,16 @@ export function BranaAdminKalendarRucniZapis({
   const muzeEditovat =
     rucniZapisPovolen && posledniScanDokoncen;
 
+  /** Formulář otevřený (ruční přidání/úprava nebo auto úprava). */
+  const formularOtevren =
+    otevreno && (muzeEditovat || (editaceAutomaticke && rucniZapisPovolen));
+
+  function maStabilniScanKlic(udalost: BranaKonkretniUdalost): boolean {
+    return (
+      typeof udalost.scanKlic === "string" && udalost.scanKlic.trim().length > 0
+    );
+  }
+
   function muzeSchvalit(udalost: BranaKonkretniUdalost): boolean {
     return (
       rucniZapisPovolen &&
@@ -247,8 +295,28 @@ export function BranaAdminKalendarRucniZapis({
     );
   }
 
+  function muzeUpravitAutomatickou(udalost: BranaKonkretniUdalost): boolean {
+    return (
+      rucniZapisPovolen &&
+      udalost.redakcniPolozkaId !== null &&
+      udalost.stavSchvaleni === "CEKA_NA_SCHVALENI" &&
+      maStabilniScanKlic(udalost) &&
+      persistovaneId.has(udalost.id)
+    );
+  }
+
+  function muzeVyrazitAutomatickou(udalost: BranaKonkretniUdalost): boolean {
+    return (
+      rucniZapisPovolen &&
+      udalost.redakcniPolozkaId !== null &&
+      udalost.stavSchvaleni === "CEKA_NA_SCHVALENI" &&
+      persistovaneId.has(udalost.id)
+    );
+  }
+
   function resetovatFormular() {
     setEditovaneId(null);
+    setEditaceAutomaticke(false);
     setDatumOd("");
     setDatumDo("");
     setCas("");
@@ -271,12 +339,18 @@ export function BranaAdminKalendarRucniZapis({
   }
 
   function otevritUpravu(udalost: BranaKonkretniUdalost) {
-    if (udalost.redakcniPolozkaId !== null) {
+    const jeRucni = udalost.redakcniPolozkaId === null;
+    if (jeRucni) {
+      if (!muzeEditovat) {
+        return;
+      }
+    } else if (!muzeUpravitAutomatickou(udalost)) {
       return;
     }
     setChyba(null);
     setZprava(null);
     setEditovaneId(udalost.id);
+    setEditaceAutomaticke(!jeRucni);
     setDatumOd(udalost.datumOd);
     setDatumDo(udalost.datumDo);
     setCas(udalost.cas);
@@ -294,6 +368,29 @@ export function BranaAdminKalendarRucniZapis({
   function ulozit() {
     setChyba(null);
     setZprava(null);
+    if (editaceAutomaticke && editovaneId) {
+      const vstup = {
+        datumOd,
+        datumDo: datumDo || datumOd,
+        cas,
+        mistoNeboTyp,
+        nazev,
+      };
+      startTransition(async () => {
+        const vysledek = await upravitAutomatickouCekaUdalostAkce(
+          editovaneId,
+          vstup,
+        );
+        if (!vysledek.uspech) {
+          setChyba(vysledek.chyba);
+          return;
+        }
+        setZprava("Událost upravena");
+        zavrit();
+        router.refresh();
+      });
+      return;
+    }
     const vstup = {
       datumOd,
       datumDo: datumDo || datumOd,
@@ -367,6 +464,38 @@ export function BranaAdminKalendarRucniZapis({
     });
   }
 
+  function vyrazit(udalost: BranaKonkretniUdalost) {
+    if (!muzeVyrazitAutomatickou(udalost)) {
+      return;
+    }
+    const potvrzeno = window.confirm(
+      `Vyřadit automatickou událost „${udalost.nazev.trim() || udalost.mistoNeboTyp.trim()}“?`,
+    );
+    if (!potvrzeno) {
+      return;
+    }
+    setChyba(null);
+    setZprava(null);
+    startTransition(async () => {
+      const vysledek = await vyrazitAutomatickouCekaUdalostAkce(udalost.id);
+      if (!vysledek.uspech) {
+        setChyba(vysledek.chyba);
+        return;
+      }
+      if (editovaneId === udalost.id) {
+        zavrit();
+      }
+      setDnyStav((predchozi) =>
+        predchozi.map((den) => ({
+          ...den,
+          udalosti: den.udalosti.filter((u) => u.id !== vysledek.udalost.id),
+        })),
+      );
+      setZprava("Událost vyřazena");
+      router.refresh();
+    });
+  }
+
   function oznacitScan() {
     setChyba(null);
     setZprava(null);
@@ -409,7 +538,7 @@ export function BranaAdminKalendarRucniZapis({
         </button>
       ) : null}
 
-      {muzeEditovat && otevreno ? (
+      {formularOtevren ? (
         <div className="space-y-3 border-b border-text-velmiJemny/15 pb-4">
           <p className="text-sm font-normal text-text">
             {editovaneId ? "Upravit událost" : "Přidat událost"}
@@ -427,7 +556,9 @@ export function BranaAdminKalendarRucniZapis({
                   if (!datumDo || datumDo < v) {
                     setDatumDo(v);
                   }
-                  setRucniPoziceVDni(0);
+                  if (!editaceAutomaticke) {
+                    setRucniPoziceVDni(0);
+                  }
                 }}
               />
             </label>
@@ -449,28 +580,30 @@ export function BranaAdminKalendarRucniZapis({
                 onChange={(e) => setCas(e.target.value)}
               />
             </label>
-            <label className="space-y-1 text-sm text-text sm:col-span-2">
-              <span className="text-text-jemny">Místo v dni</span>
-              <select
-                className={VSTUP}
-                value={String(rucniPoziceVDni)}
-                onChange={(e) => {
-                  const cislo = Number(e.target.value);
-                  if (Number.isInteger(cislo) && cislo >= 0) {
-                    setRucniPoziceVDni(cislo);
-                  }
-                }}
-              >
-                {volbyPozice.map((volba) => (
-                  <option
-                    key={`${volba.hodnota}-${volba.popisek}`}
-                    value={String(volba.hodnota)}
-                  >
-                    {volba.popisek}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {!editaceAutomaticke ? (
+              <label className="space-y-1 text-sm text-text sm:col-span-2">
+                <span className="text-text-jemny">Místo v dni</span>
+                <select
+                  className={VSTUP}
+                  value={String(rucniPoziceVDni)}
+                  onChange={(e) => {
+                    const cislo = Number(e.target.value);
+                    if (Number.isInteger(cislo) && cislo >= 0) {
+                      setRucniPoziceVDni(cislo);
+                    }
+                  }}
+                >
+                  {volbyPozice.map((volba) => (
+                    <option
+                      key={`${volba.hodnota}-${volba.popisek}`}
+                      value={String(volba.hodnota)}
+                    >
+                      {volba.popisek}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             <label className="space-y-1 text-sm text-text sm:col-span-2">
               <span className="text-text-jemny">CO / místo nebo typ</span>
               <input
@@ -529,9 +662,12 @@ export function BranaAdminKalendarRucniZapis({
         rucniAkce={muzeEditovat}
         pending={pending}
         muzeSchvalit={muzeSchvalit}
+        muzeUpravitAutomatickou={muzeUpravitAutomatickou}
+        muzeVyrazitAutomatickou={muzeVyrazitAutomatickou}
         onUpravit={otevritUpravu}
         onSmazat={smazat}
         onSchvalit={schvalit}
+        onVyrazit={vyrazit}
       />
     </div>
   );

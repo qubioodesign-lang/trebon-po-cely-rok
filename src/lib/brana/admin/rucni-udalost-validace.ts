@@ -113,3 +113,65 @@ export function validovatRucniUdalostVstup(
     },
   };
 }
+
+export type BranaAutomatickaCekaUpravaVstup = {
+  datumOd: string;
+  datumDo: string;
+  cas: string;
+  mistoNeboTyp: string;
+  nazev: string;
+};
+
+export type ValidaceAutomatickeCekaUpravyVysledek =
+  | { ok: true; uprava: BranaAutomatickaCekaUpravaVstup }
+  | { ok: false; chyba: string };
+
+/**
+ * Validace obsahu automatické CEKA úpravy.
+ * Nemění redakcniPolozkaId / scanKlic / stav / rucniPoziceVDni.
+ */
+export function validovatAutomatickouCekaUpravuVstup(
+  vstup: unknown,
+): ValidaceAutomatickeCekaUpravyVysledek {
+  if (!vstup || typeof vstup !== "object") {
+    return { ok: false, chyba: "Neplatný vstup." };
+  }
+
+  const data = vstup as Record<string, unknown>;
+  const datumOd = typeof data.datumOd === "string" ? data.datumOd.trim() : "";
+  const datumDo = typeof data.datumDo === "string" ? data.datumDo.trim() : "";
+  const cas = typeof data.cas === "string" ? data.cas.trim() : "";
+  const mistoNeboTyp =
+    typeof data.mistoNeboTyp === "string" ? data.mistoNeboTyp.trim() : "";
+  const nazev = typeof data.nazev === "string" ? data.nazev.trim() : "";
+
+  if (!jePlatnyIsoDen(datumOd)) {
+    return { ok: false, chyba: "Datum OD není platné." };
+  }
+  if (!jePlatnyIsoDen(datumDo)) {
+    return { ok: false, chyba: "Datum DO není platné." };
+  }
+  if (datumDo < datumOd) {
+    return { ok: false, chyba: "Datum DO nesmí být dříve než datum OD." };
+  }
+  if (!CAS.test(cas)) {
+    return { ok: false, chyba: "Čas musí být ve formátu HH:MM." };
+  }
+  if (!mistoNeboTyp) {
+    return { ok: false, chyba: "Vyplňte CO / místo nebo typ." };
+  }
+  if (mistoNeboTyp.length > 100) {
+    return { ok: false, chyba: "CO / místo je příliš dlouhé." };
+  }
+  if (!nazev) {
+    return { ok: false, chyba: "Vyplňte název." };
+  }
+  if (nazev.length > 200) {
+    return { ok: false, chyba: "Název je příliš dlouhý." };
+  }
+
+  return {
+    ok: true,
+    uprava: { datumOd, datumDo, cas, mistoNeboTyp, nazev },
+  };
+}

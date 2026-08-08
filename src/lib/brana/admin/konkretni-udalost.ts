@@ -241,6 +241,9 @@ export function projektujKalendarDny(
   const podleDne = new Map<string, BranaKonkretniUdalost[]>();
 
   for (const udalost of udalosti) {
+    if (udalost.stavSchvaleni === "VYRAZENO") {
+      continue;
+    }
     for (const den of dnyTrvaniUdalosti(udalost)) {
       const seznam = podleDne.get(den) ?? [];
       seznam.push(udalost);
@@ -273,6 +276,7 @@ export function projektujVyhledPodleRoku(
 ): BranaVyhledRokSkupina[] {
   const vybrane = udalosti.filter(
     (u) =>
+      u.stavSchvaleni !== "VYRAZENO" &&
       u.redakcniPolozkaId !== null &&
       maVyhledAno(u.redakcniPolozkaId) &&
       maDatumOdPatritDoVyhledu(u.datumOd),

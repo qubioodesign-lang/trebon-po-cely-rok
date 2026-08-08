@@ -13,7 +13,7 @@ import {
   vytvoritScanKlicAutomatickeUdalosti,
   type BranaKonkretniUdalost,
 } from "./konkretni-udalost";
-import { validovatRucniUdalostVstup } from "./rucni-udalost-validace";
+import { validovatRucniUdalostVstup, validovatAutomatickouCekaUpravuVstup } from "./rucni-udalost-validace";
 
 /**
  * Samostatný objekt v PRIVATE Blob store administrace BRÁNY.
@@ -524,6 +524,139 @@ export async function schvalitKonkretniUdalost(
 
   await ulozitDokument(overeni);
   return schvalena;
+}
+
+/**
+ * Upraví obsah automatické CEKA události se stabilním scanKlic.
+ * Zachová id, redakcniPolozkaId, scanKlic, rucniPoziceVDni=null, CEKA_NA_SCHVALENI.
+ * Bez scanKlic → fail-closed (úprava by rozbila obsahový fallback dedup).
+ */
+export async function upravitAutomatickouCekaUdalost(
+  id: string,
+  vstup: unknown,
+): Promise<BranaKonkretniUdalost> {
+  if (!(await jeAdminPrihlasen())) {
+    throw new Error("Nejste přihlášeni.");
+  }
+
+  if (!maBranaAdminBlobKonfiguraci()) {
+    throw new Error(
+      "Nelze uložit událost: chybí BLOB_BRANA_ADMIN_STORE_ID nebo BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
+    );
+  }
+
+  const idTrim = typeof id === "string" ? id.trim() : "";
+  if (!idTrim) {
+    throw new Error("Chybí id události.");
+  }
+
+  const validace = validovatAutomatickouCekaUpravuVstup(vstup);
+  if (!validace.ok) {
+    throw new Error(validace.chyba);
+  }
+
+  const dokument = await nacistDokumentProZapis();
+  const index = dokument.udalosti.findIndex((u) => u.id === idTrim);
+  if (index < 0) {
+    throw new Error("Událost nebyla nalezena.");
+  }
+
+  const existujici = dokument.udalosti[index];
+  if (existujici.redakcniPolozkaId === null) {
+    throw new Error("Ruční událost nelze upravit touto cestou.");
+  }
+  if (existujici.stavSchvaleni !== "CEKA_NA_SCHVALENI") {
+    throw new Error("Upravit lze pouze čekající automatickou událost.");
+  }
+  if (
+    typeof existujici.scanKlic !== "string" ||
+    existujici.scanKlic.length === 0
+  ) {
+    throw new Error(
+      "Tuto starší automatickou událost nelze bezpečně upravit (chybí scanKlic).",
+    );
+  }
+
+  const upravena: BranaKonkretniUdalost = {
+    id: existujici.id,
+    redakcniPolozkaId: existujici.redakcniPolozkaId,
+    datumOd: validace.uprava.datumOd,
+    datumDo: validace.uprava.datumDo,
+    cas: validace.uprava.cas,
+    mistoNeboTyp: validace.uprava.mistoNeboTyp,
+    nazev: validace.uprava.nazev,
+    rucniPoziceVDni: null,
+    stavSchvaleni: "CEKA_NA_SCHVALENI",
+    scanKlic: existujici.scanKlic,
+  };
+
+  const noveUdalosti = dokument.udalosti.slice();
+  noveUdalosti[index] = upravena;
+  dokument.udalosti = noveUdalosti;
+
+  const overeni = parsovatDokument(dokument);
+  if (!overeni) {
+    throw new Error("Výsledný dokument neprošel validací. Nic nebylo uloženo.");
+  }
+
+  await ulozitDokument(overeni);
+  return upravena;
+}
+
+/**
+ * Vyřadí automatickou CEKA událost: CEKA_NA_SCHVALENI → VYRAZENO.
+ * Zachová id, redakcniPolozkaId, scanKlic (pokud je) a obsah.
+ * Záznam zůstává v Blobu kvůli dedupu.
+ */
+export async function vyrazitAutomatickouCekaUdalost(
+  id: string,
+): Promise<BranaKonkretniUdalost> {
+  if (!(await jeAdminPrihlasen())) {
+    throw new Error("Nejste přihlášeni.");
+  }
+
+  if (!maBranaAdminBlobKonfiguraci()) {
+    throw new Error(
+      "Nelze vyřadit událost: chybí BLOB_BRANA_ADMIN_STORE_ID nebo BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
+    );
+  }
+
+  const idTrim = typeof id === "string" ? id.trim() : "";
+  if (!idTrim) {
+    throw new Error("Chybí id události.");
+  }
+
+  const dokument = await nacistDokumentProZapis();
+  const index = dokument.udalosti.findIndex((u) => u.id === idTrim);
+  if (index < 0) {
+    throw new Error("Událost nebyla nalezena.");
+  }
+
+  const existujici = dokument.udalosti[index];
+  if (existujici.redakcniPolozkaId === null) {
+    throw new Error("Ruční událost nelze vyřadit touto cestou.");
+  }
+  if (existujici.stavSchvaleni !== "CEKA_NA_SCHVALENI") {
+    throw new Error("Vyřadit lze pouze čekající automatickou událost.");
+  }
+
+  const vyrazena: BranaKonkretniUdalost = {
+    ...existujici,
+    rucniPoziceVDni: null,
+    stavSchvaleni: "VYRAZENO",
+  };
+
+  const noveUdalosti = dokument.udalosti.slice();
+  noveUdalosti[index] = vyrazena;
+  dokument.udalosti = noveUdalosti;
+
+  const overeni = parsovatDokument(dokument);
+  if (!overeni) {
+    throw new Error("Výsledný dokument neprošel validací. Nic nebylo uloženo.");
+  }
+
+  await ulozitDokument(overeni);
+  return vyrazena;
 }
 
 export type BranaScanAutomatickaUdalostVstup = {
