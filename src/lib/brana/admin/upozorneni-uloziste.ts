@@ -593,3 +593,42 @@ export async function vypnoutPushSubscription(): Promise<BranaUpozorneniNastaven
   await ulozitDokument(celek.dokument);
   return celek.dokument;
 }
+
+/**
+ * Zápis posledniUpozorneniRychle pro důvěryhodný scheduler (po ověření CRON_SECRET).
+ * Pouze YYYY-MM-DD. Nemění ostatní pole. Bez admin session.
+ * Volat výhradně po úspěšném webpush.sendNotification.
+ */
+export async function ulozitPosledniUpozorneniRychleProScheduler(
+  posledniUpozorneniRychle: string,
+): Promise<BranaUpozorneniNastaveniDokument> {
+  if (!maBranaAdminBlobKonfiguraci()) {
+    throw new Error(
+      "Nelze uložit nastavení upozornění: chybí BLOB_BRANA_ADMIN_STORE_ID nebo BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
+    );
+  }
+
+  const den = validovatVolitelnyIsoDenPole(
+    posledniUpozorneniRychle,
+    "Poslední rychlé upozornění",
+  );
+  if (!den.ok || den.hodnota === null) {
+    throw new Error(
+      "Poslední rychlé upozornění musí být datum ve formátu RRRR-MM-DD.",
+    );
+  }
+
+  const stary = await nacistNeboVychoziDokument();
+  const vyslednyNavrh: BranaUpozorneniNastaveniDokument = {
+    ...stary,
+    posledniUpozorneniRychle: den.hodnota,
+  };
+
+  const celek = validovatUpozorneniDokument(vyslednyNavrh);
+  if (!celek.ok) {
+    throw new Error(celek.chyba);
+  }
+
+  await ulozitDokument(celek.dokument);
+  return celek.dokument;
+}

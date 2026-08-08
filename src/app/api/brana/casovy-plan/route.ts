@@ -1,14 +1,16 @@
 import { timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { vyhodnotitBranaCasovyPlanProScheduler } from "@/lib/brana/admin/casovy-motor-uloziste";
+import { vyhodnotitAOdeslatRychleUpozorneniPoScanu } from "@/lib/brana/admin/odeslat-rychle-upozorneni-automaticky";
 import { skenovatRychleZdrojeAutomaticky } from "@/lib/brana/admin/skenovat-rychle-zdroje-automaticky";
 
 export const dynamic = "force-dynamic";
 
 /**
  * Vercel Cron trigger:
- * ověří CRON_SECRET → časový motor → při jeRychlyTermin sekvenční Rychlý scan.
- * Bez push, bez Dlouhodobého scanu, bez posunu +21 dní.
+ * ověří CRON_SECRET → časový motor → při jeRychlyTermin sekvenční Rychlý scan
+ * → případně jedno souhrnné Rychlé Web Push upozornění.
+ * Bez Dlouhodobého scanu, bez Pravidelného push, bez +21 dní.
  */
 
 function jePlatnaCronAutorizace(authHeader: string | null): boolean {
@@ -50,7 +52,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { jeRychlyTermin, jeDlouhodobyTermin } = vysledek.plan;
+    const { jeRychlyTermin, jeDlouhodobyTermin, datumVPraze } = vysledek.plan;
 
     if (!jeRychlyTermin) {
       return NextResponse.json({
@@ -58,20 +60,30 @@ export async function GET(request: NextRequest) {
         jeRychlyTermin,
         jeDlouhodobyTermin,
         rychlyScan: null,
+        rychlyPush: null,
       });
     }
 
     const rychlyScan = await skenovatRychleZdrojeAutomaticky();
+    const rychlyPush = await vyhodnotitAOdeslatRychleUpozorneniPoScanu({
+      datumVPraze,
+      pridanoDoKalendare: rychlyScan.pridanoDoKalendare,
+    });
 
     return NextResponse.json({
       ok: true,
       jeRychlyTermin,
       jeDlouhodobyTermin,
       rychlyScan,
+      rychlyPush,
     });
   } catch {
     return NextResponse.json(
-      { ok: false, chyba: "Časový plán nebo Rychlý scan se nepodařilo dokončit." },
+      {
+        ok: false,
+        chyba:
+          "Časový plán, Rychlý scan nebo zápis po Rychlém upozornění se nepodařilo dokončit.",
+      },
       { status: 500 },
     );
   }

@@ -1,14 +1,14 @@
 import "server-only";
 
-import webpush from "web-push";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 import { maBranaAdminBlobKonfiguraci } from "@/lib/brana/admin/env-blob-brana-admin";
+import { odeslatBranaWebPush } from "@/lib/brana/admin/odeslat-brana-web-push";
 import {
   nacistUpozorneniNastaveni,
   validovatPushSubscriptionVstup,
 } from "@/lib/brana/admin/upozorneni-uloziste";
 
-/** Payload pro BRÁNA SW push listener – title/body (ne titulek/text Třeboně). */
+/** Payload pro ruční test – neměnit na produkční text. */
 export const BRANA_TESTOVACI_PUSH_PAYLOAD = {
   title: "BRÁNA",
   body: "Testovací upozornění funguje.",
@@ -17,20 +17,6 @@ export const BRANA_TESTOVACI_PUSH_PAYLOAD = {
 export type BranaTestovaciPushVysledek =
   | { uspech: true }
   | { uspech: false; chyba: string };
-
-function nastavitVapid(): string | null {
-  const verejnyKlic = process.env.VAPID_VEREJNY_KLIC;
-  const soukromyKlic = process.env.VAPID_SOUKROMY_KLIC;
-  const email =
-    process.env.VAPID_EMAIL ?? "mailto:admin@trebon-po-cely-rok.cz";
-
-  if (!verejnyKlic || !soukromyKlic) {
-    return "VAPID klíče nejsou nakonfigurované.";
-  }
-
-  webpush.setVapidDetails(email, verejnyKlic, soukromyKlic);
-  return null;
-}
 
 /**
  * Odešle jedno ruční testovací Web Push na PRIVATE BRÁNA subscription.
@@ -46,11 +32,6 @@ export async function odeslatBranaTestovaciPush(): Promise<BranaTestovaciPushVys
       uspech: false,
       chyba: "Nastavení upozornění není dostupné.",
     };
-  }
-
-  const chybaVapid = nastavitVapid();
-  if (chybaVapid) {
-    return { uspech: false, chyba: chybaVapid };
   }
 
   const nacist = await nacistUpozorneniNastaveni();
@@ -82,42 +63,21 @@ export async function odeslatBranaTestovaciPush(): Promise<BranaTestovaciPushVys
     return { uspech: false, chyba: validace.chyba };
   }
 
-  const subscription = validace.pushSubscription;
-  const payload = JSON.stringify(BRANA_TESTOVACI_PUSH_PAYLOAD);
+  const vysledek = await odeslatBranaWebPush(
+    validace.pushSubscription,
+    BRANA_TESTOVACI_PUSH_PAYLOAD,
+    "brana-testovaci-push",
+  );
 
-  try {
-    await webpush.sendNotification(
-      {
-        endpoint: subscription.endpoint,
-        keys: {
-          p256dh: subscription.keys.p256dh,
-          auth: subscription.keys.auth,
-        },
-      },
-      payload,
-    );
-    return { uspech: true };
-  } catch (error) {
-    const statusCode =
-      error && typeof error === "object" && "statusCode" in error
-        ? (error as { statusCode?: number }).statusCode
-        : undefined;
-
-    if (statusCode === 404 || statusCode === 410) {
-      return {
-        uspech: false,
-        chyba:
-          "Subscription už není platná. Vypněte a znovu zapněte upozornění na tomto telefonu.",
-      };
+  if (!vysledek.uspech) {
+    if (vysledek.statusCode === 404 || vysledek.statusCode === 410) {
+      return { uspech: false, chyba: vysledek.chyba };
     }
-
-    console.error("[brana-testovaci-push] odeslání selhalo", {
-      statusCode: statusCode ?? null,
-    });
-
     return {
       uspech: false,
       chyba: "Testovací upozornění se nepodařilo odeslat.",
     };
   }
+
+  return { uspech: true };
 }
