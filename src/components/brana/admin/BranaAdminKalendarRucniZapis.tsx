@@ -10,6 +10,7 @@ import {
   upravitAutomatickouCekaUdalostAkce,
   upravitRucniKonkretniUdalostAkce,
   vyrazitAutomatickouCekaUdalostAkce,
+  odstranitE2eJednorazovySeedSestiUdalostiAkce,
   vlozitE2eJednorazovySeedSestiCekaAkce,
 } from "@/app/brana/admin/actions";
 import { rozlozAkci } from "@/lib/brana/admin/akce-rozlozeni";
@@ -285,6 +286,11 @@ export function BranaAdminKalendarRucniZapis({
     ids: string[];
     nazvy: string[];
   } | null>(null);
+  /** DOČASNÉ: výsledek jednorázového E2E cleanupu (po testu odstranit). */
+  const [e2eCleanupVysledek, setE2eCleanupVysledek] = useState<{
+    ids: string[];
+    nazvy: string[];
+  } | null>(null);
 
   useEffect(() => {
     setDnyStav(dny);
@@ -544,6 +550,33 @@ export function BranaAdminKalendarRucniZapis({
     });
   }
 
+  /** DOČASNÉ: jednorázový E2E cleanup – po testu odstranit. */
+  function odstranitE2eTestovaciUdalosti() {
+    if (!rucniZapisPovolen) {
+      return;
+    }
+    const potvrzeno = window.confirm(
+      "Toto odstraní přesně 6 testovacích E2E událostí z PRIVATE dat BRÁNY.\n\nBěžných událostí se cleanup nesmí dotknout.\n\nPokračovat?",
+    );
+    if (!potvrzeno) {
+      return;
+    }
+    setChyba(null);
+    setZprava(null);
+    setE2eCleanupVysledek(null);
+    startTransition(async () => {
+      const vysledek = await odstranitE2eJednorazovySeedSestiUdalostiAkce();
+      if (!vysledek.uspech) {
+        setChyba(vysledek.chyba);
+        return;
+      }
+      setE2eCleanupVysledek({ ids: vysledek.ids, nazvy: vysledek.nazvy });
+      setE2eSeedVysledek(null);
+      setZprava("TEST ODSTRANĚN – 6 UDÁLOSTÍ");
+      router.refresh();
+    });
+  }
+
   function vyrazit(udalost: BranaKonkretniUdalost) {
     if (!muzeVyrazitAutomatickou(udalost)) {
       return;
@@ -655,6 +688,26 @@ export function BranaAdminKalendarRucniZapis({
                 {e2eSeedVysledek.ids.map((id, index) => (
                   <li key={id}>
                     {e2eSeedVysledek.nazvy[index] ?? "?"} — {id}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          <button
+            type="button"
+            onClick={odstranitE2eTestovaciUdalosti}
+            disabled={pending}
+            className="text-sm font-semibold uppercase tracking-wide text-text underline decoration-2 underline-offset-4 hover:opacity-80 disabled:opacity-50"
+          >
+            {pending ? "Ukládám…" : "ODSTRANIT 6 TESTOVACÍCH UDÁLOSTÍ"}
+          </button>
+          {e2eCleanupVysledek ? (
+            <div className="space-y-1 text-sm text-text" role="status">
+              <p>TEST ODSTRANĚN – 6 UDÁLOSTÍ</p>
+              <ul className="list-inside list-disc text-text-jemny">
+                {e2eCleanupVysledek.ids.map((id, index) => (
+                  <li key={id}>
+                    {e2eCleanupVysledek.nazvy[index] ?? "?"} — {id}
                   </li>
                 ))}
               </ul>
