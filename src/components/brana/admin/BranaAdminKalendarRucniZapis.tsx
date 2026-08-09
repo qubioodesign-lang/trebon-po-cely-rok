@@ -10,6 +10,7 @@ import {
   upravitAutomatickouCekaUdalostAkce,
   upravitRucniKonkretniUdalostAkce,
   vyrazitAutomatickouCekaUdalostAkce,
+  vlozitE2eJednorazovySeedSestiCekaAkce,
 } from "@/app/brana/admin/actions";
 import { rozlozAkci } from "@/lib/brana/admin/akce-rozlozeni";
 import type {
@@ -279,6 +280,11 @@ export function BranaAdminKalendarRucniZapis({
   const [chyba, setChyba] = useState<string | null>(null);
   const [zprava, setZprava] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  /** DOČASNÉ: výsledek jednorázového E2E seedu (po testu odstranit). */
+  const [e2eSeedVysledek, setE2eSeedVysledek] = useState<{
+    ids: string[];
+    nazvy: string[];
+  } | null>(null);
 
   useEffect(() => {
     setDnyStav(dny);
@@ -512,6 +518,32 @@ export function BranaAdminKalendarRucniZapis({
     });
   }
 
+  /** DOČASNÉ: jednorázový E2E seed – po testu odstranit. */
+  function vlozitE2eTestovaciUdalosti() {
+    if (!rucniZapisPovolen) {
+      return;
+    }
+    const potvrzeno = window.confirm(
+      "Toto jednorázově vloží 6 testovacích automatických událostí do PRIVATE dat BRÁNY.\n\nVeřejná BRÁNA se nezmění.\n\nPokračovat?",
+    );
+    if (!potvrzeno) {
+      return;
+    }
+    setChyba(null);
+    setZprava(null);
+    setE2eSeedVysledek(null);
+    startTransition(async () => {
+      const vysledek = await vlozitE2eJednorazovySeedSestiCekaAkce();
+      if (!vysledek.uspech) {
+        setChyba(vysledek.chyba);
+        return;
+      }
+      setE2eSeedVysledek({ ids: vysledek.ids, nazvy: vysledek.nazvy });
+      setZprava("TEST VLOŽEN – 6 UDÁLOSTÍ");
+      router.refresh();
+    });
+  }
+
   function vyrazit(udalost: BranaKonkretniUdalost) {
     if (!muzeVyrazitAutomatickou(udalost)) {
       return;
@@ -601,6 +633,34 @@ export function BranaAdminKalendarRucniZapis({
         >
           {pending ? "Ukládám…" : "Schválit kontrolu"}
         </button>
+      ) : null}
+
+      {rucniZapisPovolen ? (
+        <div className="space-y-2 border border-dashed border-text-velmiJemny/40 p-2">
+          <p className="text-xs font-normal uppercase tracking-wide text-text-jemny">
+            Dočasný E2E test
+          </p>
+          <button
+            type="button"
+            onClick={vlozitE2eTestovaciUdalosti}
+            disabled={pending}
+            className="text-sm font-normal text-text underline-offset-2 hover:underline disabled:opacity-50"
+          >
+            {pending ? "Ukládám…" : "VLOŽIT 6 TESTOVACÍCH UDÁLOSTÍ"}
+          </button>
+          {e2eSeedVysledek ? (
+            <div className="space-y-1 text-sm text-text" role="status">
+              <p>TEST VLOŽEN – 6 UDÁLOSTÍ</p>
+              <ul className="list-inside list-disc text-text-jemny">
+                {e2eSeedVysledek.ids.map((id, index) => (
+                  <li key={id}>
+                    {e2eSeedVysledek.nazvy[index] ?? "?"} — {id}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
       ) : null}
 
       {formularOtevren ? (

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 import type { BranaKonkretniUdalost } from "@/lib/brana/admin/konkretni-udalost";
+import { vlozitE2eJednorazovySeedSestiCeka } from "@/lib/brana/admin/e2e-jednorazovy-seed";
 import {
   nastavitPosledniScanDokoncen,
   pridatRucniKonkretniUdalost,
@@ -231,6 +232,44 @@ export async function schvalitKonkretniUdalostAkce(
     return {
       uspech: false,
       chyba: detail ?? "Událost se nepodařilo schválit.",
+    };
+  }
+}
+
+type BranaE2eJednorazovySeedAkceVysledek =
+  | {
+      uspech: true;
+      ids: string[];
+      nazvy: string[];
+      pocetPred: number;
+      pocetPo: number;
+      prazdneDnyPred: number;
+      prazdneDnyPo: number;
+    }
+  | { uspech: false; chyba: string };
+
+/**
+ * DOČASNÉ: jednorázový E2E seed přesně 6 auto CEKA.
+ * Po dokončení testu odstranit spolu s helperem a tlačítkem.
+ */
+export async function vlozitE2eJednorazovySeedSestiCekaAkce(): Promise<BranaE2eJednorazovySeedAkceVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  try {
+    const vysledek = await vlozitE2eJednorazovySeedSestiCeka();
+    revalidatePath("/brana/admin/sprava/kalendar");
+    revalidatePath("/brana/admin/sprava/vyhled");
+    return { uspech: true, ...vysledek };
+  } catch (error) {
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "E2E seed se nepodařilo provést. Nic nebylo uloženo.",
     };
   }
 }
