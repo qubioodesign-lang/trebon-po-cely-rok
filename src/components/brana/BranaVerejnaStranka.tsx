@@ -6,11 +6,12 @@ import {
 } from "@/lib/brana/konstanty";
 import { jeNocniRezimVPraze } from "@/lib/brana/cas";
 import type { BranaVerejnaStranka } from "@/lib/brana/navigace-stranky";
-import {
-  branaKonfiguraceVsechPohledu,
-  nactiBranaSdilenaPohledovaData,
-} from "@/lib/brana/pohledy-data";
+import { branaKonfiguraceVsechPohledu } from "@/lib/brana/pohledy-data";
 import { parseBranaPozadiVarianta } from "@/lib/brana/pozadi-varianty";
+import {
+  nactiVerejneSchvalenePohledovaData,
+  prazdnaVerejnaPohledovaDataPriChybe,
+} from "@/lib/brana/verejne-schvalene-pohledy";
 
 type BranaSearchParams = Promise<{ pozadi?: string }>;
 
@@ -37,7 +38,11 @@ export async function BranaVerejnaStranka({
 }: BranaVerejnaStrankaProps) {
   const { pozadi } = await searchParams;
   const vychoziNocRezim = jeNocniRezimVPraze();
-  const pohledovaData = nactiBranaSdilenaPohledovaData();
+  const schvalene = await nactiVerejneSchvalenePohledovaData(stranka);
+  // Fail-closed: při chybě prázdná projekce – bez mixu s provizorními daty.
+  const pohledovaData = schvalene.ok
+    ? schvalene.data
+    : prazdnaVerejnaPohledovaDataPriChybe(stranka);
   const konfiguracePohledu = branaKonfiguraceVsechPohledu();
 
   return (

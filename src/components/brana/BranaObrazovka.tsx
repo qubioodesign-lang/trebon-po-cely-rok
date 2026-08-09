@@ -130,6 +130,10 @@ function akceProBlok(
   stranka: BranaVerejnaStranka,
   blok: number,
 ): BranaSdilenaPohledovaData["akce"] {
+  if (data.bloky) {
+    return [...(data.bloky[blok] ?? [])];
+  }
+
   if (stranka !== "vyhled") {
     return data.akce;
   }
@@ -142,11 +146,16 @@ function akceProBlok(
 function udajVpravo(
   data: BranaSdilenaPohledovaData,
   stranka: BranaVerejnaStranka,
-  index: number,
+  blok: number,
+  indexVBloku: number,
+  globalniIndex: number,
   cas: string,
 ): string {
   if (stranka === "vyhled") {
-    return data.vyhledDatumy[index] ?? cas;
+    if (data.vyhledDatumyBloky) {
+      return data.vyhledDatumyBloky[blok]?.[indexVBloku] ?? cas;
+    }
+    return data.vyhledDatumy[globalniIndex] ?? cas;
   }
 
   return cas;
@@ -167,7 +176,11 @@ export function BranaObrazovka({
   const vzkazHref = useBranaVerejnaCesta("vzkaz");
   const trebonHref = useBranaOdkazNaTrebon();
   const kotvaScroll = kotvaScrollProStranku(pohled);
-  const pocetBloku = pohled === "vyhled" ? 2 : opakovani;
+  const pocetBloku = data.bloky
+    ? data.bloky.length
+    : pohled === "vyhled"
+      ? 2
+      : opakovani;
 
   const onNavClick = (cil: BranaVerejnaStranka) => {
     if (cil === pohled) {
@@ -194,7 +207,7 @@ export function BranaObrazovka({
 
               return (
                 <li
-                  key={`${blok}-${akce.mistoNeboTyp}-${akce.nazev}-${akce.cas}`}
+                  key={`${blok}-${akce.mistoNeboTyp}-${akce.nazev}-${akce.cas}-${indexVBloku}`}
                 >
                   <div className="brana-akce-obsah">
                     <div className="brana-akce-radek">
@@ -213,7 +226,14 @@ export function BranaObrazovka({
                     ) : null}
                   </div>
                   <span className="brana-akce-cas">
-                    {udajVpravo(data, pohled, globalniIndex, cas)}
+                    {udajVpravo(
+                      data,
+                      pohled,
+                      blok,
+                      indexVBloku,
+                      globalniIndex,
+                      cas,
+                    )}
                   </span>
                 </li>
               );

@@ -19,12 +19,17 @@ import {
 /**
  * Společný datový model všech pěti pohledů.
  * Jedna pravda – pohledy se odvozují konfigurací, ne kopií seznamu.
- * Později nahraditelné jedním redakčním načtením na serveru.
+ * `bloky`: vlastní seznam akcí pro každý denní/roční blok (SCHVALENO projekce).
+ * Bez `bloky` = legacy opakování `akce` (provizorní referenční cesta).
  */
 export type BranaSdilenaPohledovaData = {
   akce: BranaReferencniAkce[];
   vyhledDatumy: readonly string[];
   vyhledPredelIndex: number;
+  /** Pokud nastaveno, každý blok má vlastní seznam – neopakuje se `akce`. */
+  bloky?: readonly (readonly BranaReferencniAkce[])[];
+  /** Výhled: datumy vpravo po blocích (stejná struktura jako `bloky`). */
+  vyhledDatumyBloky?: readonly (readonly string[])[];
 };
 
 export type BranaKonfiguracePohledu = {
