@@ -476,6 +476,14 @@ export function BranaAdminKalendarRucniZapis({
     if (!rucniZapisPovolen || idCekaKeSchvaleniKontroly.length === 0) {
       return;
     }
+    if (upozorneniPrazdnychDni) {
+      const potvrzeno = window.confirm(
+        `${upozorneniPrazdnychDni}\n\nChcete přesto kontrolu schválit?`,
+      );
+      if (!potvrzeno) {
+        return;
+      }
+    }
     setChyba(null);
     setZprava(null);
     startTransition(async () => {
