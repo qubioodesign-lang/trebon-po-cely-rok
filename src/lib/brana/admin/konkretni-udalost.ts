@@ -161,6 +161,11 @@ export type BranaKalendarDen = {
   isoDen: string;
   datumLabel: string;
   udalosti: BranaKonkretniUdalost[];
+  /**
+   * Admin: den 21denního kontrolního bloku bez relevantního
+   * persistovaného pokrytí (vizuální řádek / zvýraznění nuly).
+   */
+  jePrazdnyKontrolniDen?: boolean;
 };
 
 function cisloRazeni(hodnota: number | null): number {

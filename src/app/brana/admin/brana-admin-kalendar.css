@@ -130,3 +130,22 @@
   letter-spacing: 0.02em;
   color: var(--text-jemny, #6b6b6b);
 }
+
+/* Prázdný den 21denního kontrolního bloku – rychlá redakční orientace */
+.brana-admin-kalendar-den-prazdny {
+  background: rgb(207 145 104 / 0.12);
+  margin-left: -0.35rem;
+  margin-right: -0.35rem;
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
+}
+
+.brana-admin-kalendar-den-nula {
+  margin: 0;
+  padding: 0.15rem 0;
+  font-size: 1.5rem;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  color: var(--brana-admin-akce-accent);
+}

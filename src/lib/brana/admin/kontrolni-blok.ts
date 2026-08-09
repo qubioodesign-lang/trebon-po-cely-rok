@@ -9,6 +9,7 @@ import { BRANA_DLOUHODOBY_INTERVAL_VYCHOZI } from "@/lib/brana/admin/zdroj";
 import { isoDnyObdobi7DniVPraze } from "@/lib/brana/admin/obdobi-7-dni";
 import {
   projektujVyhledPodleRoku,
+  type BranaKalendarDen,
   type BranaKonkretniUdalost,
 } from "@/lib/brana/admin/konkretni-udalost";
 
@@ -165,4 +166,119 @@ export function sestavIdProSchvalitKontrolu(
   }
 
   return [...idSet];
+}
+
+/** Inclusive: událost pokrývá ISO den (prázdné datumDo = datumOd). */
+export function udalostPokryvaIsoDen(
+  udalost: Pick<BranaKonkretniUdalost, "datumOd" | "datumDo"> | {
+    datumOd: string;
+    datumDo?: string | null;
+  },
+  isoDen: string,
+): boolean {
+  const { od, do: doDne } = normalizujRozsahUdalosti(udalost);
+  return od <= isoDen && isoDen <= doDne;
+}
+
+/**
+ * Počet skutečných persistovaných událostí pokrývajících den
+ * pro redakční kontrolu prázdných dnů 21denního bloku.
+ * SCHVALENO (vč. ručních) + auto CEKA z aktuální dávky Schválit kontrolu.
+ */
+export function pocetRelevantnihoPokrytiDne(
+  isoDen: string,
+  persistovaneUdalosti: readonly BranaKonkretniUdalost[],
+  idDavkySchvalitKontrolu: ReadonlySet<string>,
+): number {
+  let pocet = 0;
+  for (const udalost of persistovaneUdalosti) {
+    if (udalost.stavSchvaleni === "VYRAZENO") {
+      continue;
+    }
+    if (!udalostPokryvaIsoDen(udalost, isoDen)) {
+      continue;
+    }
+    if (udalost.stavSchvaleni === "SCHVALENO") {
+      pocet += 1;
+      continue;
+    }
+    if (
+      udalost.stavSchvaleni === "CEKA_NA_SCHVALENI" &&
+      udalost.redakcniPolozkaId !== null &&
+      idDavkySchvalitKontrolu.has(udalost.id)
+    ) {
+      pocet += 1;
+    }
+  }
+  return pocet;
+}
+
+/**
+ * ISO dny pevného 21denního bloku s nulovým relevantním pokrytím.
+ */
+export function spocitejPrazdneDnyKontrolnihoBloku(
+  persistovaneUdalosti: readonly BranaKonkretniUdalost[],
+  idDavkySchvalitKontrolu: readonly string[],
+): { prazdneIsoDny: string[]; pocet: number } {
+  const blok = kontrolniBlokVPraze();
+  const davka = new Set(idDavkySchvalitKontrolu);
+  const prazdneIsoDny: string[] = [];
+
+  for (const isoDen of blok.blokIsoDny) {
+    if (
+      pocetRelevantnihoPokrytiDne(isoDen, persistovaneUdalosti, davka) === 0
+    ) {
+      prazdneIsoDny.push(isoDen);
+    }
+  }
+
+  return { prazdneIsoDny, pocet: prazdneIsoDny.length };
+}
+
+/**
+ * Doplní do projekce Kalendáře prázdné dny 21denního bloku (bez událostí)
+ * a označí dny s nulovým relevantním pokrytím.
+ * Nevytváří persistované události.
+ */
+export function doplnPrazdneDnyDoKalendare(
+  dny: readonly BranaKalendarDen[],
+  prazdneIsoDny: readonly string[],
+  formatujDen: (isoDen: string) => string,
+): BranaKalendarDen[] {
+  const prazdne = new Set(prazdneIsoDny);
+  const podleDne = new Map(
+    dny.map((den) => [
+      den.isoDen,
+      {
+        ...den,
+        jePrazdnyKontrolniDen: prazdne.has(den.isoDen),
+      },
+    ]),
+  );
+
+  for (const isoDen of prazdneIsoDny) {
+    if (!podleDne.has(isoDen)) {
+      podleDne.set(isoDen, {
+        isoDen,
+        datumLabel: formatujDen(isoDen),
+        udalosti: [],
+        jePrazdnyKontrolniDen: true,
+      });
+    }
+  }
+
+  return [...podleDne.keys()]
+    .sort()
+    .map((isoDen) => podleDne.get(isoDen)!);
+}
+
+/** Text souhrnného neblokujícího upozornění. */
+export function textUpozorneniPrazdnychDni(pocet: number): string {
+  if (pocet === 1) {
+    return "Kontrolní období obsahuje 1 prázdný den.";
+  }
+  if (pocet >= 2 && pocet <= 4) {
+    return `Kontrolní období obsahuje ${pocet} prázdné dny.`;
+  }
+  return `Kontrolní období obsahuje ${pocet} prázdných dnů.`;
 }

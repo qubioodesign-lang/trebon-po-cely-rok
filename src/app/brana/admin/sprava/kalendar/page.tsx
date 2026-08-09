@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { BranaAdminKalendarRucniZapis } from "@/components/brana/admin/BranaAdminKalendarRucniZapis";
 import { BranaAdminObal } from "@/components/brana/admin/BranaAdminObal";
 import {
+  formatujDenKalendare,
   projektujKalendarDny,
   type BranaKonkretniUdalost,
 } from "@/lib/brana/admin/konkretni-udalost";
@@ -10,8 +11,11 @@ import {
   nacistKonkretniUdalosti,
 } from "@/lib/brana/admin/konkretni-udalosti-uloziste";
 import {
+  doplnPrazdneDnyDoKalendare,
   isoDenPoslednihoDneKontrolnihoBlokuVPraze,
   sestavIdProSchvalitKontrolu,
+  spocitejPrazdneDnyKontrolnihoBloku,
+  textUpozorneniPrazdnychDni,
 } from "@/lib/brana/admin/kontrolni-blok";
 import { nacistRedakcniPoradi } from "@/lib/brana/admin/redakcni-poradi-uloziste";
 import {
@@ -61,8 +65,31 @@ export default async function StrankaBranaAdminKalendar() {
     ...rucniUdalosti,
   ];
 
-  const dny = projektujKalendarDny(vsechnyUdalosti, (id) =>
+  const dnyZUdalosti = projektujKalendarDny(vsechnyUdalosti, (id) =>
     poradiPodleId.get(id),
+  );
+
+  const idCekaKeSchvaleniKontroly = uloziste.ok
+    ? sestavIdProSchvalitKontrolu(rucniUdalosti, (redakcniPolozkaId) =>
+        maUkazkovyVyhledAno(
+          redakcniPolozkaId,
+          vyhledPodleId.get(redakcniPolozkaId),
+        ),
+      )
+    : [];
+
+  const { prazdneIsoDny, pocet: pocetPrazdnychDniKontrolnihoBloku } =
+    uloziste.ok
+      ? spocitejPrazdneDnyKontrolnihoBloku(
+          rucniUdalosti,
+          idCekaKeSchvaleniKontroly,
+        )
+      : { prazdneIsoDny: [] as string[], pocet: 0 };
+
+  const dny = doplnPrazdneDnyDoKalendare(
+    dnyZUdalosti,
+    prazdneIsoDny,
+    formatujDenKalendare,
   );
 
   const automatickePodleDne: Record<string, BranaKonkretniUdalost[]> = {};
@@ -74,15 +101,6 @@ export default async function StrankaBranaAdminKalendar() {
 
   const isoDenPoslednihoDneKontrolnihoBloku =
     isoDenPoslednihoDneKontrolnihoBlokuVPraze();
-
-  const idCekaKeSchvaleniKontroly = uloziste.ok
-    ? sestavIdProSchvalitKontrolu(rucniUdalosti, (redakcniPolozkaId) =>
-        maUkazkovyVyhledAno(
-          redakcniPolozkaId,
-          vyhledPodleId.get(redakcniPolozkaId),
-        ),
-      )
-    : [];
 
   return (
     <BranaAdminObal
@@ -117,6 +135,11 @@ export default async function StrankaBranaAdminKalendar() {
             isoDenPoslednihoDneKontrolnihoBloku
           }
           idCekaKeSchvaleniKontroly={idCekaKeSchvaleniKontroly}
+          upozorneniPrazdnychDni={
+            pocetPrazdnychDniKontrolnihoBloku > 0
+              ? textUpozorneniPrazdnychDni(pocetPrazdnychDniKontrolnihoBloku)
+              : null
+          }
         />
       </section>
     </BranaAdminObal>

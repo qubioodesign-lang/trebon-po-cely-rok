@@ -44,6 +44,8 @@ type Props = {
    * Server-rendered ze skutečných PRIVATE CEKA.
    */
   idCekaKeSchvaleniKontroly: readonly string[];
+  /** Hotový text neblokujícího upozornění; null = žádné */
+  upozorneniPrazdnychDni: string | null;
 };
 
 function sestavVolbyPozice(
@@ -104,9 +106,23 @@ function SeznamDnu({
     <div role="region" aria-label="Pracovní kalendář">
       {dny.map((den, index) => (
         <div key={den.isoDen}>
-          <article className="brana-admin-kalendar-den">
+          <article
+            className={
+              den.jePrazdnyKontrolniDen
+                ? "brana-admin-kalendar-den brana-admin-kalendar-den-prazdny"
+                : "brana-admin-kalendar-den"
+            }
+          >
             <h3 className="brana-admin-kalendar-datum">{den.datumLabel}</h3>
             <div>
+              {den.jePrazdnyKontrolniDen ? (
+                <p
+                  className="brana-admin-kalendar-den-nula"
+                  aria-label="Prázdný den kontrolního období: 0"
+                >
+                  0
+                </p>
+              ) : null}
               {den.udalosti.length > 0 ? (
                 <ul className="brana-admin-seznam-akci">
                   {den.udalosti.map((udalost) => {
@@ -204,7 +220,7 @@ function SeznamDnu({
                     );
                   })}
                 </ul>
-              ) : (
+              ) : den.jePrazdnyKontrolniDen ? null : (
                 <div className="min-h-11" aria-hidden="true" />
               )}
             </div>
@@ -246,6 +262,7 @@ export function BranaAdminKalendarRucniZapis({
   persistovaneIdUdalosti,
   isoDenPoslednihoDneKontrolnihoBloku,
   idCekaKeSchvaleniKontroly: idCekaKeSchvaleniKontrolyVstup,
+  upozorneniPrazdnychDni,
 }: Props) {
   const router = useRouter();
   const [dnyStav, setDnyStav] = useState(dny);
@@ -559,6 +576,12 @@ export function BranaAdminKalendarRucniZapis({
         >
           Přidat událost
         </button>
+      ) : null}
+
+      {rucniZapisPovolen && upozorneniPrazdnychDni ? (
+        <p className="text-sm text-text" role="status">
+          {upozorneniPrazdnychDni}
+        </p>
       ) : null}
 
       {rucniZapisPovolen && idCekaKeSchvaleniKontroly.length > 0 ? (
