@@ -9,9 +9,15 @@ import {
   BRANA_KONKRETNI_UDALOSTI_CHYBA_CTENI,
   nacistKonkretniUdalosti,
 } from "@/lib/brana/admin/konkretni-udalosti-uloziste";
-import { isoDenPoslednihoDneKontrolnihoBlokuVPraze } from "@/lib/brana/admin/kontrolni-blok";
+import {
+  isoDenPoslednihoDneKontrolnihoBlokuVPraze,
+  sestavIdProSchvalitKontrolu,
+} from "@/lib/brana/admin/kontrolni-blok";
 import { nacistRedakcniPoradi } from "@/lib/brana/admin/redakcni-poradi-uloziste";
-import { UKAZKOVE_KONKRETNI_UDALOSTI } from "@/lib/brana/admin/ukazkove-udalosti";
+import {
+  maUkazkovyVyhledAno,
+  UKAZKOVE_KONKRETNI_UDALOSTI,
+} from "@/lib/brana/admin/ukazkove-udalosti";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 import "../../brana-admin-kalendar.css";
 
@@ -44,6 +50,12 @@ export default async function StrankaBranaAdminKalendar() {
       : [],
   );
 
+  const vyhledPodleId = new Map(
+    redakcni.ok
+      ? redakcni.polozky.map((p) => [p.id, p.vyhled] as const)
+      : [],
+  );
+
   const vsechnyUdalosti: BranaKonkretniUdalost[] = [
     ...UKAZKOVE_KONKRETNI_UDALOSTI,
     ...rucniUdalosti,
@@ -62,6 +74,15 @@ export default async function StrankaBranaAdminKalendar() {
 
   const isoDenPoslednihoDneKontrolnihoBloku =
     isoDenPoslednihoDneKontrolnihoBlokuVPraze();
+
+  const idCekaKeSchvaleniKontroly = uloziste.ok
+    ? sestavIdProSchvalitKontrolu(rucniUdalosti, (redakcniPolozkaId) =>
+        maUkazkovyVyhledAno(
+          redakcniPolozkaId,
+          vyhledPodleId.get(redakcniPolozkaId),
+        ),
+      )
+    : [];
 
   return (
     <BranaAdminObal
@@ -95,6 +116,7 @@ export default async function StrankaBranaAdminKalendar() {
           isoDenPoslednihoDneKontrolnihoBloku={
             isoDenPoslednihoDneKontrolnihoBloku
           }
+          idCekaKeSchvaleniKontroly={idCekaKeSchvaleniKontroly}
         />
       </section>
     </BranaAdminObal>

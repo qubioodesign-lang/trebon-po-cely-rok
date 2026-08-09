@@ -39,6 +39,11 @@ type Props = {
    * Orientační linka se vykreslí jen když je tento den v projekci.
    */
   isoDenPoslednihoDneKontrolnihoBloku: string;
+  /**
+   * Explicitní ID pro Schválit kontrolu (blízké ∪ blok ∪ Výhled).
+   * Server-rendered ze skutečných PRIVATE CEKA.
+   */
+  idCekaKeSchvaleniKontroly: readonly string[];
 };
 
 function sestavVolbyPozice(
@@ -240,6 +245,7 @@ export function BranaAdminKalendarRucniZapis({
   rucniZapisPovolen,
   persistovaneIdUdalosti,
   isoDenPoslednihoDneKontrolnihoBloku,
+  idCekaKeSchvaleniKontroly: idCekaKeSchvaleniKontrolyVstup,
 }: Props) {
   const router = useRouter();
   const [dnyStav, setDnyStav] = useState(dny);
@@ -266,9 +272,12 @@ export function BranaAdminKalendarRucniZapis({
     [persistovaneIdUdalosti],
   );
 
-  /** Explicitní unikátní ID zobrazených persistovaných automatických CEKA. */
+  /**
+   * Scoped server seznam ∩ stále CEKA v aktuálním kalendářním stavu
+   * (po optimistic update / refresh).
+   */
   const idCekaKeSchvaleniKontroly = useMemo(() => {
-    const idSet = new Set<string>();
+    const staleCeka = new Set<string>();
     for (const den of dnyStav) {
       for (const udalost of den.udalosti) {
         if (
@@ -276,12 +285,12 @@ export function BranaAdminKalendarRucniZapis({
           udalost.redakcniPolozkaId !== null &&
           udalost.stavSchvaleni === "CEKA_NA_SCHVALENI"
         ) {
-          idSet.add(udalost.id);
+          staleCeka.add(udalost.id);
         }
       }
     }
-    return [...idSet];
-  }, [dnyStav, persistovaneId]);
+    return idCekaKeSchvaleniKontrolyVstup.filter((id) => staleCeka.has(id));
+  }, [dnyStav, persistovaneId, idCekaKeSchvaleniKontrolyVstup]);
 
   const volbyPozice = useMemo(() => {
     const den = datumOd.trim();
