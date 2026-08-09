@@ -9,6 +9,7 @@ import {
   BRANA_KONKRETNI_UDALOSTI_CHYBA_CTENI,
   nacistKonkretniUdalosti,
 } from "@/lib/brana/admin/konkretni-udalosti-uloziste";
+import { isoDenPoslednihoDneKontrolnihoBlokuVPraze } from "@/lib/brana/admin/kontrolni-blok";
 import { nacistRedakcniPoradi } from "@/lib/brana/admin/redakcni-poradi-uloziste";
 import { UKAZKOVE_KONKRETNI_UDALOSTI } from "@/lib/brana/admin/ukazkove-udalosti";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
@@ -59,6 +60,9 @@ export default async function StrankaBranaAdminKalendar() {
     );
   }
 
+  const isoDenPoslednihoDneKontrolnihoBloku =
+    isoDenPoslednihoDneKontrolnihoBlokuVPraze();
+
   return (
     <BranaAdminObal
       host={host}
@@ -88,6 +92,9 @@ export default async function StrankaBranaAdminKalendar() {
           dny={dny}
           rucniZapisPovolen={uloziste.ok}
           persistovaneIdUdalosti={rucniUdalosti.map((u) => u.id)}
+          isoDenPoslednihoDneKontrolnihoBloku={
+            isoDenPoslednihoDneKontrolnihoBloku
+          }
         />
       </section>
     </BranaAdminObal>

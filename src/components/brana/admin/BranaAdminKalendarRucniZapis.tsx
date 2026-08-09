@@ -34,6 +34,11 @@ type Props = {
   rucniZapisPovolen: boolean;
   /** Id událostí skutečně persistovaných v PRIVATE Blobu */
   persistovaneIdUdalosti: readonly string[];
+  /**
+   * Poslední den 21denního kontrolního bloku (YYYY-MM-DD).
+   * Orientační linka se vykreslí jen když je tento den v projekci.
+   */
+  isoDenPoslednihoDneKontrolnihoBloku: string;
 };
 
 function sestavVolbyPozice(
@@ -73,6 +78,7 @@ function SeznamDnu({
   dny,
   rucniAkce,
   pending,
+  isoDenPoslednihoDneKontrolnihoBloku,
   muzeUpravitAutomatickou,
   muzeVyrazitAutomatickou,
   onUpravit,
@@ -82,6 +88,7 @@ function SeznamDnu({
   dny: BranaKalendarDen[];
   rucniAkce: boolean;
   pending: boolean;
+  isoDenPoslednihoDneKontrolnihoBloku: string;
   muzeUpravitAutomatickou: (udalost: BranaKonkretniUdalost) => boolean;
   muzeVyrazitAutomatickou: (udalost: BranaKonkretniUdalost) => boolean;
   onUpravit: (udalost: BranaKonkretniUdalost) => void;
@@ -210,6 +217,12 @@ function SeznamDnu({
               ariaLabel="Schváleno k publikaci"
             />
           ) : null}
+          {den.isoDen === isoDenPoslednihoDneKontrolnihoBloku ? (
+            <OrientacniLinka
+              popisek="KONEC KONTROLY 21 DNÍ"
+              ariaLabel="Konec kontroly 21 dní"
+            />
+          ) : null}
         </div>
       ))}
     </div>
@@ -226,6 +239,7 @@ export function BranaAdminKalendarRucniZapis({
   dny,
   rucniZapisPovolen,
   persistovaneIdUdalosti,
+  isoDenPoslednihoDneKontrolnihoBloku,
 }: Props) {
   const router = useRouter();
   const [dnyStav, setDnyStav] = useState(dny);
@@ -672,6 +686,9 @@ export function BranaAdminKalendarRucniZapis({
         dny={dnyStav}
         rucniAkce={muzeEditovat}
         pending={pending}
+        isoDenPoslednihoDneKontrolnihoBloku={
+          isoDenPoslednihoDneKontrolnihoBloku
+        }
         muzeUpravitAutomatickou={muzeUpravitAutomatickou}
         muzeVyrazitAutomatickou={muzeVyrazitAutomatickou}
         onUpravit={otevritUpravu}

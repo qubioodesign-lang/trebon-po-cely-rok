@@ -13,8 +13,9 @@ function branaDatumNaIso(rok: number, mesic: number, den: number): string {
 /**
  * ISO dny (YYYY-MM-DD) stejného období, které vrací obdobi7DniVPraze().
  * Počet dnů a výchozí bod (zítřek) odpovídají existujícímu helperu.
+ * Autoritativní ISO podoba veřejných „7 dní“ (Europe/Prague).
  */
-function isoDnyZObdobi7DniVPraze(): string[] {
+export function isoDnyObdobi7DniVPraze(): string[] {
   const obdobi = obdobi7DniVPraze();
   const zitra = zitraVPraze();
 
@@ -38,7 +39,7 @@ export function maDatumOdPatritDoVyhledu(isoDatumOd: string): boolean {
     return false;
   }
 
-  if (isoDnyZObdobi7DniVPraze().includes(isoDatumOd)) {
+  if (isoDnyObdobi7DniVPraze().includes(isoDatumOd)) {
     return false;
   }
 
