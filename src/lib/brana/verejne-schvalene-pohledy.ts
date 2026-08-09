@@ -13,8 +13,10 @@ import {
 } from "@/lib/brana/cas";
 import type { BranaVerejnaStranka } from "@/lib/brana/navigace-stranky";
 import { opakovaniSeznamuAkci } from "@/lib/brana/navigace-stranky";
-import type { BranaSdilenaPohledovaData } from "@/lib/brana/pohledy-data";
-import type { BranaReferencniAkce } from "@/lib/brana/referencni-akce";
+import type {
+  BranaReferencniAkce,
+  BranaSdilenaPohledovaData,
+} from "@/lib/brana/pohledy-data";
 import {
   maBranaAdminBlobKonfiguraci,
   ziskatVolbyBranaAdminBlob,

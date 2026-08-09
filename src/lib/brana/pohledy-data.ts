@@ -7,20 +7,19 @@ import {
   opakovaniSeznamuAkci,
   type BranaVerejnaStranka,
 } from "./navigace-stranky";
-import {
-  BRANA_REFERENCNI_AKCE,
-  type BranaReferencniAkce,
-} from "./referencni-akce";
-import {
-  BRANA_VYHLED_DATUMY,
-  BRANA_VYHLED_PREDEL_INDEX,
-} from "./referencni-vyhled-datumy";
+
+/** Veřejná položka akce v pohledu (projekce SCHVALENO). */
+export type BranaReferencniAkce = {
+  mistoNeboTyp: string;
+  nazev: string;
+  cas: string;
+};
 
 /**
  * Společný datový model všech pěti pohledů.
  * Jedna pravda – pohledy se odvozují konfigurací, ne kopií seznamu.
  * `bloky`: vlastní seznam akcí pro každý denní/roční blok (SCHVALENO projekce).
- * Bez `bloky` = legacy opakování `akce` (provizorní referenční cesta).
+ * Bez `bloky` = legacy opakování `akce`.
  */
 export type BranaSdilenaPohledovaData = {
   akce: BranaReferencniAkce[];
@@ -37,12 +36,12 @@ export type BranaKonfiguracePohledu = {
   opakovaniSeznamu: number;
 };
 
-/** Jedno načtení společných dat pro klientský shell. */
+/** Prázdná sdílená data – bez mocku (klientský shell, pokud chybí SSR props). */
 export function nactiBranaSdilenaPohledovaData(): BranaSdilenaPohledovaData {
   return {
-    akce: BRANA_REFERENCNI_AKCE,
-    vyhledDatumy: BRANA_VYHLED_DATUMY,
-    vyhledPredelIndex: BRANA_VYHLED_PREDEL_INDEX,
+    akce: [],
+    vyhledDatumy: [],
+    vyhledPredelIndex: 0,
   };
 }
 
