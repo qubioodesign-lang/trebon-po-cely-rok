@@ -18,10 +18,7 @@ import {
   textUpozorneniPrazdnychDni,
 } from "@/lib/brana/admin/kontrolni-blok";
 import { nacistRedakcniPoradi } from "@/lib/brana/admin/redakcni-poradi-uloziste";
-import {
-  maUkazkovyVyhledAno,
-  UKAZKOVE_KONKRETNI_UDALOSTI,
-} from "@/lib/brana/admin/ukazkove-udalosti";
+import { maUkazkovyVyhledAno } from "@/lib/brana/admin/ukazkove-udalosti";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 import "../../brana-admin-kalendar.css";
 
@@ -60,10 +57,7 @@ export default async function StrankaBranaAdminKalendar() {
       : [],
   );
 
-  const vsechnyUdalosti: BranaKonkretniUdalost[] = [
-    ...UKAZKOVE_KONKRETNI_UDALOSTI,
-    ...rucniUdalosti,
-  ];
+  const vsechnyUdalosti: BranaKonkretniUdalost[] = [...rucniUdalosti];
 
   const dnyZUdalosti = projektujKalendarDny(vsechnyUdalosti, (id) =>
     poradiPodleId.get(id),
