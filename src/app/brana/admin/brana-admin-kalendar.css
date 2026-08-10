@@ -11,6 +11,8 @@
   --brana-admin-datum-sirka: 9rem;
   --brana-admin-den-mezera: 0.5rem;
   background: #fff;
+  width: 100%;
+  min-width: 0;
   max-width: calc(
     var(--brana-admin-datum-sirka) + var(--brana-admin-den-mezera) +
       var(--brana-admin-polozky-sirka)
@@ -26,6 +28,11 @@
   padding-top: 1rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid rgb(229 229 229 / 0.6);
+}
+
+/* Grid položka s akcemi – bez min-width:0 se na mobilu neroztáhne a text se nezalomí */
+.brana-admin-kalendar-den > div {
+  min-width: 0;
 }
 
 .brana-admin-kalendar-datum {
@@ -81,6 +88,7 @@
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   column-gap: 0.75rem;
+  min-width: 0;
   font-size: 0.9375rem;
   font-weight: 400;
   line-height: 1.375;
@@ -93,6 +101,7 @@
 
 .brana-admin-akce-radek {
   min-width: 0;
+  overflow-wrap: break-word;
 }
 
 .brana-admin-akce-typ {
@@ -101,6 +110,7 @@
 
 .brana-admin-akce-nazev {
   display: block;
+  overflow-wrap: break-word;
 }
 
 .brana-admin-akce-cas {
