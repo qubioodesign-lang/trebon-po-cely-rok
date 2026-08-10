@@ -41,7 +41,7 @@
   }
 
   .brana-admin-hlavicka {
-    @apply border-b border-text-velmiJemny/20 px-6 py-4;
+    @apply sticky top-0 z-10 border-b border-text-velmiJemny/20 bg-krem px-6 py-4;
   }
 
   .brana-admin-nadpis {
