@@ -2,12 +2,15 @@
  * Styly pracovního kalendáře – pouze administrace BRÁNY.
  * Typografie položky převzata z veřejných definic .brana-akce-* / .brana-seznam-akci
  * (velikost 0.9375rem, leading-snug, mřížka, oranžová #cf9168), bez úpravy veřejného CSS.
+ *
+ * Schvalovací náhled události: šířka = veřejná obsahová geometrie (max-w-md − px-6 = 25rem).
+ * Admin chrome (datum, CEKA, akce) je mimo tento box a šířku náhledu nekrátí.
  */
 
 .brana-admin-kalendar {
   --brana-admin-akce-accent: #cf9168;
-  /* Položky ~ obsahová šířka veřejné BRÁNY (max-w-md − px-6); za časem zůstane volný prostor */
-  --brana-admin-polozky-sirka: 24rem;
+  /* Veřejná BRÁNA: max-w-md (28rem) − px-6 (3rem) = 25rem */
+  --brana-admin-nahled-sirka: 25rem;
   --brana-admin-datum-sirka: 9rem;
   --brana-admin-den-mezera: 0.5rem;
   background: #fff;
@@ -15,14 +18,14 @@
   min-width: 0;
   max-width: calc(
     var(--brana-admin-datum-sirka) + var(--brana-admin-den-mezera) +
-      var(--brana-admin-polozky-sirka)
+      var(--brana-admin-nahled-sirka)
   );
 }
 
 .brana-admin-kalendar-den {
   display: grid;
   grid-template-columns: minmax(7.5rem, var(--brana-admin-datum-sirka))
-    minmax(0, var(--brana-admin-polozky-sirka));
+    minmax(0, var(--brana-admin-nahled-sirka));
   align-items: start;
   column-gap: var(--brana-admin-den-mezera);
   padding-top: 1rem;
@@ -33,6 +36,26 @@
 /* Grid položka s akcemi – bez min-width:0 se na mobilu neroztáhne a text se nezalomí */
 .brana-admin-kalendar-den > div {
   min-width: 0;
+}
+
+/*
+ * Mobil: datum nad náhledem – admin chrome nesmí stát vedle 25rem boxu
+ * a zúžit publikovanou geometrii (bez horizontálního scrollu).
+ */
+@media (max-width: 40rem) {
+  .brana-admin-kalendar {
+    max-width: var(--brana-admin-nahled-sirka);
+  }
+
+  .brana-admin-kalendar-den {
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: 0;
+    row-gap: 0.5rem;
+  }
+
+  .brana-admin-kalendar-orientace {
+    max-width: var(--brana-admin-nahled-sirka);
+  }
 }
 
 .brana-admin-kalendar-datum {
@@ -52,7 +75,7 @@
   /* Stejná šířka jako denní řádek – centrované jen v pracovním bloku, ne přes celou stránku */
   max-width: calc(
     var(--brana-admin-datum-sirka) + var(--brana-admin-den-mezera) +
-      var(--brana-admin-polozky-sirka)
+      var(--brana-admin-nahled-sirka)
   );
   padding-top: 0.75rem;
   padding-bottom: 0.75rem;
@@ -72,7 +95,7 @@
   color: #525252;
 }
 
-/* Položka akce – stejná struktura a míry jako veřejná BRÁNA, barvy pro světlé pozadí */
+/* Položka akce – admin li obaluje náhled + chrome */
 .brana-admin-seznam-akci {
   margin: 0;
   padding: 0;
@@ -84,11 +107,20 @@
 }
 
 .brana-admin-seznam-akci > li {
+  min-width: 0;
+}
+
+/*
+ * 1:1 schvalovací náhled = veřejná položka (grid text | čas, 25rem).
+ * max-width: 100% – na užším viewportu stejná efektivní šířka jako veřejná BRÁNA.
+ */
+.brana-admin-akce-nahled {
+  width: var(--brana-admin-nahled-sirka);
+  max-width: 100%;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   column-gap: 0.75rem;
-  min-width: 0;
   font-size: 0.9375rem;
   font-weight: 400;
   line-height: 1.375;
@@ -101,7 +133,6 @@
 
 .brana-admin-akce-radek {
   min-width: 0;
-  overflow-wrap: break-word;
 }
 
 .brana-admin-akce-typ {
@@ -110,7 +141,6 @@
 
 .brana-admin-akce-nazev {
   display: block;
-  overflow-wrap: break-word;
 }
 
 .brana-admin-akce-cas {
@@ -121,13 +151,14 @@
   color: var(--text-jemny, #6b6b6b);
 }
 
-/* Čeká na schválení – jemné odlišení, bez změny pořadí */
+/* Admin chrome pod náhledem – nemění šířku .brana-admin-akce-nahled */
+.brana-admin-akce-chrome {
+  margin-top: 0.125rem;
+}
+
+/* Čeká na schválení – jemné odlišení; bez vodorovného paddingu/marginu (šířka náhledu beze změny) */
 .brana-admin-seznam-akci > li.brana-admin-akce-ceka-na-schvaleni {
   background: rgb(207 145 104 / 0.08);
-  margin-left: -0.35rem;
-  margin-right: -0.35rem;
-  padding-left: 0.35rem;
-  padding-right: 0.35rem;
   padding-top: 0.2rem;
   padding-bottom: 0.2rem;
 }

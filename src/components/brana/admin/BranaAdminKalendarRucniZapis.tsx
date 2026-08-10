@@ -21,6 +21,14 @@ import { popisekVolbyPozice } from "@/lib/brana/admin/konkretni-udalost";
 const VSTUP =
   "w-full border border-text-velmiJemny/25 bg-transparent px-1.5 py-1 text-sm text-text outline-none focus:border-text-jemny/50";
 
+/* Přesná lokální kopie z BranaObrazovka.tsx – pouze prezentační wrap předložek. */
+const JEDNOPISMENNE_PREDLOZKY = /(\s)([ksvzou])(\s+)(?=\S)/gi;
+
+/** Nezlomitelná mezera za jednopísmennou předložkou – pouze při vykreslení. */
+function zalomPredlozky(text: string): string {
+  return text.replace(JEDNOPISMENNE_PREDLOZKY, "$1$2\u00A0");
+}
+
 type VolbaPozice = {
   hodnota: number;
   popisek: string;
@@ -150,50 +158,39 @@ function SeznamDnu({
                             : undefined
                         }
                       >
-                        <div className="brana-admin-akce-obsah">
-                          <div className="brana-admin-akce-radek">
-                            <span className="brana-admin-akce-typ">{typ}</span>
-                            {misto ? (
-                              <span className="brana-admin-akce-misto">
-                                {" "}
-                                {misto}
+                        <div className="brana-admin-akce-nahled">
+                          <div className="brana-admin-akce-obsah">
+                            <div className="brana-admin-akce-radek">
+                              <span className="brana-admin-akce-typ">
+                                {typ}
+                              </span>
+                              {misto ? (
+                                <span className="brana-admin-akce-misto">
+                                  {" "}
+                                  {zalomPredlozky(misto)}
+                                </span>
+                              ) : null}
+                            </div>
+                            {nazev ? (
+                              <span className="brana-admin-akce-nazev">
+                                {zalomPredlozky(nazev)}
                               </span>
                             ) : null}
                           </div>
-                          {nazev ? (
-                            <span className="brana-admin-akce-nazev">
-                              {nazev}
-                            </span>
-                          ) : null}
-                          {cekaNaSchvaleni ? (
-                            <span className="brana-admin-akce-ceka-stitok">
-                              Čeká na schválení
-                            </span>
-                          ) : null}
-                          {zobrazitAkce ? (
-                            <div className="mt-0.5 flex flex-wrap gap-3">
-                              {zobrazitAutoUpravit ? (
-                                <button
-                                  type="button"
-                                  onClick={() => onUpravit(udalost)}
-                                  disabled={pending}
-                                  className="text-xs font-light text-text-jemny underline-offset-2 hover:underline disabled:opacity-50"
-                                >
-                                  Upravit
-                                </button>
-                              ) : null}
-                              {zobrazitVyrazit ? (
-                                <button
-                                  type="button"
-                                  onClick={() => onVyrazit(udalost)}
-                                  disabled={pending}
-                                  className="text-xs font-light text-text-jemny underline-offset-2 hover:underline disabled:opacity-50"
-                                >
-                                  Vyřadit
-                                </button>
-                              ) : null}
-                              {rucniAkce && jeRucni ? (
-                                <>
+                          <span className="brana-admin-akce-cas">
+                            {udalost.cas}
+                          </span>
+                        </div>
+                        {cekaNaSchvaleni || zobrazitAkce ? (
+                          <div className="brana-admin-akce-chrome">
+                            {cekaNaSchvaleni ? (
+                              <span className="brana-admin-akce-ceka-stitok">
+                                Čeká na schválení
+                              </span>
+                            ) : null}
+                            {zobrazitAkce ? (
+                              <div className="mt-0.5 flex flex-wrap gap-3">
+                                {zobrazitAutoUpravit ? (
                                   <button
                                     type="button"
                                     onClick={() => onUpravit(udalost)}
@@ -202,20 +199,41 @@ function SeznamDnu({
                                   >
                                     Upravit
                                   </button>
+                                ) : null}
+                                {zobrazitVyrazit ? (
                                   <button
                                     type="button"
-                                    onClick={() => onSmazat(udalost)}
+                                    onClick={() => onVyrazit(udalost)}
                                     disabled={pending}
                                     className="text-xs font-light text-text-jemny underline-offset-2 hover:underline disabled:opacity-50"
                                   >
-                                    Smazat
+                                    Vyřadit
                                   </button>
-                                </>
-                              ) : null}
-                            </div>
-                          ) : null}
-                        </div>
-                        <span className="brana-admin-akce-cas">{udalost.cas}</span>
+                                ) : null}
+                                {rucniAkce && jeRucni ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => onUpravit(udalost)}
+                                      disabled={pending}
+                                      className="text-xs font-light text-text-jemny underline-offset-2 hover:underline disabled:opacity-50"
+                                    >
+                                      Upravit
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => onSmazat(udalost)}
+                                      disabled={pending}
+                                      className="text-xs font-light text-text-jemny underline-offset-2 hover:underline disabled:opacity-50"
+                                    >
+                                      Smazat
+                                    </button>
+                                  </>
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
                       </li>
                     );
                   })}
