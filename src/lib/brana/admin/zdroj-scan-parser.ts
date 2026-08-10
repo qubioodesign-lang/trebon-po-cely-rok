@@ -1,6 +1,7 @@
 /**
- * První verze parseru obsahu jednoho známého zdroje.
- * Preferuje JSON-LD schema.org Event – odděleně od Kalendáře a Blob zápisu.
+ * Parser obsahu jednoho známého zdroje.
+ * Preferuje JSON-LD schema.org Event; úzká HTML větev jen pro program
+ * kinotrebon.cz (`.section-event`). Odděleně od Kalendáře a Blob zápisu.
  * Datum/čas: Europe/Prague (včetně DST) přes stávající brana/cas.
  */
 
@@ -267,6 +268,124 @@ function vytahnoutJsonLdBloky(html: string): unknown[] {
   return bloky;
 }
 
+/** Úzká detekce programu Kino Třeboň / kinotrebon.cz (Colosseum šablona). */
+function jeKinotrebonProgramHtml(html: string): boolean {
+  return (
+    /kinotrebon\.cz/i.test(html) &&
+    /class=["'][^"']*\bsection-event\b/i.test(html) &&
+    /class=["']heading-time["']/i.test(html) &&
+    /button-tickets-websale/i.test(html)
+  );
+}
+
+/**
+ * kinotrebon heading-time: „po, 10. 8. 2026“ → ISO den.
+ * Bez vymyšleného data – neznámý tvar → null.
+ */
+function datumZKinotrebonHeading(heading: string): string | null {
+  const m = heading
+    .trim()
+    .match(/^[^,]*,\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})\s*$/);
+  if (!m) {
+    return null;
+  }
+  return (
+    rozlozDatumCasZdroje(`${m[1]}.${m[2]}.${m[3]}`)?.datum ?? null
+  );
+}
+
+const KINOSAL_AURORA_SUFFIX =
+  /\s*KINOSÁL\s+LÁZEŇSKÝ\s+DŮM\s+AURORA\s*$/i;
+
+function nazevAMistoZKinotrebonTitulu(titul: string): {
+  nazev: string;
+  mistoNeboTyp: string;
+} {
+  const raw = titul.replace(/\s+/g, " ").trim();
+  const jeAurora = KINOSAL_AURORA_SUFFIX.test(raw);
+  const nazev = (jeAurora ? raw.replace(KINOSAL_AURORA_SUFFIX, "") : raw).trim();
+  return {
+    nazev: nazev || raw,
+    // Přesná shoda s redakční položkou (ne obecné „Kino“).
+    mistoNeboTyp: jeAurora ? "Kino Aurora" : "Kino Světozor",
+  };
+}
+
+/**
+ * HTML program kinotrebon.cz → BranaScanKandidat.
+ * Jedna projekce = jeden kandidát (název + datum + čas).
+ */
+function parsovatKinotrebonSectionEvent(
+  html: string,
+  vysledek: BranaScanKandidat[],
+): void {
+  const blokRe =
+    /<div class="section-event-text">([\s\S]*?)<\/div>\s*<\/div>/gi;
+  let blokMatch: RegExpExecArray | null;
+  while (
+    (blokMatch = blokRe.exec(html)) !== null &&
+    vysledek.length < MAX_KANDIDATU
+  ) {
+    const blok = blokMatch[1] ?? "";
+    const titulRaw =
+      blok
+        .match(/<h2>\s*<a[^>]*>([\s\S]*?)<\/a>\s*<\/h2>/i)?.[1]
+        ?.replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim() ?? "";
+    if (!titulRaw) {
+      continue;
+    }
+    const { nazev, mistoNeboTyp } = nazevAMistoZKinotrebonTitulu(titulRaw);
+
+    const programy = [
+      ...blok.matchAll(
+        /<div class="program-small">([\s\S]*?)(?=<div class="program-small">|$)/gi,
+      ),
+    ].map((m) => m[1] ?? "");
+    const casti = programy.length > 0 ? programy : [blok];
+
+    for (const cast of casti) {
+      if (vysledek.length >= MAX_KANDIDATU) {
+        return;
+      }
+      const heading =
+        cast.match(/class=["']heading-time["']>([^<]+)</i)?.[1]?.trim() ??
+        "";
+      const datum = datumZKinotrebonHeading(heading);
+      if (!datum) {
+        continue;
+      }
+      const casy = [
+        ...cast.matchAll(
+          /button-tickets-websale[\s\S]*?<span>\s*(\d{1,2}:\d{2})\s*<\/span>/gi,
+        ),
+      ].map((m) => m[1]);
+      for (const casRaw of casy) {
+        if (vysledek.length >= MAX_KANDIDATU) {
+          return;
+        }
+        const casMatch = casRaw.match(/^(\d{1,2}):(\d{2})$/);
+        if (!casMatch) {
+          continue;
+        }
+        const hodina = Number(casMatch[1]);
+        const minuta = Number(casMatch[2]);
+        if (hodina > 23 || minuta > 59) {
+          continue;
+        }
+        vysledek.push({
+          nazev,
+          datumOd: datum,
+          datumDo: datum,
+          cas: formatujCas(hodina, minuta),
+          mistoNeboTyp,
+        });
+      }
+    }
+  }
+}
+
 /**
  * Z HTML (nebo čistého JSON) vytáhne kandidátní události.
  * Bez vymyšlených údajů – chybí-li název nebo datum, kandidát se zahodí.
@@ -289,6 +408,11 @@ export function parsovatUdalostiZeZdroje(
 
   for (const blok of vytahnoutJsonLdBloky(telo)) {
     projdiUzel(blok, vysledek);
+  }
+
+  // Jen když stránka nese kinotrebon programovou šablonu – jiné zdroje beze změny.
+  if (jeKinotrebonProgramHtml(telo)) {
+    parsovatKinotrebonSectionEvent(telo, vysledek);
   }
 
   return deduplikovatKandidaty(vysledek);
