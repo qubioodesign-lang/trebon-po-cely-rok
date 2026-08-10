@@ -21,6 +21,7 @@ export type SparovaniVysledek =
 
 /**
  * Hledá existující redakcniPolozkaId podle místa / názvu / poznámky.
+ * Produkční scan: pouze pravidla Používat = ANO (NE se ignorují).
  * Při nejednoznačnosti bere nejdelší přesnou shodu na poli „položka“.
  */
 export function sparovatSRedakcniPolozkou(
@@ -37,6 +38,10 @@ export function sparovatSRedakcniPolozkou(
   const shody: Skore[] = [];
 
   for (const p of polozky) {
+    if (p.pouzivat !== "ANO") {
+      continue;
+    }
+
     const polozka = normalizovatProShodu(p.polozka);
     const poznamka = normalizovatProShodu(p.poznamka);
     if (!polozka && !poznamka) {
