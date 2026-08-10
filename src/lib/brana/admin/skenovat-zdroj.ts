@@ -19,6 +19,7 @@ import {
 } from "./redakcni-poradi-uloziste";
 import { jePlatnaZdrojUrl, type BranaZdroj } from "./zdroj";
 import { parsovatUdalostiZeZdroje } from "./zdroj-scan-parser";
+import { sestavJazykBranyPoSparovani } from "./jazyk-brany-po-sparovani";
 import { sparovatSRedakcniPolozkou } from "./zdroj-scan-sparovani";
 import {
   nacistZdroje,
@@ -566,12 +567,20 @@ async function skenovatZnamyZdrojJadro(
       nezarazeno += 1;
       continue;
     }
+    const pravidlo = redakcni.polozky.find(
+      (p) => p.id === sparovani.redakcniPolozkaId,
+    );
+    const jazyk = sestavJazykBranyPoSparovani({
+      polozka: pravidlo?.polozka ?? "",
+      kandidatMisto: kandidat.mistoNeboTyp,
+      zdrojNazev: zdroj.nazev,
+    });
     kUlozeni.push({
       redakcniPolozkaId: sparovani.redakcniPolozkaId,
       datumOd: kandidat.datumOd,
       datumDo: kandidat.datumDo,
       cas: kandidat.cas,
-      mistoNeboTyp: kandidat.mistoNeboTyp || zdroj.nazev,
+      mistoNeboTyp: jazyk.mistoNeboTyp,
       nazev: kandidat.nazev,
     });
   }

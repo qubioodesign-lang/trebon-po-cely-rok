@@ -2,6 +2,9 @@
  * Rozklad dat publikační položky na CO / KDE / název.
  * Pouze struktura polí – bez úprav textu.
  * Výhradně pro administraci BRÁNY.
+ *
+ * Seznam jednoslovných typů musí zůstat shodný s veřejným
+ * `JEDNOSLOVNE_TYPY_AKCE` v BranaObrazovka.tsx (bez zásahu do rendereru).
  */
 
 const JEDNOSLOVNE_TYPY_AKCE = new Set([
@@ -36,6 +39,22 @@ export function rozdelTypAkce(mistoNeboTyp: string): { typ: string; zbytek: stri
   }
 
   return { typ: mistoNeboTyp, zbytek: "" };
+}
+
+/**
+ * True = celý řetězec je právě jeden známý typ (Kino, Koncert, … / Pro děti),
+ * bez doplňku místa/instituce. Stejná množina typů jako rozdelTypAkce.
+ */
+export function jeCistyJednoslovnyTypAkce(mistoNeboTyp: string): boolean {
+  const trim = mistoNeboTyp.trim();
+  if (!trim) {
+    return false;
+  }
+  const { typ, zbytek } = rozdelTypAkce(trim);
+  if (zbytek) {
+    return false;
+  }
+  return JEDNOSLOVNE_TYPY_AKCE.has(typ) || typ === "Pro děti";
 }
 
 export function rozlozAkci(akce: BranaAkceVstup): {
