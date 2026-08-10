@@ -135,7 +135,8 @@ function RedakcniTabulka({
   pracovniRadek?: boolean;
 }) {
   return (
-    <table className="w-full table-fixed border-collapse text-left">
+    <div className="w-full min-w-0 overflow-x-auto">
+      <table className="w-full min-w-[42rem] table-fixed border-collapse text-left">
       <colgroup>
         <col className="w-[4.75rem]" />
         <col className="w-[30%]" />
@@ -299,6 +300,7 @@ function RedakcniTabulka({
           </tr>
         ) : null}
       </tbody>
-    </table>
+      </table>
+    </div>
   );
 }
