@@ -6,20 +6,6 @@
 import type { BranaKonkretniUdalost } from "./konkretni-udalost";
 import type { BranaRedakcniVyhled } from "./redakcni-kostra";
 
-/**
- * Ukázkové Výhled ANO/NE pro ověření UI,
- * použije se jen když uložené Redakční pořadí má Výhled prázdné (null).
- * Uložená hodnota ANO/NE z Blobu má vždy přednost.
- */
-export const UKAZKOVY_VYHLED_FALLBACK: Readonly<
-  Record<string, Exclude<BranaRedakcniVyhled, null>>
-> = {
-  "kino-aurora": "ANO",
-  "trebonsky-divadelni-festival": "ANO",
-  "statni-zamek-trebon": "ANO",
-  "divadlo-jk-tyla": "NE",
-};
-
 export const UKAZKOVE_KONKRETNI_UDALOSTI: readonly BranaKonkretniUdalost[] = [
   {
     id: "ukazka-kino-aurora-2026-10-05",
@@ -67,15 +53,10 @@ export const UKAZKOVE_KONKRETNI_UDALOSTI: readonly BranaKonkretniUdalost[] = [
   },
 ];
 
+/** True, pokud redakční Výhled je explicitní ANO. */
 export function maUkazkovyVyhledAno(
-  redakcniPolozkaId: string,
+  _redakcniPolozkaId: string,
   ulozenyVyhled: BranaRedakcniVyhled | undefined,
 ): boolean {
-  if (ulozenyVyhled === "ANO") {
-    return true;
-  }
-  if (ulozenyVyhled === "NE") {
-    return false;
-  }
-  return UKAZKOVY_VYHLED_FALLBACK[redakcniPolozkaId] === "ANO";
+  return ulozenyVyhled === "ANO";
 }

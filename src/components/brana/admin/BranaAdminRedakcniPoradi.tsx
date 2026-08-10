@@ -246,15 +246,13 @@ function RedakcniTabulka({
               <select
                 className={VSTUP}
                 aria-label={`Výhled – ${radek.polozka}`}
-                value={radek.vyhled ?? ""}
+                value={radek.vyhled}
                 onChange={(e) => {
-                  const v = e.target.value;
                   const vyhled: BranaRedakcniVyhled =
-                    v === "ANO" || v === "NE" ? v : null;
+                    e.target.value === "NE" ? "NE" : "ANO";
                   onChange(radek.id, { vyhled });
                 }}
               >
-                <option value="" />
                 <option value="ANO">ANO</option>
                 <option value="NE">NE</option>
               </select>

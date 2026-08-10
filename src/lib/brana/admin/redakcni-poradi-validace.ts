@@ -5,8 +5,10 @@ import {
   BRANA_REDAKCNI_POLOZKA_MAX,
   BRANA_REDAKCNI_POZNAMKA_MAX,
   BRANA_REDAKCNI_VSECHNY_VYCHOZI,
+  vychoziVyhledProId,
   vytvoritVychoziRedakcniPoradi,
   vytvoritVychoziStavPolozky,
+  type BranaRedakcniVyhled,
 } from "./redakcni-kostra";
 
 export type BranaRedakcniValidaceVysledek =
@@ -52,14 +54,20 @@ function normalizovatCislo(hodnota: unknown): number | null | "neplatne" {
   return "neplatne";
 }
 
+/**
+ * Výhled při čtení starých dat: ANO/NE beze změny; null / "" / neplatné → legacy mapa.
+ * Při striktním save: jen ANO/NE, jinak "neplatne".
+ */
 function normalizovatVyhled(
+  id: string,
   hodnota: unknown,
-): "ANO" | "NE" | null | "neplatne" {
-  if (hodnota === null || hodnota === undefined || hodnota === "") {
-    return null;
-  }
+  legacy: boolean,
+): BranaRedakcniVyhled | "neplatne" {
   if (hodnota === "ANO" || hodnota === "NE") {
     return hodnota;
+  }
+  if (legacy) {
+    return vychoziVyhledProId(id);
   }
   return "neplatne";
 }
@@ -100,10 +108,16 @@ function normalizovatNazevPolozky(
  * Validuje a normalizuje kompletní sadu řádků podle stabilních id.
  * Musí obsahovat přesně všech 52 pevných položek, žádné jiné.
  * Text Položka se zachová (validovaný); katalog slouží jen jako výchozí při chybějících datech.
+ *
+ * @param volby.legacyVyhled – true při načtení starého Blobu (null → mapa);
+ *   výchozí false = striktní save (jen ANO/NE).
  */
 export function validovatRedakcniPoradiVstup(
   vstup: unknown,
+  volby?: { legacyVyhled?: boolean },
 ): BranaRedakcniValidaceVysledek {
+  const legacyVyhled = volby?.legacyVyhled === true;
+
   if (!Array.isArray(vstup)) {
     return { ok: false, chyba: "Neplatný formát dat." };
   }
@@ -183,7 +197,7 @@ export function validovatRedakcniPoradiVstup(
       };
     }
 
-    const vyhled = normalizovatVyhled(data.vyhled);
+    const vyhled = normalizovatVyhled(vychozi.id, data.vyhled, legacyVyhled);
     if (vyhled === "neplatne") {
       return {
         ok: false,
@@ -257,7 +271,7 @@ export function sloucitUlozeneSKostrou(
     const pouzivat = normalizovatPouzivat(ulozeny.pouzivat);
     const prioritaRaw = normalizovatCislo(ulozeny.priorita);
     const subprioritaRaw = normalizovatCislo(ulozeny.subpriorita);
-    const vyhledRaw = normalizovatVyhled(ulozeny.vyhled);
+    const vyhledRaw = normalizovatVyhled(vychozi.id, ulozeny.vyhled, true);
     let poznamka = "";
     if (typeof ulozeny.poznamka === "string") {
       poznamka = ulozeny.poznamka.trim().slice(0, BRANA_REDAKCNI_POZNAMKA_MAX);
@@ -269,7 +283,7 @@ export function sloucitUlozeneSKostrou(
       pouzivat: pouzivat === "neplatne" ? vychozi.pouzivat : pouzivat,
       priorita: prioritaRaw === "neplatne" ? null : prioritaRaw,
       subpriorita: subprioritaRaw === "neplatne" ? null : subprioritaRaw,
-      vyhled: vyhledRaw === "neplatne" ? null : vyhledRaw,
+      vyhled: vyhledRaw === "neplatne" ? vychoziVyhledProId(vychozi.id) : vyhledRaw,
       poznamka,
       mimoKostru: vychozi.mimoKostru,
     };

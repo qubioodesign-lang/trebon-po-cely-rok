@@ -113,7 +113,9 @@ async function nacistRedakcniPoradiDokument(): Promise<NacistRedakcniPoradiVysle
     }
 
     const polozky = (parsed as { polozky?: unknown }).polozky;
-    const validace = validovatRedakcniPoradiVstup(polozky);
+    const validace = validovatRedakcniPoradiVstup(polozky, {
+      legacyVyhled: true,
+    });
     if (!validace.ok) {
       zalogovatChybuCteni(`Blob dokument neprošel validací: ${validace.chyba}`);
       return { ok: false };

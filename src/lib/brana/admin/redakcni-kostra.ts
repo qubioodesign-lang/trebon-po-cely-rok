@@ -15,8 +15,23 @@ export const BRANA_REDAKCNI_CISLO_MAX = 999;
 
 export type BranaRedakcniPouzivat = "ANO" | "NE";
 
-/** Výhled: prázdné, dokud redakce neurčí */
-export type BranaRedakcniVyhled = "ANO" | "NE" | null;
+/** Výhled: vždy explicitní ANO nebo NE */
+export type BranaRedakcniVyhled = "ANO" | "NE";
+
+/**
+ * Legacy null/prázdné/neplatné → stejné efektivní ANO jako dřívější UKAZKOVY_VYHLED_FALLBACK.
+ * Všechna ostatní id → NE.
+ */
+const VYHLED_ANO_PRI_NEURCENEM = new Set([
+  "kino-aurora",
+  "trebonsky-divadelni-festival",
+  "statni-zamek-trebon",
+]);
+
+/** Explicitní výchozí Výhled pro id (včetně zpětné kompatibility starého null). */
+export function vychoziVyhledProId(id: string): BranaRedakcniVyhled {
+  return VYHLED_ANO_PRI_NEURCENEM.has(id) ? "ANO" : "NE";
+}
 
 export type BranaRedakcniPolozkaVychozi = {
   /** Stabilní identifikátor – nemění se, nesloučí se s názvem */
@@ -114,7 +129,7 @@ export function vytvoritVychoziStavPolozky(
     pouzivat: vychozi.pouzivat,
     priorita: null,
     subpriorita: null,
-    vyhled: null,
+    vyhled: vychoziVyhledProId(vychozi.id),
     poznamka: "",
     mimoKostru: vychozi.mimoKostru,
   };
