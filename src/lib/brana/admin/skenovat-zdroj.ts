@@ -571,6 +571,24 @@ async function skenovatZnamyZdrojJadro(
   const { text, contentType } = await nacistTeloZdroje(zdroj.url);
   const kandidati = parsovatUdalostiZeZdroje(text, contentType);
 
+  // DOČASNÁ DIAGNOSTIKA – pouze kinotrebon; odstranit po jednom produkčním důkazu.
+  if (/kinotrebon\.cz/i.test(zdroj.url)) {
+    console.error("[BRANA_SCAN_PARSE_DIAG]", {
+      contentType,
+      bodyLength: text.length,
+      hasKinotrebon: /kinotrebon\.cz/i.test(text) ? "ANO" : "NE",
+      hasSectionEvent: /class=["'][^"']*\bsection-event\b/i.test(text)
+        ? "ANO"
+        : "NE",
+      hasHeadingTime: /class=["']heading-time["']/i.test(text) ? "ANO" : "NE",
+      hasTicketsWebsale: /button-tickets-websale/i.test(text) ? "ANO" : "NE",
+      sectionEventCount: (
+        text.match(/class=["'][^"']*\bsection-event\b/gi) ?? []
+      ).length,
+      kandidatiCount: kandidati.length,
+    });
+  }
+
   const redakcni = await nacistRedakcniFn();
   if (!redakcni.ok) {
     throw new Error("Redakční pořadí se nepodařilo načíst. Nic nebylo uloženo.");
