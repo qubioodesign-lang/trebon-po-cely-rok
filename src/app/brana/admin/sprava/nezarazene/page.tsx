@@ -1,18 +1,21 @@
 import { headers } from "next/headers";
-import { BranaAdminAkcePolozka } from "@/components/brana/admin/BranaAdminAkcePolozka";
+import { BranaAdminNezarazeneSeznam } from "@/components/brana/admin/BranaAdminNezarazeneSeznam";
 import { BranaAdminObal } from "@/components/brana/admin/BranaAdminObal";
-import { rozlozAkci } from "@/lib/brana/admin/akce-rozlozeni";
-import { UKAZKOVE_NEZARAZENE_AKCE } from "@/lib/brana/admin/ukazkove-nezarazene";
+import {
+  BRANA_NEZARAZENE_CHYBA_CTENI,
+  nacistNezarazene,
+} from "@/lib/brana/admin/nezarazene-uloziste";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 import "../../brana-admin-kalendar.css";
 
-/** Správa → Nezařazené – informační seznam ukázkových nezařazených akcí */
+/** Správa → Nezařazené – produkční inbox nespárovaných scan nálezů */
 export default async function StrankaBranaAdminNezarazene() {
   if (!(await jeAdminPrihlasen())) {
     return null;
   }
 
   const host = (await headers()).get("host");
+  const nacist = await nacistNezarazene();
 
   return (
     <BranaAdminObal
@@ -32,24 +35,13 @@ export default async function StrankaBranaAdminNezarazene() {
         </h2>
 
         <div role="region" aria-label="Nezařazené">
-          <ul className="brana-admin-seznam-akci">
-            {UKAZKOVE_NEZARAZENE_AKCE.map((akce) => {
-              const { typ, misto, nazev } = rozlozAkci({
-                mistoNeboTyp: akce.mistoNeboTyp,
-                nazev: akce.nazev,
-                cas: akce.udajVpravo,
-              });
-              return (
-                <BranaAdminAkcePolozka
-                  key={akce.id}
-                  typ={typ}
-                  misto={misto}
-                  nazev={nazev}
-                  udajVpravo={akce.udajVpravo}
-                />
-              );
-            })}
-          </ul>
+          {nacist.ok ? (
+            <BranaAdminNezarazeneSeznam pocatecniOtevrene={nacist.otevrene} />
+          ) : (
+            <p className="text-sm text-text" role="alert">
+              {BRANA_NEZARAZENE_CHYBA_CTENI}
+            </p>
+          )}
         </div>
       </section>
     </BranaAdminObal>

@@ -20,6 +20,16 @@ import {
 import { jePlatnaZdrojUrl, type BranaZdroj } from "./zdroj";
 import { parsovatUdalostiZeZdroje } from "./zdroj-scan-parser";
 import { sestavJazykBranyPoSparovani } from "./jazyk-brany-po-sparovani";
+import {
+  vytvoritNezarazenyKlic,
+  type BranaNezarazenyScanKandidat,
+} from "./nezarazene";
+import {
+  ulozitNesparovaneNezarazene,
+  ulozitNesparovaneNezarazeneProScheduler,
+  vyresitNezarazenePoUspesnemMatchi,
+  vyresitNezarazenePoUspesnemMatchiProScheduler,
+} from "./nezarazene-uloziste";
 import { sparovatSRedakcniPolozkou } from "./zdroj-scan-sparovani";
 import {
   nacistZdroje,
@@ -534,6 +544,14 @@ async function skenovatZnamyZdrojJadro(
   pridatCekajiciFn: (
     kandidati: readonly BranaScanAutomatickaUdalostVstup[],
   ) => Promise<PridatCekajiciZeScanuVysledek>,
+  ulozitNesparovaneFn: (args: {
+    zdrojId: string;
+    zdrojNazev: string;
+    nesparovane: readonly BranaNezarazenyScanKandidat[];
+  }) => Promise<void>,
+  vyresitNezarazeneFn: (
+    uspesneZpracovaneKlice: readonly string[],
+  ) => Promise<void>,
 ): Promise<BranaSkenovatZdrojVysledek> {
   const id = typeof zdrojId === "string" ? zdrojId.trim() : "";
   if (!id) {
@@ -560,11 +578,20 @@ async function skenovatZnamyZdrojJadro(
 
   let nezarazeno = 0;
   const kUlozeni: BranaScanAutomatickaUdalostVstup[] = [];
+  const nesparovane: BranaNezarazenyScanKandidat[] = [];
+  const uspesneZpracovaneKlice: string[] = [];
 
   for (const kandidat of kandidati) {
     const sparovani = sparovatSRedakcniPolozkou(kandidat, redakcni.polozky);
     if (!sparovani.ok) {
       nezarazeno += 1;
+      nesparovane.push({
+        nazev: kandidat.nazev,
+        datumOd: kandidat.datumOd,
+        datumDo: kandidat.datumDo,
+        cas: kandidat.cas,
+        mistoNeboTyp: kandidat.mistoNeboTyp,
+      });
       continue;
     }
     const pravidlo = redakcni.polozky.find(
@@ -583,9 +610,28 @@ async function skenovatZnamyZdrojJadro(
       mistoNeboTyp: jazyk.mistoNeboTyp,
       nazev: kandidat.nazev,
     });
+    uspesneZpracovaneKlice.push(
+      vytvoritNezarazenyKlic({
+        zdrojId: zdroj.id,
+        datumOd: kandidat.datumOd,
+        cas: kandidat.cas,
+        nazev: kandidat.nazev,
+      }),
+    );
   }
 
+  // 1) NO-MATCH do inboxu dřív, než CEKA writer (nesmí se ztratit při chybě CEKA).
+  await ulozitNesparovaneFn({
+    zdrojId: zdroj.id,
+    zdrojNazev: zdroj.nazev,
+    nesparovane,
+  });
+
+  // 2) Standardní MATCH → CEKA / jizExistuje.
   const ulozeni = await pridatCekajiciFn(kUlozeni);
+
+  // 3) Resolve otevřených jen po úspěšném writeru (bez throw).
+  await vyresitNezarazeneFn(uspesneZpracovaneKlice);
 
   return {
     nalezeno: kandidati.length,
@@ -612,6 +658,8 @@ export async function skenovatZnamyZdroj(
     nacistZdroje,
     nacistRedakcniPoradi,
     pridatCekajiciAutomatickeUdalostiZeScanu,
+    ulozitNesparovaneNezarazene,
+    vyresitNezarazenePoUspesnemMatchi,
   );
 }
 
@@ -627,5 +675,7 @@ export async function skenovatZnamyZdrojProScheduler(
     nacistZdrojeProScheduler,
     nacistRedakcniPoradiProScheduler,
     pridatCekajiciAutomatickeUdalostiZeScanuProScheduler,
+    ulozitNesparovaneNezarazeneProScheduler,
+    vyresitNezarazenePoUspesnemMatchiProScheduler,
   );
 }

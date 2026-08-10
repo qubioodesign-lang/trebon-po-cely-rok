@@ -24,6 +24,7 @@ import {
   skenovatZnamyZdroj,
   type BranaSkenovatZdrojVysledek,
 } from "@/lib/brana/admin/skenovat-zdroj";
+import { smazatNezarazenyNalez } from "@/lib/brana/admin/nezarazene-uloziste";
 import type { BranaDlouhodobyIntervalDni, BranaZdroj } from "@/lib/brana/admin/zdroj";
 import {
   dokumentNaUi,
@@ -475,6 +476,7 @@ export async function skenovatBranaZdrojAkce(
     const vysledek = await skenovatZnamyZdroj(zdrojId);
     revalidatePath("/brana/admin/sprava/zdroje");
     revalidatePath("/brana/admin/sprava/kalendar");
+    revalidatePath("/brana/admin/sprava/nezarazene");
     return { uspech: true, ...vysledek };
   } catch (error) {
     const detail =
@@ -484,6 +486,34 @@ export async function skenovatBranaZdrojAkce(
     return {
       uspech: false,
       chyba: detail ?? "Scan zdroje se nepodařil.",
+    };
+  }
+}
+
+export type BranaNezarazeneSmazatVysledek =
+  | { uspech: true }
+  | { uspech: false; chyba: string };
+
+/** Smazat otevřený nezařazený nález (+ paměť klíče proti opětovnému NO-MATCH). */
+export async function smazatBranaNezarazenyNalezAkce(
+  id: string,
+): Promise<BranaNezarazeneSmazatVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  try {
+    await smazatNezarazenyNalez(id);
+    revalidatePath("/brana/admin/sprava/nezarazene");
+    return { uspech: true };
+  } catch (error) {
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "Nález se nepodařilo smazat.",
     };
   }
 }

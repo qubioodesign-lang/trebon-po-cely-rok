@@ -3,11 +3,15 @@
  * Pouze vykreslení CO / KDE / názvu / údaje vpravo.
  * Vzhled: brana-admin-kalendar.css (kopie měr z veřejné BRÁNY).
  */
+import type { ReactNode } from "react";
+
 export type BranaAdminAkcePolozkaProps = {
   typ: string;
   misto: string;
   nazev: string;
   udajVpravo: string;
+  /** Volitelný admin chrome pod řádkem (např. Smazat) */
+  chrome?: ReactNode;
 };
 
 export function BranaAdminAkcePolozka({
@@ -15,6 +19,7 @@ export function BranaAdminAkcePolozka({
   misto,
   nazev,
   udajVpravo,
+  chrome,
 }: BranaAdminAkcePolozkaProps) {
   return (
     <li>
@@ -30,6 +35,9 @@ export function BranaAdminAkcePolozka({
         ) : null}
       </div>
       <span className="brana-admin-akce-cas">{udajVpravo}</span>
+      {chrome ? (
+        <div className="brana-admin-akce-chrome">{chrome}</div>
+      ) : null}
     </li>
   );
 }
