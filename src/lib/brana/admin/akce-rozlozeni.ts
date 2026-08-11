@@ -1,10 +1,10 @@
 /**
  * Rozklad dat publikační položky na CO / KDE / název.
- * Podporuje strukturovaná verejne* pole i legacy mistoNeboTyp.
- * Bez úprav textu.
+ * Pouze struktura polí – bez úprav textu.
+ * Výhradně pro administraci BRÁNY.
  *
- * Seznam jednoslovných typů musí zůstat shodný s dřívějším
- * veřejným whitelistem (Kino, Divadlo, …).
+ * Seznam jednoslovných typů musí zůstat shodný s veřejným
+ * `JEDNOSLOVNE_TYPY_AKCE` v BranaObrazovka.tsx (bez zásahu do rendereru).
  */
 
 const JEDNOSLOVNE_TYPY_AKCE = new Set([
@@ -21,12 +21,6 @@ export type BranaAkceVstup = {
   mistoNeboTyp: string;
   nazev: string;
   cas: string;
-  /**
-   * undefined = legacy rozklad mistoNeboTyp
-   * null / string = strukturovaná cesta
-   */
-  verejneCo?: string | null;
-  verejneRozliseni?: string | null;
 };
 
 export function rozdelTypAkce(mistoNeboTyp: string): { typ: string; zbytek: string } {
@@ -63,7 +57,7 @@ export function jeCistyJednoslovnyTypAkce(mistoNeboTyp: string): boolean {
   return JEDNOSLOVNE_TYPY_AKCE.has(typ) || typ === "Pro děti";
 }
 
-function rozlozLegacyAkci(akce: BranaAkceVstup): {
+export function rozlozAkci(akce: BranaAkceVstup): {
   typ: string;
   misto: string;
   nazev: string;
@@ -80,25 +74,4 @@ function rozlozLegacyAkci(akce: BranaAkceVstup): {
   }
 
   return { typ, misto: akce.nazev, nazev: "", cas: akce.cas };
-}
-
-/**
- * Strukturovaná cesta: verejneCo !== undefined.
- * Legacy: pole chybí → dnešní rozklad mistoNeboTyp.
- */
-export function rozlozAkci(akce: BranaAkceVstup): {
-  typ: string;
-  misto: string;
-  nazev: string;
-  cas: string;
-} {
-  if (akce.verejneCo !== undefined) {
-    return {
-      typ: akce.verejneCo ?? "",
-      misto: (akce.verejneRozliseni ?? "").trim(),
-      nazev: akce.nazev,
-      cas: akce.cas,
-    };
-  }
-  return rozlozLegacyAkci(akce);
 }

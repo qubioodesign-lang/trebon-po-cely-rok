@@ -26,7 +26,6 @@ import {
   formatujDatumVyhled,
   jeBranaStavSchvaleni,
   normalizovatStavSchvaleni,
-  normalizovatVerejnaJazykovaPoleZBlobu,
   rokUdalosti,
   seradUdalostiDne,
   type BranaKonkretniUdalost,
@@ -133,10 +132,6 @@ function jeUdalostZBlobu(hodnota: unknown): boolean {
     return false;
   }
 
-  if (!normalizovatVerejnaJazykovaPoleZBlobu(u).ok) {
-    return false;
-  }
-
   return true;
 }
 
@@ -150,8 +145,6 @@ function normalizovatUdalostZBlobu(hodnota: unknown): BranaKonkretniUdalost {
     typeof u.scanKlic === "string" && u.scanKlic.trim().length > 0
       ? u.scanKlic.trim()
       : undefined;
-  const jazyk = normalizovatVerejnaJazykovaPoleZBlobu(u);
-  const verejnaPole = jazyk.ok ? jazyk.pole : {};
   return {
     id: (u.id as string).trim(),
     redakcniPolozkaId,
@@ -164,7 +157,6 @@ function normalizovatUdalostZBlobu(hodnota: unknown): BranaKonkretniUdalost {
       redakcniPolozkaId === null ? (u.rucniPoziceVDni as number) : null,
     stavSchvaleni: normalizovatStavSchvaleni(u.stavSchvaleni),
     ...(scanKlic !== undefined ? { scanKlic } : {}),
-    ...verejnaPole,
   };
 }
 
@@ -280,12 +272,6 @@ function doVerejneAkce(udalost: BranaKonkretniUdalost): BranaReferencniAkce {
     mistoNeboTyp: udalost.mistoNeboTyp,
     nazev: udalost.nazev,
     cas: udalost.cas,
-    ...(udalost.verejneCo !== undefined
-      ? {
-          verejneCo: udalost.verejneCo,
-          verejneRozliseni: udalost.verejneRozliseni ?? null,
-        }
-      : {}),
   };
 }
 

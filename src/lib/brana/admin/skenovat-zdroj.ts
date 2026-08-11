@@ -601,7 +601,6 @@ async function skenovatZnamyZdrojJadro(
       polozka: pravidlo?.polozka ?? "",
       kandidatMisto: kandidat.mistoNeboTyp,
       zdrojNazev: zdroj.nazev,
-      jazykVerejny: pravidlo?.jazykVerejny ?? null,
     });
     kUlozeni.push({
       redakcniPolozkaId: sparovani.redakcniPolozkaId,
@@ -610,12 +609,6 @@ async function skenovatZnamyZdrojJadro(
       cas: kandidat.cas,
       mistoNeboTyp: jazyk.mistoNeboTyp,
       nazev: kandidat.nazev,
-      ...(jazyk.verejneCo !== undefined
-        ? {
-            verejneCo: jazyk.verejneCo,
-            verejneRozliseni: jazyk.verejneRozliseni ?? null,
-          }
-        : {}),
     });
     uspesneZpracovaneKlice.push(
       vytvoritNezarazenyKlic({
