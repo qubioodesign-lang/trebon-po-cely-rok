@@ -9,6 +9,10 @@ export const BRANA_REDAKCNI_POZNAMKA_MAX = 200;
 /** Max. délka redakčního textu Položka (editovatelný název, ne id) */
 export const BRANA_REDAKCNI_POLOZKA_MAX = 100;
 
+/** Max. délka veřejného CO / pevného rozlišení */
+export const BRANA_REDAKCNI_JAZYK_CO_MAX = 40;
+export const BRANA_REDAKCNI_JAZYK_ROZLISENI_MAX = 60;
+
 /** Priorita / Subpriorita: prázdné nebo celé nezáporné číslo */
 export const BRANA_REDAKCNI_CISLO_MIN = 0;
 export const BRANA_REDAKCNI_CISLO_MAX = 999;
@@ -17,6 +21,16 @@ export type BranaRedakcniPouzivat = "ANO" | "NE";
 
 /** Výhled: vždy explicitní ANO nebo NE */
 export type BranaRedakcniVyhled = "ANO" | "NE";
+
+/**
+ * Nastavený strukturovaný veřejný jazyk pravidla.
+ * co/rozliseni: string = text; null = explicitní NIC.
+ * (Absence celého objektu = jazyk není nastaven → legacy.)
+ */
+export type BranaRedakcniJazykVerejny = {
+  co: string | null;
+  rozliseni: string | null;
+};
 
 /**
  * Legacy null/prázdné/neplatné → stejné efektivní ANO jako dřívější UKAZKOVY_VYHLED_FALLBACK.
@@ -53,7 +67,32 @@ export type BranaRedakcniPolozkaStav = {
   vyhled: BranaRedakcniVyhled;
   poznamka: string;
   mimoKostru: boolean;
+  /**
+   * null = strukturovaný jazyk NENÍ nastaven → legacy chování.
+   * objekt = strukturovaný jazyk JE nastaven (co/rozliseni mohou být null = NIC).
+   */
+  jazykVerejny: BranaRedakcniJazykVerejny | null;
 };
+
+/**
+ * Výchozí strukturovaný jazyk podle id.
+ * Vzorek: kino-svetozor. Ostatní → null (legacy).
+ */
+export function vychoziJazykVerejnyProId(
+  id: string,
+): BranaRedakcniJazykVerejny | null {
+  if (id === "kino-svetozor") {
+    return { co: "Kino", rozliseni: "Světozor" };
+  }
+  return null;
+}
+
+/** True = pravidlo má nastavený strukturovaný jazyk. */
+export function maStrukturovanyJazykPravidla(polozka: {
+  jazykVerejny: BranaRedakcniJazykVerejny | null;
+}): boolean {
+  return polozka.jazykVerejny !== null;
+}
 
 /** Schválená Redakční kostra v1 – Používat ANO */
 export const BRANA_REDAKCNI_KOSTRA: readonly BranaRedakcniPolozkaVychozi[] = [
@@ -132,6 +171,7 @@ export function vytvoritVychoziStavPolozky(
     vyhled: vychoziVyhledProId(vychozi.id),
     poznamka: "",
     mimoKostru: vychozi.mimoKostru,
+    jazykVerejny: vychoziJazykVerejnyProId(vychozi.id),
   };
 }
 

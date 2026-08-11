@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Fragment } from "react";
 import { dnesVPraze, formatDenDatum } from "@/lib/brana/cas";
+import { rozlozAkci } from "@/lib/brana/admin/akce-rozlozeni";
 import { kotvaScrollovani7Dni, kotvaScrollovaniVikend, kotvaScrollovaniVyhled, textCasoveKotvy } from "@/lib/brana/casova-kotva";
 import type { BranaVerejnaStranka } from "@/lib/brana/navigace-stranky";
 import {
@@ -24,53 +25,6 @@ import { BranaSwipeObsah, pripravitBranaListovani } from "./BranaSwipeObsah";
 import { BranaIkonaObalka } from "./BranaIkony";
 import { BranaTlacitkoSdileni } from "./BranaTlacitkoSdileni";
 import { BranaTextAktualizace, BranaAktualizaceProvider } from "./BranaTextAktualizace";
-
-const JEDNOSLOVNE_TYPY_AKCE = new Set([
-  "Kino",
-  "Divadlo",
-  "Koncert",
-  "Festival",
-  "Výstava",
-  "Prohlídka",
-  "Přednáška",
-]);
-
-function rozdelTypAkce(mistoNeboTyp: string): { typ: string; zbytek: string } {
-  if (mistoNeboTyp === "Pro děti") {
-    return { typ: "Pro děti", zbytek: "" };
-  }
-
-  const mezera = mistoNeboTyp.indexOf(" ");
-  if (mezera === -1) {
-    return { typ: mistoNeboTyp, zbytek: "" };
-  }
-
-  const prvniSlovo = mistoNeboTyp.slice(0, mezera);
-  if (JEDNOSLOVNE_TYPY_AKCE.has(prvniSlovo)) {
-    return { typ: prvniSlovo, zbytek: mistoNeboTyp.slice(mezera + 1) };
-  }
-
-  return { typ: mistoNeboTyp, zbytek: "" };
-}
-
-function rozlozAkci(akce: BranaSdilenaPohledovaData["akce"][number]): {
-  typ: string;
-  misto: string;
-  nazev: string;
-  cas: string;
-} {
-  const { typ, zbytek } = rozdelTypAkce(akce.mistoNeboTyp);
-
-  if (zbytek) {
-    return { typ, misto: zbytek, nazev: akce.nazev, cas: akce.cas };
-  }
-
-  if (JEDNOSLOVNE_TYPY_AKCE.has(typ) || typ === "Pro děti") {
-    return { typ, misto: "", nazev: akce.nazev, cas: akce.cas };
-  }
-
-  return { typ, misto: akce.nazev, nazev: "", cas: akce.cas };
-}
 
 const JEDNOPISMENNE_PREDLOZKY = /(\s)([ksvzou])(\s+)(?=\S)/gi;
 

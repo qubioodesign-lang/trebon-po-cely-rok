@@ -10,6 +10,7 @@ import {
 import {
   jeBranaStavSchvaleni,
   normalizovatStavSchvaleni,
+  normalizovatVerejnaJazykovaPoleZBlobu,
   vytvoritScanKlicAutomatickeUdalosti,
   type BranaKonkretniUdalost,
 } from "./konkretni-udalost";
@@ -124,6 +125,10 @@ function jeUdalostZBlobu(hodnota: unknown): boolean {
     return false;
   }
 
+  if (!normalizovatVerejnaJazykovaPoleZBlobu(u).ok) {
+    return false;
+  }
+
   return true;
 }
 
@@ -137,6 +142,8 @@ function normalizovatUdalostZBlobu(hodnota: unknown): BranaKonkretniUdalost {
     typeof u.scanKlic === "string" && u.scanKlic.trim().length > 0
       ? u.scanKlic.trim()
       : undefined;
+  const jazyk = normalizovatVerejnaJazykovaPoleZBlobu(u);
+  const verejnaPole = jazyk.ok ? jazyk.pole : {};
   return {
     id: (u.id as string).trim(),
     redakcniPolozkaId,
@@ -149,6 +156,7 @@ function normalizovatUdalostZBlobu(hodnota: unknown): BranaKonkretniUdalost {
       redakcniPolozkaId === null ? (u.rucniPoziceVDni as number) : null,
     stavSchvaleni: normalizovatStavSchvaleni(u.stavSchvaleni),
     ...(scanKlic !== undefined ? { scanKlic } : {}),
+    ...verejnaPole,
   };
 }
 
@@ -675,6 +683,12 @@ export async function upravitAutomatickouCekaUdalost(
     rucniPoziceVDni: null,
     stavSchvaleni: "CEKA_NA_SCHVALENI",
     scanKlic: existujici.scanKlic,
+    ...(existujici.verejneCo !== undefined
+      ? {
+          verejneCo: existujici.verejneCo,
+          verejneRozliseni: existujici.verejneRozliseni ?? null,
+        }
+      : {}),
   };
 
   const noveUdalosti = dokument.udalosti.slice();
@@ -753,6 +767,8 @@ export type BranaScanAutomatickaUdalostVstup = {
   cas: string;
   mistoNeboTyp: string;
   nazev: string;
+  verejneCo?: string | null;
+  verejneRozliseni?: string | null;
 };
 
 export type PridatCekajiciZeScanuVysledek = {
@@ -815,6 +831,15 @@ async function pridatCekajiciAutomatickeUdalostiZeScanuJadro(
       cas: kandidat.cas.trim(),
       mistoNeboTyp: kandidat.mistoNeboTyp.trim(),
       nazev: kandidat.nazev.trim(),
+      ...(kandidat.verejneCo !== undefined
+        ? {
+            verejneCo: kandidat.verejneCo,
+            verejneRozliseni:
+              kandidat.verejneRozliseni === undefined
+                ? null
+                : kandidat.verejneRozliseni,
+          }
+        : {}),
     };
 
     if (!normalizovany.nazev || !normalizovany.datumOd) {
@@ -848,6 +873,12 @@ async function pridatCekajiciAutomatickeUdalostiZeScanuJadro(
       rucniPoziceVDni: null,
       stavSchvaleni: "CEKA_NA_SCHVALENI",
       scanKlic,
+      ...(normalizovany.verejneCo !== undefined
+        ? {
+            verejneCo: normalizovany.verejneCo,
+            verejneRozliseni: normalizovany.verejneRozliseni ?? null,
+          }
+        : {}),
     };
     nove.push(nova);
     pridano += 1;

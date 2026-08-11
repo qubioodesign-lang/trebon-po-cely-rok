@@ -1,10 +1,16 @@
-import type { BranaRedakcniPolozkaStav } from "./redakcni-kostra";
+import type {
+  BranaRedakcniJazykVerejny,
+  BranaRedakcniPolozkaStav,
+} from "./redakcni-kostra";
 import {
   BRANA_REDAKCNI_CISLO_MAX,
   BRANA_REDAKCNI_CISLO_MIN,
+  BRANA_REDAKCNI_JAZYK_CO_MAX,
+  BRANA_REDAKCNI_JAZYK_ROZLISENI_MAX,
   BRANA_REDAKCNI_POLOZKA_MAX,
   BRANA_REDAKCNI_POZNAMKA_MAX,
   BRANA_REDAKCNI_VSECHNY_VYCHOZI,
+  vychoziJazykVerejnyProId,
   vychoziVyhledProId,
   vytvoritVychoziRedakcniPoradi,
   vytvoritVychoziStavPolozky,
@@ -82,6 +88,67 @@ function normalizovatPouzivat(
     return "NE";
   }
   return "neplatne";
+}
+
+/**
+ * jazykVerejny:
+ * - null = strukturovaný jazyk není nastaven (legacy)
+ * - { co, rozliseni } = nastaven (hodnoty string | null = NIC)
+ * Chybí při legacy čtení → výchozí pro id.
+ */
+function normalizovatTextJazykPole(
+  hodnota: unknown,
+  max: number,
+): { ok: true; hodnota: string | null } | { ok: false } {
+  if (hodnota === null) {
+    return { ok: true, hodnota: null };
+  }
+  if (typeof hodnota !== "string") {
+    return { ok: false };
+  }
+  const text = hodnota.trim();
+  if (text === "") {
+    return { ok: true, hodnota: null };
+  }
+  if (text.length > max) {
+    return { ok: false };
+  }
+  return { ok: true, hodnota: text };
+}
+
+function normalizovatJazykVerejny(
+  id: string,
+  hodnota: unknown,
+  legacy: boolean,
+): { ok: true; hodnota: BranaRedakcniJazykVerejny | null } | { ok: false } {
+  if (hodnota === undefined) {
+    if (legacy) {
+      return { ok: true, hodnota: vychoziJazykVerejnyProId(id) };
+    }
+    return { ok: false };
+  }
+  if (hodnota === null) {
+    return { ok: true, hodnota: null };
+  }
+  if (!hodnota || typeof hodnota !== "object") {
+    return { ok: false };
+  }
+  const data = hodnota as Record<string, unknown>;
+  const co = normalizovatTextJazykPole(data.co, BRANA_REDAKCNI_JAZYK_CO_MAX);
+  if (!co.ok) {
+    return { ok: false };
+  }
+  const rozliseni = normalizovatTextJazykPole(
+    data.rozliseni,
+    BRANA_REDAKCNI_JAZYK_ROZLISENI_MAX,
+  );
+  if (!rozliseni.ok) {
+    return { ok: false };
+  }
+  return {
+    ok: true,
+    hodnota: { co: co.hodnota, rozliseni: rozliseni.hodnota },
+  };
 }
 
 /**
@@ -222,6 +289,18 @@ export function validovatRedakcniPoradiVstup(
       }
     }
 
+    const jazykVerejny = normalizovatJazykVerejny(
+      vychozi.id,
+      data.jazykVerejny,
+      legacyVyhled,
+    );
+    if (!jazykVerejny.ok) {
+      return {
+        ok: false,
+        chyba: `Neplatný jazykVerejny u „${nazev.text}“.`,
+      };
+    }
+
     vysledek.push({
       id: vychozi.id,
       polozka: nazev.text,
@@ -231,6 +310,7 @@ export function validovatRedakcniPoradiVstup(
       vyhled,
       poznamka,
       mimoKostru: vychozi.mimoKostru,
+      jazykVerejny: jazykVerejny.hodnota,
     });
   }
 
@@ -276,6 +356,11 @@ export function sloucitUlozeneSKostrou(
     if (typeof ulozeny.poznamka === "string") {
       poznamka = ulozeny.poznamka.trim().slice(0, BRANA_REDAKCNI_POZNAMKA_MAX);
     }
+    const jazykVerejnyRaw = normalizovatJazykVerejny(
+      vychozi.id,
+      ulozeny.jazykVerejny,
+      true,
+    );
 
     return {
       id: vychozi.id,
@@ -286,6 +371,9 @@ export function sloucitUlozeneSKostrou(
       vyhled: vyhledRaw === "neplatne" ? vychoziVyhledProId(vychozi.id) : vyhledRaw,
       poznamka,
       mimoKostru: vychozi.mimoKostru,
+      jazykVerejny: jazykVerejnyRaw.ok
+        ? jazykVerejnyRaw.hodnota
+        : vychoziJazykVerejnyProId(vychozi.id),
     };
   });
 }

@@ -13,6 +13,12 @@ export type BranaReferencniAkce = {
   mistoNeboTyp: string;
   nazev: string;
   cas: string;
+  /**
+   * undefined = legacy (rozklad mistoNeboTyp)
+   * null / string = strukturované CO
+   */
+  verejneCo?: string | null;
+  verejneRozliseni?: string | null;
 };
 
 /**

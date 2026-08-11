@@ -3,8 +3,11 @@
 import { useState, useTransition } from "react";
 import { ulozitBranaRedakcniPoradiAkce } from "@/app/brana/admin/actions";
 import {
+  BRANA_REDAKCNI_JAZYK_CO_MAX,
+  BRANA_REDAKCNI_JAZYK_ROZLISENI_MAX,
   BRANA_REDAKCNI_POLOZKA_MAX,
   BRANA_REDAKCNI_POZNAMKA_MAX,
+  type BranaRedakcniJazykVerejny,
   type BranaRedakcniPolozkaStav,
   type BranaRedakcniPouzivat,
   type BranaRedakcniVyhled,
@@ -34,6 +37,15 @@ function textNaCislo(hodnota: string): number | null {
     return null;
   }
   return cislo;
+}
+
+function popisekJazyka(radek: BranaRedakcniPolozkaStav): string {
+  if (radek.jazykVerejny === null) {
+    return "jazyk: legacy";
+  }
+  const co = radek.jazykVerejny.co?.trim() || "NIC";
+  const rozliseni = radek.jazykVerejny.rozliseni?.trim() || "NIC";
+  return `CO: ${co} · ${rozliseni}`;
 }
 
 export function BranaAdminRedakcniPoradi({ pocatecniPolozky }: Props) {
@@ -129,7 +141,7 @@ function RedakcniTabulka({
     id: string,
     zmena: Partial<BranaRedakcniPolozkaStav>,
   ) => void;
-  /** Aktivní ANO řádky – zamčená pouze Položka */
+  /** Aktivní ANO – zamčená Položka i jazyková pole */
   zamceno?: boolean;
   /** Vizuální prázdný řádek – nepatří do dat, neukládá se */
   pracovniRadek?: boolean;
@@ -151,7 +163,7 @@ function RedakcniTabulka({
             Používat
           </th>
           <th className="py-2 pr-3 pl-1 text-sm font-medium text-text">
-            Položka
+            Položka / jazyk
           </th>
           <th
             className={`${ODD} whitespace-nowrap py-2 px-1 text-sm font-medium text-text`}
@@ -191,22 +203,16 @@ function RedakcniTabulka({
                 <option value="NE">NE</option>
               </select>
             </td>
-            <td className="py-2 pr-3 pl-1 align-top text-sm text-text">
+            <td className="space-y-1 py-2 pr-3 pl-1 align-top text-sm text-text">
               {zamceno ? (
-                radek.polozka
+                <>
+                  <div>{radek.polozka}</div>
+                  <div className="text-xs font-light text-text-jemny">
+                    {popisekJazyka(radek)}
+                  </div>
+                </>
               ) : (
-                <input
-                  type="text"
-                  className={VSTUP}
-                  aria-label={`Položka – ${radek.id}`}
-                  value={radek.polozka}
-                  maxLength={BRANA_REDAKCNI_POLOZKA_MAX}
-                  onChange={(e) =>
-                    onChange(radek.id, {
-                      polozka: e.target.value.slice(0, BRANA_REDAKCNI_POLOZKA_MAX),
-                    })
-                  }
-                />
+                <JazykEditor radek={radek} onChange={onChange} />
               )}
             </td>
             <td className={`${ODD} py-2 px-1 align-top`}>
@@ -300,5 +306,97 @@ function RedakcniTabulka({
       </tbody>
       </table>
     </div>
+  );
+}
+
+function JazykEditor({
+  radek,
+  onChange,
+}: {
+  radek: BranaRedakcniPolozkaStav;
+  onChange: (
+    id: string,
+    zmena: Partial<BranaRedakcniPolozkaStav>,
+  ) => void;
+}) {
+  const strukturovany = radek.jazykVerejny !== null;
+  const jazyk: BranaRedakcniJazykVerejny = radek.jazykVerejny ?? {
+    co: null,
+    rozliseni: null,
+  };
+
+  return (
+    <>
+      <input
+        type="text"
+        className={VSTUP}
+        aria-label={`Položka – ${radek.id}`}
+        value={radek.polozka}
+        maxLength={BRANA_REDAKCNI_POLOZKA_MAX}
+        onChange={(e) =>
+          onChange(radek.id, {
+            polozka: e.target.value.slice(0, BRANA_REDAKCNI_POLOZKA_MAX),
+          })
+        }
+      />
+      <select
+        className={VSTUP}
+        aria-label={`Režim jazyka – ${radek.id}`}
+        value={strukturovany ? "strukturovany" : "legacy"}
+        onChange={(e) => {
+          if (e.target.value === "legacy") {
+            onChange(radek.id, { jazykVerejny: null });
+            return;
+          }
+          onChange(radek.id, {
+            jazykVerejny: { co: null, rozliseni: null },
+          });
+        }}
+      >
+        <option value="legacy">jazyk: legacy</option>
+        <option value="strukturovany">jazyk: strukturovaný</option>
+      </select>
+      {strukturovany ? (
+        <>
+          <input
+            type="text"
+            className={VSTUP}
+            aria-label={`CO – ${radek.id}`}
+            placeholder="CO (prázdné = NIC)"
+            value={jazyk.co ?? ""}
+            maxLength={BRANA_REDAKCNI_JAZYK_CO_MAX}
+            onChange={(e) => {
+              const text = e.target.value.slice(0, BRANA_REDAKCNI_JAZYK_CO_MAX);
+              onChange(radek.id, {
+                jazykVerejny: {
+                  co: text.trim() === "" ? null : text,
+                  rozliseni: jazyk.rozliseni,
+                },
+              });
+            }}
+          />
+          <input
+            type="text"
+            className={VSTUP}
+            aria-label={`Rozlišení – ${radek.id}`}
+            placeholder="rozlišení (prázdné = NIC)"
+            value={jazyk.rozliseni ?? ""}
+            maxLength={BRANA_REDAKCNI_JAZYK_ROZLISENI_MAX}
+            onChange={(e) => {
+              const text = e.target.value.slice(
+                0,
+                BRANA_REDAKCNI_JAZYK_ROZLISENI_MAX,
+              );
+              onChange(radek.id, {
+                jazykVerejny: {
+                  co: jazyk.co,
+                  rozliseni: text.trim() === "" ? null : text,
+                },
+              });
+            }}
+          />
+        </>
+      ) : null}
+    </>
   );
 }
