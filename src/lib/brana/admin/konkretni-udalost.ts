@@ -3,6 +3,7 @@
  * Kalendář a Výhled jsou dva pohledy na stejná data – bez duplikace záznamů.
  */
 
+import { dnesVPraze } from "@/lib/brana/cas";
 import { maDatumOdPatritDoVyhledu } from "./obdobi-7-dni";
 
 /**
@@ -156,6 +157,41 @@ function formatujIsoDen(datum: Date): string {
   const m = String(datum.getUTCMonth() + 1).padStart(2, "0");
   const d = String(datum.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
+}
+
+/**
+ * Poslední platný kalendářní den události (inclusive).
+ * Shodná normalizace jako kontrolní blok: prázdné datumDo → datumOd;
+ * datumDo < datumOd → opraví se na datumOd.
+ */
+export function posledniPlatnyDenUdalosti(udalost: {
+  datumOd: string;
+  datumDo?: string | null;
+}): string {
+  const od = udalost.datumOd.trim();
+  const doSurove = udalost.datumDo?.trim() ?? "";
+  const doDne = doSurove.length > 0 ? doSurove : od;
+  return doDne < od ? od : doDne;
+}
+
+/** Dnešní ISO den (YYYY-MM-DD) v Europe/Prague. */
+export function dnesIsoVPraze(okamzik: Date = new Date()): string {
+  const dnes = dnesVPraze(okamzik);
+  return `${dnes.rok}-${String(dnes.mesic).padStart(2, "0")}-${String(dnes.den).padStart(2, "0")}`;
+}
+
+/**
+ * True, pokud celá událost skončila před dneškem (Europe/Prague).
+ * Událost končící dnes ještě není minulá.
+ */
+export function jeUdalostCelaMinula(
+  udalost: {
+    datumOd: string;
+    datumDo?: string | null;
+  },
+  dnesIso: string = dnesIsoVPraze(),
+): boolean {
+  return posledniPlatnyDenUdalosti(udalost) < dnesIso;
 }
 
 /** Dny trvání včetně koncového – jedna událost, více dnů v Kalendáři */

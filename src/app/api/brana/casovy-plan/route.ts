@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { vyhodnotitBranaCasovyPlanProScheduler } from "@/lib/brana/admin/casovy-motor-uloziste";
+import { uklidMinulychKonkretnichUdalostiProScheduler } from "@/lib/brana/admin/konkretni-udalosti-uloziste";
 import { vyhodnotitAOdeslatPravidelneUpozorneniPoCheckpointu } from "@/lib/brana/admin/odeslat-pravidelne-upozorneni-automaticky";
 import { vyhodnotitAOdeslatRychleUpozorneniPoScanu } from "@/lib/brana/admin/odeslat-rychle-upozorneni-automaticky";
 import { skenovatDlouhodobeZdrojeAutomaticky } from "@/lib/brana/admin/skenovat-dlouhodobe-zdroje-automaticky";
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 /**
  * Vercel Cron trigger:
  * ověří CRON_SECRET → časový motor →
+ * denní úklid minulých událostí (před early return) →
  * při jeRychlyTermin sekvenční Rychlý scan;
  * při jeDlouhodobyTermin sekvenční Dlouhodobý scan + stavový checkpoint (+21) + Pravidelný push;
  * při úspěšném souběhu potlačí Rychlý push ve prospěch Pravidelného.
@@ -58,11 +60,15 @@ export async function GET(request: NextRequest) {
 
     const { jeRychlyTermin, jeDlouhodobyTermin, datumVPraze } = vysledek.plan;
 
+    // Denní úklid vždy (i bez scanového termínu); idempotentní při 2× cron/den.
+    const uklidMinulych = await uklidMinulychKonkretnichUdalostiProScheduler();
+
     if (!jeRychlyTermin && !jeDlouhodobyTermin) {
       return NextResponse.json({
         ok: true,
         jeRychlyTermin,
         jeDlouhodobyTermin,
+        uklidMinulych,
         rychlyScan: null,
         rychlyPush: null,
         dlouhodobyScan: null,
@@ -131,6 +137,7 @@ export async function GET(request: NextRequest) {
       ok: true,
       jeRychlyTermin,
       jeDlouhodobyTermin,
+      uklidMinulych,
       rychlyScan,
       rychlyPush,
       dlouhodobyScan,

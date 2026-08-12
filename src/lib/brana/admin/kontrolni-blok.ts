@@ -8,6 +8,7 @@ import { dnesVPraze, pridatDny, zitraVPraze } from "@/lib/brana/cas";
 import { BRANA_DLOUHODOBY_INTERVAL_VYCHOZI } from "@/lib/brana/admin/zdroj";
 import { isoDnyObdobi7DniVPraze } from "@/lib/brana/admin/obdobi-7-dni";
 import {
+  posledniPlatnyDenUdalosti,
   projektujVyhledPodleRoku,
   type BranaKalendarDen,
   type BranaKonkretniUdalost,
@@ -64,13 +65,8 @@ function normalizujRozsahUdalosti(udalost: {
   datumDo?: string | null;
 }): { od: string; do: string } {
   const od = udalost.datumOd.trim();
-  const doSurove = udalost.datumDo?.trim() ?? "";
-  // Chybějící datumDo = jednodenní událost (současná logika).
-  const doDne = doSurove.length > 0 ? doSurove : od;
-  if (doDne < od) {
-    return { od, do: od };
-  }
-  return { od, do: doDne };
+  // Stejná normalizace konce jako posledniPlatnyDenUdalosti (jedna datumová logika).
+  return { od, do: posledniPlatnyDenUdalosti(udalost) };
 }
 
 /**

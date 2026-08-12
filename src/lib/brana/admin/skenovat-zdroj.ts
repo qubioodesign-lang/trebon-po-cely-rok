@@ -21,6 +21,10 @@ import { jePlatnaZdrojUrl, type BranaZdroj } from "./zdroj";
 import { parsovatUdalostiZeZdroje } from "./zdroj-scan-parser";
 import { sestavJazykBranyPoSparovani } from "./jazyk-brany-po-sparovani";
 import {
+  dnesIsoVPraze,
+  jeUdalostCelaMinula,
+} from "./konkretni-udalost";
+import {
   vytvoritNezarazenyKlic,
   type BranaNezarazenyScanKandidat,
 } from "./nezarazene";
@@ -580,8 +584,13 @@ async function skenovatZnamyZdrojJadro(
   const kUlozeni: BranaScanAutomatickaUdalostVstup[] = [];
   const nesparovane: BranaNezarazenyScanKandidat[] = [];
   const uspesneZpracovaneKlice: string[] = [];
+  const dnesIso = dnesIsoVPraze();
 
   for (const kandidat of kandidati) {
+    // Skončená událost: ignorovat (ani CEKA, ani Nezařazené).
+    if (jeUdalostCelaMinula(kandidat, dnesIso)) {
+      continue;
+    }
     const sparovani = sparovatSRedakcniPolozkou(kandidat, redakcni.polozky);
     if (!sparovani.ok) {
       nezarazeno += 1;

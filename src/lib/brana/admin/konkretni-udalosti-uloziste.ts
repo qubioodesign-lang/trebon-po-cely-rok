@@ -11,6 +11,8 @@ import {
   jeBranaStavSchvaleni,
   normalizovatStavSchvaleni,
   normalizovatVerejnaJazykovaPoleZBlobu,
+  dnesIsoVPraze,
+  jeUdalostCelaMinula,
   vytvoritScanKlicAutomatickeUdalosti,
   type BranaKonkretniUdalost,
 } from "./konkretni-udalost";
@@ -813,6 +815,7 @@ async function pridatCekajiciAutomatickeUdalostiZeScanuJadro(
   let pridano = 0;
   let jizExistuje = 0;
   const nove = dokument.udalosti.slice();
+  const dnesIso = dnesIsoVPraze();
 
   for (const kandidat of kandidati) {
     const redakcniPolozkaId = kandidat.redakcniPolozkaId.trim();
@@ -839,6 +842,10 @@ async function pridatCekajiciAutomatickeUdalostiZeScanuJadro(
     };
 
     if (!normalizovany.nazev || !normalizovany.datumOd) {
+      continue;
+    }
+
+    if (jeUdalostCelaMinula(normalizovany, dnesIso)) {
       continue;
     }
 
@@ -919,4 +926,47 @@ export async function pridatCekajiciAutomatickeUdalostiZeScanuProScheduler(
   kandidati: readonly BranaScanAutomatickaUdalostVstup[],
 ): Promise<PridatCekajiciZeScanuVysledek> {
   return pridatCekajiciAutomatickeUdalostiZeScanuJadro(kandidati);
+}
+
+export type BranaUklidMinulychUdalostiVysledek = {
+  odstraneno: number;
+  zustalo: number;
+};
+
+/**
+ * Denní úklid: odstraní z udalosti[] všechny záznamy s posledním platným dnem
+ * před dneškem (Europe/Prague). Stav schválení nerozhoduje.
+ * PUT jen při skutečné změně. Idempotentní. Pro scheduler (CRON_SECRET).
+ */
+export async function uklidMinulychKonkretnichUdalostiProScheduler(
+  okamzik: Date = new Date(),
+): Promise<BranaUklidMinulychUdalostiVysledek> {
+  if (!maBranaAdminBlobKonfiguraci()) {
+    throw new Error(
+      "Nelze uklidit události: chybí BLOB_BRANA_ADMIN_STORE_ID nebo BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
+    );
+  }
+
+  const dnesIso = dnesIsoVPraze(okamzik);
+  const dokument = await nacistDokumentProZapis();
+  const pred = dokument.udalosti.length;
+  const zachovane = dokument.udalosti.filter(
+    (u) => !jeUdalostCelaMinula(u, dnesIso),
+  );
+
+  if (zachovane.length === pred) {
+    return { odstraneno: 0, zustalo: pred };
+  }
+
+  dokument.udalosti = zachovane;
+  const overeni = parsovatDokument(dokument);
+  if (!overeni) {
+    throw new Error("Výsledný dokument neprošel validací. Nic nebylo uloženo.");
+  }
+
+  await ulozitDokument(overeni);
+  return {
+    odstraneno: pred - zachovane.length,
+    zustalo: zachovane.length,
+  };
 }
