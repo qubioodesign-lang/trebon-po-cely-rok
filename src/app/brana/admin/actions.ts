@@ -12,6 +12,7 @@ import {
   upravitAutomatickouCekaUdalost,
   upravitRucniKonkretniUdalost,
   vyrazitAutomatickouCekaUdalost,
+  vyrazitGalerie105VystavyCekaJednorazove,
 } from "@/lib/brana/admin/konkretni-udalosti-uloziste";
 import { ulozitRedakcniPoradi } from "@/lib/brana/admin/redakcni-poradi-uloziste";
 import { validovatRedakcniPoradiVstup } from "@/lib/brana/admin/redakcni-poradi-validace";
@@ -60,6 +61,18 @@ export type BranaScanStavVysledek =
 
 export type BranaSchvalitKontroluVysledek =
   | { uspech: true; pocetSchvalenych: number }
+  | { uspech: false; chyba: string };
+
+export type BranaUklidGalerie105VystavyVysledek =
+  | {
+      uspech: true;
+      zmeneno: number;
+      cekaVystavyPo: number;
+      vyrazenoVystavyPo: number;
+      akceCekaPred: number;
+      akceCekaPo: number;
+      scanKlicZachovan: boolean;
+    }
   | { uspech: false; chyba: string };
 
 export type BranaZdrojeIntervalVysledek =
@@ -322,6 +335,41 @@ export async function vyrazitAutomatickouCekaUdalostAkce(
     return {
       uspech: false,
       chyba: detail ?? "Událost se nepodařilo vyřadit.",
+    };
+  }
+}
+
+/**
+ * DOČASNÉ: jednorázový atomický úklid 19 CEKA výstav Galerie 105 → VYRAZENO.
+ * Fail-closed stejný jako preview. Po použití odstranit.
+ */
+export async function aplikovatUklidGalerie105VystavyCekaAkce(): Promise<BranaUklidGalerie105VystavyVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  try {
+    const vysledek = await vyrazitGalerie105VystavyCekaJednorazove();
+    revalidatePath("/brana/admin/sprava/kalendar");
+    revalidatePath("/brana/admin/sprava/vyhled");
+    revalidatePath("/brana/admin/sprava/tmp-uklid-galerie-105-preview");
+    return {
+      uspech: true,
+      zmeneno: vysledek.zmeneno,
+      cekaVystavyPo: vysledek.cekaVystavyPo,
+      vyrazenoVystavyPo: vysledek.vyrazenoVystavyPo,
+      akceCekaPred: vysledek.akceCekaPred,
+      akceCekaPo: vysledek.akceCekaPo,
+      scanKlicZachovan: vysledek.scanKlicZachovan,
+    };
+  } catch (error) {
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "Úklid výstav Galerie 105 se nepodařil.",
     };
   }
 }

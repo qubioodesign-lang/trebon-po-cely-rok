@@ -109,4 +109,47 @@ function overFailClosed19(): void {
 
 overFiltrOddeliAkce();
 overFailClosed19();
+
+function overSimulaceApplyStavu(): void {
+  const vystavy = Array.from({ length: 19 }, (_, i) =>
+    udalost({
+      id: `v-${i}`,
+      nazev: `Vystava ${i}`,
+      datumOd: `2026-08-${String(10 + (i % 18)).padStart(2, "0")}`,
+      datumDo: "2026-08-23",
+      cas: "",
+    }),
+  );
+  const akce = udalost({
+    id: "akce",
+    nazev: "Zahájení",
+    datumOd: "2026-08-19",
+    datumDo: "2026-08-19",
+    cas: "17:00",
+  });
+  const pred = [...vystavy, akce];
+  const preview = sestavPreviewUklidGalerie105Vystavy(pred);
+  assert(preview.ok, "preview před apply");
+  const idSet = new Set(preview.ok ? preview.vybrano.map((u) => u.id) : []);
+  const po = pred.map((u) =>
+    idSet.has(u.id)
+      ? { ...u, stavSchvaleni: "VYRAZENO" as const, rucniPoziceVDni: null }
+      : u,
+  );
+  const poPreview = sestavPreviewUklidGalerie105Vystavy(po);
+  assert(!poPreview.ok && poPreview.skutecnyPocet === 0, "po apply CEKA výstavy 0");
+  assert(
+    po.filter((u) => u.id === "akce" && u.stavSchvaleni === "CEKA_NA_SCHVALENI")
+      .length === 1,
+    "akce nedotčena",
+  );
+  assert(
+    po.filter((u) => idSet.has(u.id) && u.stavSchvaleni === "VYRAZENO").length ===
+      19,
+    "19 VYRAZENO",
+  );
+  console.log("OK simulace apply: 19 VYRAZENO, akce beze změny");
+}
+
+overSimulaceApplyStavu();
 console.log("ALL OK verify-brana-uklid-galerie105-preview");

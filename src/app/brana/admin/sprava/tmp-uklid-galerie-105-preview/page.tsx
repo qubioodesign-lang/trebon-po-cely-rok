@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { BranaAdminObal } from "@/components/brana/admin/BranaAdminObal";
+import { BranaAdminTmpUklidGalerie105Apply } from "@/components/brana/admin/BranaAdminTmpUklidGalerie105Apply";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 import {
   BRANA_UKLID_GALERIE_105_VYSTAV_OCEKAVANY_POCET,
@@ -13,7 +14,7 @@ import {
 export const dynamic = "force-dynamic";
 
 /**
- * DOČASNÉ admin-only preview úklidu Galerie 105 (pouze čtení).
+ * DOČASNÉ admin-only preview + APPLY úklidu Galerie 105.
  * Není v navigaci. Po dokončení úklidu stránku odstranit.
  * URL: /brana/admin/sprava/tmp-uklid-galerie-105-preview
  */
@@ -42,23 +43,33 @@ export default async function StrankaTmpUklidGalerie105Preview() {
   }
 
   const preview = sestavPreviewUklidGalerie105Vystavy(uloziste.udalosti);
+  const akceCeka = uloziste.udalosti.filter(
+    (u) =>
+      u.redakcniPolozkaId === "galerie-105" &&
+      u.stavSchvaleni === "CEKA_NA_SCHVALENI" &&
+      typeof u.scanKlic === "string" &&
+      u.scanKlic.trim().length > 0 &&
+      u.cas.trim() !== "",
+  ).length;
 
   return (
     <BranaAdminObal host={host} aktivniCast="sprava">
       <h1 className="text-lg font-medium text-text">
-        Dočasné preview – Galerie 105 výstavy
+        Dočasné preview / APPLY – Galerie 105 výstavy
       </h1>
       <p className="mt-2 max-w-2xl text-sm text-text-jemny">
-        Pouze čtení. Filtr: galerie-105 + CEKA_NA_SCHVALENI + scanKlic +
-        prázdný čas. Očekáváno{" "}
-        {BRANA_UKLID_GALERIE_105_VYSTAV_OCEKAVANY_POCET}. Žádné Vyřadit /
-        PUT.
+        Filtr: galerie-105 + CEKA_NA_SCHVALENI + scanKlic + prázdný čas.
+        Očekáváno {BRANA_UKLID_GALERIE_105_VYSTAV_OCEKAVANY_POCET}. Hard delete
+        se neprovádí.
+      </p>
+      <p className="mt-2 text-sm text-text-jemny">
+        Aktuální CEKA Akce Galerie 105 (s časem): {akceCeka}
       </p>
 
       {!preview.ok ? (
         <div className="mt-6 space-y-2 text-sm">
           <p className="font-medium text-text">
-            STOP – počet neodpovídá očekávání.
+            STOP – počet neodpovídá očekávání. APPLY není k dispozici.
           </p>
           <p className="text-text-jemny">
             VYBRÁNO = {preview.skutecnyPocet} (očekáváno{" "}
@@ -100,6 +111,8 @@ export default async function StrankaTmpUklidGalerie105Preview() {
           ))}
         </ol>
       ) : null}
+
+      {preview.ok ? <BranaAdminTmpUklidGalerie105Apply /> : null}
     </BranaAdminObal>
   );
 }
