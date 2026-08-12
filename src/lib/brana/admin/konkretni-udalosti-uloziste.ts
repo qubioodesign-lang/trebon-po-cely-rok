@@ -620,8 +620,8 @@ export async function schvalitKontroluKonkretnichUdalosti(
 }
 
 /**
- * Upraví obsah automatické CEKA události se stabilním scanKlic.
- * Zachová id, redakcniPolozkaId, scanKlic, rucniPoziceVDni=null, CEKA_NA_SCHVALENI.
+ * Upraví obsah automatické CEKA nebo SCHVALENO události se stabilním scanKlic.
+ * Zachová id, redakcniPolozkaId, scanKlic, rucniPoziceVDni=null a stávající stavSchvaleni.
  * Bez scanKlic → fail-closed (úprava by rozbila obsahový fallback dedup).
  */
 export async function upravitAutomatickouCekaUdalost(
@@ -658,8 +658,13 @@ export async function upravitAutomatickouCekaUdalost(
   if (existujici.redakcniPolozkaId === null) {
     throw new Error("Ruční událost nelze upravit touto cestou.");
   }
-  if (existujici.stavSchvaleni !== "CEKA_NA_SCHVALENI") {
-    throw new Error("Upravit lze pouze čekající automatickou událost.");
+  if (
+    existujici.stavSchvaleni !== "CEKA_NA_SCHVALENI" &&
+    existujici.stavSchvaleni !== "SCHVALENO"
+  ) {
+    throw new Error(
+      "Upravit lze pouze čekající nebo schválenou automatickou událost.",
+    );
   }
   if (
     typeof existujici.scanKlic !== "string" ||
@@ -679,7 +684,7 @@ export async function upravitAutomatickouCekaUdalost(
     mistoNeboTyp: validace.uprava.mistoNeboTyp,
     nazev: validace.uprava.nazev,
     rucniPoziceVDni: null,
-    stavSchvaleni: "CEKA_NA_SCHVALENI",
+    stavSchvaleni: existujici.stavSchvaleni,
     scanKlic: existujici.scanKlic,
     ...(existujici.verejneCo !== undefined
       ? {
@@ -703,7 +708,7 @@ export async function upravitAutomatickouCekaUdalost(
 }
 
 /**
- * Vyřadí automatickou CEKA událost: CEKA_NA_SCHVALENI → VYRAZENO.
+ * Vyřadí automatickou CEKA nebo SCHVALENO událost → VYRAZENO.
  * Zachová id, redakcniPolozkaId, scanKlic (pokud je) a obsah.
  * Záznam zůstává v Blobu kvůli dedupu.
  */
@@ -735,8 +740,13 @@ export async function vyrazitAutomatickouCekaUdalost(
   if (existujici.redakcniPolozkaId === null) {
     throw new Error("Ruční událost nelze vyřadit touto cestou.");
   }
-  if (existujici.stavSchvaleni !== "CEKA_NA_SCHVALENI") {
-    throw new Error("Vyřadit lze pouze čekající automatickou událost.");
+  if (
+    existujici.stavSchvaleni !== "CEKA_NA_SCHVALENI" &&
+    existujici.stavSchvaleni !== "SCHVALENO"
+  ) {
+    throw new Error(
+      "Vyřadit lze pouze čekající nebo schválenou automatickou událost.",
+    );
   }
 
   const vyrazena: BranaKonkretniUdalost = {

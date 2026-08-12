@@ -368,7 +368,8 @@ export function BranaAdminKalendarRucniZapis({
     return (
       rucniZapisPovolen &&
       udalost.redakcniPolozkaId !== null &&
-      udalost.stavSchvaleni === "CEKA_NA_SCHVALENI" &&
+      (udalost.stavSchvaleni === "CEKA_NA_SCHVALENI" ||
+        udalost.stavSchvaleni === "SCHVALENO") &&
       maStabilniScanKlic(udalost) &&
       persistovaneId.has(udalost.id)
     );
@@ -378,7 +379,8 @@ export function BranaAdminKalendarRucniZapis({
     return (
       rucniZapisPovolen &&
       udalost.redakcniPolozkaId !== null &&
-      udalost.stavSchvaleni === "CEKA_NA_SCHVALENI" &&
+      (udalost.stavSchvaleni === "CEKA_NA_SCHVALENI" ||
+        udalost.stavSchvaleni === "SCHVALENO") &&
       persistovaneId.has(udalost.id)
     );
   }

@@ -270,7 +270,7 @@ export async function schvalitKontroluAkce(
   }
 }
 
-/** Upraví automatickou CEKA událost se scanKlic – zůstává CEKA_NA_SCHVALENI */
+/** Upraví automatickou CEKA/SCHVALENO událost se scanKlic – zachová stávající stav */
 export async function upravitAutomatickouCekaUdalostAkce(
   id: string,
   vstup: unknown,
@@ -301,7 +301,7 @@ export async function upravitAutomatickouCekaUdalostAkce(
   }
 }
 
-/** Vyřadí automatickou CEKA: CEKA_NA_SCHVALENI → VYRAZENO (záznam zůstává) */
+/** Vyřadí automatickou CEKA/SCHVALENO → VYRAZENO (záznam zůstává) */
 export async function vyrazitAutomatickouCekaUdalostAkce(
   id: string,
 ): Promise<BranaRucniUdalostVysledek> {
