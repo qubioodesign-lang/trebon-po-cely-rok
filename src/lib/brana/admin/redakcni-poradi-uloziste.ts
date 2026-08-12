@@ -18,7 +18,14 @@ import { validovatRedakcniPoradiVstup } from "./redakcni-poradi-validace";
 export const BRANA_REDAKCNI_PORADI_BLOB_CESTA =
   "data/brana-redakcni-poradi.json";
 
-const VERZE_ULOZISTE = 1;
+/**
+ * Verze dokumentu redakčního pořadí.
+ * 1 (nebo chybí) = stará automatická kostra před prioritním seznamem.
+ * 2 = prioritní seznam (21 ANO + 31 NE) vědomě uložený redaktorem.
+ *
+ * Načtení starší verze vrátí v paměti nový seed; Blob se přepíše až při Uložit.
+ */
+export const BRANA_REDAKCNI_VERZE_ULOZISTE = 2;
 
 /** Bezpečná zpráva pro klienta – bez tokenů a interních podrobností */
 export const BRANA_REDAKCNI_CHYBA_CTENI =
@@ -32,6 +39,21 @@ export type BranaRedakcniPoradiDokument = {
 export type NacistRedakcniPoradiVysledek =
   | { ok: true; polozky: BranaRedakcniPolozkaStav[] }
   | { ok: false };
+
+/**
+ * True = dokument už nese vědomě uložený prioritní seznam (verze ≥ 2).
+ * False = legacy Blob → jednorázový přechod na seed jen v paměti.
+ * Rozpoznání výhradně podle číselné verze, bez heuristiky nad texty položek.
+ */
+export function dokumentMaPrioritniSeznam(
+  verzeUloziste: unknown,
+): boolean {
+  return (
+    typeof verzeUloziste === "number" &&
+    Number.isInteger(verzeUloziste) &&
+    verzeUloziste >= BRANA_REDAKCNI_VERZE_ULOZISTE
+  );
+}
 
 type BlobCteniTextu =
   | { stav: "neexistuje" }
@@ -80,6 +102,8 @@ async function nacistTextZPrivateBlob(): Promise<BlobCteniTextu> {
 /**
  * Načte redakční pořadí z PRIVATE Blobu (bez admin kontroly).
  * - Objekt neexistuje → výchozí kostra (editovatelná, Blob se nevytváří).
+ * - verzeUloziste < 2 → v paměti nový prioritní seed (bez zápisu do Blobu).
+ * - verzeUloziste ≥ 2 → uložené položky beze změny seedem.
  * - Jiná chyba / neplatný dokument → ok: false (bez tichého fallbacku).
  */
 async function nacistRedakcniPoradiDokument(): Promise<NacistRedakcniPoradiVysledek> {
@@ -112,13 +136,21 @@ async function nacistRedakcniPoradiDokument(): Promise<NacistRedakcniPoradiVysle
       return { ok: false };
     }
 
-    const polozky = (parsed as { polozky?: unknown }).polozky;
-    const validace = validovatRedakcniPoradiVstup(polozky, {
+    const root = parsed as { verzeUloziste?: unknown; polozky?: unknown };
+    const validace = validovatRedakcniPoradiVstup(root.polozky, {
       legacyVyhled: true,
     });
     if (!validace.ok) {
       zalogovatChybuCteni(`Blob dokument neprošel validací: ${validace.chyba}`);
       return { ok: false };
+    }
+
+    /**
+     * Jednorázový přechod: stará verze dokumentu (1 / chybí) → v paměti nový seed.
+     * Žádný put. Blob se přepíše až při vědomém Uložit (verze 2).
+     */
+    if (!dokumentMaPrioritniSeznam(root.verzeUloziste)) {
+      return { ok: true, polozky: vytvoritVychoziRedakcniPoradi() };
     }
 
     return { ok: true, polozky: validace.polozky };
@@ -175,7 +207,7 @@ export async function ulozitRedakcniPoradi(
   }
 
   const dokument: BranaRedakcniPoradiDokument = {
-    verzeUloziste: VERZE_ULOZISTE,
+    verzeUloziste: BRANA_REDAKCNI_VERZE_ULOZISTE,
     polozky,
   };
 

@@ -3,8 +3,13 @@
 import { useState, useTransition } from "react";
 import { ulozitBranaRedakcniPoradiAkce } from "@/app/brana/admin/actions";
 import {
+  BRANA_REDAKCNI_JAZYK_CO_MAX,
+  BRANA_REDAKCNI_JAZYK_ROZLISENI_MAX,
   BRANA_REDAKCNI_POLOZKA_MAX,
   BRANA_REDAKCNI_POZNAMKA_MAX,
+  type BranaJazykSlot,
+  type BranaJazykSlotRezim,
+  type BranaRedakcniJazykVerejny,
   type BranaRedakcniPolozkaStav,
   type BranaRedakcniPouzivat,
   type BranaRedakcniVyhled,
@@ -34,6 +39,47 @@ function textNaCislo(hodnota: string): number | null {
     return null;
   }
   return cislo;
+}
+
+function vychoziSlot(): BranaJazykSlot {
+  return { rezim: "NIC" };
+}
+
+function zajistiJazyk(
+  jazyk: BranaRedakcniJazykVerejny | null,
+): BranaRedakcniJazykVerejny {
+  return (
+    jazyk ?? {
+      co: vychoziSlot(),
+      rozliseni: vychoziSlot(),
+    }
+  );
+}
+
+function popisekSlotu(slot: BranaJazykSlot): string {
+  if (slot.rezim === "PEVNE") {
+    return slot.text;
+  }
+  if (slot.rezim === "Z_UDALOSTI") {
+    return "z události";
+  }
+  return "—";
+}
+
+function zmenSlotRezim(
+  slot: BranaJazykSlot,
+  rezim: BranaJazykSlotRezim,
+): BranaJazykSlot {
+  if (rezim === "PEVNE") {
+    return {
+      rezim: "PEVNE",
+      text: slot.rezim === "PEVNE" ? slot.text : "",
+    };
+  }
+  if (rezim === "Z_UDALOSTI") {
+    return { rezim: "Z_UDALOSTI" };
+  }
+  return { rezim: "NIC" };
 }
 
 export function BranaAdminRedakcniPoradi({ pocatecniPolozky }: Props) {
@@ -129,20 +175,22 @@ function RedakcniTabulka({
     id: string,
     zmena: Partial<BranaRedakcniPolozkaStav>,
   ) => void;
-  /** Aktivní ANO řádky – zamčená pouze Položka */
+  /** Aktivní ANO řádky – zamčené všechny redakční hodnoty; Používat zůstává */
   zamceno?: boolean;
   /** Vizuální prázdný řádek – nepatří do dat, neukládá se */
   pracovniRadek?: boolean;
 }) {
   return (
     <div className="w-full min-w-0 overflow-x-auto">
-      <table className="w-full min-w-[42rem] table-fixed border-collapse text-left">
+      <table className="w-full min-w-[56rem] table-fixed border-collapse text-left">
       <colgroup>
         <col className="w-[4.75rem]" />
-        <col className="w-[30%]" />
+        <col className="w-[18%]" />
         <col className="w-[5rem]" />
-        <col className="w-[6.5rem]" />
+        <col className="w-[5.5rem]" />
         <col className="w-[4.5rem]" />
+        <col className="w-[12%]" />
+        <col className="w-[12%]" />
         <col />
       </colgroup>
       <thead>
@@ -168,13 +216,25 @@ function RedakcniTabulka({
           >
             Výhled
           </th>
+          <th
+            className={`${ODD} whitespace-nowrap py-2 px-1 text-sm font-medium text-text`}
+          >
+            CO BRÁNY
+          </th>
+          <th
+            className={`${ODD} whitespace-nowrap py-2 px-1 text-sm font-medium text-text`}
+          >
+            KDE
+          </th>
           <th className={`${ODD} py-2 pl-3 text-sm font-medium text-text`}>
             Poznámka
           </th>
         </tr>
       </thead>
       <tbody>
-        {polozky.map((radek) => (
+        {polozky.map((radek) => {
+          const jazyk = radek.jazykVerejny;
+          return (
           <tr key={radek.id} className="border-b border-text-velmiJemny/15">
             <td className="py-2 pr-2 align-top">
               <select
@@ -210,69 +270,230 @@ function RedakcniTabulka({
               )}
             </td>
             <td className={`${ODD} py-2 px-1 align-top`}>
-              <input
-                type="text"
-                inputMode="numeric"
-                className={VSTUP}
-                aria-label={`Priorita – ${radek.polozka}`}
-                value={cisloNaText(radek.priorita)}
-                maxLength={3}
-                placeholder=""
-                onChange={(e) => {
-                  const raw = e.target.value.replace(/\D/g, "").slice(0, 3);
-                  onChange(radek.id, {
-                    priorita: textNaCislo(raw),
-                  });
-                }}
-              />
+              {zamceno ? (
+                <span className="text-sm text-text">
+                  {cisloNaText(radek.priorita) || "—"}
+                </span>
+              ) : (
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  className={VSTUP}
+                  aria-label={`Priorita – ${radek.polozka}`}
+                  value={cisloNaText(radek.priorita)}
+                  maxLength={3}
+                  placeholder=""
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/\D/g, "").slice(0, 3);
+                    onChange(radek.id, {
+                      priorita: textNaCislo(raw),
+                    });
+                  }}
+                />
+              )}
             </td>
             <td className={`${ODD} py-2 px-1 align-top`}>
-              <input
-                type="text"
-                inputMode="numeric"
-                className={VSTUP}
-                aria-label={`Subpriorita – ${radek.polozka}`}
-                value={cisloNaText(radek.subpriorita)}
-                maxLength={3}
-                onChange={(e) => {
-                  const raw = e.target.value.replace(/\D/g, "").slice(0, 3);
-                  onChange(radek.id, {
-                    subpriorita: textNaCislo(raw),
-                  });
-                }}
-              />
+              {zamceno ? (
+                <span className="text-sm text-text">
+                  {cisloNaText(radek.subpriorita) || "—"}
+                </span>
+              ) : (
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  className={VSTUP}
+                  aria-label={`Subpriorita – ${radek.polozka}`}
+                  value={cisloNaText(radek.subpriorita)}
+                  maxLength={3}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/\D/g, "").slice(0, 3);
+                    onChange(radek.id, {
+                      subpriorita: textNaCislo(raw),
+                    });
+                  }}
+                />
+              )}
             </td>
             <td className={`${ODD} py-2 px-1 align-top`}>
-              <select
-                className={VSTUP}
-                aria-label={`Výhled – ${radek.polozka}`}
-                value={radek.vyhled}
-                onChange={(e) => {
-                  const vyhled: BranaRedakcniVyhled =
-                    e.target.value === "NE" ? "NE" : "ANO";
-                  onChange(radek.id, { vyhled });
-                }}
-              >
-                <option value="ANO">ANO</option>
-                <option value="NE">NE</option>
-              </select>
+              {zamceno ? (
+                <span className="text-sm text-text">{radek.vyhled}</span>
+              ) : (
+                <select
+                  className={VSTUP}
+                  aria-label={`Výhled – ${radek.polozka}`}
+                  value={radek.vyhled}
+                  onChange={(e) => {
+                    const vyhled: BranaRedakcniVyhled =
+                      e.target.value === "NE" ? "NE" : "ANO";
+                    onChange(radek.id, { vyhled });
+                  }}
+                >
+                  <option value="ANO">ANO</option>
+                  <option value="NE">NE</option>
+                </select>
+              )}
+            </td>
+            <td className={`${ODD} py-2 px-1 align-top`}>
+              {jazyk === null ? (
+                zamceno ? (
+                  <span className="text-sm text-text-jemny">legacy</span>
+                ) : (
+                  <button
+                    type="button"
+                    className="text-sm text-text-jemny underline-offset-2 hover:underline"
+                    onClick={() =>
+                      onChange(radek.id, {
+                        jazykVerejny: {
+                          co: vychoziSlot(),
+                          rozliseni: vychoziSlot(),
+                        },
+                      })
+                    }
+                  >
+                    nastavit
+                  </button>
+                )
+              ) : zamceno ? (
+                <span className="text-sm text-text">
+                  {popisekSlotu(jazyk.co)}
+                </span>
+              ) : (
+                <div className="space-y-1">
+                  <select
+                    className={VSTUP}
+                    aria-label={`CO režim – ${radek.polozka}`}
+                    value={jazyk.co.rezim}
+                    onChange={(e) => {
+                      const aktualni = zajistiJazyk(radek.jazykVerejny);
+                      onChange(radek.id, {
+                        jazykVerejny: {
+                          ...aktualni,
+                          co: zmenSlotRezim(
+                            aktualni.co,
+                            e.target.value as BranaJazykSlotRezim,
+                          ),
+                        },
+                      });
+                    }}
+                  >
+                    <option value="PEVNE">pevné</option>
+                    <option value="Z_UDALOSTI">z události</option>
+                    <option value="NIC">nic</option>
+                  </select>
+                  {jazyk.co.rezim === "PEVNE" ? (
+                    <input
+                      type="text"
+                      className={VSTUP}
+                      aria-label={`CO text – ${radek.polozka}`}
+                      value={jazyk.co.text}
+                      maxLength={BRANA_REDAKCNI_JAZYK_CO_MAX}
+                      onChange={(e) => {
+                        const aktualni = zajistiJazyk(radek.jazykVerejny);
+                        onChange(radek.id, {
+                          jazykVerejny: {
+                            ...aktualni,
+                            co: {
+                              rezim: "PEVNE",
+                              text: e.target.value.slice(
+                                0,
+                                BRANA_REDAKCNI_JAZYK_CO_MAX,
+                              ),
+                            },
+                          },
+                        });
+                      }}
+                    />
+                  ) : null}
+                  <button
+                    type="button"
+                    className="text-xs text-text-jemny underline-offset-2 hover:underline"
+                    onClick={() => onChange(radek.id, { jazykVerejny: null })}
+                  >
+                    legacy
+                  </button>
+                </div>
+              )}
+            </td>
+            <td className={`${ODD} py-2 px-1 align-top`}>
+              {jazyk === null ? (
+                <span className="text-sm text-text-jemny">—</span>
+              ) : zamceno ? (
+                <span className="text-sm text-text">
+                  {popisekSlotu(jazyk.rozliseni)}
+                </span>
+              ) : (
+                <div className="space-y-1">
+                  <select
+                    className={VSTUP}
+                    aria-label={`KDE režim – ${radek.polozka}`}
+                    value={jazyk.rozliseni.rezim}
+                    onChange={(e) => {
+                      const aktualni = zajistiJazyk(radek.jazykVerejny);
+                      onChange(radek.id, {
+                        jazykVerejny: {
+                          ...aktualni,
+                          rozliseni: zmenSlotRezim(
+                            aktualni.rozliseni,
+                            e.target.value as BranaJazykSlotRezim,
+                          ),
+                        },
+                      });
+                    }}
+                  >
+                    <option value="PEVNE">pevné</option>
+                    <option value="Z_UDALOSTI">z události</option>
+                    <option value="NIC">nic</option>
+                  </select>
+                  {jazyk.rozliseni.rezim === "PEVNE" ? (
+                    <input
+                      type="text"
+                      className={VSTUP}
+                      aria-label={`KDE text – ${radek.polozka}`}
+                      value={jazyk.rozliseni.text}
+                      maxLength={BRANA_REDAKCNI_JAZYK_ROZLISENI_MAX}
+                      onChange={(e) => {
+                        const aktualni = zajistiJazyk(radek.jazykVerejny);
+                        onChange(radek.id, {
+                          jazykVerejny: {
+                            ...aktualni,
+                            rozliseni: {
+                              rezim: "PEVNE",
+                              text: e.target.value.slice(
+                                0,
+                                BRANA_REDAKCNI_JAZYK_ROZLISENI_MAX,
+                              ),
+                            },
+                          },
+                        });
+                      }}
+                    />
+                  ) : null}
+                </div>
+              )}
             </td>
             <td className={`${ODD} py-2 pl-3 align-top`}>
-              <input
-                type="text"
-                className={VSTUP}
-                aria-label={`Poznámka – ${radek.polozka}`}
-                value={radek.poznamka}
-                maxLength={BRANA_REDAKCNI_POZNAMKA_MAX}
-                onChange={(e) => {
-                  onChange(radek.id, {
-                    poznamka: e.target.value.slice(0, BRANA_REDAKCNI_POZNAMKA_MAX),
-                  });
-                }}
-              />
+              {zamceno ? (
+                <span className="text-sm text-text">
+                  {radek.poznamka.trim() || "—"}
+                </span>
+              ) : (
+                <input
+                  type="text"
+                  className={VSTUP}
+                  aria-label={`Poznámka – ${radek.polozka}`}
+                  value={radek.poznamka}
+                  maxLength={BRANA_REDAKCNI_POZNAMKA_MAX}
+                  onChange={(e) => {
+                    onChange(radek.id, {
+                      poznamka: e.target.value.slice(0, BRANA_REDAKCNI_POZNAMKA_MAX),
+                    });
+                  }}
+                />
+              )}
             </td>
           </tr>
-        ))}
+          );
+        })}
         {pracovniRadek ? (
           <tr className="border-b border-text-velmiJemny/15" aria-hidden="true">
             <td className="py-2 pr-2 align-top">
@@ -292,6 +513,8 @@ function RedakcniTabulka({
                 <option value="" />
               </select>
             </td>
+            <td className={`${ODD} py-2 px-1 align-top`} />
+            <td className={`${ODD} py-2 px-1 align-top`} />
             <td className={`${ODD} py-2 pl-3 align-top`}>
               <input type="text" className={VSTUP} disabled tabIndex={-1} value="" readOnly aria-hidden="true" />
             </td>

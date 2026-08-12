@@ -1,10 +1,17 @@
-import type { BranaRedakcniPolozkaStav } from "./redakcni-kostra";
+import type {
+  BranaJazykSlot,
+  BranaRedakcniJazykVerejny,
+  BranaRedakcniPolozkaStav,
+} from "./redakcni-kostra";
 import {
   BRANA_REDAKCNI_CISLO_MAX,
   BRANA_REDAKCNI_CISLO_MIN,
+  BRANA_REDAKCNI_JAZYK_CO_MAX,
+  BRANA_REDAKCNI_JAZYK_ROZLISENI_MAX,
   BRANA_REDAKCNI_POLOZKA_MAX,
   BRANA_REDAKCNI_POZNAMKA_MAX,
   BRANA_REDAKCNI_VSECHNY_VYCHOZI,
+  vychoziJazykVerejnyProId,
   vychoziVyhledProId,
   vytvoritVychoziRedakcniPoradi,
   vytvoritVychoziStavPolozky,
@@ -102,6 +109,89 @@ function normalizovatNazevPolozky(
     return { ok: false, chyba: "dlouhe" };
   }
   return { ok: true, text };
+}
+
+function normalizovatTextSlotu(
+  hodnota: unknown,
+  max: number,
+): { ok: true; text: string } | { ok: false } {
+  if (typeof hodnota !== "string") {
+    return { ok: false };
+  }
+  const text = hodnota.trim();
+  if (text === "" || text.length > max) {
+    return { ok: false };
+  }
+  return { ok: true, text };
+}
+
+/**
+ * Slot: PEVNE + text | Z_UDALOSTI | NIC.
+ * Chybí při legacy čtení → seed z katalogu (volá volající).
+ */
+function normalizovatJazykSlot(
+  hodnota: unknown,
+  maxText: number,
+): { ok: true; slot: BranaJazykSlot } | { ok: false } {
+  if (!hodnota || typeof hodnota !== "object") {
+    return { ok: false };
+  }
+  const data = hodnota as Record<string, unknown>;
+  if (data.rezim === "Z_UDALOSTI") {
+    return { ok: true, slot: { rezim: "Z_UDALOSTI" } };
+  }
+  if (data.rezim === "NIC") {
+    return { ok: true, slot: { rezim: "NIC" } };
+  }
+  if (data.rezim === "PEVNE") {
+    const text = normalizovatTextSlotu(data.text, maxText);
+    if (!text.ok) {
+      return { ok: false };
+    }
+    return { ok: true, slot: { rezim: "PEVNE", text: text.text } };
+  }
+  return { ok: false };
+}
+
+/**
+ * jazykVerejny:
+ * - null = strukturovaný jazyk není nastaven (legacy)
+ * - { co, rozliseni } = nastaven
+ * Chybí při legacy čtení → výchozí pro id.
+ */
+function normalizovatJazykVerejny(
+  id: string,
+  hodnota: unknown,
+  legacy: boolean,
+): { ok: true; hodnota: BranaRedakcniJazykVerejny | null } | { ok: false } {
+  if (hodnota === undefined) {
+    if (legacy) {
+      return { ok: true, hodnota: vychoziJazykVerejnyProId(id) };
+    }
+    return { ok: false };
+  }
+  if (hodnota === null) {
+    return { ok: true, hodnota: null };
+  }
+  if (!hodnota || typeof hodnota !== "object") {
+    return { ok: false };
+  }
+  const data = hodnota as Record<string, unknown>;
+  const co = normalizovatJazykSlot(data.co, BRANA_REDAKCNI_JAZYK_CO_MAX);
+  if (!co.ok) {
+    return { ok: false };
+  }
+  const rozliseni = normalizovatJazykSlot(
+    data.rozliseni,
+    BRANA_REDAKCNI_JAZYK_ROZLISENI_MAX,
+  );
+  if (!rozliseni.ok) {
+    return { ok: false };
+  }
+  return {
+    ok: true,
+    hodnota: { co: co.slot, rozliseni: rozliseni.slot },
+  };
 }
 
 /**
@@ -222,6 +312,18 @@ export function validovatRedakcniPoradiVstup(
       }
     }
 
+    const jazykVerejny = normalizovatJazykVerejny(
+      vychozi.id,
+      data.jazykVerejny,
+      legacyVyhled,
+    );
+    if (!jazykVerejny.ok) {
+      return {
+        ok: false,
+        chyba: `Neplatný jazykVerejny u „${nazev.text}“.`,
+      };
+    }
+
     vysledek.push({
       id: vychozi.id,
       polozka: nazev.text,
@@ -231,6 +333,7 @@ export function validovatRedakcniPoradiVstup(
       vyhled,
       poznamka,
       mimoKostru: vychozi.mimoKostru,
+      jazykVerejny: jazykVerejny.hodnota,
     });
   }
 
@@ -276,6 +379,11 @@ export function sloucitUlozeneSKostrou(
     if (typeof ulozeny.poznamka === "string") {
       poznamka = ulozeny.poznamka.trim().slice(0, BRANA_REDAKCNI_POZNAMKA_MAX);
     }
+    const jazykVerejnyRaw = normalizovatJazykVerejny(
+      vychozi.id,
+      ulozeny.jazykVerejny,
+      true,
+    );
 
     return {
       id: vychozi.id,
@@ -286,6 +394,9 @@ export function sloucitUlozeneSKostrou(
       vyhled: vyhledRaw === "neplatne" ? vychoziVyhledProId(vychozi.id) : vyhledRaw,
       poznamka,
       mimoKostru: vychozi.mimoKostru,
+      jazykVerejny: jazykVerejnyRaw.ok
+        ? jazykVerejnyRaw.hodnota
+        : vychoziJazykVerejnyProId(vychozi.id),
     };
   });
 }

@@ -30,6 +30,18 @@ export type BranaKonkretniUdalost = {
   mistoNeboTyp: string;
   nazev: string;
   /**
+   * Strukturované veřejné CO.
+   * pole chybí (undefined) = LEGACY → renderer použije mistoNeboTyp
+   * null = explicitně bez CO
+   * string = strukturované CO
+   */
+  verejneCo?: string | null;
+  /**
+   * Strukturované veřejné rozlišení (vedle CO na 1. řádku).
+   * Při LEGACY pole chybí. null = bez rozlišení.
+   */
+  verejneRozliseni?: string | null;
+  /**
    * Pořadí ruční události v dni (jen když redakcniPolozkaId === null).
    * 0 = před první automatickou; N = za N-tou automatickou.
    * U automatických událostí null.
@@ -71,6 +83,44 @@ export function normalizovatStavSchvaleni(
     return "VYRAZENO";
   }
   return "SCHVALENO";
+}
+
+/**
+ * Volitelná strukturovaná pole z Blobu.
+ * Klíč chybí → {} (legacy) – jedna špatná událost nesmí shodit dokument.
+ * Klíč přítomen → verejneCo (string|null) + verejneRozliseni (string|null).
+ * Neplatný tvar → ok: false jen pro tuto událost (volající skipne pole).
+ */
+export function normalizovatVerejnaJazykovaPoleZBlobu(
+  u: Record<string, unknown>,
+):
+  | { ok: true; pole: { verejneCo?: string | null; verejneRozliseni?: string | null } }
+  | { ok: false } {
+  if (!("verejneCo" in u)) {
+    return { ok: true, pole: {} };
+  }
+  if (u.verejneCo !== null && typeof u.verejneCo !== "string") {
+    return { ok: false };
+  }
+  const verejneCo =
+    u.verejneCo === null ? null : (u.verejneCo as string).trim() || null;
+
+  if (
+    "verejneRozliseni" in u &&
+    u.verejneRozliseni !== null &&
+    typeof u.verejneRozliseni !== "string"
+  ) {
+    return { ok: false };
+  }
+  const verejneRozliseni =
+    !("verejneRozliseni" in u) || u.verejneRozliseni === null
+      ? null
+      : (u.verejneRozliseni as string).trim() || null;
+
+  return {
+    ok: true,
+    pole: { verejneCo, verejneRozliseni },
+  };
 }
 
 /**
