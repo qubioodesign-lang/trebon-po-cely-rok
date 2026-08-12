@@ -92,17 +92,21 @@ function normalizovatPouzivat(
 }
 
 /**
- * Redakční text Položka – povinný, trim, max délka.
- * Není tožné se stabilním id.
+ * Redakční text Položka – trim, max délka.
+ * Prázdný řetězec povolen jen u rezervních slotů (Používat = NE).
  */
 function normalizovatNazevPolozky(
   hodnota: unknown,
+  volby?: { povolitPrazdne?: boolean },
 ): { ok: true; text: string } | { ok: false; chyba: "neplatne" | "prazdne" | "dlouhe" } {
   if (typeof hodnota !== "string") {
     return { ok: false, chyba: "neplatne" };
   }
   const text = hodnota.trim();
   if (text === "") {
+    if (volby?.povolitPrazdne === true) {
+      return { ok: true, text: "" };
+    }
     return { ok: false, chyba: "prazdne" };
   }
   if (text.length > BRANA_REDAKCNI_POLOZKA_MAX) {
@@ -243,7 +247,18 @@ export function validovatRedakcniPoradiVstup(
     }
 
     const data = radek as Record<string, unknown>;
-    const nazev = normalizovatNazevPolozky(data.polozka);
+
+    const pouzivat = normalizovatPouzivat(data.pouzivat);
+    if (pouzivat === "neplatne") {
+      return {
+        ok: false,
+        chyba: `Neplatné Používat u „${vychozi.id}“.`,
+      };
+    }
+
+    const nazev = normalizovatNazevPolozky(data.polozka, {
+      povolitPrazdne: pouzivat === "NE",
+    });
     if (!nazev.ok) {
       if (nazev.chyba === "prazdne") {
         return {
@@ -263,19 +278,13 @@ export function validovatRedakcniPoradiVstup(
       };
     }
 
-    const pouzivat = normalizovatPouzivat(data.pouzivat);
-    if (pouzivat === "neplatne") {
-      return {
-        ok: false,
-        chyba: `Neplatné Používat u „${nazev.text}“.`,
-      };
-    }
+    const popisekChyby = nazev.text || vychozi.id;
 
     const priorita = normalizovatCislo(data.priorita);
     if (priorita === "neplatne") {
       return {
         ok: false,
-        chyba: `Neplatná Priorita u „${nazev.text}“ (povolené ${BRANA_REDAKCNI_CISLO_MIN}–${BRANA_REDAKCNI_CISLO_MAX} nebo prázdné).`,
+        chyba: `Neplatná Priorita u „${popisekChyby}“ (povolené ${BRANA_REDAKCNI_CISLO_MIN}–${BRANA_REDAKCNI_CISLO_MAX} nebo prázdné).`,
       };
     }
 
@@ -283,7 +292,7 @@ export function validovatRedakcniPoradiVstup(
     if (subpriorita === "neplatne") {
       return {
         ok: false,
-        chyba: `Neplatná Subpriorita u „${nazev.text}“ (povolené ${BRANA_REDAKCNI_CISLO_MIN}–${BRANA_REDAKCNI_CISLO_MAX} nebo prázdné).`,
+        chyba: `Neplatná Subpriorita u „${popisekChyby}“ (povolené ${BRANA_REDAKCNI_CISLO_MIN}–${BRANA_REDAKCNI_CISLO_MAX} nebo prázdné).`,
       };
     }
 
@@ -291,7 +300,7 @@ export function validovatRedakcniPoradiVstup(
     if (vyhled === "neplatne") {
       return {
         ok: false,
-        chyba: `Neplatný Výhled u „${nazev.text}“.`,
+        chyba: `Neplatný Výhled u „${popisekChyby}“.`,
       };
     }
 
@@ -300,14 +309,14 @@ export function validovatRedakcniPoradiVstup(
       if (typeof data.poznamka !== "string") {
         return {
           ok: false,
-          chyba: `Neplatná Poznámka u „${nazev.text}“.`,
+          chyba: `Neplatná Poznámka u „${popisekChyby}“.`,
         };
       }
       poznamka = data.poznamka.trim();
       if (poznamka.length > BRANA_REDAKCNI_POZNAMKA_MAX) {
         return {
           ok: false,
-          chyba: `Poznámka u „${nazev.text}“ přesahuje ${BRANA_REDAKCNI_POZNAMKA_MAX} znaků.`,
+          chyba: `Poznámka u „${popisekChyby}“ přesahuje ${BRANA_REDAKCNI_POZNAMKA_MAX} znaků.`,
         };
       }
     }
@@ -320,7 +329,7 @@ export function validovatRedakcniPoradiVstup(
     if (!jazykVerejny.ok) {
       return {
         ok: false,
-        chyba: `Neplatný jazykVerejny u „${nazev.text}“.`,
+        chyba: `Neplatný jazykVerejny u „${popisekChyby}“.`,
       };
     }
 
