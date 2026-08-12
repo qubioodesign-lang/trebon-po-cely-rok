@@ -1,8 +1,9 @@
 /**
  * Parser obsahu jednoho známého zdroje.
  * Preferuje JSON-LD schema.org Event; úzké HTML větve jen pro program
- * kinotrebon.cz (`.section-event`), trebonskanocturna.cz (karty `/koncert/`)
- * a dumstepankanetolickeho.cz (`.home-block-wrapper.event-item`).
+ * kinotrebon.cz (`.section-event`), trebonskanocturna.cz (karty `/koncert/`),
+ * dumstepankanetolickeho.cz (`.home-block-wrapper.event-item`)
+ * a trebon105.cz (`article.event`).
  * Odděleně od Kalendáře a Blob zápisu.
  * Datum/čas: Europe/Prague (včetně DST) přes stávající brana/cas.
  * Multi-měsíční fetch DSN žije ve scan orchestraci, ne zde.
@@ -721,6 +722,244 @@ function parsovatDumStepankaEventItem(
   }
 }
 
+/** Úzká detekce programu trebon105.cz (Kirby karty `article.event`). */
+function jeTrebon105ProgramHtml(html: string): boolean {
+  return (
+    /trebon105\.cz/i.test(html) && /<article\b[^>]*\bclass=["'][^"']*\bevent\b/i.test(html)
+  );
+}
+
+/**
+ * Rok pro den/měsíc bez explicitního roku (Aktuální program trebon105).
+ * Bere Europe/Prague „dnes“; pokud by den vyšel >60 dní v minulosti, +1 rok.
+ */
+function rokProTrebon105BezRoku(
+  den: number,
+  mesic: number,
+  referencniRok: number,
+  dnesIso: string,
+): number {
+  let rok = referencniRok;
+  let iso = formatujIsoDen(rok, mesic, den);
+  if (iso < dnesIso) {
+    const dnes = dnesIso.split("-").map(Number);
+    const d0 = Date.UTC(dnes[0], dnes[1] - 1, dnes[2]);
+    const d1 = Date.UTC(rok, mesic - 1, den);
+    const dni = Math.floor((d0 - d1) / 86_400_000);
+    if (dni > 60) {
+      rok += 1;
+      iso = formatujIsoDen(rok, mesic, den);
+    }
+  }
+  void iso;
+  return rok;
+}
+
+type Trebon105DatumRozklad = {
+  datumOd: string;
+  datumDo: string;
+  /** HH:mm nebo "" */
+  cas: string;
+};
+
+/**
+ * Parsování textu `.event__date` (weekday / rozsah / čas / overnight).
+ * Čas DO se do BranaScanKandidat neukládá – bere se jen čas OD.
+ */
+function rozlozTrebon105EventDate(
+  surovy: string,
+  referencniRok: number,
+  dnesIso: string,
+): Trebon105DatumRozklad | null {
+  let text = surovy
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/[–—]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+  text = text.replace(
+    /^(pondělí|úterý|středa|čtvrtek|pátek|sobota|neděle)\s+/i,
+    "",
+  );
+
+  // Overnight: 21. 8. 22:00 - 22. 8. 2026 23:59
+  const overnight = text.match(
+    /^(\d{1,2})\.\s*(\d{1,2})\.\s+(\d{1,2}):(\d{2})\s*-\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})\s+(\d{1,2}):(\d{2})$/,
+  );
+  if (overnight) {
+    const denOd = Number(overnight[1]);
+    const mesicOd = Number(overnight[2]);
+    const hodina = Number(overnight[3]);
+    const minuta = Number(overnight[4]);
+    const denDo = Number(overnight[5]);
+    const mesicDo = Number(overnight[6]);
+    const rokDo = Number(overnight[7]);
+    if (
+      mesicOd < 1 ||
+      mesicOd > 12 ||
+      denOd < 1 ||
+      denOd > 31 ||
+      mesicDo < 1 ||
+      mesicDo > 12 ||
+      denDo < 1 ||
+      denDo > 31 ||
+      hodina > 23 ||
+      minuta > 59
+    ) {
+      return null;
+    }
+    const rokOd =
+      mesicOd > mesicDo || (mesicOd === mesicDo && denOd > denDo)
+        ? rokDo - 1
+        : rokDo;
+    return {
+      datumOd: formatujIsoDen(rokOd, mesicOd, denOd),
+      datumDo: formatujIsoDen(rokDo, mesicDo, denDo),
+      cas: formatujCas(hodina, minuta),
+    };
+  }
+
+  // Rozsah výstav: 27. 6. - 30. 8. 2026
+  const rozsah = text.match(
+    /^(\d{1,2})\.\s*(\d{1,2})\.\s*-\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})$/,
+  );
+  if (rozsah) {
+    const denOd = Number(rozsah[1]);
+    const mesicOd = Number(rozsah[2]);
+    const denDo = Number(rozsah[3]);
+    const mesicDo = Number(rozsah[4]);
+    const rokDo = Number(rozsah[5]);
+    if (
+      mesicOd < 1 ||
+      mesicOd > 12 ||
+      denOd < 1 ||
+      denOd > 31 ||
+      mesicDo < 1 ||
+      mesicDo > 12 ||
+      denDo < 1 ||
+      denDo > 31
+    ) {
+      return null;
+    }
+    const rokOd = mesicOd > mesicDo ? rokDo - 1 : rokDo;
+    return {
+      datumOd: formatujIsoDen(rokOd, mesicOd, denOd),
+      datumDo: formatujIsoDen(rokDo, mesicDo, denDo),
+      cas: "",
+    };
+  }
+
+  // Jednodenní s časem (rok volitelný): 14. 8. 21:15 - 23:00 | 4. 9. 2026 18:00
+  const sCasem = text.match(
+    /^(\d{1,2})\.\s*(\d{1,2})\.\s*(?:(\d{4})\s+)?(\d{1,2}):(\d{2})(?:\s*-\s*\d{1,2}:\d{2})?$/,
+  );
+  if (sCasem) {
+    const den = Number(sCasem[1]);
+    const mesic = Number(sCasem[2]);
+    const hodina = Number(sCasem[4]);
+    const minuta = Number(sCasem[5]);
+    if (
+      mesic < 1 ||
+      mesic > 12 ||
+      den < 1 ||
+      den > 31 ||
+      hodina > 23 ||
+      minuta > 59
+    ) {
+      return null;
+    }
+    const rok = sCasem[3]
+      ? Number(sCasem[3])
+      : rokProTrebon105BezRoku(den, mesic, referencniRok, dnesIso);
+    const datum = formatujIsoDen(rok, mesic, den);
+    return {
+      datumOd: datum,
+      datumDo: datum,
+      cas: formatujCas(hodina, minuta),
+    };
+  }
+
+  // Jednodenní bez času s rokem: 14. 8. 2026
+  const jenDen = text.match(/^(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})$/);
+  if (jenDen) {
+    const den = Number(jenDen[1]);
+    const mesic = Number(jenDen[2]);
+    const rok = Number(jenDen[3]);
+    if (mesic < 1 || mesic > 12 || den < 1 || den > 31) {
+      return null;
+    }
+    const datum = formatujIsoDen(rok, mesic, den);
+    return { datumOd: datum, datumDo: datum, cas: "" };
+  }
+
+  return null;
+}
+
+/**
+ * HTML program trebon105.cz → BranaScanKandidat.
+ * Jedna karta `article.event` = jeden kandidát.
+ */
+function parsovatTrebon105EventArticles(
+  html: string,
+  vysledek: BranaScanKandidat[],
+): void {
+  const dnes = dnesVPraze();
+  const dnesIso = formatujIsoDen(dnes.rok, dnes.mesic, dnes.den);
+  const referencniRok = dnes.rok;
+
+  const karty = [
+    ...html.matchAll(/<article\b[^>]*\bclass=["'][^"']*\bevent\b[^"']*["'][^>]*>[\s\S]*?<\/article>/gi),
+  ];
+
+  for (const kartaMatch of karty) {
+    if (vysledek.length >= MAX_KANDIDATU) {
+      return;
+    }
+    const karta = kartaMatch[0];
+
+    const titleMatch = karta.match(
+      /<h4\b[^>]*\bclass=["'][^"']*\bevent__title\b[^"']*["'][^>]*>([\s\S]*?)<\/h4>/i,
+    );
+    const artistMatch = karta.match(
+      /<div\b[^>]*\bclass=["'][^"']*\bevent__artist\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+    );
+    const title = textBezHtmlTagu(titleMatch?.[1] ?? "");
+    const artist = textBezHtmlTagu(artistMatch?.[1] ?? "");
+    const nazev = title || artist;
+    if (!nazev || nazev.length < 2) {
+      continue;
+    }
+
+    const dateMatch = karta.match(
+      /<div\b[^>]*\bclass=["'][^"']*\bevent__date\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+    );
+    const datumText = dateMatch?.[1] ?? "";
+    if (!datumText.trim()) {
+      continue;
+    }
+    const rozklad = rozlozTrebon105EventDate(
+      datumText,
+      referencniRok,
+      dnesIso,
+    );
+    if (!rozklad) {
+      continue;
+    }
+
+    const venueMatch = karta.match(
+      /<div\b[^>]*\bclass=["'][^"']*\bevent__venue\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+    );
+    const mistoNeboTyp = textBezHtmlTagu(venueMatch?.[1] ?? "");
+
+    vysledek.push({
+      nazev,
+      datumOd: rozklad.datumOd,
+      datumDo: rozklad.datumDo,
+      cas: rozklad.cas,
+      mistoNeboTyp,
+    });
+  }
+}
+
 /**
  * Z HTML (nebo čistého JSON) vytáhne kandidátní události.
  * Bez vymyšlených údajů – chybí-li název nebo datum, kandidát se zahodí.
@@ -758,6 +997,11 @@ export function parsovatUdalostiZeZdroje(
   // Jen dumstepankanetolickeho.cz – měsíční karty .event-item.
   if (jeDumStepankaProgramHtml(telo)) {
     parsovatDumStepankaEventItem(telo, vysledek);
+  }
+
+  // Jen trebon105.cz – karty article.event (Galerie / program).
+  if (jeTrebon105ProgramHtml(telo)) {
+    parsovatTrebon105EventArticles(telo, vysledek);
   }
 
   return deduplikovatScanKandidaty(vysledek);
