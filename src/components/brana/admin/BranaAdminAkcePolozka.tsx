@@ -23,18 +23,21 @@ export function BranaAdminAkcePolozka({
 }: BranaAdminAkcePolozkaProps) {
   return (
     <li>
-      <div className="brana-admin-akce-obsah">
-        <div className="brana-admin-akce-radek">
-          <span className="brana-admin-akce-typ">{typ}</span>
-          {misto ? (
-            <span className="brana-admin-akce-misto"> {misto}</span>
+      {/* Stejný grid jako Kalendář: text vlevo, údaj vpravo (.brana-admin-akce-nahled). */}
+      <div className="brana-admin-akce-nahled">
+        <div className="brana-admin-akce-obsah">
+          <div className="brana-admin-akce-radek">
+            <span className="brana-admin-akce-typ">{typ}</span>
+            {misto ? (
+              <span className="brana-admin-akce-misto"> {misto}</span>
+            ) : null}
+          </div>
+          {nazev ? (
+            <span className="brana-admin-akce-nazev">{nazev}</span>
           ) : null}
         </div>
-        {nazev ? (
-          <span className="brana-admin-akce-nazev">{nazev}</span>
-        ) : null}
+        <span className="brana-admin-akce-cas">{udajVpravo}</span>
       </div>
-      <span className="brana-admin-akce-cas">{udajVpravo}</span>
       {chrome ? (
         <div className="brana-admin-akce-chrome">{chrome}</div>
       ) : null}
