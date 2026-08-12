@@ -3,7 +3,7 @@
  * Preferuje JSON-LD schema.org Event; úzké HTML větve jen pro program
  * kinotrebon.cz (`.section-event`), trebonskanocturna.cz (karty `/koncert/`),
  * dumstepankanetolickeho.cz (`.home-block-wrapper.event-item`)
- * a trebon105.cz (`article.event`).
+ * a trebon105.cz (`article.event` jen v sekci Akce, ne Výstavy).
  * Odděleně od Kalendáře a Blob zápisu.
  * Datum/čas: Europe/Prague (včetně DST) přes stávající brana/cas.
  * Multi-měsíční fetch DSN žije ve scan orchestraci, ne zde.
@@ -895,8 +895,32 @@ function rozlozTrebon105EventDate(
 }
 
 /**
+ * Vnitřek sekcí `event-list` BEZ `event-list--exhibitions` (programová Akce).
+ * Sekci Výstavy (`event-list--exhibitions`) úplně vynechá – bez textové heuristiky.
+ */
+function vytahnoutTrebon105AkceSekceHtml(html: string): string {
+  const sekce = [
+    ...html.matchAll(/<section\b([^>]*)>([\s\S]*?)<\/section>/gi),
+  ];
+  const casti: string[] = [];
+  for (const m of sekce) {
+    const attrs = m[1] ?? "";
+    const classAttr = attrs.match(/\bclass=["']([^"']*)["']/i)?.[1] ?? "";
+    const classes = classAttr.split(/\s+/).filter(Boolean);
+    if (!classes.includes("event-list")) {
+      continue;
+    }
+    if (classes.includes("event-list--exhibitions")) {
+      continue;
+    }
+    casti.push(m[2] ?? "");
+  }
+  return casti.join("\n");
+}
+
+/**
  * HTML program trebon105.cz → BranaScanKandidat.
- * Jedna karta `article.event` = jeden kandidát.
+ * Jen `article.event` uvnitř sekce Akce (`event-list` bez `--exhibitions`).
  */
 function parsovatTrebon105EventArticles(
   html: string,
@@ -906,8 +930,15 @@ function parsovatTrebon105EventArticles(
   const dnesIso = formatujIsoDen(dnes.rok, dnes.mesic, dnes.den);
   const referencniRok = dnes.rok;
 
+  const akceHtml = vytahnoutTrebon105AkceSekceHtml(html);
+  if (!akceHtml.trim()) {
+    return;
+  }
+
   const karty = [
-    ...html.matchAll(/<article\b[^>]*\bclass=["'][^"']*\bevent\b[^"']*["'][^>]*>[\s\S]*?<\/article>/gi),
+    ...akceHtml.matchAll(
+      /<article\b[^>]*\bclass=["'][^"']*\bevent\b[^"']*["'][^>]*>[\s\S]*?<\/article>/gi,
+    ),
   ];
 
   for (const kartaMatch of karty) {

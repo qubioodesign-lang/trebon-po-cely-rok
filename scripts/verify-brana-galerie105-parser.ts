@@ -1,5 +1,6 @@
 /**
  * Regrese: úzký HTML parser Galerie 105 / trebon105.cz (`article.event`).
+ * Jen sekce Akce (`event-list` bez `event-list--exhibitions`).
  * Spuštění: npx tsx scripts/verify-brana-galerie105-parser.ts
  */
 
@@ -50,8 +51,8 @@ function eventCard(opts: {
 </a>`;
 }
 
-function page(...cards: string[]): string {
-  return `<!DOCTYPE html>
+/** Reprezentativní stránka: 2 Výstavy + 4 Akce ve správných sekcích. */
+const FIXTURE = `<!DOCTYPE html>
 <html><head>
 <title>Program - Třeboň 105</title>
 <link rel="canonical" href="https://trebon105.cz/program/prostor:galerie"/>
@@ -61,42 +62,45 @@ function page(...cards: string[]): string {
   <a class="filter-nav-item" href="https://trebon105.cz/program">Vše</a>
   <a class="filter-nav-item is-active" href="https://trebon105.cz/program/prostor:galerie">Galerie</a>
 </nav>
-<div class="event-list__content">
-${cards.join("\n")}
-</div>
+<section class="event-list event-list--exhibitions">
+  <h3 class="event-list__title">Výstavy</h3>
+  <div class="event-list__content">
+${eventCard({
+  dateHtml: "27. 6. - 30. 8. 2026",
+  artist: "Veronika Holcová",
+  title: "Nad světem v podsvětí",
+})}
+${eventCard({
+  dateHtml: "12. 9. - 1. 11. 2026",
+  artist: "Karolína Netolická",
+  title: "Výstava",
+})}
+  </div>
+</section>
+<section class="event-list">
+  <h3 class="event-list__title">Akce</h3>
+  <div class="event-list__content">
+${eventCard({
+  dateHtml: "Pátek<br> 14. 8. 21:15 - 23:00",
+  title: "Anežka Hlinková: Videoprojekce na stěny Stopětky",
+})}
+${eventCard({
+  dateHtml: "Středa<br> 19. 8. 17:00 - 17:30",
+  title: "Uvidíš: Zahájení VIDIN",
+})}
+${eventCard({
+  dateHtml: "Pátek<br> 21. 8. 22:00 - 22. 8. 2026 23:59",
+  title: "Fluence - videomapping na fasádu ZUŠ",
+})}
+${eventCard({
+  dateHtml: "Sobota<br> 4. 9. 18:00",
+  title: "Literárně-hudební představení",
+  venue: "Galerie",
+})}
+  </div>
+</section>
 <footer>Masarykovo náměstí 105</footer>
 </body></html>`;
-}
-
-const FIXTURE = page(
-  eventCard({
-    dateHtml: "27. 6. - 30. 8. 2026",
-    artist: "Veronika Holcová",
-    title: "Nad světem v podsvětí",
-  }),
-  eventCard({
-    dateHtml: "12. 9. - 1. 11. 2026",
-    artist: "Karolína Netolická",
-    title: "Výstava",
-  }),
-  eventCard({
-    dateHtml: "Pátek<br> 14. 8. 21:15 - 23:00",
-    title: "Anežka Hlinková: Videoprojekce na stěny Stopětky",
-  }),
-  eventCard({
-    dateHtml: "Středa<br> 19. 8. 17:00 - 17:30",
-    title: "Uvidíš: Zahájení VIDIN",
-  }),
-  eventCard({
-    dateHtml: "Pátek<br> 21. 8. 22:00 - 22. 8. 2026 23:59",
-    title: "Fluence - videomapping na fasádu ZUŠ",
-  }),
-  eventCard({
-    dateHtml: "Sobota<br> 4. 9. 18:00",
-    title: "Literárně-hudební představení",
-    venue: "Galerie",
-  }),
-);
 
 const KINOTREBON_FIXTURE = `<!DOCTYPE html>
 <html><body>
@@ -135,26 +139,19 @@ const DSN_MINI = `<!DOCTYPE html>
 
 function overFixture(): void {
   const k = parsovatUdalostiZeZdroje(FIXTURE, "text/html");
-  assert(k.length === 6, `fixture: 6 kandidátů, je ${k.length}`);
+  assert(k.length === 4, `fixture: 4 Akce, je ${k.length}`);
 
-  const rozsah = k.find((x) => x.nazev.includes("podsvětí"));
-  assert(rozsah, "rozsah výstavy nenalezen");
-  assert(rozsah.datumOd === "2026-06-27", `rozsah od: ${rozsah.datumOd}`);
-  assert(rozsah.datumDo === "2026-08-30", `rozsah do: ${rozsah.datumDo}`);
-  assert(rozsah.cas === "", `rozsah bez času: "${rozsah.cas}"`);
-  assert(rozsah.mistoNeboTyp === "Galerie", `venue: ${rozsah.mistoNeboTyp}`);
-
-  const bezCasu = k.find((x) => x.nazev === "Výstava");
-  assert(bezCasu, "položka bez času (Výstava)");
-  assert(bezCasu.datumOd === "2026-09-12", `bez času od: ${bezCasu.datumOd}`);
-  assert(bezCasu.datumDo === "2026-11-01", `bez času do: ${bezCasu.datumDo}`);
-  assert(bezCasu.cas === "", `bez času cas: "${bezCasu.cas}"`);
+  assert(
+    !k.some((x) => x.nazev.includes("podsvětí") || x.nazev === "Výstava"),
+    "kartu z event-list--exhibitions nesmí parser vrátit",
+  );
 
   const video = k.find((x) => x.nazev.includes("Videoprojekce"));
   assert(video, "jednodenní s časem");
   assert(video.datumOd === "2026-08-14", `video den: ${video.datumOd}`);
   assert(video.datumDo === "2026-08-14", `video do: ${video.datumDo}`);
   assert(video.cas === "21:15", `video čas OD: ${video.cas}`);
+  assert(video.mistoNeboTyp === "Galerie", `venue: ${video.mistoNeboTyp}`);
 
   const overnight = k.find((x) => x.nazev.includes("Fluence"));
   assert(overnight, "overnight");
@@ -162,12 +159,16 @@ function overFixture(): void {
   assert(overnight.datumDo === "2026-08-22", `overnight do: ${overnight.datumDo}`);
   assert(overnight.cas === "22:00", `overnight cas: ${overnight.cas}`);
 
+  const zahajeni = k.find((x) => x.nazev.includes("Zahájení"));
+  assert(zahajeni, "zahájení");
+  assert(zahajeni.cas === "17:00", `zahájení cas: ${zahajeni.cas}`);
+
   const jenCasOd = k.find((x) => x.nazev.includes("Literárně"));
   assert(jenCasOd, "jediný čas bez rozsahu");
   assert(jenCasOd.datumOd === "2026-09-04", `4.9.: ${jenCasOd.datumOd}`);
   assert(jenCasOd.cas === "18:00", `18:00: ${jenCasOd.cas}`);
 
-  console.log("OK Galerie 105 fixture: rozsah / čas / overnight / venue");
+  console.log("OK Galerie 105: Výstavy ignorovány, 4 Akce OK");
 }
 
 function overNavigaceNedavaKandidaty(): void {
@@ -183,6 +184,23 @@ function overNavigaceNedavaKandidaty(): void {
   const k = parsovatUdalostiZeZdroje(jenNav, "text/html");
   assert(k.length === 0, `navigace/footer bez article.event → 0, je ${k.length}`);
   console.log("OK navigace/okolí → 0 kandidátů");
+}
+
+function overJenVystavySekce(): void {
+  const jenVystavy = `<!DOCTYPE html>
+<html><head><link rel="canonical" href="https://trebon105.cz/program"/></head>
+<body>
+<section class="event-list event-list--exhibitions">
+  <h3 class="event-list__title">Výstavy</h3>
+  ${eventCard({
+    dateHtml: "27. 6. - 30. 8. 2026",
+    title: "Jen výstava",
+  })}
+</section>
+</body></html>`;
+  const k = parsovatUdalostiZeZdroje(jenVystavy, "text/html");
+  assert(k.length === 0, `jen exhibitions → 0, je ${k.length}`);
+  console.log("OK samotná sekce Výstavy → 0");
 }
 
 function overMatching(): void {
@@ -240,21 +258,27 @@ async function overZivyProgramVolitelne(): Promise<void> {
   }
   const cards = (html.match(/<article class="event">/g) || []).length;
   const k = parsovatUdalostiZeZdroje(html, "text/html");
+  assert(cards === 25, `živý article.event = 25, je ${cards}`);
+  assert(k.length === 6, `živý: právě 6 Akcí, je ${k.length}`);
   assert(
-    k.length === cards,
-    `živý: kandidáti ${k.length} ≠ article.event ${cards}`,
+    !k.some((x) => x.cas === "" && x.datumOd !== x.datumDo && x.datumOd <= "2026-08-10"),
+    "nesmí projít typická dlouhodobá výstava bez času ze sekce Výstavy",
   );
-  assert(k.length > 0, "živý program musí dát >0");
   assert(
     k.every((x) => x.mistoNeboTyp === "Galerie"),
     "filtr Galerie → venue Galerie",
   );
-  console.log(`OK živý prostor:galerie → ${k.length} kandidátů (= ${cards} karet)`);
+  const nazvy = k.map((x) => x.nazev).join(" | ");
+  assert(nazvy.includes("Videoprojekce"), `akce videoprojekce: ${nazvy}`);
+  assert(nazvy.includes("Zahájení"), `akce zahájení: ${nazvy}`);
+  assert(nazvy.includes("Fluence"), `akce Fluence: ${nazvy}`);
+  console.log(`OK živý prostor:galerie → ${k.length} Akcí (z ${cards} karet)`);
 }
 
 async function main(): Promise<void> {
   overFixture();
   overNavigaceNedavaKandidaty();
+  overJenVystavySekce();
   overMatching();
   overRegreseOstatni();
   await overZivyProgramVolitelne();
