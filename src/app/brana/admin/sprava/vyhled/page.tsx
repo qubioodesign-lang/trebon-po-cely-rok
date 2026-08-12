@@ -4,7 +4,7 @@ import { BranaAdminObal } from "@/components/brana/admin/BranaAdminObal";
 import { rozlozAkci } from "@/lib/brana/admin/akce-rozlozeni";
 import {
   formatujDatumVyhled,
-  projektujVyhledPodleRoku,
+  projektujAdminVyhledSouhrnyPodleRoku,
 } from "@/lib/brana/admin/konkretni-udalost";
 import {
   BRANA_KONKRETNI_UDALOSTI_CHYBA_CTENI,
@@ -15,7 +15,7 @@ import { maUkazkovyVyhledAno } from "@/lib/brana/admin/ukazkove-udalosti";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 import "../../brana-admin-kalendar.css";
 
-/** Správa → Výhled – druhý pohled na stejné konkrétní události (PRIVATE Blob) */
+/** Správa → Výhled – souhrnná projekce stejných konkrétních událostí (PRIVATE Blob) */
 export default async function StrankaBranaAdminVyhled() {
   if (!(await jeAdminPrihlasen())) {
     return null;
@@ -35,7 +35,7 @@ export default async function StrankaBranaAdminVyhled() {
 
   const realneUdalosti = uloziste.ok ? uloziste.udalosti : [];
 
-  const skupiny = projektujVyhledPodleRoku(
+  const skupiny = projektujAdminVyhledSouhrnyPodleRoku(
     realneUdalosti,
     (redakcniPolozkaId) =>
       maUkazkovyVyhledAno(redakcniPolozkaId, vyhledPodleId.get(redakcniPolozkaId)),
@@ -72,19 +72,28 @@ export default async function StrankaBranaAdminVyhled() {
               <div key={skupina.rok} className="space-y-3">
                 <h3 className="brana-admin-kalendar-datum">{skupina.rok}</h3>
                 <ul className="brana-admin-seznam-akci">
-                  {skupina.udalosti.map((udalost) => {
+                  {skupina.souhrny.map((souhrn) => {
                     const { typ, misto, nazev } = rozlozAkci({
-                      mistoNeboTyp: udalost.mistoNeboTyp,
-                      nazev: udalost.nazev,
-                      cas: udalost.cas,
+                      mistoNeboTyp: souhrn.mistoNeboTyp,
+                      nazev: souhrn.nazev,
+                      cas: "",
+                      ...(souhrn.verejneCo !== undefined
+                        ? {
+                            verejneCo: souhrn.verejneCo,
+                            verejneRozliseni: souhrn.verejneRozliseni ?? null,
+                          }
+                        : {}),
                     });
                     return (
                       <BranaAdminAkcePolozka
-                        key={udalost.id}
+                        key={souhrn.klic}
                         typ={typ}
                         misto={misto}
                         nazev={nazev}
-                        udajVpravo={formatujDatumVyhled(udalost)}
+                        udajVpravo={formatujDatumVyhled({
+                          datumOd: souhrn.datumOd,
+                          datumDo: souhrn.datumDo,
+                        })}
                       />
                     );
                   })}

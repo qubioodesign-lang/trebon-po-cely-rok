@@ -212,7 +212,10 @@ export function dnyTrvaniUdalosti(udalost: BranaKonkretniUdalost): string[] {
 }
 
 /** Formát Výhledu: 5.10. nebo 5.10.–8.10. – bez roku, času a dne v týdnu */
-export function formatujDatumVyhled(udalost: BranaKonkretniUdalost): string {
+export function formatujDatumVyhled(udalost: {
+  datumOd: string;
+  datumDo: string;
+}): string {
   const od = parsujIsoDen(udalost.datumOd);
   const doDne = parsujIsoDen(udalost.datumDo);
   const odText = `${od.getUTCDate()}.${od.getUTCMonth() + 1}.`;
@@ -357,9 +360,31 @@ export type BranaVyhledRokSkupina = {
 };
 
 /**
+ * Souhrnný řádek admin Výhledu – pouze projekce, ne persistovaná událost.
+ * Více konkrétních událostí stejné redakční položky ve stejném roce → jeden řádek.
+ */
+export type BranaAdminVyhledSouhrn = {
+  klic: string;
+  redakcniPolozkaId: string;
+  datumOd: string;
+  datumDo: string;
+  mistoNeboTyp: string;
+  nazev: string;
+  verejneCo?: string | null;
+  verejneRozliseni?: string | null;
+};
+
+export type BranaAdminVyhledRokSkupina = {
+  rok: number;
+  souhrny: BranaAdminVyhledSouhrn[];
+};
+
+/**
  * Projekce Výhledu: každá událost jednou, jen když redakční Výhled = ANO
  * a datumOd ještě není v období obdobi7DniVPraze ani v minulosti.
  * Ruční událost (redakcniPolozkaId = null) se ve Výhledu nezobrazuje.
+ *
+ * Zachováno pro Schválit kontrolu a další spotřebitele jednotlivých ID.
  */
 export function projektujVyhledPodleRoku(
   udalosti: readonly BranaKonkretniUdalost[],
@@ -390,6 +415,67 @@ export function projektujVyhledPodleRoku(
         return cmp !== 0 ? cmp : a.id.localeCompare(b.id);
       }),
     }));
+}
+
+/**
+ * Admin Výhled: stejný filtr jako projektujVyhledPodleRoku, ale uvnitř roku
+ * seskupí události se stejným redakcniPolozkaId do jednoho souhrnného řádku.
+ * Kalendář / Blob / veřejná projekce se nemění.
+ */
+export function projektujAdminVyhledSouhrnyPodleRoku(
+  udalosti: readonly BranaKonkretniUdalost[],
+  maVyhledAno: (redakcniPolozkaId: string) => boolean,
+): BranaAdminVyhledRokSkupina[] {
+  return projektujVyhledPodleRoku(udalosti, maVyhledAno).map(
+    ({ rok, udalosti: udalostiRoku }) => {
+      const podlePolozky = new Map<string, BranaKonkretniUdalost[]>();
+      for (const udalost of udalostiRoku) {
+        const id = udalost.redakcniPolozkaId as string;
+        const seznam = podlePolozky.get(id) ?? [];
+        seznam.push(udalost);
+        podlePolozky.set(id, seznam);
+      }
+
+      const souhrny: BranaAdminVyhledSouhrn[] = [];
+      for (const [redakcniPolozkaId, clenove] of podlePolozky) {
+        const serazene = clenove.slice().sort((a, b) => {
+          const cmp = a.datumOd.localeCompare(b.datumOd);
+          return cmp !== 0 ? cmp : a.id.localeCompare(b.id);
+        });
+        const reprezentant = serazene[0];
+        let datumDo = posledniPlatnyDenUdalosti(reprezentant);
+        for (const clen of serazene) {
+          const konec = posledniPlatnyDenUdalosti(clen);
+          if (konec > datumDo) {
+            datumDo = konec;
+          }
+        }
+        const jeSerie = serazene.length > 1;
+        souhrny.push({
+          klic: `${rok}:${redakcniPolozkaId}`,
+          redakcniPolozkaId,
+          datumOd: reprezentant.datumOd,
+          datumDo,
+          mistoNeboTyp: reprezentant.mistoNeboTyp,
+          // Série: bez názvu jednotlivého koncertu – CO/KDE z jazyka položky.
+          nazev: jeSerie ? "" : reprezentant.nazev,
+          ...(reprezentant.verejneCo !== undefined
+            ? {
+                verejneCo: reprezentant.verejneCo,
+                verejneRozliseni: reprezentant.verejneRozliseni ?? null,
+              }
+            : {}),
+        });
+      }
+
+      souhrny.sort((a, b) => {
+        const cmp = a.datumOd.localeCompare(b.datumOd);
+        return cmp !== 0 ? cmp : a.klic.localeCompare(b.klic);
+      });
+
+      return { rok, souhrny };
+    },
+  );
 }
 
 /** Popisek pro volbu místa v dni (bez čísla pozice) */
