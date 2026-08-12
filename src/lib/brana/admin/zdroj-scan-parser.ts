@@ -2,11 +2,12 @@
  * Parser obsahu jednoho známého zdroje.
  * Preferuje JSON-LD schema.org Event; úzké HTML větve jen pro program
  * kinotrebon.cz (`.section-event`), trebonskanocturna.cz (karty `/koncert/`),
- * dumstepankanetolickeho.cz (`.home-block-wrapper.event-item`)
- * a trebon105.cz (`article.event` jen v sekci Akce, ne Výstavy).
+ * dumstepankanetolickeho.cz (`.home-block-wrapper.event-item`),
+ * trebon105.cz (`article.event` jen v sekci Akce, ne Výstavy)
+ * a zameckalekarnatrebon.cz (měsíční `.articleContent` denní program).
  * Odděleně od Kalendáře a Blob zápisu.
  * Datum/čas: Europe/Prague (včetně DST) přes stávající brana/cas.
- * Multi-měsíční fetch DSN žije ve scan orchestraci, ne zde.
+ * Multi-měsíční fetch DSN / Zámecká lékárna žije ve scan orchestraci, ne zde.
  */
 
 import { dnesVPraze, okamzikVPraze } from "@/lib/brana/cas";
@@ -22,6 +23,12 @@ export type BranaScanKandidat = {
 };
 
 const MAX_KANDIDATU = 40;
+/** Bohatý denní program Zámecké lékárny – bez redakčního filtru v parseru. */
+const MAX_KANDIDATU_ZAMECKA_LEKARNA = 200;
+const ZAMECKA_LEKARNA_HUB_PATH = "/c-24-denni-program.html";
+const ZAMECKA_LEKARNA_MAX_MESICU = 4;
+const ZAMECKA_LEKARNA_MESIC_HREF_RE =
+  /\/c-\d+-(?:leden|unor|brezen|duben|kveten|cerven|cervenec|srpen|zari|rijen|listopad|prosinec)-\d{4}\.html/i;
 
 type RozkladDatumCas = {
   datum: string;
@@ -1027,6 +1034,256 @@ function parsovatTrebon105EventArticles(
   }
 }
 
+/** True, pokud URL zdroje míří na oficiální web Zámecké lékárny (s/bez www). */
+export function jeZameckaLekarnaZdrojUrl(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./i, "").toLowerCase();
+    return host === "zameckalekarnatrebon.cz";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Hub Denní program – discovery měsíčních stránek.
+ * Origin (protokol + host) bere ze zdrojové URL (homepage / hub / měsíc).
+ */
+export function sestavZameckaLekarnaHubUrl(zdrojUrl: string): string {
+  if (!jeZameckaLekarnaZdrojUrl(zdrojUrl)) {
+    return "";
+  }
+  const base = new URL(zdrojUrl);
+  return `${base.protocol}//${base.host}${ZAMECKA_LEKARNA_HUB_PATH}`;
+}
+
+/**
+ * Z HTML hubu vytáhne zveřejněné měsíční programové URL (max 4).
+ * Jen odkazy, které hub skutečně nabízí – bez syntetických měsíců.
+ */
+export function vytahnoutZameckaLekarnaMesicUrlky(
+  hubHtml: string,
+  hubUrl: string,
+): string[] {
+  if (!jeZameckaLekarnaZdrojUrl(hubUrl) || !hubHtml.trim()) {
+    return [];
+  }
+  let origin: string;
+  try {
+    origin = new URL(hubUrl).origin;
+  } catch {
+    return [];
+  }
+
+  const nalezene: string[] = [];
+  const videne = new Set<string>();
+
+  const pridej = (hrefSurovy: string): void => {
+    const href = hrefSurovy.trim();
+    if (!ZAMECKA_LEKARNA_MESIC_HREF_RE.test(href.split("?")[0] ?? href)) {
+      return;
+    }
+    let abs: URL;
+    try {
+      abs = new URL(href, origin);
+    } catch {
+      return;
+    }
+    const host = abs.hostname.replace(/^www\./i, "").toLowerCase();
+    if (host !== "zameckalekarnatrebon.cz") {
+      return;
+    }
+    const normalizovana = `${abs.origin}${abs.pathname}`;
+    if (videne.has(normalizovana.toLowerCase())) {
+      return;
+    }
+    videne.add(normalizovana.toLowerCase());
+    nalezene.push(normalizovana);
+  };
+
+  // Preferuj karty .subcategory (stejná data jako menu).
+  const karty = [
+    ...hubHtml.matchAll(
+      /class=["'][^"']*\bsubcategory\b[^"']*["'][\s\S]*?href=["']([^"']+)["']/gi,
+    ),
+  ];
+  for (const k of karty) {
+    pridej(k[1] ?? "");
+    if (nalezene.length >= ZAMECKA_LEKARNA_MAX_MESICU) {
+      return nalezene;
+    }
+  }
+
+  // Fallback: všechny měsíční /c-… odkazy na hubu.
+  if (nalezene.length === 0) {
+    for (const m of hubHtml.matchAll(/href=["']([^"']+)["']/gi)) {
+      pridej(m[1] ?? "");
+      if (nalezene.length >= ZAMECKA_LEKARNA_MAX_MESICU) {
+        break;
+      }
+    }
+  }
+
+  return nalezene.slice(0, ZAMECKA_LEKARNA_MAX_MESICU);
+}
+
+/** Úzká detekce měsíčního denního programu Zámecké lékárny. */
+function jeZameckaLekarnaMesicProgramHtml(html: string): boolean {
+  return (
+    /zameckalekarnatrebon\.cz/i.test(html) &&
+    /class=["']articleContent["']/i.test(html) &&
+    /<p>\s*<strong>\s*\d{1,2}\.\d{1,2}/i.test(html)
+  );
+}
+
+function rokZameckaLekarnaZHtml(html: string): number | null {
+  const zUrl = html.match(
+    /zameckalekarnatrebon\.cz\/c-\d+-[a-z]+-(\d{4})\.html/i,
+  );
+  if (zUrl) {
+    return Number(zUrl[1]);
+  }
+  const zH1 = html.match(
+    /<(?:h1|title)[^>]*>[\s\S]*?\b(?:leden|únor|unor|březen|brezen|duben|květen|kveten|červen|cerven|červenec|cervenec|srpen|září|zari|říjen|rijen|listopad|prosinec)\s+(\d{4})\b/i,
+  );
+  if (zH1) {
+    return Number(zH1[1]);
+  }
+  return null;
+}
+
+function vytahnoutCasZameckaLekarna(text: string): string {
+  const t = text.trim();
+  if (!t) {
+    return "";
+  }
+
+  const od = t.match(/\bOD\s+(\d{1,2})[,.:](\d{2})\s*HOD\.?/i);
+  if (od) {
+    const hodina = Number(od[1]);
+    const minuta = Number(od[2]);
+    if (hodina <= 23 && minuta <= 59) {
+      return formatujCas(hodina, minuta);
+    }
+  }
+
+  const zac = t.match(
+    /\bzač\.?\s*(\d{1,2})[,.:](\d{2})(?:\s*;\s*\d{1,2}[,.:]\d{2})*/i,
+  );
+  if (zac) {
+    const hodina = Number(zac[1]);
+    const minuta = Number(zac[2]);
+    if (hodina <= 23 && minuta <= 59) {
+      return formatujCas(hodina, minuta);
+    }
+  }
+
+  const prefix = t.match(/^(\d{1,2})[,.:](\d{2})\s*HOD\.?/i);
+  if (prefix) {
+    const hodina = Number(prefix[1]);
+    const minuta = Number(prefix[2]);
+    if (hodina <= 23 && minuta <= 59) {
+      return formatujCas(hodina, minuta);
+    }
+  }
+
+  const jednorazovy = t.match(/\b(\d{1,2})[,.:](\d{2})\s*HOD\.?/i);
+  if (jednorazovy) {
+    const hodina = Number(jednorazovy[1]);
+    const minuta = Number(jednorazovy[2]);
+    if (hodina <= 23 && minuta <= 59) {
+      return formatujCas(hodina, minuta);
+    }
+  }
+
+  const rozsah =
+    t.match(/\b(\d{1,2})\s*[-–]\s*(\d{1,2})\s*HOD\.?/i) ??
+    t.match(/\b(\d{1,2})\s+-\s+(\d{1,2})\s*HOD\.?/i);
+  if (rozsah) {
+    const hodina = Number(rozsah[1]);
+    if (hodina <= 23) {
+      return formatujCas(hodina, 0);
+    }
+  }
+
+  return "";
+}
+
+/**
+ * Název bez časových / vstupenkových suffixů.
+ * Nefiltruje redakčně – jen oddělí provozní přípony od textu položky.
+ */
+function cistyNazevZameckaLekarna(text: string): string {
+  let t = text.trim();
+  t = t.replace(/\s*-\s*(VSTUPENKY|INFO)\s*$/i, "");
+  t = t.replace(/\s*-\s*OD\s+\d{1,2}[,.:]\d{2}\s*HOD\.?\s*$/i, "");
+  t = t.replace(/\s*-\s*zač\.?\s*[\d:;,.\s]+$/i, "");
+  t = t.replace(/\s*-\s*\d{1,2}\s*[-–]\s*\d{1,2}\s*HOD\.?\s*$/i, "");
+  t = t.replace(/\s*-\s*\d{1,2}\s+-\s+\d{1,2}\s*HOD\.?\s*$/i, "");
+  t = t.replace(/\s*-\s*\d{1,2}[,.:]\d{2}\s*HOD\.?\s*$/i, "");
+  t = t.replace(/^\s*\d{1,2}[,.:]\d{2}\s*HOD\.?\s*/i, "");
+  return t.replace(/\s+/g, " ").trim();
+}
+
+/**
+ * HTML měsíční program zameckalekarnatrebon.cz → BranaScanKandidat.
+ * Jedna položka &lt;li&gt; pod denním záhlavím = jeden kandidát.
+ * Bez redakčního filtru (prohlídky / večery) – ochranu dělá HLIDANE_KOTVY.
+ */
+function parsovatZameckaLekarnaDenniProgram(
+  html: string,
+  vysledek: BranaScanKandidat[],
+): void {
+  const rok = rokZameckaLekarnaZHtml(html);
+  if (!rok || rok < 2000 || rok > 2100) {
+    return;
+  }
+
+  const scopeMatch = html.match(
+    /<div\s+class=["']articleContent["'][^>]*>([\s\S]*?)(?:<\/div>\s*<div\s+class\s*=\s*["']cleaner["']|<\/div>\s*<div\s+id=["']content-2|$)/i,
+  );
+  const scope = scopeMatch?.[1] ?? "";
+  if (!scope) {
+    return;
+  }
+
+  const denRe =
+    /<p>\s*<strong>\s*(\d{1,2})\.(\d{1,2})\.?(?:&nbsp;|\u00a0|\s)*<\/strong>\s*\.?\s*<\/p>\s*<ul>([\s\S]*?)<\/ul>/gi;
+  let denMatch: RegExpExecArray | null;
+  while (
+    (denMatch = denRe.exec(scope)) !== null &&
+    vysledek.length < MAX_KANDIDATU_ZAMECKA_LEKARNA
+  ) {
+    const den = Number(denMatch[1]);
+    const mesic = Number(denMatch[2]);
+    if (mesic < 1 || mesic > 12 || den < 1 || den > 31) {
+      continue;
+    }
+    const datum = formatujIsoDen(rok, mesic, den);
+    const ul = denMatch[3] ?? "";
+    for (const liMatch of ul.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)) {
+      if (vysledek.length >= MAX_KANDIDATU_ZAMECKA_LEKARNA) {
+        return;
+      }
+      const surovy = textBezHtmlTagu(liMatch[1] ?? "");
+      if (!surovy || surovy.length < 2) {
+        continue;
+      }
+      const cas = vytahnoutCasZameckaLekarna(surovy);
+      const nazev = cistyNazevZameckaLekarna(surovy);
+      if (!nazev || nazev.length < 2) {
+        continue;
+      }
+      vysledek.push({
+        nazev,
+        datumOd: datum,
+        datumDo: datum,
+        cas,
+        mistoNeboTyp: "",
+      });
+    }
+  }
+}
+
 /**
  * Z HTML (nebo čistého JSON) vytáhne kandidátní události.
  * Bez vymyšlených údajů – chybí-li název nebo datum, kandidát se zahodí.
@@ -1069,6 +1326,11 @@ export function parsovatUdalostiZeZdroje(
   // Jen trebon105.cz – karty article.event (Galerie / program).
   if (jeTrebon105ProgramHtml(telo)) {
     parsovatTrebon105EventArticles(telo, vysledek);
+  }
+
+  // Jen zameckalekarnatrebon.cz – měsíční denní program v .articleContent.
+  if (jeZameckaLekarnaMesicProgramHtml(telo)) {
+    parsovatZameckaLekarnaDenniProgram(telo, vysledek);
   }
 
   return deduplikovatScanKandidaty(vysledek);

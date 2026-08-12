@@ -21,8 +21,11 @@ import { jePlatnaZdrojUrl, doplnVychoziPoleZdroje, type BranaZdroj } from "./zdr
 import {
   deduplikovatScanKandidaty,
   jeDumStepankaNetolickehoZdrojUrl,
+  jeZameckaLekarnaZdrojUrl,
   parsovatUdalostiZeZdroje,
   sestavDumStepankaKalendarUrlkyCtyriMesice,
+  sestavZameckaLekarnaHubUrl,
+  vytahnoutZameckaLekarnaMesicUrlky,
   type BranaScanKandidat,
 } from "./zdroj-scan-parser";
 import { sestavJazykBranyPoSparovani } from "./jazyk-brany-po-sparovani";
@@ -597,12 +600,24 @@ async function skenovatZnamyZdrojJadro(
     };
   }
 
-  // DSN: 4 SSR měsíce kalendáře. Ostatní zdroje: 1 fetch = 1 URL.
+  // DSN: 4 SSR měsíce kalendáře.
+  // Zámecká lékárna: hub → discovery zveřejněných měsíců (max 4) → parse.
+  // Ostatní zdroje: 1 fetch = 1 URL.
   let kandidati: BranaScanKandidat[];
   if (jeDumStepankaNetolickehoZdrojUrl(zdroj.url)) {
     const urlky = sestavDumStepankaKalendarUrlkyCtyriMesice(zdroj.url);
     const sloucene: BranaScanKandidat[] = [];
     for (const mesicUrl of urlky) {
+      const { text, contentType } = await nacistTeloZdroje(mesicUrl);
+      sloucene.push(...parsovatUdalostiZeZdroje(text, contentType));
+    }
+    kandidati = deduplikovatScanKandidaty(sloucene);
+  } else if (jeZameckaLekarnaZdrojUrl(zdroj.url)) {
+    const hubUrl = sestavZameckaLekarnaHubUrl(zdroj.url);
+    const { text: hubHtml } = await nacistTeloZdroje(hubUrl);
+    const mesice = vytahnoutZameckaLekarnaMesicUrlky(hubHtml, hubUrl);
+    const sloucene: BranaScanKandidat[] = [];
+    for (const mesicUrl of mesice) {
       const { text, contentType } = await nacistTeloZdroje(mesicUrl);
       sloucene.push(...parsovatUdalostiZeZdroje(text, contentType));
     }
