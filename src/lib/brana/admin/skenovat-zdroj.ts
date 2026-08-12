@@ -591,7 +591,9 @@ async function skenovatZnamyZdrojJadro(
     if (jeUdalostCelaMinula(kandidat, dnesIso)) {
       continue;
     }
-    const sparovani = sparovatSRedakcniPolozkou(kandidat, redakcni.polozky);
+    const sparovani = sparovatSRedakcniPolozkou(kandidat, redakcni.polozky, {
+      zdrojNazev: zdroj.nazev,
+    });
     if (!sparovani.ok) {
       nezarazeno += 1;
       nesparovane.push({

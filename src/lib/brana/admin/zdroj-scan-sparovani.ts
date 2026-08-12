@@ -6,6 +6,18 @@
 import type { BranaRedakcniPolozkaStav } from "./redakcni-kostra";
 import type { BranaScanKandidat } from "./zdroj-scan-parser";
 
+/** Přesná shoda položky s místem/názvem kandidáta */
+const SKORE_PRESNA_POLOZKA = 100;
+/**
+ * Přesná shoda názvu zdroje s aktivní položkou / poznámkou.
+ * Silnější než substring (70), slabší než přesná shoda textu události (100).
+ */
+const SKORE_PRESNA_IDENTITA_ZDROJE = 95;
+/** Přesná shoda poznámky s místem/názvem kandidáta */
+const SKORE_PRESNA_POZNAMKA = 90;
+/** Podřetězcová shoda položky s místem/názvem */
+const SKORE_SUBSTRING = 70;
+
 function normalizovatProShodu(text: string): string {
   return text
     .normalize("NFD")
@@ -19,18 +31,29 @@ export type SparovaniVysledek =
   | { ok: true; redakcniPolozkaId: string }
   | { ok: false };
 
+export type SparovaniVolby = {
+  /**
+   * Název známého zdroje ze scanu (např. „Třeboňská nocturna“).
+   * Pouze doplňkový signál – přesná shoda s aktivní položkou Prioritního seznamu.
+   */
+  zdrojNazev?: string;
+};
+
 /**
- * Hledá existující redakcniPolozkaId podle místa / názvu / poznámky.
+ * Hledá existující redakcniPolozkaId podle místa / názvu / poznámky
+ * a volitelně podle přesné identity zdroje.
  * Produkční scan: pouze pravidla Používat = ANO (NE se ignorují).
- * Při nejednoznačnosti bere nejdelší přesnou shodu na poli „položka“.
+ * Při nejednoznačnosti bere nejdelší shodu na poli „položka“; při remíze skóre → NO-MATCH.
  */
 export function sparovatSRedakcniPolozkou(
   kandidat: BranaScanKandidat,
   polozky: readonly BranaRedakcniPolozkaStav[],
+  volby?: SparovaniVolby,
 ): SparovaniVysledek {
   const misto = normalizovatProShodu(kandidat.mistoNeboTyp);
   const nazev = normalizovatProShodu(kandidat.nazev);
-  if (!misto && !nazev) {
+  const zdrojNazev = normalizovatProShodu(volby?.zdrojNazev ?? "");
+  if (!misto && !nazev && !zdrojNazev) {
     return { ok: false };
   }
 
@@ -50,15 +73,25 @@ export function sparovatSRedakcniPolozkou(
 
     let skore = 0;
     if (polozka && (polozka === misto || polozka === nazev)) {
-      skore = 100;
+      skore = SKORE_PRESNA_POLOZKA;
     } else if (poznamka && (poznamka === misto || poznamka === nazev)) {
-      skore = 90;
+      skore = SKORE_PRESNA_POZNAMKA;
     } else if (
       polozka.length >= 5 &&
       ((misto && (misto.includes(polozka) || polozka.includes(misto))) ||
         (nazev && (nazev.includes(polozka) || polozka.includes(nazev))))
     ) {
-      skore = 70;
+      skore = SKORE_SUBSTRING;
+    }
+
+    // Doplňkový signál: přesná identita zdroje × aktivní položka / poznámka.
+    // Agregátory (iTřeboň, VisitTřeboň) sem typicky nepadnou – nemají stejnojmennou položku.
+    if (
+      zdrojNazev &&
+      ((polozka && polozka === zdrojNazev) ||
+        (poznamka && poznamka === zdrojNazev))
+    ) {
+      skore = Math.max(skore, SKORE_PRESNA_IDENTITA_ZDROJE);
     }
 
     if (skore > 0) {
