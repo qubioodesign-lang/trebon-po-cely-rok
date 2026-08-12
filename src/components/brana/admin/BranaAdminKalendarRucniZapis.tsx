@@ -48,7 +48,7 @@ type Props = {
    */
   isoDenPoslednihoDneKontrolnihoBloku: string;
   /**
-   * Explicitní ID pro Schválit kontrolu (blízké ∪ blok ∪ Výhled).
+   * Explicitní ID pro Schválit kontrolu (21denní blok ∪ Výhled).
    * Server-rendered ze skutečných PRIVATE CEKA.
    */
   idCekaKeSchvaleniKontroly: readonly string[];

@@ -127,7 +127,8 @@ export function patriUdalostDoBlizkehoOkna(
 
 /**
  * Explicitní unikátní ID pro „Schválit kontrolu“:
- * blízké auto CEKA ∪ CEKA s průnikem 21denního bloku ∪ auto CEKA z Admin Výhledu.
+ * auto CEKA s průnikem 21denního bloku ∪ auto CEKA z Admin Výhledu.
+ * Blízké okno (dnes + 7denní rezerva) se tímto tlačítkem neschvaluje.
  * Vstup musí být jen skutečné PRIVATE (persistované) události – bez ukázek.
  */
 export function sestavIdProSchvalitKontrolu(
@@ -136,7 +137,6 @@ export function sestavIdProSchvalitKontrolu(
 ): string[] {
   const idSet = new Set<string>();
   const blok = kontrolniBlokVPraze();
-  const blizkeOkno = isoDnyBlizkehoOknaVPraze();
 
   for (const udalost of persistovaneUdalosti) {
     if (udalost.redakcniPolozkaId === null) {
@@ -145,10 +145,7 @@ export function sestavIdProSchvalitKontrolu(
     if (udalost.stavSchvaleni !== "CEKA_NA_SCHVALENI") {
       continue;
     }
-    if (
-      patriUdalostDoBlizkehoOkna(udalost, blizkeOkno) ||
-      patriUdalostDoKontrolnihoBloku(udalost, blok)
-    ) {
+    if (patriUdalostDoKontrolnihoBloku(udalost, blok)) {
       idSet.add(udalost.id);
     }
   }

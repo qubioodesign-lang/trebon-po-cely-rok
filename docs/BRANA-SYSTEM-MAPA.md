@@ -270,7 +270,7 @@ Slouží k deduplikaci při opakovaném scanu.
 Soubor: `src/lib/brana/admin/kontrolni-blok.ts`
 
 - 7denní rezerva (veřejné „7 dní") + 21denní kontrolní blok (konfigurovatelný interval).
-- `sestavIdProSchvalitKontrolu()` — sestaví CEKA id pro „Schválit kontrolu": blízké CEKA + blokové CEKA + Výhled CEKA.
+- `sestavIdProSchvalitKontrolu()` — sestaví CEKA id pro „Schválit kontrolu": 21denní blokové CEKA + Výhled CEKA (bez blízkého okna).
 - `spocitejPrazdneDnyKontrolnihoBloku()` — počet dnů bez relevantního pokrytí.
 - `doplnPrazdneDnyDoKalendare()` — přidá prázdné dny, označí `jePrazdnyKontrolniDen`.
 
