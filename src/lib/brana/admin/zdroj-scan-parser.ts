@@ -1,7 +1,8 @@
 /**
  * Parser obsahu jednoho známého zdroje.
- * Preferuje JSON-LD schema.org Event; úzká HTML větev jen pro program
- * kinotrebon.cz (`.section-event`). Odděleně od Kalendáře a Blob zápisu.
+ * Preferuje JSON-LD schema.org Event; úzké HTML větve jen pro program
+ * kinotrebon.cz (`.section-event`) a trebonskanocturna.cz (karty `/koncert/`).
+ * Odděleně od Kalendáře a Blob zápisu.
  * Datum/čas: Europe/Prague (včetně DST) přes stávající brana/cas.
  */
 
@@ -386,6 +387,182 @@ function parsovatKinotrebonSectionEvent(
   }
 }
 
+/** Minimální dekódování HTML entit v textu z nocturny (číselné + běžné české). */
+function dekodovatHtmlText(raw: string): string {
+  const pojmenovane: Record<string, string> = {
+    nbsp: " ",
+    amp: "&",
+    quot: '"',
+    lt: "<",
+    gt: ">",
+    aacute: "á",
+    Aacute: "Á",
+    eacute: "é",
+    Eacute: "É",
+    iacute: "í",
+    Iacute: "Í",
+    oacute: "ó",
+    Oacute: "Ó",
+    uacute: "ú",
+    Uacute: "Ú",
+    yacute: "ý",
+    Yacute: "Ý",
+    scaron: "š",
+    Scaron: "Š",
+    ccaron: "č",
+    Ccaron: "Č",
+    rcaron: "ř",
+    Rcaron: "Ř",
+    zcaron: "ž",
+    Zcaron: "Ž",
+    ecaron: "ě",
+    Ecaron: "Ě",
+    ncaron: "ň",
+    Ncaron: "Ň",
+    uring: "ů",
+    Uring: "Ů",
+  };
+  return raw
+    .replace(/&#(\d+);/g, (_, n: string) => {
+      const kod = Number(n);
+      return Number.isFinite(kod) ? String.fromCharCode(kod) : "";
+    })
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, n: string) => {
+      const kod = Number.parseInt(n, 16);
+      return Number.isFinite(kod) ? String.fromCharCode(kod) : "";
+    })
+    .replace(/&([a-zA-Z]+);/g, (cele, jmeno: string) => {
+      return pojmenovane[jmeno] ?? cele;
+    })
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function textBezHtmlTagu(html: string): string {
+  return dekodovatHtmlText(html.replace(/<[^>]+>/g, " "));
+}
+
+/** Úzká detekce programu Třeboňské nocturny (WordPress / Oxygen karty koncertů). */
+function jeTrebonskaNocturnaProgramHtml(html: string): boolean {
+  return (
+    /trebonskanocturna\.cz/i.test(html) &&
+    /\/koncert\//i.test(html) &&
+    /\d{1,2}\.\s*\d{1,2}\.\s*\d{4}\s+\d{1,2}:\d{2}/.test(html)
+  );
+}
+
+function jePouzitelnyNazevNocturnaKoncertu(nazev: string): boolean {
+  if (!nazev || nazev.length < 2) {
+    return false;
+  }
+  if (/^více informací$/i.test(nazev)) {
+    return false;
+  }
+  if (/^vstupenky$/i.test(nazev)) {
+    return false;
+  }
+  if (/^\d+\.\s*abonentní\s+koncert$/i.test(nazev)) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * HTML program trebonskanocturna.cz → BranaScanKandidat.
+ * Jedna karta koncertu = jeden kandidát (datum+čas → název z /koncert/ → místo).
+ * Nejednoznačné karty se vynechají.
+ */
+function parsovatTrebonskaNocturnaKoncerty(
+  html: string,
+  vysledek: BranaScanKandidat[],
+): void {
+  const datumRe =
+    /(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})\s+(\d{1,2}):(\d{2})/g;
+  const datumMatches = [...html.matchAll(datumRe)];
+  if (datumMatches.length === 0) {
+    return;
+  }
+
+  for (let i = 0; i < datumMatches.length; i++) {
+    if (vysledek.length >= MAX_KANDIDATU) {
+      return;
+    }
+    const match = datumMatches[i];
+    const start = match.index ?? 0;
+    const end =
+      i + 1 < datumMatches.length
+        ? (datumMatches[i + 1].index ?? start + 2500)
+        : Math.min(html.length, start + 2500);
+    const okno = html.slice(start, end);
+
+    const rozklad = rozlozDatumCasZdroje(
+      `${match[1]}.${match[2]}.${match[3]} ${match[4]}:${match[5]}`,
+    );
+    if (!rozklad?.datum || !rozklad.cas) {
+      continue;
+    }
+
+    const odkazy = [
+      ...okno.matchAll(
+        /<a[^>]*href=["'][^"']*\/koncert\/[^"']*["'][^>]*>([\s\S]*?)<\/a>/gi,
+      ),
+    ];
+    let nazev = "";
+    for (const odkaz of odkazy) {
+      const kandidatNazev = textBezHtmlTagu(odkaz[1] ?? "");
+      if (jePouzitelnyNazevNocturnaKoncertu(kandidatNazev)) {
+        nazev = kandidatNazev;
+        break;
+      }
+    }
+    if (!nazev) {
+      // /program/: název bývá v h2.program-h2 se spanem uvnitř odkazu na /koncert/.
+      const h2 = okno.match(
+        /class=["'][^"']*program-h2[^"']*["'][^>]*>[\s\S]*?<span[^>]*>([\s\S]*?)<\/span>/i,
+      );
+      const zH2 = textBezHtmlTagu(h2?.[1] ?? "");
+      if (jePouzitelnyNazevNocturnaKoncertu(zH2)) {
+        nazev = zH2;
+      }
+    }
+    if (!nazev) {
+      continue;
+    }
+
+    let mistoNeboTyp = "";
+    const spanTexty = [
+      ...okno.matchAll(/<span[^>]*>([\s\S]*?)<\/span>/gi),
+    ].map((m) => textBezHtmlTagu(m[1] ?? ""));
+    for (const text of spanTexty) {
+      if (!text || text === nazev) {
+        continue;
+      }
+      if (/^\d{1,2}\.\s*\d{1,2}\.\s*\d{4}/.test(text)) {
+        continue;
+      }
+      if (/abonentní\s+koncert/i.test(text)) {
+        continue;
+      }
+      if (/^více informací$/i.test(text) || /^vstupenky$/i.test(text)) {
+        continue;
+      }
+      // Místo typicky obsahuje čárku nebo známé slovo místa.
+      if (/,/.test(text) || /divadlo|nádvoří|zámek|sál|kasár/i.test(text)) {
+        mistoNeboTyp = text;
+        break;
+      }
+    }
+
+    vysledek.push({
+      nazev,
+      datumOd: rozklad.datum,
+      datumDo: rozklad.datum,
+      cas: rozklad.cas,
+      mistoNeboTyp,
+    });
+  }
+}
+
 /**
  * Z HTML (nebo čistého JSON) vytáhne kandidátní události.
  * Bez vymyšlených údajů – chybí-li název nebo datum, kandidát se zahodí.
@@ -413,6 +590,11 @@ export function parsovatUdalostiZeZdroje(
   // Jen když stránka nese kinotrebon programovou šablonu – jiné zdroje beze změny.
   if (jeKinotrebonProgramHtml(telo)) {
     parsovatKinotrebonSectionEvent(telo, vysledek);
+  }
+
+  // Jen trebonskanocturna.cz – karty koncertů bez Event JSON-LD.
+  if (jeTrebonskaNocturnaProgramHtml(telo)) {
+    parsovatTrebonskaNocturnaKoncerty(telo, vysledek);
   }
 
   return deduplikovatKandidaty(vysledek);
