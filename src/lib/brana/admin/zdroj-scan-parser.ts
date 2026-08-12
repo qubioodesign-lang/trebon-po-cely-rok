@@ -37,6 +37,25 @@ function formatujCas(hodina: number, minuta: number): string {
   return `${String(hodina).padStart(2, "0")}:${String(minuta).padStart(2, "0")}`;
 }
 
+/** True, pokud `dalsi` je přesně kalendářní den po `od` (UTC denní aritmetika ISO). */
+function jePresneNasledujiciIsoDen(od: string, dalsi: string): boolean {
+  const casti = od.split("-").map(Number);
+  if (casti.length !== 3 || casti.some((n) => !Number.isFinite(n))) {
+    return false;
+  }
+  const [y, m, d] = casti;
+  const kurzor = new Date(Date.UTC(y, m - 1, d));
+  kurzor.setUTCDate(kurzor.getUTCDate() + 1);
+  return (
+    dalsi ===
+    formatujIsoDen(
+      kurzor.getUTCFullYear(),
+      kurzor.getUTCMonth() + 1,
+      kurzor.getUTCDate(),
+    )
+  );
+}
+
 function maExplicitniOffset(hodnota: string): boolean {
   return /(?:Z|[zZ]|[+-]\d{2}:?\d{2})$/.test(hodnota.trim());
 }
@@ -793,6 +812,8 @@ function rozlozTrebon105EventDate(
     const denDo = Number(overnight[5]);
     const mesicDo = Number(overnight[6]);
     const rokDo = Number(overnight[7]);
+    const hodinaDo = Number(overnight[8]);
+    const minutaDo = Number(overnight[9]);
     if (
       mesicOd < 1 ||
       mesicOd > 12 ||
@@ -803,7 +824,9 @@ function rozlozTrebon105EventDate(
       denDo < 1 ||
       denDo > 31 ||
       hodina > 23 ||
-      minuta > 59
+      minuta > 59 ||
+      hodinaDo > 23 ||
+      minutaDo > 59
     ) {
       return null;
     }
@@ -811,10 +834,23 @@ function rozlozTrebon105EventDate(
       mesicOd > mesicDo || (mesicOd === mesicDo && denOd > denDo)
         ? rokDo - 1
         : rokDo;
+    const datumOd = formatujIsoDen(rokOd, mesicOd, denOd);
+    let datumDo = formatujIsoDen(rokDo, mesicDo, denDo);
+    const cas = formatujCas(hodina, minuta);
+    // CMS falešný overnight u timed Akce: konec přesně +1 den v 23:59
+    // → kandidát jen den začátku (čas OD beze změny).
+    if (
+      cas !== "" &&
+      hodinaDo === 23 &&
+      minutaDo === 59 &&
+      jePresneNasledujiciIsoDen(datumOd, datumDo)
+    ) {
+      datumDo = datumOd;
+    }
     return {
-      datumOd: formatujIsoDen(rokOd, mesicOd, denOd),
-      datumDo: formatujIsoDen(rokDo, mesicDo, denDo),
-      cas: formatujCas(hodina, minuta),
+      datumOd,
+      datumDo,
+      cas,
     };
   }
 

@@ -9,6 +9,7 @@ import { join } from "path";
 import { parsovatUdalostiZeZdroje } from "../src/lib/brana/admin/zdroj-scan-parser";
 import { sparovatSRedakcniPolozkou } from "../src/lib/brana/admin/zdroj-scan-sparovani";
 import { vytvoritVychoziRedakcniPoradi } from "../src/lib/brana/admin/redakcni-kostra";
+import { projektujKalendarDny } from "../src/lib/brana/admin/konkretni-udalost";
 
 function fail(msg: string): never {
   console.error(`FAIL: ${msg}`);
@@ -90,7 +91,11 @@ ${eventCard({
 })}
 ${eventCard({
   dateHtml: "Pátek<br> 21. 8. 22:00 - 22. 8. 2026 23:59",
-  title: "Fluence - videomapping na fasádu ZUŠ",
+  title: "Fluence - videomapping na fasádu ZUŠ (pátek)",
+})}
+${eventCard({
+  dateHtml: "Sobota<br> 22. 8. 22:00 - 23:59",
+  title: "Fluence - videomapping na fasádu ZUŠ (sobota)",
 })}
 ${eventCard({
   dateHtml: "Sobota<br> 4. 9. 18:00",
@@ -100,6 +105,32 @@ ${eventCard({
   </div>
 </section>
 <footer>Masarykovo náměstí 105</footer>
+</body></html>`;
+
+/** Timed overnight, ale konec ≠ 23:59 → rozsah se nesmí zkrátit. */
+const FIXTURE_SKUTECNY_OVERNIGHT = `<!DOCTYPE html>
+<html><head>
+<link rel="canonical" href="https://trebon105.cz/program"/>
+</head><body>
+<section class="event-list">
+${eventCard({
+  dateHtml: "Pátek<br> 21. 8. 22:00 - 22. 8. 2026 02:00",
+  title: "Skutečný overnight do 02:00",
+})}
+</section>
+</body></html>`;
+
+/** Timed overnight přes 2+ dny (ne +1) → rozsah zůstane. */
+const FIXTURE_VICEDENNI_TIMED = `<!DOCTYPE html>
+<html><head>
+<link rel="canonical" href="https://trebon105.cz/program"/>
+</head><body>
+<section class="event-list">
+${eventCard({
+  dateHtml: "Pátek<br> 21. 8. 22:00 - 23. 8. 2026 23:59",
+  title: "Vícedenní timed přes 2 dny",
+})}
+</section>
 </body></html>`;
 
 const KINOTREBON_FIXTURE = `<!DOCTYPE html>
@@ -139,7 +170,7 @@ const DSN_MINI = `<!DOCTYPE html>
 
 function overFixture(): void {
   const k = parsovatUdalostiZeZdroje(FIXTURE, "text/html");
-  assert(k.length === 4, `fixture: 4 Akce, je ${k.length}`);
+  assert(k.length === 5, `fixture: 5 Akcí, je ${k.length}`);
 
   assert(
     !k.some((x) => x.nazev.includes("podsvětí") || x.nazev === "Výstava"),
@@ -153,11 +184,17 @@ function overFixture(): void {
   assert(video.cas === "21:15", `video čas OD: ${video.cas}`);
   assert(video.mistoNeboTyp === "Galerie", `venue: ${video.mistoNeboTyp}`);
 
-  const overnight = k.find((x) => x.nazev.includes("Fluence"));
-  assert(overnight, "overnight");
-  assert(overnight.datumOd === "2026-08-21", `overnight od: ${overnight.datumOd}`);
-  assert(overnight.datumDo === "2026-08-22", `overnight do: ${overnight.datumDo}`);
-  assert(overnight.cas === "22:00", `overnight cas: ${overnight.cas}`);
+  const pate = k.find((x) => x.nazev.includes("Fluence") && x.nazev.includes("pátek"));
+  assert(pate, "Fluence pátek");
+  assert(pate.datumOd === "2026-08-21", `pátek od: ${pate.datumOd}`);
+  assert(pate.datumDo === "2026-08-21", `pátek do (CMS 23:59): ${pate.datumDo}`);
+  assert(pate.cas === "22:00", `pátek cas: ${pate.cas}`);
+
+  const sob = k.find((x) => x.nazev.includes("Fluence") && x.nazev.includes("sobota"));
+  assert(sob, "Fluence sobota");
+  assert(sob.datumOd === "2026-08-22", `sobota od: ${sob.datumOd}`);
+  assert(sob.datumDo === "2026-08-22", `sobota do: ${sob.datumDo}`);
+  assert(sob.cas === "22:00", `sobota cas: ${sob.cas}`);
 
   const zahajeni = k.find((x) => x.nazev.includes("Zahájení"));
   assert(zahajeni, "zahájení");
@@ -168,7 +205,54 @@ function overFixture(): void {
   assert(jenCasOd.datumOd === "2026-09-04", `4.9.: ${jenCasOd.datumOd}`);
   assert(jenCasOd.cas === "18:00", `18:00: ${jenCasOd.cas}`);
 
-  console.log("OK Galerie 105: Výstavy ignorovány, 4 Akce OK");
+  console.log("OK Galerie 105: Výstavy ignorovány, Fluence pátek/sobota 1 den");
+}
+
+function overFluenceKalendarSimulace(): void {
+  const k = parsovatUdalostiZeZdroje(FIXTURE, "text/html").filter((x) =>
+    x.nazev.includes("Fluence"),
+  );
+  assert(k.length === 2, `2 Fluence kandidáti, je ${k.length}`);
+  const udalosti = k.map((x, i) => ({
+    id: `f${i}`,
+    redakcniPolozkaId: "galerie-105",
+    nazev: x.nazev,
+    datumOd: x.datumOd,
+    datumDo: x.datumDo,
+    cas: x.cas,
+    mistoNeboTyp: x.mistoNeboTyp,
+    popis: "",
+    stavSchvaleni: "CEKA_NA_SCHVALENI" as const,
+    rucniPoziceVDni: null,
+    verejneCo: null,
+    verejneRozliseni: null,
+  }));
+  const dny = projektujKalendarDny(udalosti);
+  const patek = dny.find((d) => d.isoDen === "2026-08-21");
+  const sobota = dny.find((d) => d.isoDen === "2026-08-22");
+  assert(patek?.udalosti.length === 1, `21.8. = 1× Fluence, je ${patek?.udalosti.length}`);
+  assert(sobota?.udalosti.length === 1, `22.8. = 1× Fluence, je ${sobota?.udalosti.length}`);
+  console.log("OK kalendářní simulace Fluence 21./22.8. = 1×/1×");
+}
+
+function overSkutecnyOvernightNezkracovat(): void {
+  const k = parsovatUdalostiZeZdroje(FIXTURE_SKUTECNY_OVERNIGHT, "text/html");
+  assert(k.length === 1, `skutečný overnight 1, je ${k.length}`);
+  assert(k[0].datumOd === "2026-08-21", `od: ${k[0].datumOd}`);
+  assert(
+    k[0].datumDo === "2026-08-22",
+    `konec 02:00 musí zůstat vícedenní: ${k[0].datumDo}`,
+  );
+  assert(k[0].cas === "22:00", `cas: ${k[0].cas}`);
+
+  const v = parsovatUdalostiZeZdroje(FIXTURE_VICEDENNI_TIMED, "text/html");
+  assert(v.length === 1, `vícedenní timed 1, je ${v.length}`);
+  assert(v[0].datumOd === "2026-08-21", `víc od: ${v[0].datumOd}`);
+  assert(
+    v[0].datumDo === "2026-08-23",
+    `+2 dny i s 23:59 nesmí zkrátit: ${v[0].datumDo}`,
+  );
+  console.log("OK skutečné vícedenní/overnight bez přesné CMS 23:59+1 zůstávají");
 }
 
 function overNavigaceNedavaKandidaty(): void {
@@ -272,11 +356,19 @@ async function overZivyProgramVolitelne(): Promise<void> {
   assert(nazvy.includes("Videoprojekce"), `akce videoprojekce: ${nazvy}`);
   assert(nazvy.includes("Zahájení"), `akce zahájení: ${nazvy}`);
   assert(nazvy.includes("Fluence"), `akce Fluence: ${nazvy}`);
+  const fluence = k.filter((x) => x.nazev.includes("Fluence"));
+  assert(fluence.length === 2, `živý: 2 Fluence, je ${fluence.length}`);
+  const f21 = fluence.find((x) => x.datumOd === "2026-08-21");
+  const f22 = fluence.find((x) => x.datumOd === "2026-08-22");
+  assert(f21 && f21.datumDo === "2026-08-21" && f21.cas === "22:00", "živý pátek Fluence 1 den");
+  assert(f22 && f22.datumDo === "2026-08-22" && f22.cas === "22:00", "živý sobota Fluence 1 den");
   console.log(`OK živý prostor:galerie → ${k.length} Akcí (z ${cards} karet)`);
 }
 
 async function main(): Promise<void> {
   overFixture();
+  overFluenceKalendarSimulace();
+  overSkutecnyOvernightNezkracovat();
   overNavigaceNedavaKandidaty();
   overJenVystavySekce();
   overMatching();
