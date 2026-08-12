@@ -1,12 +1,14 @@
 /**
  * Parser obsahu jednoho známého zdroje.
  * Preferuje JSON-LD schema.org Event; úzké HTML větve jen pro program
- * kinotrebon.cz (`.section-event`) a trebonskanocturna.cz (karty `/koncert/`).
+ * kinotrebon.cz (`.section-event`), trebonskanocturna.cz (karty `/koncert/`)
+ * a dumstepankanetolickeho.cz (`.home-block-wrapper.event-item`).
  * Odděleně od Kalendáře a Blob zápisu.
  * Datum/čas: Europe/Prague (včetně DST) přes stávající brana/cas.
+ * Multi-měsíční fetch DSN žije ve scan orchestraci, ne zde.
  */
 
-import { okamzikVPraze } from "@/lib/brana/cas";
+import { dnesVPraze, okamzikVPraze } from "@/lib/brana/cas";
 
 export type BranaScanKandidat = {
   nazev: string;
@@ -563,6 +565,162 @@ function parsovatTrebonskaNocturnaKoncerty(
   }
 }
 
+/** True, pokud URL zdroje míří na oficiální web DSN (s/bez www). */
+export function jeDumStepankaNetolickehoZdrojUrl(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./i, "").toLowerCase();
+    return host === "dumstepankanetolickeho.cz";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 4 SSR URL kalendáře DSN: aktuální měsíc + 3 následující (Europe/Prague).
+ * Přechod roku: 12 → 1 následujícího roku.
+ * Origin (protokol + host) bere ze zdrojové URL.
+ */
+export function sestavDumStepankaKalendarUrlkyCtyriMesice(
+  zdrojUrl: string,
+  okamzik: Date = new Date(),
+): string[] {
+  if (!jeDumStepankaNetolickehoZdrojUrl(zdrojUrl)) {
+    return [];
+  }
+  const base = new URL(zdrojUrl);
+  const dnes = dnesVPraze(okamzik);
+  let mesic = dnes.mesic;
+  let rok = dnes.rok;
+  const urlky: string[] = [];
+  for (let i = 0; i < 4; i++) {
+    urlky.push(
+      `${base.protocol}//${base.host}/kalendar-akci/?mesic=${mesic}&rok=${rok}`,
+    );
+    mesic += 1;
+    if (mesic > 12) {
+      mesic = 1;
+      rok += 1;
+    }
+  }
+  return urlky;
+}
+
+/** Úzká detekce měsíčního kalendáře DSN (WordPress `.event-item`). */
+function jeDumStepankaProgramHtml(html: string): boolean {
+  return (
+    /dumstepankanetolickeho\.cz/i.test(html) &&
+    /home-block-wrapper[^>]*event-item|event-item[^>]*home-block-wrapper/i.test(
+      html,
+    )
+  );
+}
+
+/**
+ * Normalizace času z karty DSN → HH:mm, nebo "" pokud čas chybí.
+ * Podporuje: 17:00 | 14 | 18 hod. Neznámý tvar → null (karta se vynechá).
+ */
+function normalizujCasDumStepanka(casSurovy: string): string | null {
+  const t = casSurovy.trim().toLowerCase();
+  if (!t) {
+    return "";
+  }
+  const hhmm = t.match(/^(\d{1,2}):(\d{2})$/);
+  if (hhmm) {
+    const hodina = Number(hhmm[1]);
+    const minuta = Number(hhmm[2]);
+    if (hodina > 23 || minuta > 59) {
+      return null;
+    }
+    return formatujCas(hodina, minuta);
+  }
+  const hod = t.match(/^(\d{1,2})\s*hod\.?$/);
+  if (hod) {
+    const hodina = Number(hod[1]);
+    if (hodina > 23) {
+      return null;
+    }
+    return formatujCas(hodina, 0);
+  }
+  const jenHodina = t.match(/^(\d{1,2})$/);
+  if (jenHodina) {
+    const hodina = Number(jenHodina[1]);
+    if (hodina > 23) {
+      return null;
+    }
+    return formatujCas(hodina, 0);
+  }
+  return null;
+}
+
+/**
+ * HTML kalendář dumstepankanetolickeho.cz → BranaScanKandidat.
+ * Jedna karta `.home-block-wrapper.event-item` = jeden kandidát.
+ * Místo v kartě typicky chybí → mistoNeboTyp prázdné (matching přes zdrojNazev).
+ */
+function parsovatDumStepankaEventItem(
+  html: string,
+  vysledek: BranaScanKandidat[],
+): void {
+  const bloky = [
+    ...html.matchAll(
+      /home-block-wrapper[^"']*event-item[\s\S]*?(?=home-block-wrapper[^"']*event-item|<\/body>|$)/gi,
+    ),
+  ];
+  for (const blokMatch of bloky) {
+    if (vysledek.length >= MAX_KANDIDATU) {
+      return;
+    }
+    const blok = blokMatch[0];
+    const nazevZTitle = blok.match(
+      /<a[^>]*title=["']([^"']+)["'][^>]*>/i,
+    );
+    const nazevZTextu = blok.match(
+      /<h2[^>]*>[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/i,
+    );
+    const nazev = textBezHtmlTagu(
+      nazevZTitle?.[1] ?? nazevZTextu?.[1] ?? "",
+    );
+    if (!nazev || nazev.length < 2) {
+      continue;
+    }
+
+    const small = blok.match(/<small[^>]*>([\s\S]*?)<\/small>/i);
+    const smallText = textBezHtmlTagu(small?.[1] ?? "");
+    const datumCas = smallText.match(
+      /^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:\s+(.+))?$/,
+    );
+    if (!datumCas) {
+      continue;
+    }
+    const datum = formatujIsoDen(
+      Number(datumCas[3]),
+      Number(datumCas[2]),
+      Number(datumCas[1]),
+    );
+    // Ověření, že den/měsíc dávají smysl.
+    if (
+      Number(datumCas[2]) < 1 ||
+      Number(datumCas[2]) > 12 ||
+      Number(datumCas[1]) < 1 ||
+      Number(datumCas[1]) > 31
+    ) {
+      continue;
+    }
+    const cas = normalizujCasDumStepanka(datumCas[4] ?? "");
+    if (cas === null) {
+      continue;
+    }
+
+    vysledek.push({
+      nazev,
+      datumOd: datum,
+      datumDo: datum,
+      cas,
+      mistoNeboTyp: "",
+    });
+  }
+}
+
 /**
  * Z HTML (nebo čistého JSON) vytáhne kandidátní události.
  * Bez vymyšlených údajů – chybí-li název nebo datum, kandidát se zahodí.
@@ -577,7 +735,7 @@ export function parsovatUdalostiZeZdroje(
   if (ct.includes("application/json") && !ct.includes("ld+json")) {
     try {
       projdiUzel(JSON.parse(telo) as unknown, vysledek);
-      return deduplikovatKandidaty(vysledek);
+      return deduplikovatScanKandidaty(vysledek);
     } catch {
       return [];
     }
@@ -597,15 +755,21 @@ export function parsovatUdalostiZeZdroje(
     parsovatTrebonskaNocturnaKoncerty(telo, vysledek);
   }
 
-  return deduplikovatKandidaty(vysledek);
+  // Jen dumstepankanetolickeho.cz – měsíční karty .event-item.
+  if (jeDumStepankaProgramHtml(telo)) {
+    parsovatDumStepankaEventItem(telo, vysledek);
+  }
+
+  return deduplikovatScanKandidaty(vysledek);
 }
 
 function klicKandidata(k: BranaScanKandidat): string {
   return `${k.nazev}\0${k.datumOd}\0${k.cas}\0${k.mistoNeboTyp}`.toLowerCase();
 }
 
-function deduplikovatKandidaty(
-  kandidati: BranaScanKandidat[],
+/** Stejný klíč jako uvnitř parseru – pro merge kandidátů z více HTML těl. */
+export function deduplikovatScanKandidaty(
+  kandidati: readonly BranaScanKandidat[],
 ): BranaScanKandidat[] {
   const videne = new Set<string>();
   const out: BranaScanKandidat[] = [];

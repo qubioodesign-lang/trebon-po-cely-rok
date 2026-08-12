@@ -18,7 +18,13 @@ import {
   type NacistRedakcniPoradiVysledek,
 } from "./redakcni-poradi-uloziste";
 import { jePlatnaZdrojUrl, type BranaZdroj } from "./zdroj";
-import { parsovatUdalostiZeZdroje } from "./zdroj-scan-parser";
+import {
+  deduplikovatScanKandidaty,
+  jeDumStepankaNetolickehoZdrojUrl,
+  parsovatUdalostiZeZdroje,
+  sestavDumStepankaKalendarUrlkyCtyriMesice,
+  type BranaScanKandidat,
+} from "./zdroj-scan-parser";
 import { sestavJazykBranyPoSparovani } from "./jazyk-brany-po-sparovani";
 import {
   dnesIsoVPraze,
@@ -572,8 +578,20 @@ async function skenovatZnamyZdrojJadro(
     throw new Error("Zdroj nebyl nalezen.");
   }
 
-  const { text, contentType } = await nacistTeloZdroje(zdroj.url);
-  const kandidati = parsovatUdalostiZeZdroje(text, contentType);
+  // DSN: 4 SSR měsíce kalendáře. Ostatní zdroje: 1 fetch = 1 URL.
+  let kandidati: BranaScanKandidat[];
+  if (jeDumStepankaNetolickehoZdrojUrl(zdroj.url)) {
+    const urlky = sestavDumStepankaKalendarUrlkyCtyriMesice(zdroj.url);
+    const sloucene: BranaScanKandidat[] = [];
+    for (const mesicUrl of urlky) {
+      const { text, contentType } = await nacistTeloZdroje(mesicUrl);
+      sloucene.push(...parsovatUdalostiZeZdroje(text, contentType));
+    }
+    kandidati = deduplikovatScanKandidaty(sloucene);
+  } else {
+    const { text, contentType } = await nacistTeloZdroje(zdroj.url);
+    kandidati = parsovatUdalostiZeZdroje(text, contentType);
+  }
 
   const redakcni = await nacistRedakcniFn();
   if (!redakcni.ok) {
