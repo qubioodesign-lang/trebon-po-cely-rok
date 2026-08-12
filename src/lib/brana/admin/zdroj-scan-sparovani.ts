@@ -18,7 +18,7 @@ const SKORE_PRESNA_POZNAMKA = 90;
 /** Podřetězcová shoda položky s místem/názvem */
 const SKORE_SUBSTRING = 70;
 
-function normalizovatProShodu(text: string): string {
+export function normalizovatProShodu(text: string): string {
   return text
     .normalize("NFD")
     .replace(/\p{M}/gu, "")
@@ -115,4 +115,52 @@ export function sparovatSRedakcniPolozkou(
   }
 
   return { ok: true, redakcniPolozkaId: nejlepsi.id };
+}
+
+/**
+ * Fail-closed matching pro režim HLIDANE_KOTVY.
+ * Pouze přesná normalizovaná shoda nazev ↔ polozka (nebo poznamka jako alias).
+ * Bez identity zdroje, bez substringů, bez místa.
+ * Remíza / žádná shoda → ok: false (ignorovat, ne Nezařazené).
+ * Neznámá ID v seznamu kotev se při sestavení seznamu přeskočí.
+ */
+export function sparovatSHlidanymiKotvami(
+  kandidat: BranaScanKandidat,
+  polozky: readonly BranaRedakcniPolozkaStav[],
+  hlidaneRedakcniPolozkaIds: readonly string[],
+): SparovaniVysledek {
+  const nazev = normalizovatProShodu(kandidat.nazev);
+  if (!nazev) {
+    return { ok: false };
+  }
+
+  const idSet = new Set(
+    hlidaneRedakcniPolozkaIds
+      .map((id) => id.trim())
+      .filter((id) => id.length > 0),
+  );
+  if (idSet.size === 0) {
+    return { ok: false };
+  }
+
+  const shody: string[] = [];
+  for (const p of polozky) {
+    if (p.pouzivat !== "ANO" || !idSet.has(p.id)) {
+      continue;
+    }
+    const polozka = normalizovatProShodu(p.polozka);
+    const poznamka = normalizovatProShodu(p.poznamka);
+    if (
+      (polozka && polozka === nazev) ||
+      (poznamka && poznamka === nazev)
+    ) {
+      shody.push(p.id);
+    }
+  }
+
+  const unikarni = [...new Set(shody)];
+  if (unikarni.length !== 1) {
+    return { ok: false };
+  }
+  return { ok: true, redakcniPolozkaId: unikarni[0] };
 }

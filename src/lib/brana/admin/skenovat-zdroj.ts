@@ -17,7 +17,7 @@ import {
   nacistRedakcniPoradiProScheduler,
   type NacistRedakcniPoradiVysledek,
 } from "./redakcni-poradi-uloziste";
-import { jePlatnaZdrojUrl, type BranaZdroj } from "./zdroj";
+import { jePlatnaZdrojUrl, doplnVychoziPoleZdroje, type BranaZdroj } from "./zdroj";
 import {
   deduplikovatScanKandidaty,
   jeDumStepankaNetolickehoZdrojUrl,
@@ -40,7 +40,10 @@ import {
   vyresitNezarazenePoUspesnemMatchi,
   vyresitNezarazenePoUspesnemMatchiProScheduler,
 } from "./nezarazene-uloziste";
-import { sparovatSRedakcniPolozkou } from "./zdroj-scan-sparovani";
+import {
+  sparovatSHlidanymiKotvami,
+  sparovatSRedakcniPolozkou,
+} from "./zdroj-scan-sparovani";
 import {
   nacistZdroje,
   nacistZdrojeProScheduler,
@@ -573,9 +576,25 @@ async function skenovatZnamyZdrojJadro(
     throw new Error("Seznam zdrojů se nepodařilo načíst.");
   }
 
-  const zdroj: BranaZdroj | undefined = zdroje.zdroje.find((z) => z.id === id);
-  if (!zdroj) {
+  const zdrojSurovy: BranaZdroj | undefined = zdroje.zdroje.find(
+    (z) => z.id === id,
+  );
+  if (!zdrojSurovy) {
     throw new Error("Zdroj nebyl nalezen.");
+  }
+  const zdroj = doplnVychoziPoleZdroje(zdrojSurovy);
+
+  // HLIDANE_KOTVY bez kotev: fail-closed, žádný fetch/zápis.
+  if (
+    zdroj.rezimScanu === "HLIDANE_KOTVY" &&
+    zdroj.hlidaneRedakcniPolozkaIds.length === 0
+  ) {
+    return {
+      nalezeno: 0,
+      pridanoDoKalendare: 0,
+      jizExistuje: 0,
+      nezarazeno: 0,
+    };
   }
 
   // DSN: 4 SSR měsíce kalendáře. Ostatní zdroje: 1 fetch = 1 URL.
@@ -598,6 +617,8 @@ async function skenovatZnamyZdrojJadro(
     throw new Error("Redakční pořadí se nepodařilo načíst. Nic nebylo uloženo.");
   }
 
+  const hlidaneKotvy = zdroj.rezimScanu === "HLIDANE_KOTVY";
+
   let nezarazeno = 0;
   const kUlozeni: BranaScanAutomatickaUdalostVstup[] = [];
   const nesparovane: BranaNezarazenyScanKandidat[] = [];
@@ -609,10 +630,22 @@ async function skenovatZnamyZdrojJadro(
     if (jeUdalostCelaMinula(kandidat, dnesIso)) {
       continue;
     }
-    const sparovani = sparovatSRedakcniPolozkou(kandidat, redakcni.polozky, {
-      zdrojNazev: zdroj.nazev,
-    });
+
+    const sparovani = hlidaneKotvy
+      ? sparovatSHlidanymiKotvami(
+          kandidat,
+          redakcni.polozky,
+          zdroj.hlidaneRedakcniPolozkaIds,
+        )
+      : sparovatSRedakcniPolozkou(kandidat, redakcni.polozky, {
+          zdrojNazev: zdroj.nazev,
+        });
+
     if (!sparovani.ok) {
+      // Bohatý zdroj: neshody se neposílají do Nezařazených (provozní šum).
+      if (hlidaneKotvy) {
+        continue;
+      }
       nezarazeno += 1;
       nesparovane.push({
         nazev: kandidat.nazev,

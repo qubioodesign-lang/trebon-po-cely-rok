@@ -13,7 +13,7 @@ import {
   upravitRucniKonkretniUdalost,
   vyrazitAutomatickouCekaUdalost,
 } from "@/lib/brana/admin/konkretni-udalosti-uloziste";
-import { ulozitRedakcniPoradi } from "@/lib/brana/admin/redakcni-poradi-uloziste";
+import { ulozitRedakcniPoradi, nacistRedakcniPoradi } from "@/lib/brana/admin/redakcni-poradi-uloziste";
 import { validovatRedakcniPoradiVstup } from "@/lib/brana/admin/redakcni-poradi-validace";
 import type { BranaRedakcniPolozkaStav } from "@/lib/brana/admin/redakcni-kostra";
 import {
@@ -527,7 +527,14 @@ export async function pridatBranaZdrojAkce(
   }
 
   try {
-    const zdroj = await pridatZdroj(vstup);
+    const redakcni = await nacistRedakcniPoradi();
+    const povolene = redakcni.ok
+      ? new Set(redakcni.polozky.map((p) => p.id))
+      : undefined;
+    const zdroj = await pridatZdroj(
+      vstup,
+      povolene ? { povoleneRedakcniPolozkaIds: povolene } : undefined,
+    );
     revalidatePath("/brana/admin/sprava/zdroje");
     return { uspech: true, zdroj };
   } catch (error) {
@@ -552,7 +559,15 @@ export async function upravitBranaZdrojAkce(
   }
 
   try {
-    const zdroj = await upravitZdroj(id, vstup);
+    const redakcni = await nacistRedakcniPoradi();
+    const povolene = redakcni.ok
+      ? new Set(redakcni.polozky.map((p) => p.id))
+      : undefined;
+    const zdroj = await upravitZdroj(
+      id,
+      vstup,
+      povolene ? { povoleneRedakcniPolozkaIds: povolene } : undefined,
+    );
     revalidatePath("/brana/admin/sprava/zdroje");
     return { uspech: true, zdroj };
   } catch (error) {

@@ -8,10 +8,14 @@ import {
   ziskatVolbyBranaAdminBlob,
 } from "./env-blob-brana-admin";
 import {
+  doplnVychoziPoleZdroje,
+  jeBranaZdrojRezimScanu,
   jeBranaZdrojTyp,
   jePlatnaZdrojUrl,
+  normalizovatHlidaneRedakcniPolozkaIds,
   validovatZdrojVstup,
   type BranaZdroj,
+  type ValidaceZdrojeVolby,
 } from "./zdroj";
 
 /**
@@ -44,21 +48,65 @@ function zalogovatChybuCteni(duvod: string, error?: unknown): void {
   console.error(`[brana-zdroje] ${duvod}`, error);
 }
 
-function jePlatnyZdrojZBlobu(hodnota: unknown): hodnota is BranaZdroj {
+function jePlatnyZdrojZBlobu(hodnota: unknown): boolean {
   if (!hodnota || typeof hodnota !== "object") {
     return false;
   }
   const z = hodnota as Record<string, unknown>;
-  return (
-    typeof z.id === "string" &&
-    z.id.trim().length > 0 &&
-    typeof z.nazev === "string" &&
-    z.nazev.trim().length > 0 &&
-    jeBranaZdrojTyp(z.typ) &&
-    typeof z.url === "string" &&
-    z.url.trim().length > 0 &&
-    jePlatnaZdrojUrl(z.url.trim())
-  );
+  if (
+    typeof z.id !== "string" ||
+    z.id.trim().length === 0 ||
+    typeof z.nazev !== "string" ||
+    z.nazev.trim().length === 0 ||
+    !jeBranaZdrojTyp(z.typ) ||
+    typeof z.url !== "string" ||
+    z.url.trim().length === 0 ||
+    !jePlatnaZdrojUrl(z.url.trim())
+  ) {
+    return false;
+  }
+  // Nová pole: chybí = OK (doplní se default). Pokud jsou přítomná, musí být platná.
+  if (
+    z.rezimScanu !== undefined &&
+    z.rezimScanu !== null &&
+    !jeBranaZdrojRezimScanu(z.rezimScanu)
+  ) {
+    return false;
+  }
+  if (
+    z.hlidaneRedakcniPolozkaIds !== undefined &&
+    z.hlidaneRedakcniPolozkaIds !== null &&
+    !Array.isArray(z.hlidaneRedakcniPolozkaIds)
+  ) {
+    return false;
+  }
+  if (Array.isArray(z.hlidaneRedakcniPolozkaIds)) {
+    for (const id of z.hlidaneRedakcniPolozkaIds) {
+      if (typeof id !== "string") {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+function normalizovatZdrojZBlobu(hodnota: unknown): BranaZdroj {
+  const z = hodnota as {
+    id: string;
+    nazev: string;
+    typ: BranaZdroj["typ"];
+    url: string;
+    rezimScanu?: unknown;
+    hlidaneRedakcniPolozkaIds?: unknown;
+  };
+  return doplnVychoziPoleZdroje({
+    id: z.id.trim(),
+    nazev: z.nazev.trim(),
+    typ: z.typ,
+    url: z.url.trim(),
+    rezimScanu: z.rezimScanu,
+    hlidaneRedakcniPolozkaIds: z.hlidaneRedakcniPolozkaIds,
+  });
 }
 
 function parsovatDokument(parsed: unknown): BranaZdrojeDokument | null {
@@ -73,12 +121,7 @@ function parsovatDokument(parsed: unknown): BranaZdrojeDokument | null {
     return null;
   }
   return {
-    zdroje: zdroje.map((z) => ({
-      id: z.id.trim(),
-      nazev: z.nazev.trim(),
-      typ: z.typ,
-      url: z.url.trim(),
-    })),
+    zdroje: zdroje.map(normalizovatZdrojZBlobu),
   };
 }
 
@@ -99,12 +142,18 @@ function validovatDokument(
     idSet.add(zdroj.id);
   }
   return {
-    zdroje: dokument.zdroje.map((z) => ({
-      id: z.id.trim(),
-      nazev: z.nazev.trim(),
-      typ: z.typ,
-      url: z.url.trim(),
-    })),
+    zdroje: dokument.zdroje.map((z) =>
+      doplnVychoziPoleZdroje({
+        id: z.id.trim(),
+        nazev: z.nazev.trim(),
+        typ: z.typ,
+        url: z.url.trim(),
+        rezimScanu: z.rezimScanu,
+        hlidaneRedakcniPolozkaIds: normalizovatHlidaneRedakcniPolozkaIds(
+          z.hlidaneRedakcniPolozkaIds,
+        ),
+      }),
+    ),
   };
 }
 
@@ -245,7 +294,10 @@ export async function nacistZdrojeProScheduler(): Promise<NacistZdrojeVysledek> 
 }
 
 /** Přidá jeden známý zdroj. Ukázková data se nezapisují. */
-export async function pridatZdroj(vstup: unknown): Promise<BranaZdroj> {
+export async function pridatZdroj(
+  vstup: unknown,
+  validaceVolby?: ValidaceZdrojeVolby,
+): Promise<BranaZdroj> {
   if (!(await jeAdminPrihlasen())) {
     throw new Error("Nejste přihlášeni.");
   }
@@ -256,7 +308,7 @@ export async function pridatZdroj(vstup: unknown): Promise<BranaZdroj> {
     );
   }
 
-  const validace = validovatZdrojVstup(vstup);
+  const validace = validovatZdrojVstup(vstup, validaceVolby);
   if (!validace.ok) {
     throw new Error(validace.chyba);
   }
@@ -267,6 +319,8 @@ export async function pridatZdroj(vstup: unknown): Promise<BranaZdroj> {
     nazev: validace.nazev,
     typ: validace.typ,
     url: validace.url,
+    rezimScanu: validace.rezimScanu,
+    hlidaneRedakcniPolozkaIds: validace.hlidaneRedakcniPolozkaIds,
   };
 
   const vysledny = validovatDokument({
@@ -284,6 +338,7 @@ export async function pridatZdroj(vstup: unknown): Promise<BranaZdroj> {
 export async function upravitZdroj(
   id: string,
   vstup: unknown,
+  validaceVolby?: ValidaceZdrojeVolby,
 ): Promise<BranaZdroj> {
   if (!(await jeAdminPrihlasen())) {
     throw new Error("Nejste přihlášeni.");
@@ -300,7 +355,7 @@ export async function upravitZdroj(
     throw new Error("Chybí id zdroje.");
   }
 
-  const validace = validovatZdrojVstup(vstup);
+  const validace = validovatZdrojVstup(vstup, validaceVolby);
   if (!validace.ok) {
     throw new Error(validace.chyba);
   }
@@ -316,6 +371,8 @@ export async function upravitZdroj(
     nazev: validace.nazev,
     typ: validace.typ,
     url: validace.url,
+    rezimScanu: validace.rezimScanu,
+    hlidaneRedakcniPolozkaIds: validace.hlidaneRedakcniPolozkaIds,
   };
 
   const zdroje = dokument.zdroje.slice();
