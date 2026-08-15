@@ -143,6 +143,12 @@ function SeznamDnu({
                       mistoNeboTyp: udalost.mistoNeboTyp,
                       nazev: udalost.nazev,
                       cas: udalost.cas,
+                      ...(udalost.verejneCo !== undefined
+                        ? {
+                            verejneCo: udalost.verejneCo,
+                            verejneRozliseni: udalost.verejneRozliseni ?? null,
+                          }
+                        : {}),
                     });
                     const jeRucni = udalost.redakcniPolozkaId === null;
                     const cekaNaSchvaleni =
