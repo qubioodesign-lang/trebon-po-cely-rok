@@ -3,11 +3,12 @@
  * Preferuje JSON-LD schema.org Event; úzké HTML větve jen pro program
  * kinotrebon.cz (`.section-event`), trebonskanocturna.cz (karty `/koncert/`),
  * dumstepankanetolickeho.cz (`.home-block-wrapper.event-item`),
- * trebon105.cz (`article.event` jen v sekci Akce, ne Výstavy)
- * a zameckalekarnatrebon.cz (měsíční `.articleContent` denní program).
+ * trebon105.cz (`article.event` jen v sekci Akce, ne Výstavy),
+ * zameckalekarnatrebon.cz (měsíční `.articleContent` denní program)
+ * a rybarstvi.cz (podzimní výlovy – roční sekce / tabulka).
  * Odděleně od Kalendáře a Blob zápisu.
  * Datum/čas: Europe/Prague (včetně DST) přes stávající brana/cas.
- * Multi-měsíční fetch DSN / Zámecká lékárna žije ve scan orchestraci, ne zde.
+ * Multi-měsíční fetch DSN / Zámecká lékárna / Rybářství žije ve scan orchestraci, ne zde.
  */
 
 import { dnesVPraze, okamzikVPraze } from "@/lib/brana/cas";
@@ -29,6 +30,8 @@ const ZAMECKA_LEKARNA_HUB_PATH = "/c-24-denni-program.html";
 const ZAMECKA_LEKARNA_MAX_MESICU = 4;
 const ZAMECKA_LEKARNA_MESIC_HREF_RE =
   /\/c-\d+-(?:leden|unor|brezen|duben|kveten|cerven|cervenec|srpen|zari|rijen|listopad|prosinec)-\d{4}\.html/i;
+const RYBARSTVI_PODZIMNI_VYLOVY_PATH = "/podzimni-vylov-rybniku";
+const MAX_KANDIDATU_RYBARSTVI = 40;
 
 type RozkladDatumCas = {
   datum: string;
@@ -1284,6 +1287,325 @@ function parsovatZameckaLekarnaDenniProgram(
   }
 }
 
+/** True, pokud URL zdroje míří na oficiální web Rybářství Třeboň (s/bez www). */
+export function jeRybarstviZdrojUrl(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./i, "").toLowerCase();
+    return host === "rybarstvi.cz";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Autoritativní stránka podzimních výlovů.
+ * Origin bere ze zdrojové URL (homepage / hub / detail).
+ */
+export function sestavRybarstviPodzimniVylovyUrl(zdrojUrl: string): string {
+  if (!jeRybarstviZdrojUrl(zdrojUrl)) {
+    return "";
+  }
+  const base = new URL(zdrojUrl);
+  return `${base.protocol}//${base.host}${RYBARSTVI_PODZIMNI_VYLOVY_PATH}`;
+}
+
+function jeRybarstviPodzimniVylovyHtml(html: string): boolean {
+  return (
+    /rybarstvi\.cz/i.test(html) &&
+    /podzimn[ií]ch\s+v[ýy]lov/i.test(html) &&
+    /\b20\d{2}\b/.test(html)
+  );
+}
+
+const RYBARSTVI_MESICE: Record<string, number> = {
+  ledna: 1,
+  unor: 2,
+  unora: 2,
+  "února": 2,
+  brezna: 3,
+  "března": 3,
+  dubna: 4,
+  kvetna: 5,
+  "května": 5,
+  cervna: 6,
+  "června": 6,
+  cervence: 7,
+  "července": 7,
+  srpna: 8,
+  zari: 9,
+  "září": 9,
+  rijna: 10,
+  "října": 10,
+  listopadu: 11,
+  prosince: 12,
+};
+
+function normalizovatProRybarstviShodu(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function kanonickyNazevVylovuRybarstvi(rybnikSurovy: string): string | null {
+  const n = normalizovatProRybarstviShodu(rybnikSurovy);
+  if (!n) {
+    return null;
+  }
+  // Nepleť Světozor / jiné.
+  if (/\brozmberk/.test(n)) {
+    return "Výlov Rožmberk";
+  }
+  if (/\bsvet\b/.test(n) && !/svetozor/.test(n)) {
+    return "Výlov Svět";
+  }
+  return null;
+}
+
+function nazevVylovuZRybniku(rybnik: string): string {
+  const kanon = kanonickyNazevVylovuRybarstvi(rybnik);
+  if (kanon) {
+    return kanon;
+  }
+  const cisty = rybnik.replace(/\s+/g, " ").trim();
+  return cisty ? `Výlov ${cisty}` : "";
+}
+
+/**
+ * Rozsah data v roční sekci.
+ * Podporuje: 16. – 18. 10. 2026 | 16. - 18. 10. | 16. až 18. října 2026 | 3, – 6. 11.
+ */
+function rozsahDataRybarstvi(
+  text: string,
+  rokSekce: number,
+): { datumOd: string; datumDo: string } | null {
+  const t = text.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+  if (!t) {
+    return null;
+  }
+
+  const seJmenem = t.match(
+    /(\d{1,2})\s*[.,]?\s*(?:–|-|až)\s*(\d{1,2})\s*[.,]?\s*([a-záčďéěíňóřšťúůýž]+)\s+(\d{4})/i,
+  );
+  if (seJmenem) {
+    const mesic =
+      RYBARSTVI_MESICE[normalizovatProRybarstviShodu(seJmenem[3])] ??
+      RYBARSTVI_MESICE[seJmenem[3].toLowerCase()];
+    const rok = Number(seJmenem[4]);
+    const denOd = Number(seJmenem[1]);
+    const denDo = Number(seJmenem[2]);
+    if (mesic && rok === rokSekce && denOd >= 1 && denDo >= denOd && denDo <= 31) {
+      return {
+        datumOd: formatujIsoDen(rok, mesic, denOd),
+        datumDo: formatujIsoDen(rok, mesic, denDo),
+      };
+    }
+  }
+
+  const ciselny = t.match(
+    /(\d{1,2})\s*[.,]?\s*(?:–|-|až)\s*(\d{1,2})\s*[.,]?\s*(\d{1,2})\s*[.,]?(?:\s*(\d{4}))?/i,
+  );
+  if (ciselny) {
+    const denOd = Number(ciselny[1]);
+    const denDo = Number(ciselny[2]);
+    const mesic = Number(ciselny[3]);
+    const rok = ciselny[4] ? Number(ciselny[4]) : rokSekce;
+    if (
+      rok === rokSekce &&
+      mesic >= 1 &&
+      mesic <= 12 &&
+      denOd >= 1 &&
+      denDo >= denOd &&
+      denDo <= 31
+    ) {
+      return {
+        datumOd: formatujIsoDen(rok, mesic, denOd),
+        datumDo: formatujIsoDen(rok, mesic, denDo),
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Roční sekce: od nadpisu s rokem do následujícího ročníhokotu (jakéhokoli roku).
+ * Parsuje se jen rok ≥ aktuální Europe/Prague rok (historické tabulky se nečtou).
+ */
+function vytahnoutAktualniRocniSekceRybarstvi(
+  html: string,
+  minimalniRok: number,
+): { rok: number; html: string }[] {
+  // Entity pryč dřív, než se hledá rok (rybníků&nbsp;2025).
+  const normalizovane = html
+    .replace(/&nbsp;|&#160;|&#xA0;/gi, " ")
+    .replace(/&#8211;|&ndash;/gi, "–")
+    .replace(/&#8212;|&mdash;/gi, "—");
+
+  const re =
+    /Termíny\s+podzimních\s+výlovů\s+vybraných\s+rybníků\s+(20\d{2})|Slavnostní\s+výlov\s+Rožmberka\s+v\s+roce\s+(20\d{2})|<h[1-4][^>]*>[^<]*?(20\d{2})[^<]*<\/h[1-4]>/gi;
+  const hits: { rok: number; index: number }[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(normalizovane)) !== null) {
+    const rok = Number(m[1] || m[2] || m[3]);
+    if (!Number.isFinite(rok)) {
+      continue;
+    }
+    hits.push({ rok, index: m.index });
+  }
+  hits.sort((a, b) => a.index - b.index);
+
+  const sekce: { rok: number; html: string }[] = [];
+  for (let i = 0; i < hits.length; i++) {
+    const { rok, index } = hits[i];
+    if (rok < minimalniRok) {
+      continue;
+    }
+    const konec =
+      i + 1 < hits.length ? hits[i + 1].index : normalizovane.length;
+    sekce.push({ rok, html: normalizovane.slice(index, konec) });
+  }
+  return sekce;
+}
+
+function parsovatTabulkuVylovuRybarstvi(
+  sekceHtml: string,
+  rok: number,
+  vysledek: BranaScanKandidat[],
+): void {
+  for (const tableMatch of sekceHtml.matchAll(/<table\b[^>]*>([\s\S]*?)<\/table>/gi)) {
+    const table = tableMatch[1] ?? "";
+    for (const rowMatch of table.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
+      if (vysledek.length >= MAX_KANDIDATU_RYBARSTVI) {
+        return;
+      }
+      const bunky = [...rowMatch[1].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(
+        (b) => textBezHtmlTagu(b[1] ?? ""),
+      );
+      if (bunky.length < 2) {
+        continue;
+      }
+      // Hlavička
+      if (/^datum$/i.test(bunky[0]) || /^rybník$/i.test(bunky[1])) {
+        continue;
+      }
+      const rozsah = rozsahDataRybarstvi(bunky[0], rok);
+      if (!rozsah) {
+        continue;
+      }
+      const nazev = nazevVylovuZRybniku(bunky[1]);
+      if (!nazev) {
+        continue;
+      }
+      vysledek.push({
+        nazev,
+        datumOd: rozsah.datumOd,
+        datumDo: rozsah.datumDo,
+        cas: "",
+        mistoNeboTyp: "",
+      });
+    }
+  }
+}
+
+function parsovatProzuVylovuRybarstvi(
+  sekceHtml: string,
+  rok: number,
+  vysledek: BranaScanKandidat[],
+): void {
+  const text = textBezHtmlTagu(sekceHtml).replace(/\u00a0/g, " ");
+  const vzory: {
+    kotva: RegExp;
+    label: string;
+    rival: RegExp;
+  }[] = [
+    {
+      label: "Rožmberk",
+      kotva: /rožmberk|rozmberk/i,
+      rival: /\bsvět\b|\bsvet\b/i,
+    },
+    {
+      label: "Svět",
+      kotva: /rybník(?:a)?\s+svět\b|v[ýy]lov\s+světa\b|v[ýy]lov\s+rybník(?:a)?\s+svět\b/i,
+      rival: /rožmberk|rozmberk/i,
+    },
+  ];
+  for (const { kotva, label, rival } of vzory) {
+    if (vysledek.length >= MAX_KANDIDATU_RYBARSTVI) {
+      return;
+    }
+    const kanon = nazevVylovuZRybniku(label);
+    if (vysledek.some((k) => k.nazev === kanon && k.datumOd.startsWith(`${rok}-`))) {
+      continue;
+    }
+
+    let nalezeno: { datumOd: string; datumDo: string } | null = null;
+    const re = new RegExp(kotva.source, "gi");
+    let hit: RegExpExecArray | null;
+    while ((hit = re.exec(text)) !== null) {
+      const od = Math.max(0, hit.index - 100);
+      const doIdx = Math.min(text.length, hit.index + hit[0].length + 140);
+      const okno = text.slice(od, doIdx);
+      if (!/v[ýy]lov/i.test(okno)) {
+        continue;
+      }
+      if (!new RegExp(String(rok)).test(okno)) {
+        continue;
+      }
+      // Okno nesmí být primárně o jiném rybníku (Rožmberk datum + „Svět“ v menu/článku).
+      if (rival.test(okno)) {
+        const kotvaPos = hit.index - od;
+        const rivalMatch = okno.match(rival);
+        const rivalPos = rivalMatch?.index ?? -1;
+        const datumMatch = okno.match(
+          /(\d{1,2})\s*[.,]?\s*(?:–|-|až)\s*(\d{1,2})/i,
+        );
+        const datumPos = datumMatch?.index ?? -1;
+        if (datumPos >= 0 && rivalPos >= 0) {
+          if (Math.abs(rivalPos - datumPos) < Math.abs(kotvaPos - datumPos)) {
+            continue;
+          }
+        }
+      }
+      const rozsah = rozsahDataRybarstvi(okno, rok);
+      if (rozsah) {
+        nalezeno = rozsah;
+        break;
+      }
+    }
+    if (!nalezeno) {
+      continue;
+    }
+    vysledek.push({
+      nazev: kanon,
+      datumOd: nalezeno.datumOd,
+      datumDo: nalezeno.datumDo,
+      cas: "",
+      mistoNeboTyp: "",
+    });
+  }
+}
+
+/**
+ * HTML podzimní výlovy rybarstvi.cz → BranaScanKandidat.
+ * Jen roční sekce ≥ aktuální rok Europe/Prague. Čas se nevymýšlí.
+ * Rožmberk / Svět → kanonický název pro HLIDANE_KOTVY.
+ */
+function parsovatRybarstviPodzimniVylovy(
+  html: string,
+  vysledek: BranaScanKandidat[],
+  referencniOkamzik: Date = new Date(),
+): void {
+  const minimalniRok = dnesVPraze(referencniOkamzik).rok;
+  const sekce = vytahnoutAktualniRocniSekceRybarstvi(html, minimalniRok);
+  for (const s of sekce) {
+    parsovatTabulkuVylovuRybarstvi(s.html, s.rok, vysledek);
+    parsovatProzuVylovuRybarstvi(s.html, s.rok, vysledek);
+  }
+}
+
 /**
  * Z HTML (nebo čistého JSON) vytáhne kandidátní události.
  * Bez vymyšlených údajů – chybí-li název nebo datum, kandidát se zahodí.
@@ -1331,6 +1653,11 @@ export function parsovatUdalostiZeZdroje(
   // Jen zameckalekarnatrebon.cz – měsíční denní program v .articleContent.
   if (jeZameckaLekarnaMesicProgramHtml(telo)) {
     parsovatZameckaLekarnaDenniProgram(telo, vysledek);
+  }
+
+  // Jen rybarstvi.cz – podzimní výlovy (roční sekce / tabulka).
+  if (jeRybarstviPodzimniVylovyHtml(telo)) {
+    parsovatRybarstviPodzimniVylovy(telo, vysledek);
   }
 
   return deduplikovatScanKandidaty(vysledek);

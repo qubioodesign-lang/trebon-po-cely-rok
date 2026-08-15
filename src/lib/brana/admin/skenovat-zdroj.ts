@@ -21,9 +21,11 @@ import { jePlatnaZdrojUrl, doplnVychoziPoleZdroje, type BranaZdroj } from "./zdr
 import {
   deduplikovatScanKandidaty,
   jeDumStepankaNetolickehoZdrojUrl,
+  jeRybarstviZdrojUrl,
   jeZameckaLekarnaZdrojUrl,
   parsovatUdalostiZeZdroje,
   sestavDumStepankaKalendarUrlkyCtyriMesice,
+  sestavRybarstviPodzimniVylovyUrl,
   sestavZameckaLekarnaHubUrl,
   vytahnoutZameckaLekarnaMesicUrlky,
   type BranaScanKandidat,
@@ -602,6 +604,7 @@ async function skenovatZnamyZdrojJadro(
 
   // DSN: 4 SSR měsíce kalendáře.
   // Zámecká lékárna: hub → discovery zveřejněných měsíců (max 4) → parse.
+  // Rybářství Třeboň: 1 fetch autoritativní /podzimni-vylov-rybniku.
   // Ostatní zdroje: 1 fetch = 1 URL.
   let kandidati: BranaScanKandidat[];
   if (jeDumStepankaNetolickehoZdrojUrl(zdroj.url)) {
@@ -622,6 +625,10 @@ async function skenovatZnamyZdrojJadro(
       sloucene.push(...parsovatUdalostiZeZdroje(text, contentType));
     }
     kandidati = deduplikovatScanKandidaty(sloucene);
+  } else if (jeRybarstviZdrojUrl(zdroj.url)) {
+    const vylovyUrl = sestavRybarstviPodzimniVylovyUrl(zdroj.url);
+    const { text, contentType } = await nacistTeloZdroje(vylovyUrl);
+    kandidati = parsovatUdalostiZeZdroje(text, contentType);
   } else {
     const { text, contentType } = await nacistTeloZdroje(zdroj.url);
     kandidati = parsovatUdalostiZeZdroje(text, contentType);
