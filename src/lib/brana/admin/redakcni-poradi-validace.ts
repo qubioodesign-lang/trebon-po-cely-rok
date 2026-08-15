@@ -200,7 +200,7 @@ function normalizovatJazykVerejny(
 
 /**
  * Validuje a normalizuje kompletní sadu řádků podle stabilních id.
- * Musí obsahovat přesně všech 52 pevných položek, žádné jiné.
+ * Musí obsahovat přesně všech 53 pevných položek, žádné jiné.
  * Text Položka se zachová (validovaný); katalog slouží jen jako výchozí při chybějících datech.
  *
  * @param volby.legacyVyhled – true při načtení starého Blobu (null → mapa);

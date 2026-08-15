@@ -8,8 +8,14 @@ import {
   ziskatVolbyBranaAdminBlob,
 } from "./env-blob-brana-admin";
 import type { BranaRedakcniPolozkaStav } from "./redakcni-kostra";
-import { vytvoritVychoziRedakcniPoradi } from "./redakcni-kostra";
-import { validovatRedakcniPoradiVstup } from "./redakcni-poradi-validace";
+import {
+  BRANA_REDAKCNI_VSECHNY_VYCHOZI,
+  vytvoritVychoziRedakcniPoradi,
+} from "./redakcni-kostra";
+import {
+  sloucitUlozeneSKostrou,
+  validovatRedakcniPoradiVstup,
+} from "./redakcni-poradi-validace";
 
 /**
  * Objekt v PRIVATE Blob store administrace BRÁNY.
@@ -21,7 +27,7 @@ export const BRANA_REDAKCNI_PORADI_BLOB_CESTA =
 /**
  * Verze dokumentu redakčního pořadí.
  * 1 (nebo chybí) = stará automatická kostra před prioritním seznamem.
- * 2 = prioritní seznam (21 ANO + 31 NE) vědomě uložený redaktorem.
+ * 2 = prioritní seznam (21 ANO + 32 NE) vědomě uložený redaktorem.
  *
  * Načtení starší verze vrátí v paměti nový seed; Blob se přepíše až při Uložit.
  */
@@ -141,6 +147,25 @@ async function nacistRedakcniPoradiDokument(): Promise<NacistRedakcniPoradiVysle
       legacyVyhled: true,
     });
     if (!validace.ok) {
+      /**
+       * Rozšíření katalogu: starší Blob bez nových ID → sloučit v paměti.
+       * Žádný put. Blob se doplní až při vědomém Uložit.
+       */
+      if (
+        Array.isArray(root.polozky) &&
+        root.polozky.length < BRANA_REDAKCNI_VSECHNY_VYCHOZI.length
+      ) {
+        const slouceni = sloucitUlozeneSKostrou(root);
+        const poSlouceni = validovatRedakcniPoradiVstup(slouceni, {
+          legacyVyhled: true,
+        });
+        if (poSlouceni.ok) {
+          if (!dokumentMaPrioritniSeznam(root.verzeUloziste)) {
+            return { ok: true, polozky: vytvoritVychoziRedakcniPoradi() };
+          }
+          return { ok: true, polozky: poSlouceni.polozky };
+        }
+      }
       zalogovatChybuCteni(`Blob dokument neprošel validací: ${validace.chyba}`);
       return { ok: false };
     }

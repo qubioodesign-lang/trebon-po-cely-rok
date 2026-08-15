@@ -1,5 +1,5 @@
 /**
- * Statická Redakční kostra – katalog 52 pevných ID a výchozí prioritní seznam (21 ANO).
+ * Statická Redakční kostra – katalog 53 pevných ID a výchozí prioritní seznam (21 ANO).
  * Editovatelné hodnoty se ukládají do samostatného Vercel Blob dokumentu (verzeUloziste ≥ 2).
  *
  * Veřejný jazyk BRÁNY (CO / KDE) je oddělený od identity položky (matching).
@@ -314,6 +314,7 @@ export const BRANA_REDAKCNI_MIMO_KOSTRA: readonly BranaRedakcniPolozkaVychozi[] 
     { id: "vidiny", polozka: "VIDINY", pouzivat: "NE", mimoKostru: true },
     { id: "rozmberska-noc", polozka: "Rožmberská noc", pouzivat: "ANO", mimoKostru: true },
     { id: "vylovy", polozka: "Výlovy", pouzivat: "ANO", mimoKostru: true },
+    { id: "vylov-sveta", polozka: "Výlov Světa", pouzivat: "NE", mimoKostru: true },
     { id: "gymnazium-trebon", polozka: "Gymnázium Třeboň", pouzivat: "NE", mimoKostru: true },
     { id: "kostel-panny-marie-a-sv-jilji", polozka: "Kostel Panny Marie Královny a sv. Jiljí", pouzivat: "NE", mimoKostru: true },
     { id: "tic-trebon", polozka: "Turistické informační centrum Třeboň", pouzivat: "NE", mimoKostru: true },
@@ -325,7 +326,7 @@ export const BRANA_REDAKCNI_MIMO_KOSTRA: readonly BranaRedakcniPolozkaVychozi[] 
     { id: "plaz-u-rybnika-svet", polozka: "Pláž u rybníka Svět", pouzivat: "NE", mimoKostru: true },
   ];
 
-/** Pevné pořadí všech 52 položek (kostra + mimo) – kompatibilita Blob / matching */
+/** Pevné pořadí všech 53 položek (kostra + mimo) – kompatibilita Blob / matching */
 export const BRANA_REDAKCNI_VSECHNY_VYCHOZI: readonly BranaRedakcniPolozkaVychozi[] =
   [...BRANA_REDAKCNI_KOSTRA, ...BRANA_REDAKCNI_MIMO_KOSTRA];
 
@@ -336,7 +337,7 @@ export function vytvoritVychoziStavPolozky(
   return {
     id: vychozi.id,
     polozka: seed?.polozka ?? vychozi.polozka,
-    /** Přesně 21 definitivních = ANO; ostatní 31 = NE */
+    /** Přesně 21 definitivních = ANO; ostatní 32 = NE */
     pouzivat: seed ? "ANO" : "NE",
     priorita: seed?.priorita ?? null,
     subpriorita: null,
