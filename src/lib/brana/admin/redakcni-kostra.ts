@@ -1,5 +1,5 @@
 /**
- * Statická Redakční kostra – katalog 53 pevných ID a výchozí prioritní seznam (21 ANO).
+ * Statická Redakční kostra – katalog 54 pevných ID a výchozí prioritní seznam (22 ANO).
  * Editovatelné hodnoty se ukládají do samostatného Vercel Blob dokumentu (verzeUloziste ≥ 2).
  *
  * Veřejný jazyk BRÁNY (CO / KDE) je oddělený od identity položky (matching).
@@ -83,7 +83,7 @@ function pevne(text: string): BranaJazykSlot {
 const Z_UDALOSTI: BranaJazykSlot = { rezim: "Z_UDALOSTI" };
 
 /**
- * Definitivní seed veřejného jazyka + priority + Výhled pro 21 pravidel.
+ * Definitivní seed veřejného jazyka + priority + Výhled pro 22 pravidel.
  * Ostatní id katalogu → jazyk null (legacy), priorita null.
  */
 const DEFINITIVNI_SEED: Readonly<
@@ -115,6 +115,17 @@ const DEFINITIVNI_SEED: Readonly<
     // Veřejný zápis: Trh · [rozlišení]; oddělovač řeší rozlozAkci (jen CO=Trh).
     jazyk: { co: pevne("Trh"), rozliseni: Z_UDALOSTI },
     // Rodina samostatných událostí — ne sezónní souhrn.
+    vyhledSerie: false,
+  },
+  "zahajeni-lazenske-sezony": {
+    polozka: "Zahájení lázeňské sezóny",
+    priorita: 9,
+    vyhled: "ANO",
+    // CO z události: „Trh“ → Trh · Zahájení…; jinak jen pevné rozlišení.
+    jazyk: {
+      co: Z_UDALOSTI,
+      rozliseni: pevne("Zahájení lázeňské sezóny"),
+    },
     vyhledSerie: false,
   },
   "kino-svetozor": {
@@ -282,7 +293,7 @@ export function maStrukturovanyJazykPravidla(polozka: {
   return polozka.jazykVerejny !== null;
 }
 
-/** IDs 21 definitivních pravidel (priority 1–21). */
+/** IDs 22 definitivních pravidel (priority dle seedu). */
 export const BRANA_REDAKCNI_DEFINITIVNI_ID: readonly string[] = Object.freeze(
   Object.keys(DEFINITIVNI_SEED).sort(
     (a, b) =>
@@ -308,6 +319,12 @@ export const BRANA_REDAKCNI_KOSTRA: readonly BranaRedakcniPolozkaVychozi[] = [
   { id: "zamecka-lekarna-trebon", polozka: "Francouzské dny TRE(s)BON", pouzivat: "ANO", mimoKostru: false },
   { id: "mestske-kulturni-akce-trebon", polozka: "Městské kulturní akce Třeboň", pouzivat: "NE", mimoKostru: false },
   { id: "trhy", polozka: "Trhy na náměstí", pouzivat: "ANO", mimoKostru: false },
+  {
+    id: "zahajeni-lazenske-sezony",
+    polozka: "Zahájení lázeňské sezóny",
+    pouzivat: "ANO",
+    mimoKostru: false,
+  },
   { id: "kultura-pod-hvezdami", polozka: "Kultura pod hvězdami", pouzivat: "ANO", mimoKostru: false },
   { id: "okolo-trebone", polozka: "Okolo Třeboně", pouzivat: "ANO", mimoKostru: false },
   { id: "trebonska-lazenska-matine", polozka: "Třeboňská lázeňská matiné", pouzivat: "ANO", mimoKostru: false },
@@ -353,7 +370,7 @@ export const BRANA_REDAKCNI_MIMO_KOSTRA: readonly BranaRedakcniPolozkaVychozi[] 
     { id: "plaz-u-rybnika-svet", polozka: "Pláž u rybníka Svět", pouzivat: "NE", mimoKostru: true },
   ];
 
-/** Pevné pořadí všech 53 položek (kostra + mimo) – kompatibilita Blob / matching */
+/** Pevné pořadí všech 54 položek (kostra + mimo) – kompatibilita Blob / matching */
 export const BRANA_REDAKCNI_VSECHNY_VYCHOZI: readonly BranaRedakcniPolozkaVychozi[] =
   [...BRANA_REDAKCNI_KOSTRA, ...BRANA_REDAKCNI_MIMO_KOSTRA];
 
@@ -364,7 +381,7 @@ export function vytvoritVychoziStavPolozky(
   return {
     id: vychozi.id,
     polozka: seed?.polozka ?? vychozi.polozka,
-    /** Přesně 21 definitivních = ANO; ostatní 32 = NE */
+    /** Přesně 22 definitivních = ANO; ostatní = NE */
     pouzivat: seed ? "ANO" : "NE",
     priorita: seed?.priorita ?? null,
     subpriorita: null,

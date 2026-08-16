@@ -16,6 +16,8 @@ const JEDNOSLOVNE_TYPY_AKCE = new Set([
   "Výstava",
   "Prohlídka",
   "Přednáška",
+  /** Umožní CO z události = „Trh“ (OLS a další) → oddělovač ` · `. */
+  "Trh",
 ]);
 
 /** Veřejný CO rodiny Trhů — jediný typ s oddělovačem ` · `. */

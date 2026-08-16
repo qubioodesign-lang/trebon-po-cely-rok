@@ -8,8 +8,9 @@
  * rybarstvi.cz (podzimní výlovy – roční sekce / tabulka),
  * trebonsko.cz/remeslne-trhy-trebon (městské Trhy – fail-closed whitelist),
  * cityevent.cz/pro-ucastniky (+ /festival/*trebon*) pro Street Food / Beer & Food Fest,
- * mintmarket.cz (listing / detail /trh/trebon-*) pro MINT Market
- * a visittrebon.cz/kalendar-akci-trebon/2 (jen MINT Market Třeboň → trhy).
+ * mintmarket.cz (listing / detail /trh/trebon-*) pro MINT Market,
+ * visittrebon.cz/kalendar-akci-trebon/2 (jen MINT Market Třeboň → trhy)
+ * a trebonsko.cz/otevirani-lazenske-sezony-v-treboni (max. trh + hlavní zahájení).
  * Odděleně od Kalendáře a Blob zápisu.
  * Datum/čas: Europe/Prague (včetně DST) přes stávající brana/cas.
  * Multi-měsíční fetch DSN / Zámecká lékárna / Rybářství / Visit horizont žije ve scan orchestraci, ne zde.
@@ -41,9 +42,17 @@ const ZAMECKA_LEKARNA_MESIC_HREF_RE =
   /\/c-\d+-(?:leden|unor|brezen|duben|kveten|cerven|cervenec|srpen|zari|rijen|listopad|prosinec)-\d{4}\.html/i;
 const RYBARSTVI_PODZIMNI_VYLOVY_PATH = "/podzimni-vylov-rybniku";
 const MAX_KANDIDATU_RYBARSTVI = 40;
-/** Redakční kotva rodiny Trhů — ownership Třeboňsko / City Event / MINT. */
+/** Redakční kotva rodiny Trhů — ownership Třeboňsko / City Event / MINT / Visit. */
 export const BRANA_TRHY_REDAKCNI_POLOZKA_ID = "trhy";
+/** Redakční kotva Zahájení lázeňské sezóny (oddělená od trhy). */
+export const BRANA_ZAHAJENI_LAZENSKE_SEZONY_POLOZKA_ID =
+  "zahajeni-lazenske-sezony";
 const TREBONSKO_REMESLNE_TRHY_PATH = "/remeslne-trhy-trebon";
+const TREBONSKO_OLS_PATH = "/otevirani-lazenske-sezony-v-treboni";
+const OLS_ROZLISENI = "Zahájení lázeňské sezóny";
+const OLS_MISTO_AURORA = "Lázně Aurora";
+const OLS_MISTO_OBE = "Náměstí, Lázně Aurora";
+const MAX_KANDIDATU_OLS = 2;
 
 /** Normalizace segmentu pro zdrojIdentita (bez diakritiky, kebab). */
 function slugProZdrojIdentitu(text: string): string {
@@ -2754,6 +2763,225 @@ function parsovatVisitTrebonMintMarket(
   }
 }
 
+/** True, pokud URL míří na trebonsko.cz Otevírání lázeňské sezóny. */
+export function jeTrebonskoOteviraniLazenskeSezonyZdrojUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./i, "").toLowerCase();
+    if (host !== "trebonsko.cz") {
+      return false;
+    }
+    const path = parsed.pathname.replace(/\/+$/, "").toLowerCase();
+    return path === TREBONSKO_OLS_PATH;
+  } catch {
+    return false;
+  }
+}
+
+function jeTrebonskoOlsHtml(html: string): boolean {
+  // Nesmí přebrat řemeslné trhy (společný host + případný odkaz v patičce).
+  if (jeTrebonskoRemeslneTrhyHtml(html)) {
+    return false;
+  }
+  return (
+    /trebonsko\.cz/i.test(html) &&
+    (/otevirani-lazenske-sezony-v-treboni/i.test(html) ||
+      /otev[ií]r[aá]n[ií]\s+l[aá]ze[nň]sk[eé]\s+sezon/i.test(html)) &&
+    /slavnostn[ií]\s+zah[aá]jen/i.test(html)
+  );
+}
+
+/** Datum z nadpisu ročníku: „30. května 2026“. */
+function parsovatOlsDatumZNadpisu(text: string): string | null {
+  const m = text.match(
+    /(\d{1,2})\.\s*(ledna|února|unora|března|brezna|dubna|května|kvetna|června|cervna|července|cervence|srpna|září|zari|října|rijna|listopadu|prosince)\s+(20\d{2})/i,
+  );
+  if (!m) {
+    return null;
+  }
+  const den = Number(m[1]);
+  const mesic = MINT_MESICE_CS[normalizovatProTrhyShodu(m[2] ?? "")];
+  const rok = Number(m[3]);
+  if (
+    !mesic ||
+    !Number.isFinite(den) ||
+    den < 1 ||
+    den > 31 ||
+    !Number.isFinite(rok)
+  ) {
+    return null;
+  }
+  return formatujIsoDen(rok, mesic, den);
+}
+
+/**
+ * Minimalistické místo trhu OLS — při nejistotě prázdné.
+ * Jen Masarykovo → ""; jen Aurora/park/kolonáda → Lázně Aurora;
+ * obojí → Náměstí, Lázně Aurora.
+ */
+function mapovatOlsMistoTrhu(sekceText: string): string {
+  const n = normalizovatProTrhyShodu(sekceText);
+  const maNamesti = /\bmasarykov/.test(n);
+  const maAurora =
+    /\baurora\b/.test(n) ||
+    /\bkolonad/.test(n) ||
+    /\blazensky park\b/.test(n) ||
+    /\blazensky park ld\b/.test(n);
+  if (maNamesti && maAurora) {
+    return OLS_MISTO_OBE;
+  }
+  if (maAurora) {
+    return OLS_MISTO_AURORA;
+  }
+  if (maNamesti) {
+    return "";
+  }
+  return "";
+}
+
+/** Místo hlavního zahájení — jen bezpečná Aurora; jinak "". */
+function mapovatOlsMistoHlavni(sekceText: string): string {
+  const n = normalizovatProTrhyShodu(sekceText);
+  if (
+    /\baurora\b/.test(n) ||
+    /\bkolonad/.test(n) ||
+    /\blazensky park\b/.test(n)
+  ) {
+    return OLS_MISTO_AURORA;
+  }
+  return "";
+}
+
+/** Čas z „11.30“ / „11:30“ / „9.00“ → HH:mm. */
+function parsovatOlsCasZRadku(radek: string): string | null {
+  const m = radek.trim().match(/^(\d{1,2})[.:](\d{2})\b/);
+  if (!m) {
+    return null;
+  }
+  const hodina = Number(m[1]);
+  const minuta = Number(m[2]);
+  if (
+    !Number.isFinite(hodina) ||
+    !Number.isFinite(minuta) ||
+    hodina > 23 ||
+    minuta > 59
+  ) {
+    return null;
+  }
+  return formatujCas(hodina, minuta);
+}
+
+/**
+ * Fail-closed OLS: max. 2 kandidáti na ročník (|trh + |hlavni).
+ * Neemituje koncerty, doprovod, Otevíráme Třeboň, Lázeňská Třeboň.
+ * Identita: trebonsko|zahajeni-lazenske-sezony|{rok}|trh|hlavni
+ */
+function parsovatTrebonskoOteviraniLazenskeSezony(
+  html: string,
+  vysledek: BranaScanKandidat[],
+): void {
+  // Sekce ročníku: h2 … program (2024 / 2025 / 2026 …).
+  const nadpisy = [
+    ...html.matchAll(
+      /<h2[^>]*>\s*(?:<span[^>]*>)?\s*([^<]*otev[^<]*sezon[^<]*?20\d{2}[^<]*)/gi,
+    ),
+  ];
+  for (let i = 0; i < nadpisy.length; i++) {
+    if (vysledek.length >= MAX_KANDIDATU_OLS * 4) {
+      // Soft cap přes více ročníků na stránce (typicky 2–3).
+      break;
+    }
+    const nadpis = cistyTextZHtmlFragmentu(nadpisy[i]?.[1] ?? "");
+    const datumIso = parsovatOlsDatumZNadpisu(nadpis);
+    if (!datumIso) {
+      continue;
+    }
+    const rok = Number(datumIso.slice(0, 4));
+    if (!Number.isFinite(rok)) {
+      continue;
+    }
+
+    const startIdx = nadpisy[i]!.index ?? 0;
+    const endIdx =
+      i + 1 < nadpisy.length
+        ? (nadpisy[i + 1]!.index ?? html.length)
+        : html.length;
+    const sekceHtml = html.slice(startIdx, endIdx);
+    const sekceText = cistyTextZHtmlFragmentu(sekceHtml);
+
+    // Explicitní odmítnutí cizích / jiných městských akcí v textu sekce
+    // (neemitují se jako OLS — jen nepoužít jejich řádky).
+    let maTrh = false;
+    let casHlavni: string | null = null;
+    const liShody = sekceHtml.matchAll(/<li>([\s\S]*?)<\/li>/gi);
+    for (const li of liShody) {
+      const radek = cistyTextZHtmlFragmentu(li[1] ?? "");
+      if (!radek) {
+        continue;
+      }
+      const radekNorm = normalizovatProTrhyShodu(radek);
+      // Koncerty / program / atrakce — nikdy CEKA.
+      if (
+        /koncert/.test(radekNorm) ||
+        /hudba|hudebni|ucinkuj|detsky program|doprovod|atrakc/.test(
+          radekNorm,
+        )
+      ) {
+        continue;
+      }
+      if (
+        /otevirame trebon/.test(radekNorm) ||
+        /lazenska trebon/.test(radekNorm)
+      ) {
+        continue;
+      }
+      // A) Trh — jen řádek typu „9.00 Trhy“ (ne „žehnání“ apod.).
+      if (/\btrhy?\b/.test(radekNorm) && !/zehnani|slavnostni zahajeni/.test(radekNorm)) {
+        maTrh = true;
+        continue;
+      }
+      // B) Hlavní zahájení — Slavnostní zahájení / žehnání slatině.
+      if (
+        /slavnostni zahajeni/.test(radekNorm) ||
+        /zehnani slatin/.test(radekNorm)
+      ) {
+        const cas = parsovatOlsCasZRadku(radek);
+        if (cas) {
+          casHlavni = cas;
+        }
+      }
+    }
+
+    let emitovanoVRocniku = 0;
+    if (maTrh && emitovanoVRocniku < MAX_KANDIDATU_OLS) {
+      const misto = mapovatOlsMistoTrhu(sekceText);
+      vysledek.push({
+        // CO = Trh → veřejně „Trh · Zahájení lázeňské sezóny“; místo v nazev.
+        nazev: misto || OLS_ROZLISENI,
+        datumOd: datumIso,
+        datumDo: datumIso,
+        cas: "",
+        mistoNeboTyp: "Trh",
+        zdrojIdentita: `trebonsko|zahajeni-lazenske-sezony|${rok}|trh`,
+      });
+      emitovanoVRocniku += 1;
+    }
+    if (casHlavni && emitovanoVRocniku < MAX_KANDIDATU_OLS) {
+      const misto = mapovatOlsMistoHlavni(sekceText);
+      vysledek.push({
+        nazev: misto || OLS_ROZLISENI,
+        datumOd: datumIso,
+        datumDo: datumIso,
+        cas: casHlavni,
+        // Bez „Trh“ → CO null + pevné rozlišení → „Zahájení lázeňské sezóny“.
+        mistoNeboTyp: "",
+        zdrojIdentita: `trebonsko|zahajeni-lazenske-sezony|${rok}|hlavni`,
+      });
+      emitovanoVRocniku += 1;
+    }
+  }
+}
+
 /**
  * Z HTML (nebo čistého JSON) vytáhne kandidátní události.
  * Bez vymyšlených údajů – chybí-li název nebo datum, kandidát se zahodí.
@@ -2775,8 +3003,15 @@ export function parsovatUdalostiZeZdroje(
   }
 
   // Třeboňsko řemeslné trhy: jen fail-closed whitelist — bez JSON-LD mixu.
+  // Musí být před OLS (společný host; patička může odkazovat na OLS).
   if (jeTrebonskoRemeslneTrhyHtml(telo)) {
     parsovatTrebonskoRemeslneTrhy(telo, vysledek);
+    return deduplikovatScanKandidaty(vysledek);
+  }
+
+  // Třeboňsko OLS: max. trh + hlavní — bez JSON-LD mixu.
+  if (jeTrebonskoOlsHtml(telo)) {
+    parsovatTrebonskoOteviraniLazenskeSezony(telo, vysledek);
     return deduplikovatScanKandidaty(vysledek);
   }
 

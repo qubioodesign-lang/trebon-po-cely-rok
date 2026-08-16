@@ -21,10 +21,12 @@ import { jePlatnaZdrojUrl, doplnVychoziPoleZdroje, type BranaZdroj } from "./zdr
 import {
   deduplikovatScanKandidaty,
   BRANA_TRHY_REDAKCNI_POLOZKA_ID,
+  BRANA_ZAHAJENI_LAZENSKE_SEZONY_POLOZKA_ID,
   jeDumStepankaNetolickehoZdrojUrl,
   jeCityEventTrhyZdrojUrl,
   jeMintTrhyZdrojUrl,
   jeRybarstviZdrojUrl,
+  jeTrebonskoOteviraniLazenskeSezonyZdrojUrl,
   jeTrebonskoRemeslneTrhyZdrojUrl,
   jeVisitTrebonHlidaneAkceZdrojUrl,
   jeZameckaLekarnaZdrojUrl,
@@ -676,15 +678,22 @@ async function skenovatZnamyZdrojJadro(
             zdroj.hlidaneRedakcniPolozkaIds,
             BRANA_TRHY_REDAKCNI_POLOZKA_ID,
           )
-        : hlidaneKotvy
-          ? sparovatSHlidanymiKotvami(
-              kandidat,
+        : hlidaneKotvy &&
+            jeTrebonskoOteviraniLazenskeSezonyZdrojUrl(zdroj.url)
+          ? sparovatVlastnictvimHlidaneKotvy(
               redakcni.polozky,
               zdroj.hlidaneRedakcniPolozkaIds,
+              BRANA_ZAHAJENI_LAZENSKE_SEZONY_POLOZKA_ID,
             )
-          : sparovatSRedakcniPolozkou(kandidat, redakcni.polozky, {
-              zdrojNazev: zdroj.nazev,
-            });
+          : hlidaneKotvy
+            ? sparovatSHlidanymiKotvami(
+                kandidat,
+                redakcni.polozky,
+                zdroj.hlidaneRedakcniPolozkaIds,
+              )
+            : sparovatSRedakcniPolozkou(kandidat, redakcni.polozky, {
+                zdrojNazev: zdroj.nazev,
+              });
 
     if (!sparovani.ok) {
       // Bohatý zdroj: neshody se neposílají do Nezařazených (provozní šum).

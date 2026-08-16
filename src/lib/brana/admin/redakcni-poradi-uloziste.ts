@@ -27,7 +27,7 @@ export const BRANA_REDAKCNI_PORADI_BLOB_CESTA =
 /**
  * Verze dokumentu redakčního pořadí.
  * 1 (nebo chybí) = stará automatická kostra před prioritním seznamem.
- * 2 = prioritní seznam (21 ANO + 32 NE) vědomě uložený redaktorem.
+ * 2 = prioritní seznam (22 ANO + ostatní NE) vědomě uložený redaktorem.
  *
  * Načtení starší verze vrátí v paměti nový seed; Blob se přepíše až při Uložit.
  */
