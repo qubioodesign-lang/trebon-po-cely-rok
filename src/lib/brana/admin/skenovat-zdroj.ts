@@ -26,6 +26,7 @@ import {
   jeCityEventTrhyZdrojUrl,
   jeMintTrhyZdrojUrl,
   jeRybarstviZdrojUrl,
+  jeTrebonskoKinoKategorieZdrojUrl,
   jeTrebonskoOteviraniLazenskeSezonyZdrojUrl,
   jeTrebonskoRemeslneTrhyZdrojUrl,
   jeVisitTrebonHlidaneAkceZdrojUrl,
@@ -33,8 +34,10 @@ import {
   parsovatUdalostiZeZdroje,
   sestavDumStepankaKalendarUrlkyCtyriMesice,
   sestavRybarstviPodzimniVylovyUrl,
+  sestavTrebonskoKinoKategorieHubUrl,
   sestavVisitTrebonKalendarUrl,
   sestavZameckaLekarnaHubUrl,
+  vytahnoutTrebonskoKinoMesicUrlky,
   vytahnoutZameckaLekarnaMesicUrlky,
   type BranaScanKandidat,
 } from "./zdroj-scan-parser";
@@ -615,6 +618,7 @@ async function skenovatZnamyZdrojJadro(
   // Zámecká lékárna: hub → discovery zveřejněných měsíců (max 4) → parse.
   // Rybářství Třeboň: 1 fetch autoritativní /podzimni-vylov-rybniku.
   // VisitTřeboň: 1 GET s dynamickým horizontem dnes→+12 měsíců.
+  // Třeboňsko kino: hub /kategorie/kina/ → aktuální + následující měsíc.
   // Ostatní zdroje: 1 fetch = 1 URL.
   let kandidati: BranaScanKandidat[];
   if (jeDumStepankaNetolickehoZdrojUrl(zdroj.url)) {
@@ -632,6 +636,16 @@ async function skenovatZnamyZdrojJadro(
     const sloucene: BranaScanKandidat[] = [];
     for (const mesicUrl of mesice) {
       const { text, contentType } = await nacistTeloZdroje(mesicUrl);
+      sloucene.push(...parsovatUdalostiZeZdroje(text, contentType));
+    }
+    kandidati = deduplikovatScanKandidaty(sloucene);
+  } else if (jeTrebonskoKinoKategorieZdrojUrl(zdroj.url)) {
+    const hubUrl = sestavTrebonskoKinoKategorieHubUrl(zdroj.url);
+    const { text: hubHtml } = await nacistTeloZdroje(hubUrl);
+    const mesice = vytahnoutTrebonskoKinoMesicUrlky(hubHtml, hubUrl);
+    const sloucene: BranaScanKandidat[] = [];
+    for (const mesic of mesice) {
+      const { text, contentType } = await nacistTeloZdroje(mesic.url);
       sloucene.push(...parsovatUdalostiZeZdroje(text, contentType));
     }
     kandidati = deduplikovatScanKandidaty(sloucene);

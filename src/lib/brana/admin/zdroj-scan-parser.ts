@@ -9,11 +9,13 @@
  * trebonsko.cz/remeslne-trhy-trebon (městské Trhy – fail-closed whitelist),
  * cityevent.cz/pro-ucastniky (+ /festival/*trebon*) pro Street Food / Beer & Food Fest,
  * mintmarket.cz (listing / detail /trh/trebon-*) pro MINT Market,
- * visittrebon.cz/kalendar-akci-trebon/2 (jen MINT Market Třeboň → trhy)
- * a trebonsko.cz/otevirani-lazenske-sezony-v-treboni (max. trh + hlavní zahájení).
+ * visittrebon.cz/kalendar-akci-trebon/2 (jen MINT Market Třeboň → trhy),
+ * trebonsko.cz/otevirani-lazenske-sezony-v-treboni (max. trh + hlavní zahájení)
+ * a trebonsko.cz/kategorie/kina/ (měsíční program Světozor + Aurora – discovery ve scanu).
  * Odděleně od Kalendáře a Blob zápisu.
  * Datum/čas: Europe/Prague (včetně DST) přes stávající brana/cas.
- * Multi-měsíční fetch DSN / Zámecká lékárna / Rybářství / Visit horizont žije ve scan orchestraci, ne zde.
+ * Multi-měsíční fetch DSN / Zámecká lékárna / Rybářství / Visit / Třeboňsko kino
+ * horizont žije ve scan orchestraci, ne zde.
  */
 
 import { dnesVPraze, okamzikVPraze, type BranaDatum } from "@/lib/brana/cas";
@@ -49,10 +51,30 @@ export const BRANA_ZAHAJENI_LAZENSKE_SEZONY_POLOZKA_ID =
   "zahajeni-lazenske-sezony";
 const TREBONSKO_REMESLNE_TRHY_PATH = "/remeslne-trhy-trebon";
 const TREBONSKO_OLS_PATH = "/otevirani-lazenske-sezony-v-treboni";
+const TREBONSKO_KINO_KATEGORIE_PATH = "/kategorie/kina";
 const OLS_ROZLISENI = "Zahájení lázeňské sezóny";
 const OLS_MISTO_AURORA = "Lázně Aurora";
 const OLS_MISTO_OBE = "Náměstí, Lázně Aurora";
 const MAX_KANDIDATU_OLS = 2;
+/** Aktuální + následující měsíc (~2×80 projekcí). */
+const MAX_KANDIDATU_TREBONSKO_KINO = 200;
+const TREBONSKO_KINO_PROGRAM_HREF_RE =
+  /\/kino-trebon-program-[a-z]+-20\d{2}(?:-\d+)?\/?/i;
+/** Nominativ měsíců v URL slug / nadpisech programu. */
+const TREBONSKO_KINO_MESIC_NOMINATIV: Readonly<Record<string, number>> = {
+  leden: 1,
+  unor: 2,
+  brezen: 3,
+  duben: 4,
+  kveten: 5,
+  cerven: 6,
+  cervenec: 7,
+  srpen: 8,
+  zari: 9,
+  rijen: 10,
+  listopad: 11,
+  prosinec: 12,
+};
 
 /** Normalizace segmentu pro zdrojIdentita (bez diakritiky, kebab). */
 function slugProZdrojIdentitu(text: string): string {
@@ -485,6 +507,31 @@ function parsovatKinotrebonSectionEvent(
       }
     }
   }
+}
+
+/**
+ * Stabilní identita projekce Světozor / Aurora z měsíčního programu Třeboňsko.
+ */
+export function sestavZdrojIdentituKinoProjekce(
+  mistoNeboTyp: string,
+  datumIso: string,
+  cas: string,
+): string | undefined {
+  const kino =
+    mistoNeboTyp === "Kino Aurora"
+      ? "aurora"
+      : mistoNeboTyp === "Kino Světozor"
+        ? "svetozor"
+        : null;
+  if (!kino) {
+    return undefined;
+  }
+  const datum = datumIso.trim();
+  const casNorm = cas.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(datum) || !/^\d{2}:\d{2}$/.test(casNorm)) {
+    return undefined;
+  }
+  return `kino|${kino}|${datum}|${casNorm}`;
 }
 
 /** Minimální dekódování HTML entit v textu z nocturny (číselné + běžné české). */
@@ -2982,6 +3029,392 @@ function parsovatTrebonskoOteviraniLazenskeSezony(
   }
 }
 
+/** True, pokud URL míří na trebonsko.cz kategorii kin (hub měsíčních programů). */
+export function jeTrebonskoKinoKategorieZdrojUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./i, "").toLowerCase();
+    if (host !== "trebonsko.cz") {
+      return false;
+    }
+    const path = parsed.pathname.replace(/\/+$/, "").toLowerCase();
+    return path === TREBONSKO_KINO_KATEGORIE_PATH;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Stabilní hub kategorie kin – origin ze zdrojové URL.
+ * Admin URL = hub; konkrétní měsíc/rok se neukládá.
+ */
+export function sestavTrebonskoKinoKategorieHubUrl(zdrojUrl: string): string {
+  if (!jeTrebonskoKinoKategorieZdrojUrl(zdrojUrl)) {
+    return "";
+  }
+  const base = new URL(zdrojUrl);
+  return `${base.protocol}//${base.host}${TREBONSKO_KINO_KATEGORIE_PATH}/`;
+}
+
+function normalizovatBezDiakritikyKino(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function mesicNominativZTextu(text: string): number | null {
+  const n = normalizovatBezDiakritikyKino(text);
+  for (const [slug, mesic] of Object.entries(TREBONSKO_KINO_MESIC_NOMINATIV)) {
+    if (new RegExp(`(?:^|[^a-z])${slug}(?:[^a-z]|$)`, "i").test(n)) {
+      return mesic;
+    }
+  }
+  return null;
+}
+
+function rokZTextu(text: string): number | null {
+  const m = text.match(/\b(20\d{2})\b/);
+  if (!m) {
+    return null;
+  }
+  const rok = Number(m[1]);
+  return Number.isFinite(rok) ? rok : null;
+}
+
+function vycistitHtmlTextKino(raw: string): string {
+  return raw
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function jePlatnyKalendarniDen(rok: number, mesic: number, den: number): boolean {
+  if (den < 1 || den > 31 || mesic < 1 || mesic > 12) {
+    return false;
+  }
+  const dt = new Date(Date.UTC(rok, mesic - 1, den));
+  return (
+    dt.getUTCFullYear() === rok &&
+    dt.getUTCMonth() === mesic - 1 &&
+    dt.getUTCDate() === den
+  );
+}
+
+function nasledujiciRokMesic(
+  rok: number,
+  mesic: number,
+): { rok: number; mesic: number } {
+  if (mesic >= 12) {
+    return { rok: rok + 1, mesic: 1 };
+  }
+  return { rok, mesic: mesic + 1 };
+}
+
+export type TrebonskoKinoMesicOdkaz = {
+  url: string;
+  rok: number;
+  mesic: number;
+};
+
+/**
+ * Z HTML hubu `/kategorie/kina/` vytáhne aktuální + následující měsíční program
+ * (pouze odkazy, které hub skutečně nabízí).
+ */
+export function vytahnoutTrebonskoKinoMesicUrlky(
+  hubHtml: string,
+  hubUrl: string,
+  referencniOkamzik: Date = new Date(),
+): TrebonskoKinoMesicOdkaz[] {
+  if (!jeTrebonskoKinoKategorieZdrojUrl(hubUrl) || !hubHtml.trim()) {
+    return [];
+  }
+  let origin: string;
+  try {
+    origin = new URL(hubUrl).origin;
+  } catch {
+    return [];
+  }
+
+  const dnes = dnesVPraze(referencniOkamzik);
+  const aktualni = { rok: dnes.rok, mesic: dnes.mesic };
+  const nasledujici = nasledujiciRokMesic(aktualni.rok, aktualni.mesic);
+
+  type Nalezeny = TrebonskoKinoMesicOdkaz;
+  const podleKlice = new Map<string, Nalezeny>();
+
+  const pridej = (hrefSurovy: string, popisek: string): void => {
+    const href = hrefSurovy.trim();
+    if (!TREBONSKO_KINO_PROGRAM_HREF_RE.test(href.split("?")[0] ?? href)) {
+      return;
+    }
+    let abs: URL;
+    try {
+      abs = new URL(href, origin);
+    } catch {
+      return;
+    }
+    const host = abs.hostname.replace(/^www\./i, "").toLowerCase();
+    if (host !== "trebonsko.cz") {
+      return;
+    }
+    const path = abs.pathname.replace(/\/+$/, "");
+    if (!TREBONSKO_KINO_PROGRAM_HREF_RE.test(path)) {
+      return;
+    }
+
+    // Preferuj text odkazu („program květen 2026“) — slug může lhát (duben-…-15444).
+    const slugMatch = path.match(
+      /\/kino-trebon-program-([a-z]+)-(20\d{2})(?:-\d+)?$/i,
+    );
+    const mesicZPopisku = mesicNominativZTextu(popisek);
+    const rokZPopisku = rokZTextu(popisek);
+    const mesicZSlug = slugMatch
+      ? (TREBONSKO_KINO_MESIC_NOMINATIV[
+          normalizovatBezDiakritikyKino(slugMatch[1] ?? "")
+        ] ?? null)
+      : null;
+    const rokZSlug = slugMatch ? Number(slugMatch[2]) : null;
+
+    const mesic = mesicZPopisku ?? mesicZSlug;
+    const rok = rokZPopisku ?? rokZSlug;
+    if (mesic == null || rok == null || !Number.isFinite(rok)) {
+      return;
+    }
+
+    const jeCil =
+      (rok === aktualni.rok && mesic === aktualni.mesic) ||
+      (rok === nasledujici.rok && mesic === nasledujici.mesic);
+    if (!jeCil) {
+      return;
+    }
+
+    const normalizovana = `${abs.origin}${path}`;
+    const klic = `${rok}-${String(mesic).padStart(2, "0")}`;
+    // Při duplicitě URL pro stejný měsíc nech první (stabilní pořadí v HTML).
+    if (podleKlice.has(klic)) {
+      return;
+    }
+    podleKlice.set(klic, { url: normalizovana, rok, mesic });
+  };
+
+  for (const m of hubHtml.matchAll(
+    /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi,
+  )) {
+    pridej(m[1] ?? "", vycistitHtmlTextKino(m[2] ?? ""));
+  }
+
+  const out: TrebonskoKinoMesicOdkaz[] = [];
+  const klicAkt = `${aktualni.rok}-${String(aktualni.mesic).padStart(2, "0")}`;
+  const klicNasl = `${nasledujici.rok}-${String(nasledujici.mesic).padStart(2, "0")}`;
+  const a = podleKlice.get(klicAkt);
+  const n = podleKlice.get(klicNasl);
+  if (a) {
+    out.push(a);
+  }
+  if (n) {
+    out.push(n);
+  }
+  return out;
+}
+
+function jeTrebonskoKinoMesicProgramHtml(html: string): boolean {
+  if (!/trebonsko\.cz/i.test(html)) {
+    return false;
+  }
+  if (jeTrebonskoRemeslneTrhyHtml(html) || jeTrebonskoOlsHtml(html)) {
+    return false;
+  }
+  const maSvetozor =
+    /Pozv[aá]nka do t[rř]ebo[nň]sk[eé]ho kina Sv[eě]tozor/i.test(html) ||
+    (/kino-trebon-program/i.test(html) && /Sv[eě]tozor/i.test(html));
+  const maAuroru = /Kino Aurora\s*-/i.test(html);
+  return maSvetozor && maAuroru && /<table\b/i.test(html);
+}
+
+function rokMesicZTrebonskoKinoMesicHtml(
+  html: string,
+): { rok: number; mesic: number } | null {
+  const title = vycistitHtmlTextKino(
+    html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "",
+  );
+  const h3Texty = [...html.matchAll(/<h3\b[^>]*>([\s\S]*?)<\/h3>/gi)].map((m) =>
+    vycistitHtmlTextKino(m[1] ?? ""),
+  );
+  const relevantni = [
+    title,
+    ...h3Texty.filter(
+      (t) =>
+        /Sv[eě]tozor/i.test(t) ||
+        /Kino Aurora/i.test(t) ||
+        /program/i.test(t),
+    ),
+  ].join(" | ");
+  const mesic = mesicNominativZTextu(relevantni);
+  const rok = rokZTextu(relevantni);
+  if (mesic == null || rok == null) {
+    return null;
+  }
+  return { rok, mesic };
+}
+
+function jeHlavickaRadkuKinoTabulky(cells: readonly string[]): boolean {
+  const lower = cells.map((c) => c.toLowerCase());
+  if (lower.some((c) => c === "titul")) {
+    return true;
+  }
+  const c0 = lower[0] ?? "";
+  if (c0 === "den" || c0 === "datum") {
+    return true;
+  }
+  // Jen přesný header řádek — ne názvy filmů obsahující „čas“.
+  const hlava = lower.slice(0, 4).join("|");
+  return /^(den|datum)\|/.test(hlava) && /titul/.test(hlava);
+}
+
+function parsovatTrebonskoKinoTabulkuSekce(
+  sekceHtml: string,
+  kino: "svetozor" | "aurora",
+  rok: number,
+  mesic: number,
+  vysledek: BranaScanKandidat[],
+): void {
+  const mistoNeboTyp = kino === "aurora" ? "Kino Aurora" : "Kino Světozor";
+  let lastDen: number | null = null;
+
+  for (const tableMatch of sekceHtml.matchAll(
+    /<table\b[\s\S]*?<\/table>/gi,
+  )) {
+    const tableHtml = tableMatch[0] ?? "";
+    for (const trMatch of tableHtml.matchAll(
+      /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi,
+    )) {
+      if (vysledek.length >= MAX_KANDIDATU_TREBONSKO_KINO) {
+        return;
+      }
+      const cells = [
+        ...((trMatch[1] ?? "").matchAll(
+          /<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi,
+        ) ?? []),
+      ].map((c) => vycistitHtmlTextKino(c[1] ?? ""));
+      if (cells.length < 4) {
+        continue;
+      }
+      if (jeHlavickaRadkuKinoTabulky(cells)) {
+        continue;
+      }
+
+      let den: number | null = null;
+      let casRaw = "";
+      let nazev = "";
+
+      if (
+        /^\d{1,2}$/.test(cells[1] ?? "") &&
+        /^\d{1,2}:\d{2}$/.test(cells[2] ?? "")
+      ) {
+        den = Number(cells[1]);
+        casRaw = cells[2] ?? "";
+        nazev = cells[3] ?? "";
+      } else if (
+        (cells[1] ?? "") === "" &&
+        /^\d{1,2}:\d{2}$/.test(cells[2] ?? "") &&
+        lastDen != null
+      ) {
+        den = lastDen;
+        casRaw = cells[2] ?? "";
+        nazev = cells[3] ?? "";
+      } else {
+        continue;
+      }
+
+      if (!nazev || den == null || !jePlatnyKalendarniDen(rok, mesic, den)) {
+        continue;
+      }
+      lastDen = den;
+
+      const casMatch = casRaw.match(/^(\d{1,2}):(\d{2})$/);
+      if (!casMatch) {
+        continue;
+      }
+      const hodina = Number(casMatch[1]);
+      const minuta = Number(casMatch[2]);
+      if (hodina > 23 || minuta > 59) {
+        continue;
+      }
+      const cas = formatujCas(hodina, minuta);
+      const datum = formatujIsoDen(rok, mesic, den);
+      const zdrojIdentita = sestavZdrojIdentituKinoProjekce(
+        mistoNeboTyp,
+        datum,
+        cas,
+      );
+      if (!zdrojIdentita) {
+        continue;
+      }
+      vysledek.push({
+        nazev,
+        datumOd: datum,
+        datumDo: datum,
+        cas,
+        mistoNeboTyp,
+        zdrojIdentita,
+      });
+    }
+  }
+}
+
+/**
+ * Měsíční HTML program Třeboňsko → projekce Světozor + Aurora.
+ * Jen tabulky pod příslušnými nadpisy; bez článku / příloh / jiných akcí.
+ */
+function parsovatTrebonskoKinoMesicniProgram(
+  html: string,
+  vysledek: BranaScanKandidat[],
+): void {
+  const rm = rokMesicZTrebonskoKinoMesicHtml(html);
+  if (!rm) {
+    return;
+  }
+
+  const svMatch = html.match(
+    /Pozv[aá]nka do t[rř]ebo[nň]sk[eé]ho kina Sv[eě]tozor/i,
+  );
+  const auMatch = html.match(/Kino Aurora\s*-/i);
+  if (!svMatch || !auMatch || svMatch.index == null || auMatch.index == null) {
+    return;
+  }
+  if (auMatch.index <= svMatch.index) {
+    return;
+  }
+
+  const svHtml = html.slice(svMatch.index, auMatch.index);
+  const auHtml = html.slice(auMatch.index);
+  parsovatTrebonskoKinoTabulkuSekce(
+    svHtml,
+    "svetozor",
+    rm.rok,
+    rm.mesic,
+    vysledek,
+  );
+  if (vysledek.length >= MAX_KANDIDATU_TREBONSKO_KINO) {
+    return;
+  }
+  parsovatTrebonskoKinoTabulkuSekce(
+    auHtml,
+    "aurora",
+    rm.rok,
+    rm.mesic,
+    vysledek,
+  );
+}
+
 /**
  * Z HTML (nebo čistého JSON) vytáhne kandidátní události.
  * Bez vymyšlených údajů – chybí-li název nebo datum, kandidát se zahodí.
@@ -3012,6 +3445,12 @@ export function parsovatUdalostiZeZdroje(
   // Třeboňsko OLS: max. trh + hlavní — bez JSON-LD mixu.
   if (jeTrebonskoOlsHtml(telo)) {
     parsovatTrebonskoOteviraniLazenskeSezony(telo, vysledek);
+    return deduplikovatScanKandidaty(vysledek);
+  }
+
+  // Třeboňsko měsíční kino: jen tabulky Světozor + Aurora.
+  if (jeTrebonskoKinoMesicProgramHtml(telo)) {
+    parsovatTrebonskoKinoMesicniProgram(telo, vysledek);
     return deduplikovatScanKandidaty(vysledek);
   }
 
