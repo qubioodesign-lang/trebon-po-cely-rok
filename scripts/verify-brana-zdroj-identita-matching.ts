@@ -30,6 +30,7 @@ function polozka(
     priorita: partial.priorita ?? null,
     subpriorita: partial.subpriorita ?? null,
     vyhled: partial.vyhled ?? "NE",
+    vyhledSerie: partial.vyhledSerie ?? true,
     poznamka: partial.poznamka ?? "",
     mimoKostru: partial.mimoKostru ?? false,
     jazykVerejny: partial.jazykVerejny ?? null,

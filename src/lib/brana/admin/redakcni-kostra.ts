@@ -62,6 +62,11 @@ export type BranaRedakcniPolozkaStav = {
   priorita: number | null;
   subpriorita: number | null;
   vyhled: BranaRedakcniVyhled;
+  /**
+   * Admin Výhled: true = série (agregace), false = jednotlivé události.
+   * Chybí-li ve starém Blobu → při načtení true.
+   */
+  vyhledSerie: boolean;
   poznamka: string;
   mimoKostru: boolean;
   /**
@@ -89,6 +94,11 @@ const DEFINITIVNI_SEED: Readonly<
       priorita: number;
       vyhled: BranaRedakcniVyhled;
       jazyk: BranaRedakcniJazykVerejny;
+      /**
+       * Jen výchozí seed (nový / prázdný Blob): false = jednotlivé.
+       * Starý Blob bez pole → při načtení vždy true (série), viz validace.
+       */
+      vyhledSerie?: boolean;
     }
   >
 > = {
@@ -104,6 +114,8 @@ const DEFINITIVNI_SEED: Readonly<
     vyhled: "ANO",
     // Veřejný zápis: Trh · [rozlišení]; oddělovač řeší rozlozAkci (jen CO=Trh).
     jazyk: { co: pevne("Trh"), rozliseni: Z_UDALOSTI },
+    // Rodina samostatných událostí — ne sezónní souhrn.
+    vyhledSerie: false,
   },
   "kino-svetozor": {
     polozka: "Kino Světozor",
@@ -238,6 +250,20 @@ export function vychoziVyhledProId(id: string): BranaRedakcniVyhled {
   return DEFINITIVNI_SEED[id]?.vyhled ?? "NE";
 }
 
+/**
+ * Výchozí admin Výhled série z katalogu (jen pro nový seed bez Blobu).
+ * true/undefined → série; false → jednotlivé (např. trhy).
+ * Načtení starého Blobu bez pole řeší validace → vždy true.
+ */
+export function vychoziVyhledSerieProId(id: string): boolean {
+  return DEFINITIVNI_SEED[id]?.vyhledSerie !== false;
+}
+
+/** @deprecated alias – preferuj hodnotu z Redakčního pořadí / vychoziVyhledSerieProId */
+export function vyhledSerieProId(id: string): boolean {
+  return vychoziVyhledSerieProId(id);
+}
+
 /** Výchozí strukturovaný jazyk podle id – 21 pravidel, ostatní null (legacy). */
 export function vychoziJazykVerejnyProId(
   id: string,
@@ -343,6 +369,7 @@ export function vytvoritVychoziStavPolozky(
     priorita: seed?.priorita ?? null,
     subpriorita: null,
     vyhled: seed?.vyhled ?? vychoziVyhledProId(vychozi.id),
+    vyhledSerie: vychoziVyhledSerieProId(vychozi.id),
     poznamka: "",
     mimoKostru: vychozi.mimoKostru,
     jazykVerejny: seed?.jazyk ?? null,

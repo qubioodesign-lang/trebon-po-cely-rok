@@ -32,6 +32,11 @@ export default async function StrankaBranaAdminVyhled() {
       ? redakcni.polozky.map((p) => [p.id, p.vyhled] as const)
       : [],
   );
+  const vyhledSeriePodleId = new Map(
+    redakcni.ok
+      ? redakcni.polozky.map((p) => [p.id, p.vyhledSerie] as const)
+      : [],
+  );
 
   const realneUdalosti = uloziste.ok ? uloziste.udalosti : [];
 
@@ -39,6 +44,8 @@ export default async function StrankaBranaAdminVyhled() {
     realneUdalosti,
     (redakcniPolozkaId) =>
       maUkazkovyVyhledAno(redakcniPolozkaId, vyhledPodleId.get(redakcniPolozkaId)),
+    (redakcniPolozkaId) =>
+      vyhledSeriePodleId.get(redakcniPolozkaId) !== false,
   );
 
   return (

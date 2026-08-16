@@ -182,15 +182,16 @@ function RedakcniTabulka({
 }) {
   return (
     <div className="w-full min-w-0 overflow-x-auto">
-      <table className="w-full min-w-[56rem] table-fixed border-collapse text-left">
+      <table className="w-full min-w-[64rem] table-fixed border-collapse text-left">
       <colgroup>
         <col className="w-[4.75rem]" />
-        <col className="w-[18%]" />
+        <col className="w-[16%]" />
         <col className="w-[5rem]" />
         <col className="w-[5.5rem]" />
         <col className="w-[4.5rem]" />
-        <col className="w-[12%]" />
-        <col className="w-[12%]" />
+        <col className="w-[8.5rem]" />
+        <col className="w-[11%]" />
+        <col className="w-[11%]" />
         <col />
       </colgroup>
       <thead>
@@ -215,6 +216,11 @@ function RedakcniTabulka({
             className={`${ODD} whitespace-nowrap py-2 px-1 text-sm font-medium text-text`}
           >
             Výhled
+          </th>
+          <th
+            className={`${ODD} whitespace-nowrap py-2 px-1 text-sm font-medium text-text`}
+          >
+            Výhled jako
           </th>
           <th
             className={`${ODD} whitespace-nowrap py-2 px-1 text-sm font-medium text-text`}
@@ -330,6 +336,27 @@ function RedakcniTabulka({
                 >
                   <option value="ANO">ANO</option>
                   <option value="NE">NE</option>
+                </select>
+              )}
+            </td>
+            <td className={`${ODD} py-2 px-1 align-top`}>
+              {zamceno ? (
+                <span className="text-sm text-text">
+                  {radek.vyhledSerie ? "Série" : "Jednotlivé události"}
+                </span>
+              ) : (
+                <select
+                  className={VSTUP}
+                  aria-label={`Výhled jako – ${radek.polozka}`}
+                  value={radek.vyhledSerie ? "serie" : "jednotlive"}
+                  onChange={(e) => {
+                    onChange(radek.id, {
+                      vyhledSerie: e.target.value !== "jednotlive",
+                    });
+                  }}
+                >
+                  <option value="serie">Série</option>
+                  <option value="jednotlive">Jednotlivé události</option>
                 </select>
               )}
             </td>
@@ -507,6 +534,11 @@ function RedakcniTabulka({
             </td>
             <td className={`${ODD} py-2 px-1 align-top`}>
               <input type="text" className={VSTUP} disabled tabIndex={-1} value="" readOnly aria-hidden="true" />
+            </td>
+            <td className={`${ODD} py-2 px-1 align-top`}>
+              <select className={VSTUP} disabled tabIndex={-1} value="" aria-hidden="true">
+                <option value="" />
+              </select>
             </td>
             <td className={`${ODD} py-2 px-1 align-top`}>
               <select className={VSTUP} disabled tabIndex={-1} value="" aria-hidden="true">

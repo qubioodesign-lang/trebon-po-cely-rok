@@ -418,13 +418,15 @@ export function projektujVyhledPodleRoku(
 }
 
 /**
- * Admin Výhled: stejný filtr jako projektujVyhledPodleRoku, ale uvnitř roku
- * seskupí události se stejným redakcniPolozkaId do jednoho souhrnného řádku.
+ * Admin Výhled: stejný filtr jako projektujVyhledPodleRoku.
+ * `maVyhledSerii` čte uložené Redakční pořadí (chybí-li → true = série).
+ * false → jedna konkrétní událost = jeden řádek.
  * Kalendář / Blob / veřejná projekce se nemění.
  */
 export function projektujAdminVyhledSouhrnyPodleRoku(
   udalosti: readonly BranaKonkretniUdalost[],
   maVyhledAno: (redakcniPolozkaId: string) => boolean,
+  maVyhledSerii: (redakcniPolozkaId: string) => boolean = () => true,
 ): BranaAdminVyhledRokSkupina[] {
   return projektujVyhledPodleRoku(udalosti, maVyhledAno).map(
     ({ rok, udalosti: udalostiRoku }) => {
@@ -442,6 +444,27 @@ export function projektujAdminVyhledSouhrnyPodleRoku(
           const cmp = a.datumOd.localeCompare(b.datumOd);
           return cmp !== 0 ? cmp : a.id.localeCompare(b.id);
         });
+
+        if (!maVyhledSerii(redakcniPolozkaId)) {
+          for (const clen of serazene) {
+            souhrny.push({
+              klic: `${rok}:${redakcniPolozkaId}:${clen.id}`,
+              redakcniPolozkaId,
+              datumOd: clen.datumOd,
+              datumDo: posledniPlatnyDenUdalosti(clen),
+              mistoNeboTyp: clen.mistoNeboTyp,
+              nazev: clen.nazev,
+              ...(clen.verejneCo !== undefined
+                ? {
+                    verejneCo: clen.verejneCo,
+                    verejneRozliseni: clen.verejneRozliseni ?? null,
+                  }
+                : {}),
+            });
+          }
+          continue;
+        }
+
         const reprezentant = serazene[0];
         let datumDo = posledniPlatnyDenUdalosti(reprezentant);
         for (const clen of serazene) {

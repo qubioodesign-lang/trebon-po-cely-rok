@@ -79,6 +79,27 @@ function normalizovatVyhled(
   return "neplatne";
 }
 
+/**
+ * Admin Výhled: série (true) × jednotlivé události (false).
+ * Chybí / null / neznámé → true (zpětná kompatibilita starého Blobu).
+ * Striktní save: jen boolean, jinak "neplatne".
+ */
+function normalizovatVyhledSerie(
+  hodnota: unknown,
+  legacy: boolean,
+): boolean | "neplatne" {
+  if (hodnota === true || hodnota === false) {
+    return hodnota;
+  }
+  if (hodnota === undefined || hodnota === null) {
+    return true;
+  }
+  if (legacy) {
+    return true;
+  }
+  return "neplatne";
+}
+
 function normalizovatPouzivat(
   hodnota: unknown,
 ): "ANO" | "NE" | "neplatne" {
@@ -304,6 +325,17 @@ export function validovatRedakcniPoradiVstup(
       };
     }
 
+    const vyhledSerie = normalizovatVyhledSerie(
+      data.vyhledSerie,
+      legacyVyhled,
+    );
+    if (vyhledSerie === "neplatne") {
+      return {
+        ok: false,
+        chyba: `Neplatné „Výhled jako“ u „${popisekChyby}“.`,
+      };
+    }
+
     let poznamka = "";
     if (data.poznamka !== undefined && data.poznamka !== null) {
       if (typeof data.poznamka !== "string") {
@@ -340,6 +372,7 @@ export function validovatRedakcniPoradiVstup(
       priorita,
       subpriorita,
       vyhled,
+      vyhledSerie,
       poznamka,
       mimoKostru: vychozi.mimoKostru,
       jazykVerejny: jazykVerejny.hodnota,
@@ -384,6 +417,7 @@ export function sloucitUlozeneSKostrou(
     const prioritaRaw = normalizovatCislo(ulozeny.priorita);
     const subprioritaRaw = normalizovatCislo(ulozeny.subpriorita);
     const vyhledRaw = normalizovatVyhled(vychozi.id, ulozeny.vyhled, true);
+    const vyhledSerieRaw = normalizovatVyhledSerie(ulozeny.vyhledSerie, true);
     let poznamka = "";
     if (typeof ulozeny.poznamka === "string") {
       poznamka = ulozeny.poznamka.trim().slice(0, BRANA_REDAKCNI_POZNAMKA_MAX);
@@ -401,6 +435,7 @@ export function sloucitUlozeneSKostrou(
       priorita: prioritaRaw === "neplatne" ? null : prioritaRaw,
       subpriorita: subprioritaRaw === "neplatne" ? null : subprioritaRaw,
       vyhled: vyhledRaw === "neplatne" ? vychoziVyhledProId(vychozi.id) : vyhledRaw,
+      vyhledSerie: vyhledSerieRaw === "neplatne" ? true : vyhledSerieRaw,
       poznamka,
       mimoKostru: vychozi.mimoKostru,
       jazykVerejny: jazykVerejnyRaw.ok
