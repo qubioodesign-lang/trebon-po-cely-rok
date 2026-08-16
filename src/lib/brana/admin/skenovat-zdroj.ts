@@ -26,10 +26,12 @@ import {
   jeMintTrhyZdrojUrl,
   jeRybarstviZdrojUrl,
   jeTrebonskoRemeslneTrhyZdrojUrl,
+  jeVisitTrebonHlidaneAkceZdrojUrl,
   jeZameckaLekarnaZdrojUrl,
   parsovatUdalostiZeZdroje,
   sestavDumStepankaKalendarUrlkyCtyriMesice,
   sestavRybarstviPodzimniVylovyUrl,
+  sestavVisitTrebonKalendarUrl,
   sestavZameckaLekarnaHubUrl,
   vytahnoutZameckaLekarnaMesicUrlky,
   type BranaScanKandidat,
@@ -610,6 +612,7 @@ async function skenovatZnamyZdrojJadro(
   // DSN: 4 SSR měsíce kalendáře.
   // Zámecká lékárna: hub → discovery zveřejněných měsíců (max 4) → parse.
   // Rybářství Třeboň: 1 fetch autoritativní /podzimni-vylov-rybniku.
+  // VisitTřeboň: 1 GET s dynamickým horizontem dnes→+12 měsíců.
   // Ostatní zdroje: 1 fetch = 1 URL.
   let kandidati: BranaScanKandidat[];
   if (jeDumStepankaNetolickehoZdrojUrl(zdroj.url)) {
@@ -633,6 +636,10 @@ async function skenovatZnamyZdrojJadro(
   } else if (jeRybarstviZdrojUrl(zdroj.url)) {
     const vylovyUrl = sestavRybarstviPodzimniVylovyUrl(zdroj.url);
     const { text, contentType } = await nacistTeloZdroje(vylovyUrl);
+    kandidati = parsovatUdalostiZeZdroje(text, contentType);
+  } else if (jeVisitTrebonHlidaneAkceZdrojUrl(zdroj.url)) {
+    const visitUrl = sestavVisitTrebonKalendarUrl(zdroj.url);
+    const { text, contentType } = await nacistTeloZdroje(visitUrl);
     kandidati = parsovatUdalostiZeZdroje(text, contentType);
   } else {
     const { text, contentType } = await nacistTeloZdroje(zdroj.url);
@@ -662,7 +669,8 @@ async function skenovatZnamyZdrojJadro(
       hlidaneKotvy &&
       (jeTrebonskoRemeslneTrhyZdrojUrl(zdroj.url) ||
         jeCityEventTrhyZdrojUrl(zdroj.url) ||
-        jeMintTrhyZdrojUrl(zdroj.url))
+        jeMintTrhyZdrojUrl(zdroj.url) ||
+        jeVisitTrebonHlidaneAkceZdrojUrl(zdroj.url))
         ? sparovatVlastnictvimHlidaneKotvy(
             redakcni.polozky,
             zdroj.hlidaneRedakcniPolozkaIds,

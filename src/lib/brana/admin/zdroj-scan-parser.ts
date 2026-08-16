@@ -7,14 +7,15 @@
  * zameckalekarnatrebon.cz (měsíční `.articleContent` denní program),
  * rybarstvi.cz (podzimní výlovy – roční sekce / tabulka),
  * trebonsko.cz/remeslne-trhy-trebon (městské Trhy – fail-closed whitelist),
- * cityevent.cz/pro-ucastniky (+ /festival/*trebon*) pro Street Food / Beer & Food Fest
- * a mintmarket.cz (listing / detail /trh/trebon-*) pro MINT Market.
+ * cityevent.cz/pro-ucastniky (+ /festival/*trebon*) pro Street Food / Beer & Food Fest,
+ * mintmarket.cz (listing / detail /trh/trebon-*) pro MINT Market
+ * a visittrebon.cz/kalendar-akci-trebon/2 (jen MINT Market Třeboň → trhy).
  * Odděleně od Kalendáře a Blob zápisu.
  * Datum/čas: Europe/Prague (včetně DST) přes stávající brana/cas.
- * Multi-měsíční fetch DSN / Zámecká lékárna / Rybářství žije ve scan orchestraci, ne zde.
+ * Multi-měsíční fetch DSN / Zámecká lékárna / Rybářství / Visit horizont žije ve scan orchestraci, ne zde.
  */
 
-import { dnesVPraze, okamzikVPraze } from "@/lib/brana/cas";
+import { dnesVPraze, okamzikVPraze, type BranaDatum } from "@/lib/brana/cas";
 
 export type BranaScanKandidat = {
   nazev: string;
@@ -71,6 +72,9 @@ const MAX_KANDIDATU_TREBONSKO_TRHY = 40;
 const CITYEVENT_PRO_UCASTNIKY_PATH = "/pro-ucastniky";
 const MAX_KANDIDATU_CITYEVENT_TRHY = 20;
 const MAX_KANDIDATU_MINT_TRHY = 20;
+/** VisitTřeboň: jen MINT Market Třeboň (fail-closed). */
+const MAX_KANDIDATU_VISIT_MINT = 20;
+const VISIT_TREBON_KALENDAR_PATH = "/cz/kalendar-akci-trebon/2";
 const MINT_TREBON_ROZLISENI = "MINT Market";
 const MINT_MESICE_CS: Record<string, number> = {
   ledna: 1,
@@ -2590,6 +2594,166 @@ function parsovatMintMarketTrebonDetail(
   });
 }
 
+/** True, pokud URL míří na VisitTřeboň kalendář akcí (kořen /2/, s/bez www). */
+export function jeVisitTrebonHlidaneAkceZdrojUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./i, "").toLowerCase();
+    if (host !== "visittrebon.cz") {
+      return false;
+    }
+    const path = parsed.pathname.replace(/\/+$/, "").toLowerCase();
+    return path === VISIT_TREBON_KALENDAR_PATH;
+  } catch {
+    return false;
+  }
+}
+
+function formatujVisitFormDatum(datum: BranaDatum): string {
+  return `${datum.den}.${datum.mesic}.${datum.rok}`;
+}
+
+/** Kalendářní +N měsíců (Europe/Prague den); den se ořízne na délku cílového měsíce. */
+function pridatMesiceKDatu(datum: BranaDatum, mesice: number): BranaDatum {
+  const total = datum.mesic - 1 + mesice;
+  const rok = datum.rok + Math.floor(total / 12);
+  const mesic = ((total % 12) + 12) % 12 + 1;
+  const maxDen = new Date(Date.UTC(rok, mesic, 0)).getUTCDate();
+  return { rok, mesic, den: Math.min(datum.den, maxDen) };
+}
+
+/**
+ * Jeden GET: dnes (Europe/Prague) → +12 měsíců přes event_form_start/stop.
+ * Uložená admin URL zůstává kořen bez pevného roku.
+ */
+export function sestavVisitTrebonKalendarUrl(
+  zdrojUrl: string,
+  okamzik: Date = new Date(),
+): string {
+  if (!jeVisitTrebonHlidaneAkceZdrojUrl(zdrojUrl)) {
+    return "";
+  }
+  const base = new URL(zdrojUrl);
+  const dnes = dnesVPraze(okamzik);
+  const stop = pridatMesiceKDatu(dnes, 12);
+  const url = new URL(
+    `${base.protocol}//${base.host}${VISIT_TREBON_KALENDAR_PATH}/`,
+  );
+  url.searchParams.set("event_form_start", formatujVisitFormDatum(dnes));
+  url.searchParams.set("event_form_stop", formatujVisitFormDatum(stop));
+  return url.toString();
+}
+
+function jeVisitTrebonKalendarHtml(html: string): boolean {
+  return (
+    /visittrebon\.cz/i.test(html) &&
+    /\bevent-row\b/i.test(html) &&
+    /kalendar-akci-trebon/i.test(html)
+  );
+}
+
+function jePresnyVisitMintNazev(nazev: string): boolean {
+  return (
+    normalizovatProTrhyShodu(nazev) ===
+    normalizovatProTrhyShodu("MINT Market Třeboň")
+  );
+}
+
+function parsovatVisitDatumyZMeta(
+  metaText: string,
+): { datumOd: string; datumDo: string } | null {
+  const text = cistyTextZHtmlFragmentu(metaText);
+  const datumCast =
+    text.match(
+      /Datum:\s*(.+?)(?:\s+Čas:|\s+Cas:|\s+Místo:|\s+Misto:|$)/i,
+    )?.[1] ?? "";
+  const trim = datumCast.replace(/\u00a0/g, " ").trim();
+  if (!trim) {
+    return null;
+  }
+  const rozsah = trim.match(
+    /^(\d{1,2})\.(\d{1,2})\.(\d{4})\s*[-–]\s*(\d{1,2})\.(\d{1,2})\.(\d{4})/,
+  );
+  if (rozsah) {
+    const datumOd = formatujIsoDen(
+      Number(rozsah[3]),
+      Number(rozsah[2]),
+      Number(rozsah[1]),
+    );
+    const datumDo = formatujIsoDen(
+      Number(rozsah[6]),
+      Number(rozsah[5]),
+      Number(rozsah[4]),
+    );
+    if (datumDo < datumOd) {
+      return null;
+    }
+    return { datumOd, datumDo };
+  }
+  const jeden = trim.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})\b/);
+  if (!jeden) {
+    return null;
+  }
+  const iso = formatujIsoDen(
+    Number(jeden[3]),
+    Number(jeden[2]),
+    Number(jeden[1]),
+  );
+  return { datumOd: iso, datumDo: iso };
+}
+
+/**
+ * Fail-closed: jen přesný název „MINT Market Třeboň“.
+ * Ostatní Visit event-row se tiše zahodí (ne Nezařazené).
+ * cas vždy "".
+ *
+ * zdrojIdentita: visittrebon|trhy|mint-market|{rok}|{poradiMintVRoce}
+ * Fallback pořadí jen mezi MINT v tom roce — Visit nemá stabilní event ID;
+ * vložení/smazání MINT může posunout |1|/|2| (vědomě přijaté riziko).
+ */
+function parsovatVisitTrebonMintMarket(
+  html: string,
+  vysledek: BranaScanKandidat[],
+): void {
+  const radky = html.matchAll(
+    /<div[^>]*\bclass="[^"]*\bevent-row\b[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>/gi,
+  );
+  // Pořadí pouze mezi MINT Market Třeboň ve stejném kalendářním roce.
+  const pocetMintVRoce = new Map<number, number>();
+  for (const m of radky) {
+    if (vysledek.length >= MAX_KANDIDATU_VISIT_MINT) {
+      return;
+    }
+    const blok = m[1] ?? "";
+    const nazev = cistyTextZHtmlFragmentu(
+      blok.match(/<h2>([\s\S]*?)<\/h2>/i)?.[1] ?? "",
+    );
+    if (!jePresnyVisitMintNazev(nazev)) {
+      continue;
+    }
+    const meta = blok.match(/<p>([\s\S]*?)<\/p>/i)?.[1] ?? "";
+    const data = parsovatVisitDatumyZMeta(meta);
+    if (!data) {
+      continue;
+    }
+    const rok = Number(data.datumOd.slice(0, 4));
+    if (!Number.isFinite(rok)) {
+      continue;
+    }
+    const poradi = (pocetMintVRoce.get(rok) ?? 0) + 1;
+    pocetMintVRoce.set(rok, poradi);
+    vysledek.push({
+      nazev: MINT_TREBON_ROZLISENI,
+      datumOd: data.datumOd,
+      datumDo: data.datumDo,
+      cas: "",
+      mistoNeboTyp: MINT_TREBON_ROZLISENI,
+      // Fallback identity: Visit nemá vlastní stabilní event ID.
+      zdrojIdentita: `visittrebon|trhy|mint-market|${rok}|${poradi}`,
+    });
+  }
+}
+
 /**
  * Z HTML (nebo čistého JSON) vytáhne kandidátní události.
  * Bez vymyšlených údajů – chybí-li název nebo datum, kandidát se zahodí.
@@ -2637,6 +2801,12 @@ export function parsovatUdalostiZeZdroje(
   // MINT Market: detail /trh/trebon-* — bez obecného JSON-LD mixu.
   if (jeMintMarketTrebonDetailHtml(telo)) {
     parsovatMintMarketTrebonDetail(telo, vysledek);
+    return deduplikovatScanKandidaty(vysledek);
+  }
+
+  // VisitTřeboň: jen MINT Market Třeboň → trhy; ostatní event-row tiše pryč.
+  if (jeVisitTrebonKalendarHtml(telo)) {
+    parsovatVisitTrebonMintMarket(telo, vysledek);
     return deduplikovatScanKandidaty(vysledek);
   }
 
