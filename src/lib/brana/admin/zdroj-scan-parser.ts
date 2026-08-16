@@ -5,8 +5,9 @@
  * dumstepankanetolickeho.cz (`.home-block-wrapper.event-item`),
  * trebon105.cz (`article.event` jen v sekci Akce, ne Výstavy),
  * zameckalekarnatrebon.cz (měsíční `.articleContent` denní program),
- * rybarstvi.cz (podzimní výlovy – roční sekce / tabulka)
- * a trebonsko.cz/remeslne-trhy-trebon (městské Trhy – fail-closed whitelist).
+ * rybarstvi.cz (podzimní výlovy – roční sekce / tabulka),
+ * trebonsko.cz/remeslne-trhy-trebon (městské Trhy – fail-closed whitelist)
+ * a cityevent.cz/pro-ucastniky (+ /festival/*trebon*) pro Street Food / Beer & Food Fest.
  * Odděleně od Kalendáře a Blob zápisu.
  * Datum/čas: Europe/Prague (včetně DST) přes stávající brana/cas.
  * Multi-měsíční fetch DSN / Zámecká lékárna / Rybářství žije ve scan orchestraci, ne zde.
@@ -33,10 +34,12 @@ const ZAMECKA_LEKARNA_MESIC_HREF_RE =
   /\/c-\d+-(?:leden|unor|brezen|duben|kveten|cerven|cervenec|srpen|zari|rijen|listopad|prosinec)-\d{4}\.html/i;
 const RYBARSTVI_PODZIMNI_VYLOVY_PATH = "/podzimni-vylov-rybniku";
 const MAX_KANDIDATU_RYBARSTVI = 40;
-/** Redakční kotva rodiny Trhů — ownership Třeboňsko / později City Event / MINT. */
+/** Redakční kotva rodiny Trhů — ownership Třeboňsko / City Event / později MINT. */
 export const BRANA_TRHY_REDAKCNI_POLOZKA_ID = "trhy";
 const TREBONSKO_REMESLNE_TRHY_PATH = "/remeslne-trhy-trebon";
 const MAX_KANDIDATU_TREBONSKO_TRHY = 40;
+const CITYEVENT_PRO_UCASTNIKY_PATH = "/pro-ucastniky";
+const MAX_KANDIDATU_CITYEVENT_TRHY = 20;
 
 type RozkladDatumCas = {
   datum: string;
@@ -1827,6 +1830,298 @@ function parsovatTrebonskoRemeslneTrhy(
   }
 }
 
+/** True, pokud URL míří na cityevent.cz přehled účastníků (listing Trhů). */
+export function jeCityEventProUcastnikyZdrojUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./i, "").toLowerCase();
+    if (host !== "cityevent.cz") {
+      return false;
+    }
+    const path = parsed.pathname.replace(/\/+$/, "").toLowerCase();
+    return path === CITYEVENT_PRO_UCASTNIKY_PATH;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * True, pokud URL míří na detail festivalu City Event v Třeboni
+ * (/festival/…trebon…).
+ */
+export function jeCityEventFestivalTrebonZdrojUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./i, "").toLowerCase();
+    if (host !== "cityevent.cz") {
+      return false;
+    }
+    const path = parsed.pathname.replace(/\/+$/, "").toLowerCase();
+    return path.startsWith("/festival/") && path.includes("trebon");
+  } catch {
+    return false;
+  }
+}
+
+/** Ownership gate: listing nebo Třeboň festival detail City Event. */
+export function jeCityEventTrhyZdrojUrl(url: string): boolean {
+  return (
+    jeCityEventProUcastnikyZdrojUrl(url) ||
+    jeCityEventFestivalTrebonZdrojUrl(url)
+  );
+}
+
+function jeCityEventProUcastnikyHtml(html: string): boolean {
+  return (
+    /cityevent\.cz/i.test(html) &&
+    (/pro-ucastniky/i.test(html) || /P[rř]ehled festival/i.test(html)) &&
+    /name=["']festivaly\[\]["']/i.test(html)
+  );
+}
+
+function jeCityEventFestivalTrebonHtml(html: string): boolean {
+  if (!/cityevent\.cz/i.test(html)) {
+    return false;
+  }
+  if (!maCityEventLokalituTrebon(html)) {
+    return false;
+  }
+  const nazev = vytahnoutCityEventNazevZDetailu(html);
+  return mapovatCityEventTrebonRozliseni(nazev ?? "") !== null;
+}
+
+function dekodovatCityEventText(text: string): string {
+  return text
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&#8211;/g, "–")
+    .replace(/&#038;/g, "&")
+    .replace(/&amp;/gi, "&")
+    .replace(/&#(\d+);/g, (_, kod: string) =>
+      String.fromCharCode(Number(kod)),
+    )
+    .replace(/\\u([0-9a-f]{4})/gi, (_, hex: string) =>
+      String.fromCharCode(Number.parseInt(hex, 16)),
+    )
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function maCityEventLokalituTrebon(text: string): boolean {
+  const n = normalizovatProTrhyShodu(dekodovatCityEventText(text));
+  // Třeboň ano; Třebíč / jiná města ne (slovo trebon, ne trebic).
+  return /\btrebon\b/.test(n);
+}
+
+function jeCityEventZruseno(text: string): boolean {
+  const n = normalizovatProTrhyShodu(dekodovatCityEventText(text));
+  return (
+    /\bzruseno\b/.test(n) ||
+    /\bzrusena\b/.test(n) ||
+    /\bzruseny\b/.test(n) ||
+    /\beventcancelled\b/.test(n) ||
+    /\bcancelled\b/.test(n)
+  );
+}
+
+/**
+ * Fail-closed mapování City Event → veřejné rozlišení rodiny Trh.
+ * Jen Street Food Festival / Beer & Food Fest v Třeboni.
+ */
+function mapovatCityEventTrebonRozliseni(nazevSurovy: string): string | null {
+  const text = dekodovatCityEventText(nazevSurovy);
+  if (!text || !maCityEventLokalituTrebon(text)) {
+    return null;
+  }
+  if (jeCityEventZruseno(text)) {
+    return null;
+  }
+  const n = normalizovatProTrhyShodu(text);
+  if (/\bbeer\b/.test(n) && /\bfood\b/.test(n) && /\bfest\b/.test(n)) {
+    return "Beer & Food Fest";
+  }
+  if (/\bstreet\b/.test(n) && /\bfood\b/.test(n) && /\bfestival\b/.test(n)) {
+    return "Street Food Festival";
+  }
+  return null;
+}
+
+function parsovatCityEventDatumyZTextu(
+  text: string,
+): { datumOd: string; datumDo: string } | null {
+  const t = dekodovatCityEventText(text);
+  const rozsah = t.match(
+    /(\d{1,2})\s*[-–]\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(20\d{2})/,
+  );
+  if (rozsah) {
+    const denOd = Number(rozsah[1]);
+    const denDo = Number(rozsah[2]);
+    const mesic = Number(rozsah[3]);
+    const rok = Number(rozsah[4]);
+    if (
+      !Number.isFinite(denOd) ||
+      !Number.isFinite(denDo) ||
+      !Number.isFinite(mesic) ||
+      !Number.isFinite(rok) ||
+      denOd < 1 ||
+      denOd > 31 ||
+      denDo < 1 ||
+      denDo > 31 ||
+      mesic < 1 ||
+      mesic > 12 ||
+      denDo < denOd
+    ) {
+      return null;
+    }
+    return {
+      datumOd: formatujIsoDen(rok, mesic, denOd),
+      datumDo: formatujIsoDen(rok, mesic, denDo),
+    };
+  }
+  const jeden = t.match(/(\d{1,2})\.\s*(\d{1,2})\.\s*(20\d{2})/);
+  if (!jeden) {
+    return null;
+  }
+  const den = Number(jeden[1]);
+  const mesic = Number(jeden[2]);
+  const rok = Number(jeden[3]);
+  if (
+    !Number.isFinite(den) ||
+    !Number.isFinite(mesic) ||
+    !Number.isFinite(rok) ||
+    den < 1 ||
+    den > 31 ||
+    mesic < 1 ||
+    mesic > 12
+  ) {
+    return null;
+  }
+  const iso = formatujIsoDen(rok, mesic, den);
+  return { datumOd: iso, datumDo: iso };
+}
+
+function vytahnoutCityEventNazevZDetailu(html: string): string | null {
+  const og = html.match(
+    /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i,
+  );
+  if (og?.[1]) {
+    return dekodovatCityEventText(og[1]);
+  }
+  const h1 = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+  if (h1?.[1]) {
+    return dekodovatCityEventText(cistyTextZHtmlFragmentu(h1[1]));
+  }
+  const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  if (title?.[1]) {
+    return dekodovatCityEventText(
+      cistyTextZHtmlFragmentu(title[1]).replace(/\s*[–-]\s*City Event.*$/i, ""),
+    );
+  }
+  return null;
+}
+
+/**
+ * Listing /pro-ucastniky/: checkboxy festivaly[] — jen Třeboň whitelist.
+ * cas vždy "". Zrušené řádky neemituje.
+ */
+function parsovatCityEventProUcastniky(
+  html: string,
+  vysledek: BranaScanKandidat[],
+): void {
+  const hodnoty = html.matchAll(
+    /<input[^>]*name=["']festivaly\[\]["'][^>]*value=["']([^"']+)["'][^>]*>/gi,
+  );
+  for (const m of hodnoty) {
+    if (vysledek.length >= MAX_KANDIDATU_CITYEVENT_TRHY) {
+      return;
+    }
+    const surovy = dekodovatCityEventText(m[1] ?? "");
+    if (!surovy || jeCityEventZruseno(surovy)) {
+      continue;
+    }
+    const rozliseni = mapovatCityEventTrebonRozliseni(surovy);
+    if (!rozliseni) {
+      continue;
+    }
+    const data = parsovatCityEventDatumyZTextu(surovy);
+    if (!data) {
+      continue;
+    }
+    vysledek.push({
+      nazev: rozliseni,
+      datumOd: data.datumOd,
+      datumDo: data.datumDo,
+      cas: "",
+      mistoNeboTyp: rozliseni,
+    });
+  }
+}
+
+/**
+ * Detail /festival/…trebon… — JSON-LD / title, lokalita Třeboň, cas "".
+ * Zrušené (EventCancelled / text zrušeno) neemituje.
+ */
+function parsovatCityEventFestivalTrebonDetail(
+  html: string,
+  vysledek: BranaScanKandidat[],
+): void {
+  if (vysledek.length >= MAX_KANDIDATU_CITYEVENT_TRHY) {
+    return;
+  }
+  if (jeCityEventZruseno(html)) {
+    return;
+  }
+  if (!maCityEventLokalituTrebon(html)) {
+    return;
+  }
+  const nazev = vytahnoutCityEventNazevZDetailu(html);
+  if (!nazev) {
+    return;
+  }
+  const rozliseni = mapovatCityEventTrebonRozliseni(nazev);
+  if (!rozliseni) {
+    return;
+  }
+
+  let datumOd: string | null = null;
+  let datumDo: string | null = null;
+  const start = html.match(/"startDate"\s*:\s*"([^"]+)"/i);
+  const end = html.match(/"endDate"\s*:\s*"([^"]+)"/i);
+  if (start?.[1]) {
+    const iso = start[1].slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+      datumOd = iso;
+    }
+  }
+  if (end?.[1]) {
+    const iso = end[1].slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+      datumDo = iso;
+    }
+  }
+  if (!datumOd) {
+    const zNazvu = parsovatCityEventDatumyZTextu(nazev);
+    if (!zNazvu) {
+      return;
+    }
+    datumOd = zNazvu.datumOd;
+    datumDo = zNazvu.datumDo;
+  }
+  if (!datumDo) {
+    datumDo = datumOd;
+  }
+  if (datumDo < datumOd) {
+    return;
+  }
+
+  vysledek.push({
+    nazev: rozliseni,
+    datumOd,
+    datumDo,
+    cas: "",
+    mistoNeboTyp: rozliseni,
+  });
+}
+
 /**
  * Z HTML (nebo čistého JSON) vytáhne kandidátní události.
  * Bez vymyšlených údajů – chybí-li název nebo datum, kandidát se zahodí.
@@ -1850,6 +2145,18 @@ export function parsovatUdalostiZeZdroje(
   // Třeboňsko řemeslné trhy: jen fail-closed whitelist — bez JSON-LD mixu.
   if (jeTrebonskoRemeslneTrhyHtml(telo)) {
     parsovatTrebonskoRemeslneTrhy(telo, vysledek);
+    return deduplikovatScanKandidaty(vysledek);
+  }
+
+  // City Event: listing účastníků — jen Třeboň Street Food / Beer & Food.
+  if (jeCityEventProUcastnikyHtml(telo)) {
+    parsovatCityEventProUcastniky(telo, vysledek);
+    return deduplikovatScanKandidaty(vysledek);
+  }
+
+  // City Event: detail festivalu Třeboň — bez obecného JSON-LD mixu.
+  if (jeCityEventFestivalTrebonHtml(telo)) {
+    parsovatCityEventFestivalTrebonDetail(telo, vysledek);
     return deduplikovatScanKandidaty(vysledek);
   }
 

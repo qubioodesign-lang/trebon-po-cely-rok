@@ -22,6 +22,7 @@ import {
   deduplikovatScanKandidaty,
   BRANA_TRHY_REDAKCNI_POLOZKA_ID,
   jeDumStepankaNetolickehoZdrojUrl,
+  jeCityEventTrhyZdrojUrl,
   jeRybarstviZdrojUrl,
   jeTrebonskoRemeslneTrhyZdrojUrl,
   jeZameckaLekarnaZdrojUrl,
@@ -657,7 +658,9 @@ async function skenovatZnamyZdrojJadro(
     }
 
     const sparovani =
-      hlidaneKotvy && jeTrebonskoRemeslneTrhyZdrojUrl(zdroj.url)
+      hlidaneKotvy &&
+      (jeTrebonskoRemeslneTrhyZdrojUrl(zdroj.url) ||
+        jeCityEventTrhyZdrojUrl(zdroj.url))
         ? sparovatVlastnictvimHlidaneKotvy(
             redakcni.polozky,
             zdroj.hlidaneRedakcniPolozkaIds,
