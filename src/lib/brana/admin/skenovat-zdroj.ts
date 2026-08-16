@@ -20,8 +20,10 @@ import {
 import { jePlatnaZdrojUrl, doplnVychoziPoleZdroje, type BranaZdroj } from "./zdroj";
 import {
   deduplikovatScanKandidaty,
+  BRANA_TRHY_REDAKCNI_POLOZKA_ID,
   jeDumStepankaNetolickehoZdrojUrl,
   jeRybarstviZdrojUrl,
+  jeTrebonskoRemeslneTrhyZdrojUrl,
   jeZameckaLekarnaZdrojUrl,
   parsovatUdalostiZeZdroje,
   sestavDumStepankaKalendarUrlkyCtyriMesice,
@@ -48,6 +50,7 @@ import {
 import {
   sparovatSHlidanymiKotvami,
   sparovatSRedakcniPolozkou,
+  sparovatVlastnictvimHlidaneKotvy,
 } from "./zdroj-scan-sparovani";
 import {
   nacistZdroje,
@@ -653,15 +656,22 @@ async function skenovatZnamyZdrojJadro(
       continue;
     }
 
-    const sparovani = hlidaneKotvy
-      ? sparovatSHlidanymiKotvami(
-          kandidat,
-          redakcni.polozky,
-          zdroj.hlidaneRedakcniPolozkaIds,
-        )
-      : sparovatSRedakcniPolozkou(kandidat, redakcni.polozky, {
-          zdrojNazev: zdroj.nazev,
-        });
+    const sparovani =
+      hlidaneKotvy && jeTrebonskoRemeslneTrhyZdrojUrl(zdroj.url)
+        ? sparovatVlastnictvimHlidaneKotvy(
+            redakcni.polozky,
+            zdroj.hlidaneRedakcniPolozkaIds,
+            BRANA_TRHY_REDAKCNI_POLOZKA_ID,
+          )
+        : hlidaneKotvy
+          ? sparovatSHlidanymiKotvami(
+              kandidat,
+              redakcni.polozky,
+              zdroj.hlidaneRedakcniPolozkaIds,
+            )
+          : sparovatSRedakcniPolozkou(kandidat, redakcni.polozky, {
+              zdrojNazev: zdroj.nazev,
+            });
 
     if (!sparovani.ok) {
       // Bohatý zdroj: neshody se neposílají do Nezařazených (provozní šum).

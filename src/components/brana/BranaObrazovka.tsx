@@ -153,7 +153,8 @@ export function BranaObrazovka({
           ) : null}
           <ul className="brana-seznam-akci">
             {akceProBlok(data, pohled, blok).map((akce, indexVBloku) => {
-              const { typ, misto, nazev, cas } = rozlozAkci(akce);
+              const { typ, misto, nazev, cas, oddelovacPredMistem } =
+                rozlozAkci(akce);
               const globalniIndex =
                 pohled === "vyhled"
                   ? blok * data.vyhledPredelIndex + indexVBloku
@@ -168,7 +169,7 @@ export function BranaObrazovka({
                       <span className="brana-akce-typ">{typ}</span>
                       {misto ? (
                         <span className="brana-akce-misto">
-                          {" "}
+                          {oddelovacPredMistem}
                           {zalomPredlozky(misto)}
                         </span>
                       ) : null}

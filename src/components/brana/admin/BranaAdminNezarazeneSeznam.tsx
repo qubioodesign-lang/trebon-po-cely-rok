@@ -59,7 +59,7 @@ export function BranaAdminNezarazeneSeznam({ pocatecniOtevrene }: Props) {
       ) : null}
       <ul className="brana-admin-seznam-akci">
         {otevrene.map((nalez) => {
-          const { typ, misto, nazev } = rozlozAkci({
+          const { typ, misto, nazev, oddelovacPredMistem } = rozlozAkci({
             mistoNeboTyp: nalez.mistoNeboTyp,
             nazev: nalez.nazev,
             cas: nalez.cas,
@@ -70,6 +70,7 @@ export function BranaAdminNezarazeneSeznam({ pocatecniOtevrene }: Props) {
               typ={typ}
               misto={misto}
               nazev={nazev}
+              oddelovacPredMistem={oddelovacPredMistem}
               udajVpravo={formatujUdajVpravoNezarazene(nalez)}
               chrome={
                 <div className="mt-0.5 flex flex-wrap items-center gap-3">

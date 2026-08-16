@@ -139,7 +139,8 @@ function SeznamDnu({
               {den.udalosti.length > 0 ? (
                 <ul className="brana-admin-seznam-akci">
                   {den.udalosti.map((udalost) => {
-                    const { typ, misto, nazev } = rozlozAkci({
+                    const { typ, misto, nazev, oddelovacPredMistem } =
+                      rozlozAkci({
                       mistoNeboTyp: udalost.mistoNeboTyp,
                       nazev: udalost.nazev,
                       cas: udalost.cas,
@@ -180,7 +181,7 @@ function SeznamDnu({
                               </span>
                               {misto ? (
                                 <span className="brana-admin-akce-misto">
-                                  {" "}
+                                  {oddelovacPredMistem}
                                   {zalomPredlozky(misto)}
                                 </span>
                               ) : null}

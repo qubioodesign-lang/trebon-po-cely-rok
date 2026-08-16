@@ -16,8 +16,15 @@ function assert(cond: unknown, msg: string): asserts cond {
   }
 }
 
-function radek(typ: string, misto: string, nazev: string): string {
-  const primarni = [typ, misto].filter((c) => c.trim()).join(" ");
+function radek(
+  typ: string,
+  misto: string,
+  nazev: string,
+  oddelovac = " ",
+): string {
+  const primarni = misto.trim()
+    ? `${typ}${oddelovac}${misto}`
+    : typ;
   return nazev.trim() ? `${primarni}\n${nazev}` : primarni;
 }
 
@@ -32,10 +39,31 @@ function overVylovRozmberk(): void {
   assert(v.typ === "Výlov", `výlov typ: ${v.typ}`);
   assert(v.misto === "Rožmberk", `výlov misto: ${v.misto}`);
   assert(v.nazev === "", `výlov nazev musí být prázdný: „${v.nazev}“`);
+  assert(v.oddelovacPredMistem === " ", "výlov oddělovač mezera");
   assert(
-    radek(v.typ, v.misto, v.nazev) === "Výlov Rožmberk",
-    `výlov radek: ${radek(v.typ, v.misto, v.nazev)}`,
+    radek(v.typ, v.misto, v.nazev, v.oddelovacPredMistem) === "Výlov Rožmberk",
+    `výlov radek: ${radek(v.typ, v.misto, v.nazev, v.oddelovacPredMistem)}`,
   );
+}
+
+function overTrhOddelovacARedundance(): void {
+  const v = rozlozAkci({
+    mistoNeboTyp: "Trh Otevíráme Třeboň",
+    nazev: "Otevíráme Třeboň",
+    cas: "",
+    verejneCo: "Trh",
+    verejneRozliseni: "Otevíráme Třeboň",
+  });
+  assert(v.typ === "Trh", "trh typ");
+  assert(v.misto === "Otevíráme Třeboň", "trh rozlišení");
+  assert(v.nazev === "", "trh nazev redundantní skryt");
+  assert(v.oddelovacPredMistem === " · ", "trh oddělovač ·");
+  assert(
+    radek(v.typ, v.misto, v.nazev, v.oddelovacPredMistem) ===
+      "Trh · Otevíráme Třeboň",
+    "trh veřejný zápis",
+  );
+  assert(!/náměstí/i.test(radek(v.typ, v.misto, v.nazev, v.oddelovacPredMistem)), "bez Náměstí");
 }
 
 function overKinoFilmZustava(): void {
@@ -134,6 +162,7 @@ function overLegacyBezeZmeny(): void {
 
 function main(): void {
   overVylovRozmberk();
+  overTrhOddelovacARedundance();
   overKinoFilmZustava();
   overDivadloProgramZustava();
   overGalerie105();

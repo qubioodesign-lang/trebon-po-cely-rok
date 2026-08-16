@@ -73,7 +73,8 @@ export default async function StrankaBranaAdminVyhled() {
                 <h3 className="brana-admin-kalendar-datum">{skupina.rok}</h3>
                 <ul className="brana-admin-seznam-akci">
                   {skupina.souhrny.map((souhrn) => {
-                    const { typ, misto, nazev } = rozlozAkci({
+                    const { typ, misto, nazev, oddelovacPredMistem } =
+                      rozlozAkci({
                       mistoNeboTyp: souhrn.mistoNeboTyp,
                       nazev: souhrn.nazev,
                       cas: "",
@@ -90,6 +91,7 @@ export default async function StrankaBranaAdminVyhled() {
                         typ={typ}
                         misto={misto}
                         nazev={nazev}
+                        oddelovacPredMistem={oddelovacPredMistem}
                         udajVpravo={formatujDatumVyhled({
                           datumOd: souhrn.datumOd,
                           datumDo: souhrn.datumDo,

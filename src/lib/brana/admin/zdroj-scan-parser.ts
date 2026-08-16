@@ -4,8 +4,9 @@
  * kinotrebon.cz (`.section-event`), trebonskanocturna.cz (karty `/koncert/`),
  * dumstepankanetolickeho.cz (`.home-block-wrapper.event-item`),
  * trebon105.cz (`article.event` jen v sekci Akce, ne Výstavy),
- * zameckalekarnatrebon.cz (měsíční `.articleContent` denní program)
- * a rybarstvi.cz (podzimní výlovy – roční sekce / tabulka).
+ * zameckalekarnatrebon.cz (měsíční `.articleContent` denní program),
+ * rybarstvi.cz (podzimní výlovy – roční sekce / tabulka)
+ * a trebonsko.cz/remeslne-trhy-trebon (městské Trhy – fail-closed whitelist).
  * Odděleně od Kalendáře a Blob zápisu.
  * Datum/čas: Europe/Prague (včetně DST) přes stávající brana/cas.
  * Multi-měsíční fetch DSN / Zámecká lékárna / Rybářství žije ve scan orchestraci, ne zde.
@@ -32,6 +33,10 @@ const ZAMECKA_LEKARNA_MESIC_HREF_RE =
   /\/c-\d+-(?:leden|unor|brezen|duben|kveten|cerven|cervenec|srpen|zari|rijen|listopad|prosinec)-\d{4}\.html/i;
 const RYBARSTVI_PODZIMNI_VYLOVY_PATH = "/podzimni-vylov-rybniku";
 const MAX_KANDIDATU_RYBARSTVI = 40;
+/** Redakční kotva rodiny Trhů — ownership Třeboňsko / později City Event / MINT. */
+export const BRANA_TRHY_REDAKCNI_POLOZKA_ID = "trhy";
+const TREBONSKO_REMESLNE_TRHY_PATH = "/remeslne-trhy-trebon";
+const MAX_KANDIDATU_TREBONSKO_TRHY = 40;
 
 type RozkladDatumCas = {
   datum: string;
@@ -1606,6 +1611,222 @@ function parsovatRybarstviPodzimniVylovy(
   }
 }
 
+/** True, pokud URL míří na trebonsko.cz řemeslné trhy (s/bez www). */
+export function jeTrebonskoRemeslneTrhyZdrojUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./i, "").toLowerCase();
+    if (host !== "trebonsko.cz") {
+      return false;
+    }
+    const path = parsed.pathname.replace(/\/+$/, "").toLowerCase();
+    return path === TREBONSKO_REMESLNE_TRHY_PATH;
+  } catch {
+    return false;
+  }
+}
+
+function jeTrebonskoRemeslneTrhyHtml(html: string): boolean {
+  return (
+    /trebonsko\.cz/i.test(html) &&
+    (/remeslne-trhy-trebon/i.test(html) ||
+      /[řr]emesln[ée]\s+trhy/i.test(html)) &&
+    /kalend[aá][rř]\s+trh/i.test(html)
+  );
+}
+
+function normalizovatProTrhyShodu(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/&nbsp;/gi, " ")
+    .replace(/[^a-z0-9+]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Explicitní whitelist městských Trhů (Třeboňsko).
+ * Pořadí: konkrétnější aliasy dřív (andělé před obecným adventním).
+ * Cizí vlastníci (MINT / Street Food / Beer & Food) zde nejsou.
+ */
+const TREBONSKO_TRHY_ALIAS_MAPA: readonly {
+  aliasNorm: string;
+  rozliseni: string;
+}[] = [
+  {
+    aliasNorm: normalizovatProTrhyShodu("Začínáme sezónu trhem"),
+    rozliseni: "Otevíráme Třeboň",
+  },
+  {
+    aliasNorm: normalizovatProTrhyShodu("Velikonoční trh"),
+    rozliseni: "Velikonoční",
+  },
+  {
+    aliasNorm: normalizovatProTrhyShodu("Květinový jarmark"),
+    rozliseni: "Květinový jarmark",
+  },
+  {
+    aliasNorm: normalizovatProTrhyShodu("Košt vín s trhem"),
+    rozliseni: "Košt vín",
+  },
+  {
+    aliasNorm: normalizovatProTrhyShodu(
+      "Historické slavnosti Jakuba Krčína + trh",
+    ),
+    rozliseni: "Slavnosti Jakuba Krčína",
+  },
+  {
+    aliasNorm: normalizovatProTrhyShodu("Lázeňská Třeboň + trh"),
+    rozliseni: "Lázeňská Třeboň",
+  },
+  {
+    aliasNorm: normalizovatProTrhyShodu("Myslivecká Třeboň + trh"),
+    rozliseni: "Myslivecká Třeboň",
+  },
+  {
+    aliasNorm: normalizovatProTrhyShodu("Letní tečka s trhem"),
+    rozliseni: "Letní tečka",
+  },
+  {
+    aliasNorm: normalizovatProTrhyShodu("Vinobraní s trhem"),
+    rozliseni: "Vinobraní",
+  },
+  {
+    aliasNorm: normalizovatProTrhyShodu("Svatováclavské slavnosti + trh"),
+    rozliseni: "Svatováclavské slavnosti",
+  },
+  {
+    aliasNorm: normalizovatProTrhyShodu("Svatováclavské slavnosti s trhem"),
+    rozliseni: "Svatováclavské slavnosti",
+  },
+  {
+    aliasNorm: normalizovatProTrhyShodu("Svatomartinský trh"),
+    rozliseni: "Svatomartinské slavnosti",
+  },
+  {
+    aliasNorm: normalizovatProTrhyShodu(
+      "Třeboň plná andělů s rozsvícením stromu + adventní trh",
+    ),
+    rozliseni: "Třeboň plná andělů",
+  },
+  {
+    aliasNorm: normalizovatProTrhyShodu("Třeboň plná andělů + adventní trh"),
+    rozliseni: "Třeboň plná andělů",
+  },
+  {
+    aliasNorm: normalizovatProTrhyShodu("Adventní trh"),
+    rozliseni: "Adventní",
+  },
+];
+
+function mapovatTrebonskoTrhRozliseni(nazevSurovy: string): string | null {
+  const n = normalizovatProTrhyShodu(nazevSurovy);
+  if (!n) {
+    return null;
+  }
+  for (const radek of TREBONSKO_TRHY_ALIAS_MAPA) {
+    if (n === radek.aliasNorm) {
+      return radek.rozliseni;
+    }
+  }
+  return null;
+}
+
+function rokKalendareTrebonskoTrhy(
+  html: string,
+  referencniOkamzik: Date,
+): number | null {
+  const zTitle = html.match(
+    /[řr]emesln[ée]\s+trhy[^<]{0,80}\b(20\d{2})\b/i,
+  );
+  if (zTitle) {
+    return Number(zTitle[1]);
+  }
+  const zH1 = html.match(
+    /<h1[^>]*>[\s\S]{0,120}?\b(20\d{2})\b[\s\S]{0,80}?<\/h1>/i,
+  );
+  if (zH1) {
+    return Number(zH1[1]);
+  }
+  return dnesVPraze(referencniOkamzik).rok;
+}
+
+function cistyTextZHtmlFragmentu(fragment: string): string {
+  return fragment
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Fail-closed: jen městské Trhy z kalendářového seznamu.
+ * Řádky v závorkách (externí pořadatelé) se neemitují.
+ * cas vždy "". Historický rok stránky < aktuální rok → 0.
+ */
+function parsovatTrebonskoRemeslneTrhy(
+  html: string,
+  vysledek: BranaScanKandidat[],
+  referencniOkamzik: Date = new Date(),
+): void {
+  const aktualniRok = dnesVPraze(referencniOkamzik).rok;
+  const rokStranky = rokKalendareTrebonskoTrhy(html, referencniOkamzik);
+  if (rokStranky === null || rokStranky < aktualniRok) {
+    return;
+  }
+
+  const liShody = html.matchAll(/<li>([\s\S]*?)<\/li>/gi);
+  for (const m of liShody) {
+    if (vysledek.length >= MAX_KANDIDATU_TREBONSKO_TRHY) {
+      return;
+    }
+    const surovy = cistyTextZHtmlFragmentu(m[1] ?? "");
+    if (!surovy) {
+      continue;
+    }
+    // Externí / doprovodné v závorkách — MINT, Street Food, maraton, …
+    if (/^\(/.test(surovy) || /\)$/.test(surovy)) {
+      continue;
+    }
+    const radek = surovy.match(
+      /^(\d{1,2})\.\s*(\d{1,2})\.\s+(.+)$/u,
+    );
+    if (!radek) {
+      continue;
+    }
+    const den = Number(radek[1]);
+    const mesic = Number(radek[2]);
+    const nazevCast = (radek[3] ?? "").trim();
+    if (
+      !Number.isFinite(den) ||
+      !Number.isFinite(mesic) ||
+      den < 1 ||
+      den > 31 ||
+      mesic < 1 ||
+      mesic > 12 ||
+      !nazevCast
+    ) {
+      continue;
+    }
+    const rozliseni = mapovatTrebonskoTrhRozliseni(nazevCast);
+    if (!rozliseni) {
+      continue;
+    }
+    const datum = formatujIsoDen(rokStranky, mesic, den);
+    vysledek.push({
+      nazev: rozliseni,
+      datumOd: datum,
+      datumDo: datum,
+      cas: "",
+      mistoNeboTyp: rozliseni,
+    });
+  }
+}
+
 /**
  * Z HTML (nebo čistého JSON) vytáhne kandidátní události.
  * Bez vymyšlených údajů – chybí-li název nebo datum, kandidát se zahodí.
@@ -1624,6 +1845,12 @@ export function parsovatUdalostiZeZdroje(
     } catch {
       return [];
     }
+  }
+
+  // Třeboňsko řemeslné trhy: jen fail-closed whitelist — bez JSON-LD mixu.
+  if (jeTrebonskoRemeslneTrhyHtml(telo)) {
+    parsovatTrebonskoRemeslneTrhy(telo, vysledek);
+    return deduplikovatScanKandidaty(vysledek);
   }
 
   for (const blok of vytahnoutJsonLdBloky(telo)) {

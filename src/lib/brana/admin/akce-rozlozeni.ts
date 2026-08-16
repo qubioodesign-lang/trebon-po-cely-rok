@@ -18,6 +18,11 @@ const JEDNOSLOVNE_TYPY_AKCE = new Set([
   "Přednáška",
 ]);
 
+/** Veřejný CO rodiny Trhů — jediný typ s oddělovačem ` · `. */
+const VEREJNE_CO_TRH = "Trh";
+const ODDELOVAC_TRH = " · ";
+const ODDELOVAC_BEZNY = " ";
+
 export type BranaAkceVstup = {
   mistoNeboTyp: string;
   nazev: string;
@@ -28,6 +33,18 @@ export type BranaAkceVstup = {
    */
   verejneCo?: string | null;
   verejneRozliseni?: string | null;
+};
+
+export type BranaAkceRozlozeni = {
+  typ: string;
+  misto: string;
+  nazev: string;
+  cas: string;
+  /**
+   * Text mezi typ a misto ve veřejném/admin renderu.
+   * Jen rodina Trhů používá ` · `; ostatní mezera (beze změny).
+   */
+  oddelovacPredMistem: string;
 };
 
 export function rozdelTypAkce(mistoNeboTyp: string): { typ: string; zbytek: string } {
@@ -68,64 +85,117 @@ function normalizovatProSrovnani(text: string): string {
   return text.replace(/\s+/g, " ").trim().toLowerCase();
 }
 
-function slozenyVerejnyZapis(co: string, rozliseni: string): string {
-  return [co, rozliseni].filter((cast) => cast.length > 0).join(" ");
+function oddelovacPredMistemPro(typ: string, misto: string): string {
+  if (typ === VEREJNE_CO_TRH && misto.trim()) {
+    return ODDELOVAC_TRH;
+  }
+  return ODDELOVAC_BEZNY;
+}
+
+function slozenyVerejnyZapis(
+  co: string,
+  rozliseni: string,
+  oddelovac: string,
+): string {
+  return [co, rozliseni].filter((cast) => cast.length > 0).join(oddelovac);
 }
 
 /**
- * True = nazev jen opakuje CO + rozlišení (veřejný zápis už je kompletní).
+ * True = nazev jen opakuje veřejný zápis (CO+rozlišení / jen rozlišení).
+ * Uložený nazev se nemění — pouze render.
  */
 function jeNazevRedundantniVuciVerejnemu(
   nazev: string,
   typ: string,
   misto: string,
+  oddelovac: string,
 ): boolean {
   const n = normalizovatProSrovnani(nazev);
   if (!n) {
     return false;
   }
-  const verejny = normalizovatProSrovnani(slozenyVerejnyZapis(typ, misto));
-  return Boolean(verejny) && n === verejny;
+  if (misto && n === normalizovatProSrovnani(misto)) {
+    return true;
+  }
+  const verejny = normalizovatProSrovnani(
+    slozenyVerejnyZapis(typ, misto, oddelovac),
+  );
+  if (verejny && n === verejny) {
+    return true;
+  }
+  // I když render používá ` · `, nazev bez tečky se stejným CO+mezera.
+  if (oddelovac !== ODDELOVAC_BEZNY) {
+    const sMezerou = normalizovatProSrovnani(
+      slozenyVerejnyZapis(typ, misto, ODDELOVAC_BEZNY),
+    );
+    if (sMezerou && n === sMezerou) {
+      return true;
+    }
+  }
+  return false;
 }
 
-function rozlozLegacyAkci(akce: BranaAkceVstup): {
+function sOddelovacem(casti: {
   typ: string;
   misto: string;
   nazev: string;
   cas: string;
-} {
+}): BranaAkceRozlozeni {
+  return {
+    ...casti,
+    oddelovacPredMistem: oddelovacPredMistemPro(casti.typ, casti.misto),
+  };
+}
+
+function rozlozLegacyAkci(akce: BranaAkceVstup): BranaAkceRozlozeni {
   const { typ, zbytek } = rozdelTypAkce(akce.mistoNeboTyp);
 
   if (zbytek) {
-    return { typ, misto: zbytek, nazev: akce.nazev, cas: akce.cas };
+    return sOddelovacem({
+      typ,
+      misto: zbytek,
+      nazev: akce.nazev,
+      cas: akce.cas,
+    });
   }
 
   if (JEDNOSLOVNE_TYPY_AKCE.has(typ) || typ === "Pro děti") {
-    return { typ, misto: "", nazev: akce.nazev, cas: akce.cas };
+    return sOddelovacem({
+      typ,
+      misto: "",
+      nazev: akce.nazev,
+      cas: akce.cas,
+    });
   }
 
-  return { typ, misto: akce.nazev, nazev: "", cas: akce.cas };
+  return sOddelovacem({
+    typ,
+    misto: akce.nazev,
+    nazev: "",
+    cas: akce.cas,
+  });
 }
 
 /**
  * Strukturovaná cesta: verejneCo !== undefined.
  * Prázdné CO i KDE → legacy fallback (bez rozbitého řádku).
  * Legacy: pole chybí → dnešní rozklad mistoNeboTyp.
- * Redundantní nazev vůči CO+rozlišení se ve strukturované větvi skryje.
+ * Redundantní nazev vůči CO+rozlišení / samotnému rozlišení se skryje.
  */
-export function rozlozAkci(akce: BranaAkceVstup): {
-  typ: string;
-  misto: string;
-  nazev: string;
-  cas: string;
-} {
+export function rozlozAkci(akce: BranaAkceVstup): BranaAkceRozlozeni {
   if (akce.verejneCo !== undefined) {
     const typ = (akce.verejneCo ?? "").trim();
     const misto = (akce.verejneRozliseni ?? "").trim();
     if (!typ && !misto) {
       return rozlozLegacyAkci(akce);
     }
-    const nazev = jeNazevRedundantniVuciVerejnemu(akce.nazev, typ, misto)
+    const oddelovac = oddelovacPredMistemPro(typ, misto);
+    const nazev = jeNazevRedundantniVuciVerejnemu(
+      akce.nazev,
+      typ,
+      misto,
+      oddelovac,
+    )
       ? ""
       : akce.nazev;
     return {
@@ -133,6 +203,7 @@ export function rozlozAkci(akce: BranaAkceVstup): {
       misto,
       nazev,
       cas: akce.cas,
+      oddelovacPredMistem: oddelovac,
     };
   }
   return rozlozLegacyAkci(akce);

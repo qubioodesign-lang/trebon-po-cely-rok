@@ -10,6 +10,8 @@ export type BranaAdminAkcePolozkaProps = {
   misto: string;
   nazev: string;
   udajVpravo: string;
+  /** Oddělovač před místem; výchozí mezera (Trh používá ` · `). */
+  oddelovacPredMistem?: string;
   /** Volitelný admin chrome pod řádkem (např. Smazat) */
   chrome?: ReactNode;
 };
@@ -19,6 +21,7 @@ export function BranaAdminAkcePolozka({
   misto,
   nazev,
   udajVpravo,
+  oddelovacPredMistem = " ",
   chrome,
 }: BranaAdminAkcePolozkaProps) {
   return (
@@ -29,7 +32,10 @@ export function BranaAdminAkcePolozka({
           <div className="brana-admin-akce-radek">
             <span className="brana-admin-akce-typ">{typ}</span>
             {misto ? (
-              <span className="brana-admin-akce-misto"> {misto}</span>
+              <span className="brana-admin-akce-misto">
+                {oddelovacPredMistem}
+                {misto}
+              </span>
             ) : null}
           </div>
           {nazev ? (

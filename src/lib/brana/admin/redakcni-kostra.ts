@@ -102,7 +102,8 @@ const DEFINITIVNI_SEED: Readonly<
     polozka: "Trhy na náměstí",
     priorita: 2,
     vyhled: "ANO",
-    jazyk: { co: pevne("Trhy"), rozliseni: pevne("Náměstí") },
+    // Veřejný zápis: Trh · [rozlišení]; oddělovač řeší rozlozAkci (jen CO=Trh).
+    jazyk: { co: pevne("Trh"), rozliseni: Z_UDALOSTI },
   },
   "kino-svetozor": {
     polozka: "Kino Světozor",

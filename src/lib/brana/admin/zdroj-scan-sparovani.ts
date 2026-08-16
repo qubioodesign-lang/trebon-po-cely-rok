@@ -164,3 +164,32 @@ export function sparovatSHlidanymiKotvami(
   }
   return { ok: true, redakcniPolozkaId: unikarni[0] };
 }
+
+/**
+ * Ownership fail-closed: whitelistovaný kandidát ze zdroje s pevnou kotvou.
+ * Pouze pokud je `vlastnickaKotvaId` v hlídaných ID a Používat=ANO.
+ * Neotevírá BEZNY ani obecné přiřazování jiných zdrojů.
+ */
+export function sparovatVlastnictvimHlidaneKotvy(
+  polozky: readonly BranaRedakcniPolozkaStav[],
+  hlidaneRedakcniPolozkaIds: readonly string[],
+  vlastnickaKotvaId: string,
+): SparovaniVysledek {
+  const kotvaId = vlastnickaKotvaId.trim();
+  if (!kotvaId) {
+    return { ok: false };
+  }
+  const idSet = new Set(
+    hlidaneRedakcniPolozkaIds
+      .map((id) => id.trim())
+      .filter((id) => id.length > 0),
+  );
+  if (!idSet.has(kotvaId)) {
+    return { ok: false };
+  }
+  const polozka = polozky.find((p) => p.id === kotvaId);
+  if (!polozka || polozka.pouzivat !== "ANO") {
+    return { ok: false };
+  }
+  return { ok: true, redakcniPolozkaId: kotvaId };
+}
