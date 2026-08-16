@@ -23,6 +23,7 @@ import {
   BRANA_TRHY_REDAKCNI_POLOZKA_ID,
   jeDumStepankaNetolickehoZdrojUrl,
   jeCityEventTrhyZdrojUrl,
+  jeMintTrhyZdrojUrl,
   jeRybarstviZdrojUrl,
   jeTrebonskoRemeslneTrhyZdrojUrl,
   jeZameckaLekarnaZdrojUrl,
@@ -660,7 +661,8 @@ async function skenovatZnamyZdrojJadro(
     const sparovani =
       hlidaneKotvy &&
       (jeTrebonskoRemeslneTrhyZdrojUrl(zdroj.url) ||
-        jeCityEventTrhyZdrojUrl(zdroj.url))
+        jeCityEventTrhyZdrojUrl(zdroj.url) ||
+        jeMintTrhyZdrojUrl(zdroj.url))
         ? sparovatVlastnictvimHlidaneKotvy(
             redakcni.polozky,
             zdroj.hlidaneRedakcniPolozkaIds,

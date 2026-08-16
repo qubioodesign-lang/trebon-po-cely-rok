@@ -6,8 +6,9 @@
  * trebon105.cz (`article.event` jen v sekci Akce, ne Výstavy),
  * zameckalekarnatrebon.cz (měsíční `.articleContent` denní program),
  * rybarstvi.cz (podzimní výlovy – roční sekce / tabulka),
- * trebonsko.cz/remeslne-trhy-trebon (městské Trhy – fail-closed whitelist)
- * a cityevent.cz/pro-ucastniky (+ /festival/*trebon*) pro Street Food / Beer & Food Fest.
+ * trebonsko.cz/remeslne-trhy-trebon (městské Trhy – fail-closed whitelist),
+ * cityevent.cz/pro-ucastniky (+ /festival/*trebon*) pro Street Food / Beer & Food Fest
+ * a mintmarket.cz (listing / detail /trh/trebon-*) pro MINT Market.
  * Odděleně od Kalendáře a Blob zápisu.
  * Datum/čas: Europe/Prague (včetně DST) přes stávající brana/cas.
  * Multi-měsíční fetch DSN / Zámecká lékárna / Rybářství žije ve scan orchestraci, ne zde.
@@ -34,12 +35,29 @@ const ZAMECKA_LEKARNA_MESIC_HREF_RE =
   /\/c-\d+-(?:leden|unor|brezen|duben|kveten|cerven|cervenec|srpen|zari|rijen|listopad|prosinec)-\d{4}\.html/i;
 const RYBARSTVI_PODZIMNI_VYLOVY_PATH = "/podzimni-vylov-rybniku";
 const MAX_KANDIDATU_RYBARSTVI = 40;
-/** Redakční kotva rodiny Trhů — ownership Třeboňsko / City Event / později MINT. */
+/** Redakční kotva rodiny Trhů — ownership Třeboňsko / City Event / MINT. */
 export const BRANA_TRHY_REDAKCNI_POLOZKA_ID = "trhy";
 const TREBONSKO_REMESLNE_TRHY_PATH = "/remeslne-trhy-trebon";
 const MAX_KANDIDATU_TREBONSKO_TRHY = 40;
 const CITYEVENT_PRO_UCASTNIKY_PATH = "/pro-ucastniky";
 const MAX_KANDIDATU_CITYEVENT_TRHY = 20;
+const MAX_KANDIDATU_MINT_TRHY = 20;
+const MINT_TREBON_ROZLISENI = "MINT Market";
+const MINT_MESICE_CS: Record<string, number> = {
+  ledna: 1,
+  unor: 2,
+  unora: 2,
+  brezna: 3,
+  dubna: 4,
+  kvetna: 5,
+  cervna: 6,
+  cervence: 7,
+  srpna: 8,
+  zari: 9,
+  rijna: 10,
+  listopadu: 11,
+  prosince: 12,
+};
 
 type RozkladDatumCas = {
   datum: string;
@@ -2122,6 +2140,336 @@ function parsovatCityEventFestivalTrebonDetail(
   });
 }
 
+function normalizovatMintHostname(url: string): URL | null {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./i, "").toLowerCase();
+    if (host !== "mintmarket.cz") {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function mintPathBezSession(pathname: string): string {
+  return pathname
+    .replace(/;jsessionid=[^/]*/gi, "")
+    .replace(/\/+$/, "")
+    .toLowerCase();
+}
+
+/** Listing: homepage nebo /cs[/trhy]. */
+export function jeMintMarketListingZdrojUrl(url: string): boolean {
+  const parsed = normalizovatMintHostname(url);
+  if (!parsed) {
+    return false;
+  }
+  const path = mintPathBezSession(parsed.pathname);
+  return path === "" || path === "/cs" || path === "/cs/trhy";
+}
+
+/** Detail: /cs/trh/trebon-N nebo /trh/trebon-N. */
+export function jeMintMarketTrebonDetailZdrojUrl(url: string): boolean {
+  const parsed = normalizovatMintHostname(url);
+  if (!parsed) {
+    return false;
+  }
+  const path = mintPathBezSession(parsed.pathname);
+  return /^(?:\/cs)?\/trh\/trebon-\d+$/.test(path);
+}
+
+/** Ownership gate: MINT listing nebo Třeboň detail. */
+export function jeMintTrhyZdrojUrl(url: string): boolean {
+  return (
+    jeMintMarketListingZdrojUrl(url) || jeMintMarketTrebonDetailZdrojUrl(url)
+  );
+}
+
+function jeMintMarketListingHtml(html: string): boolean {
+  return (
+    /mintmarket\.cz/i.test(html) &&
+    /MINT Market/i.test(html) &&
+    /\/trh\//i.test(html) &&
+    !/section-market/i.test(html)
+  );
+}
+
+function jeMintMarketTrebonDetailHtml(html: string): boolean {
+  return (
+    /mintmarket\.cz/i.test(html) &&
+    /section-market/i.test(html) &&
+    /MINT Market T[rř]ebo[nň]/i.test(html) &&
+    /trh\/trebon-\d+/i.test(html)
+  );
+}
+
+function dekodovatMintText(text: string): string {
+  return text
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&#8211;/g, "–")
+    .replace(/&#038;/g, "&")
+    .replace(/&amp;/gi, "&")
+    .replace(/&#(\d+);/g, (_, kod: string) =>
+      String.fromCharCode(Number(kod)),
+    )
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function mintRokZCisla(rokRaw: number): number | null {
+  if (!Number.isFinite(rokRaw)) {
+    return null;
+  }
+  if (rokRaw >= 2000 && rokRaw <= 2100) {
+    return rokRaw;
+  }
+  if (rokRaw >= 0 && rokRaw <= 99) {
+    return 2000 + rokRaw;
+  }
+  return null;
+}
+
+function jeMintZruseno(text: string): boolean {
+  const n = normalizovatProTrhyShodu(dekodovatMintText(text));
+  return (
+    /\bzruseno\b/.test(n) ||
+    /\bzrusena\b/.test(n) ||
+    /\bzruseny\b/.test(n) ||
+    /\bcancelled\b/.test(n)
+  );
+}
+
+/** Fail-closed: jen MINT Market v Třeboni → rozlišení „MINT Market“. */
+function mapovatMintTrebonRozliseni(nazevSurovy: string): string | null {
+  const text = dekodovatMintText(nazevSurovy);
+  if (!text || jeMintZruseno(text)) {
+    return null;
+  }
+  const n = normalizovatProTrhyShodu(text);
+  if (!/\bmint\b/.test(n) || !/\bmarket\b/.test(n)) {
+    return null;
+  }
+  if (!/\btrebon\b/.test(n)) {
+    return null;
+  }
+  return MINT_TREBON_ROZLISENI;
+}
+
+function parsovatMintDatumyTečky(
+  text: string,
+): { datumOd: string; datumDo: string } | null {
+  const t = dekodovatMintText(text);
+  const rozsah = t.match(
+    /(\d{1,2})\.(\d{1,2})\.(\d{2}|\d{4})\s*[-–]\s*(\d{1,2})\.(\d{1,2})\.(\d{2}|\d{4})/,
+  );
+  if (rozsah) {
+    const denOd = Number(rozsah[1]);
+    const mesicOd = Number(rozsah[2]);
+    const rokOd = mintRokZCisla(Number(rozsah[3]));
+    const denDo = Number(rozsah[4]);
+    const mesicDo = Number(rozsah[5]);
+    const rokDo = mintRokZCisla(Number(rozsah[6]));
+    if (
+      rokOd === null ||
+      rokDo === null ||
+      denOd < 1 ||
+      denOd > 31 ||
+      denDo < 1 ||
+      denDo > 31 ||
+      mesicOd < 1 ||
+      mesicOd > 12 ||
+      mesicDo < 1 ||
+      mesicDo > 12
+    ) {
+      return null;
+    }
+    const datumOd = formatujIsoDen(rokOd, mesicOd, denOd);
+    const datumDo = formatujIsoDen(rokDo, mesicDo, denDo);
+    if (datumDo < datumOd) {
+      return null;
+    }
+    return { datumOd, datumDo };
+  }
+  const jeden = t.match(/(\d{1,2})\.(\d{1,2})\.(\d{2}|\d{4})(?!\d)/);
+  if (!jeden) {
+    return null;
+  }
+  const den = Number(jeden[1]);
+  const mesic = Number(jeden[2]);
+  const rok = mintRokZCisla(Number(jeden[3]));
+  if (
+    rok === null ||
+    den < 1 ||
+    den > 31 ||
+    mesic < 1 ||
+    mesic > 12
+  ) {
+    return null;
+  }
+  const iso = formatujIsoDen(rok, mesic, den);
+  return { datumOd: iso, datumDo: iso };
+}
+
+/** Detail prose: „27. a 28. června“ (+ volitelný rok). */
+function parsovatMintDatumyProza(
+  text: string,
+  fallbackRok: number,
+): { datumOd: string; datumDo: string } | null {
+  const t = dekodovatMintText(text);
+  const m = t.match(
+    /(\d{1,2})\.\s*a\s*(\d{1,2})\.\s*(ledna|února|unora|března|brezna|dubna|května|kvetna|června|cervna|července|cervence|srpna|září|zari|října|rijna|listopadu|prosince)\s*(20\d{2})?/i,
+  );
+  if (!m) {
+    return null;
+  }
+  const denOd = Number(m[1]);
+  const denDo = Number(m[2]);
+  const mesicKey = normalizovatProTrhyShodu(m[3] ?? "");
+  const mesic = MINT_MESICE_CS[mesicKey];
+  const rok = m[4] ? mintRokZCisla(Number(m[4])) : fallbackRok;
+  if (
+    !mesic ||
+    rok === null ||
+    denOd < 1 ||
+    denOd > 31 ||
+    denDo < 1 ||
+    denDo > 31 ||
+    denDo < denOd
+  ) {
+    return null;
+  }
+  return {
+    datumOd: formatujIsoDen(rok, mesic, denOd),
+    datumDo: formatujIsoDen(rok, mesic, denDo),
+  };
+}
+
+function mintFallbackRokZHtml(
+  html: string,
+  referencniOkamzik: Date,
+): number {
+  const zImg = html.match(/trebon[_\-]?\d+[_\-](20\d{2})/i);
+  if (zImg) {
+    return Number(zImg[1]);
+  }
+  const zText = html.match(/\b(20\d{2})\b/);
+  if (zText) {
+    return Number(zText[1]);
+  }
+  return dnesVPraze(referencniOkamzik).rok;
+}
+
+/**
+ * Listing karty: jen /trh/trebon-* + „MINT Market Třeboň“.
+ * Jiná města a zrušené neemituje. cas vždy "".
+ */
+function parsovatMintMarketListing(
+  html: string,
+  vysledek: BranaScanKandidat[],
+  referencniOkamzik: Date = new Date(),
+): void {
+  const aktualniRok = dnesVPraze(referencniOkamzik).rok;
+  const karty = html.matchAll(
+    /href="[^"]*\/trh\/(trebon-\d+)[^"]*"[\s\S]{0,800}?<span>([^<]+)<\/span>[\s\S]{0,500}?<small>([^<]+)<\/small>/gi,
+  );
+  const videne = new Set<string>();
+  for (const m of karty) {
+    if (vysledek.length >= MAX_KANDIDATU_MINT_TRHY) {
+      return;
+    }
+    const slug = (m[1] ?? "").toLowerCase();
+    const nazev = dekodovatMintText(m[2] ?? "");
+    const datumText = dekodovatMintText(m[3] ?? "");
+    if (!slug.startsWith("trebon-")) {
+      continue;
+    }
+    if (jeMintZruseno(`${nazev} ${datumText}`)) {
+      continue;
+    }
+    const rozliseni = mapovatMintTrebonRozliseni(nazev);
+    if (!rozliseni) {
+      continue;
+    }
+    const data = parsovatMintDatumyTečky(datumText);
+    if (!data) {
+      continue;
+    }
+    const rokOd = Number(data.datumOd.slice(0, 4));
+    if (rokOd < aktualniRok) {
+      continue;
+    }
+    const klic = `${data.datumOd}\0${data.datumDo}`;
+    if (videne.has(klic)) {
+      continue;
+    }
+    videne.add(klic);
+    vysledek.push({
+      nazev: rozliseni,
+      datumOd: data.datumOd,
+      datumDo: data.datumDo,
+      cas: "",
+      mistoNeboTyp: rozliseni,
+    });
+  }
+}
+
+/**
+ * Detail /trh/trebon-*: lokalita Třeboň, rozsah z tečkových dat nebo prózy.
+ * Zrušené neemituje. cas vždy "".
+ */
+function parsovatMintMarketTrebonDetail(
+  html: string,
+  vysledek: BranaScanKandidat[],
+  referencniOkamzik: Date = new Date(),
+): void {
+  if (vysledek.length >= MAX_KANDIDATU_MINT_TRHY) {
+    return;
+  }
+  if (jeMintZruseno(html)) {
+    return;
+  }
+  const h1 = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1];
+  const nazev = dekodovatMintText(
+    h1 ? cistyTextZHtmlFragmentu(h1) : "",
+  );
+  const rozliseni = mapovatMintTrebonRozliseni(
+    nazev || "MINT Market Třeboň",
+  );
+  if (!rozliseni) {
+    return;
+  }
+  // Lokalita: Třeboň v názvu / Masarykovo náměstí + trebon slug.
+  if (
+    !/\btrebon\b/i.test(normalizovatProTrhyShodu(html.slice(0, 4000))) &&
+    !/T[rř]ebo[nň]/i.test(nazev)
+  ) {
+    return;
+  }
+
+  const aktualniRok = dnesVPraze(referencniOkamzik).rok;
+  const fallbackRok = mintFallbackRokZHtml(html, referencniOkamzik);
+  // Detail často píše „27. a 28. června“; tečkový rozsah je na listingu.
+  const data =
+    parsovatMintDatumyProza(html, fallbackRok) ??
+    parsovatMintDatumyTečky(html);
+  if (!data) {
+    return;
+  }
+  if (Number(data.datumOd.slice(0, 4)) < aktualniRok) {
+    return;
+  }
+
+  vysledek.push({
+    nazev: rozliseni,
+    datumOd: data.datumOd,
+    datumDo: data.datumDo,
+    cas: "",
+    mistoNeboTyp: rozliseni,
+  });
+}
+
 /**
  * Z HTML (nebo čistého JSON) vytáhne kandidátní události.
  * Bez vymyšlených údajů – chybí-li název nebo datum, kandidát se zahodí.
@@ -2157,6 +2505,18 @@ export function parsovatUdalostiZeZdroje(
   // City Event: detail festivalu Třeboň — bez obecného JSON-LD mixu.
   if (jeCityEventFestivalTrebonHtml(telo)) {
     parsovatCityEventFestivalTrebonDetail(telo, vysledek);
+    return deduplikovatScanKandidaty(vysledek);
+  }
+
+  // MINT Market: listing karet — jen Třeboň.
+  if (jeMintMarketListingHtml(telo)) {
+    parsovatMintMarketListing(telo, vysledek);
+    return deduplikovatScanKandidaty(vysledek);
+  }
+
+  // MINT Market: detail /trh/trebon-* — bez obecného JSON-LD mixu.
+  if (jeMintMarketTrebonDetailHtml(telo)) {
+    parsovatMintMarketTrebonDetail(telo, vysledek);
     return deduplikovatScanKandidaty(vysledek);
   }
 
