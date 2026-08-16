@@ -13,10 +13,19 @@ import {
   normalizovatVerejnaJazykovaPoleZBlobu,
   dnesIsoVPraze,
   jeUdalostCelaMinula,
-  vytvoritScanKlicAutomatickeUdalosti,
   type BranaKonkretniUdalost,
 } from "./konkretni-udalost";
 import { validovatRucniUdalostVstup, validovatAutomatickouCekaUpravuVstup } from "./rucni-udalost-validace";
+import {
+  aplikovatScanKandidatyNaUdalosti,
+  type BranaScanAutomatickaUdalostVstup,
+  type PridatCekajiciZeScanuVysledek,
+} from "./scan-ceka-zapis";
+
+export type {
+  BranaScanAutomatickaUdalostVstup,
+  PridatCekajiciZeScanuVysledek,
+} from "./scan-ceka-zapis";
 
 /**
  * Samostatný objekt v PRIVATE Blob store administrace BRÁNY.
@@ -76,6 +85,7 @@ function vychoziDokument(): BranaKonkretniUdalostiDokument {
  * - automatická: redakcniPolozkaId neprázdný string, rucniPoziceVDni = null
  * Pole stavSchvaleni smí chybět (starší záznamy) – pak SCHVALENO.
  * Pole scanKlic smí chybět (starší / ruční záznamy).
+ * Pole zdrojIdentita smí chybět (starší / ruční / parsery bez identity).
  */
 function jeUdalostZBlobu(hodnota: unknown): boolean {
   if (!hodnota || typeof hodnota !== "object") {
@@ -127,6 +137,15 @@ function jeUdalostZBlobu(hodnota: unknown): boolean {
     return false;
   }
 
+  if (
+    u.zdrojIdentita !== undefined &&
+    u.zdrojIdentita !== null &&
+    (typeof u.zdrojIdentita !== "string" ||
+      u.zdrojIdentita.trim().length === 0)
+  ) {
+    return false;
+  }
+
   return true;
 }
 
@@ -139,6 +158,10 @@ function normalizovatUdalostZBlobu(hodnota: unknown): BranaKonkretniUdalost {
   const scanKlic =
     typeof u.scanKlic === "string" && u.scanKlic.trim().length > 0
       ? u.scanKlic.trim()
+      : undefined;
+  const zdrojIdentita =
+    typeof u.zdrojIdentita === "string" && u.zdrojIdentita.trim().length > 0
+      ? u.zdrojIdentita.trim()
       : undefined;
   const jazyk = normalizovatVerejnaJazykovaPoleZBlobu(u);
   const verejnaPole = jazyk.ok ? jazyk.pole : {};
@@ -154,6 +177,7 @@ function normalizovatUdalostZBlobu(hodnota: unknown): BranaKonkretniUdalost {
       redakcniPolozkaId === null ? (u.rucniPoziceVDni as number) : null,
     stavSchvaleni: normalizovatStavSchvaleni(u.stavSchvaleni),
     ...(scanKlic !== undefined ? { scanKlic } : {}),
+    ...(zdrojIdentita !== undefined ? { zdrojIdentita } : {}),
     ...verejnaPole,
   };
 }
@@ -686,6 +710,9 @@ export async function upravitAutomatickouCekaUdalost(
     rucniPoziceVDni: null,
     stavSchvaleni: existujici.stavSchvaleni,
     scanKlic: existujici.scanKlic,
+    ...(existujici.zdrojIdentita !== undefined
+      ? { zdrojIdentita: existujici.zdrojIdentita }
+      : {}),
     ...(existujici.verejneCo !== undefined
       ? {
           verejneCo: existujici.verejneCo,
@@ -768,49 +795,11 @@ export async function vyrazitAutomatickouCekaUdalost(
   return vyrazena;
 }
 
-export type BranaScanAutomatickaUdalostVstup = {
-  redakcniPolozkaId: string;
-  datumOd: string;
-  datumDo: string;
-  cas: string;
-  mistoNeboTyp: string;
-  nazev: string;
-  verejneCo?: string | null;
-  verejneRozliseni?: string | null;
-};
-
-export type PridatCekajiciZeScanuVysledek = {
-  pridano: number;
-  jizExistuje: number;
-};
-
-function jeDuplicitniAutomatickaUdalost(
-  existujici: BranaKonkretniUdalost,
-  kandidat: BranaScanAutomatickaUdalostVstup,
-  kandidatScanKlic: string,
-): boolean {
-  // Stav (CEKA / SCHVALENO / VYRAZENO) se záměrně neřeší.
-  if (
-    typeof existujici.scanKlic === "string" &&
-    existujici.scanKlic.length > 0
-  ) {
-    return existujici.scanKlic === kandidatScanKlic;
-  }
-
-  // Fallback pro starší záznamy bez scanKlic.
-  return (
-    existujici.redakcniPolozkaId === kandidat.redakcniPolozkaId &&
-    existujici.datumOd === kandidat.datumOd &&
-    existujici.cas.trim() === kandidat.cas.trim() &&
-    existujici.nazev.trim().toLowerCase() === kandidat.nazev.trim().toLowerCase()
-  );
-}
-
 /**
- * Append automatických událostí ze scanu ve stavu CEKA_NA_SCHVALENI (bez admin kontroly).
- * Jedno načtení → deduplikace → validace → jeden put.
+ * Append / in-place update automatických událostí ze scanu ve stavu CEKA_NA_SCHVALENI.
+ * Jedno načtení → zdrojIdentita match / scanKlic fallback → jeden put.
  * Nemění posledniScanDokoncen.
- * Při chybě čtení nebo žádné nové události nic nezapisuje.
+ * Při chybě čtení nebo žádné změně nic nezapisuje.
  */
 async function pridatCekajiciAutomatickeUdalostiZeScanuJadro(
   kandidati: readonly BranaScanAutomatickaUdalostVstup[],
@@ -822,86 +811,19 @@ async function pridatCekajiciAutomatickeUdalostiZeScanuJadro(
   }
 
   const dokument = await nacistDokumentProZapis();
-  let pridano = 0;
-  let jizExistuje = 0;
-  const nove = dokument.udalosti.slice();
   const dnesIso = dnesIsoVPraze();
+  const { udalosti, vysledek, zmena } = aplikovatScanKandidatyNaUdalosti(
+    dokument.udalosti,
+    kandidati,
+    dnesIso,
+    jeUdalostCelaMinula,
+  );
 
-  for (const kandidat of kandidati) {
-    const redakcniPolozkaId = kandidat.redakcniPolozkaId.trim();
-    if (!redakcniPolozkaId) {
-      continue;
-    }
-
-    const normalizovany: BranaScanAutomatickaUdalostVstup = {
-      redakcniPolozkaId,
-      datumOd: kandidat.datumOd.trim(),
-      datumDo: kandidat.datumDo.trim(),
-      cas: kandidat.cas.trim(),
-      mistoNeboTyp: kandidat.mistoNeboTyp.trim(),
-      nazev: kandidat.nazev.trim(),
-      ...(kandidat.verejneCo !== undefined
-        ? {
-            verejneCo: kandidat.verejneCo,
-            verejneRozliseni:
-              kandidat.verejneRozliseni === undefined
-                ? null
-                : kandidat.verejneRozliseni,
-          }
-        : {}),
-    };
-
-    if (!normalizovany.nazev || !normalizovany.datumOd) {
-      continue;
-    }
-
-    if (jeUdalostCelaMinula(normalizovany, dnesIso)) {
-      continue;
-    }
-
-    const scanKlic = vytvoritScanKlicAutomatickeUdalosti({
-      redakcniPolozkaId: normalizovany.redakcniPolozkaId,
-      datumOd: normalizovany.datumOd,
-      cas: normalizovany.cas,
-      nazev: normalizovany.nazev,
-    });
-
-    if (
-      nove.some((u) =>
-        jeDuplicitniAutomatickaUdalost(u, normalizovany, scanKlic),
-      )
-    ) {
-      jizExistuje += 1;
-      continue;
-    }
-
-    const nova: BranaKonkretniUdalost = {
-      id: `auto-${crypto.randomUUID()}`,
-      redakcniPolozkaId: normalizovany.redakcniPolozkaId,
-      datumOd: normalizovany.datumOd,
-      datumDo: normalizovany.datumDo || normalizovany.datumOd,
-      cas: normalizovany.cas,
-      mistoNeboTyp: normalizovany.mistoNeboTyp,
-      nazev: normalizovany.nazev,
-      rucniPoziceVDni: null,
-      stavSchvaleni: "CEKA_NA_SCHVALENI",
-      scanKlic,
-      ...(normalizovany.verejneCo !== undefined
-        ? {
-            verejneCo: normalizovany.verejneCo,
-            verejneRozliseni: normalizovany.verejneRozliseni ?? null,
-          }
-        : {}),
-    };
-    nove.push(nova);
-    pridano += 1;
+  if (!zmena) {
+    return vysledek;
   }
 
-  if (pridano === 0) {
-    return { pridano, jizExistuje };
-  }
-
-  dokument.udalosti = nove;
+  dokument.udalosti = udalosti;
 
   const overeni = parsovatDokument(dokument);
   if (!overeni) {
@@ -909,7 +831,7 @@ async function pridatCekajiciAutomatickeUdalostiZeScanuJadro(
   }
 
   await ulozitDokument(overeni);
-  return { pridano, jizExistuje };
+  return vysledek;
 }
 
 /**

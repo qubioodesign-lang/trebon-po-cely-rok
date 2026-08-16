@@ -709,6 +709,9 @@ async function skenovatZnamyZdrojJadro(
       cas: kandidat.cas,
       mistoNeboTyp: jazyk.mistoNeboTyp,
       nazev: kandidat.nazev,
+      ...(kandidat.zdrojIdentita
+        ? { zdrojIdentita: kandidat.zdrojIdentita }
+        : {}),
       ...(jazyk.verejneCo !== undefined
         ? {
             verejneCo: jazyk.verejneCo,

@@ -56,8 +56,15 @@ export type BranaKonkretniUdalost = {
   /**
    * Neměnná identita původního automatického scan nálezu.
    * Chybí u starších / ručních záznamů. Nezobrazuje se v UI.
+   * Při CEKA in-place update se přepočítá podle nového obsahu.
    */
   scanKlic?: string;
+  /**
+   * Stabilní identita stejné reálné události napříč scany (ze zdroje).
+   * Chybí u starších / ručních záznamů a u parserů bez bezpečné identity.
+   * Neobsahuje volatilní datum/čas/název, pokud to není nutný fallback.
+   */
+  zdrojIdentita?: string;
 };
 
 export function jeBranaStavSchvaleni(

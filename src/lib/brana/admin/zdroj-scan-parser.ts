@@ -24,6 +24,11 @@ export type BranaScanKandidat = {
   /** HH:mm nebo prázdný řetězec, pokud zdroj čas neudává */
   cas: string;
   mistoNeboTyp: string;
+  /**
+   * Stabilní identita události ze zdroje (volitelné).
+   * Bez volatilního data/času/názvu, pokud to není nutný fallback.
+   */
+  zdrojIdentita?: string;
 };
 
 const MAX_KANDIDATU = 40;
@@ -38,6 +43,30 @@ const MAX_KANDIDATU_RYBARSTVI = 40;
 /** Redakční kotva rodiny Trhů — ownership Třeboňsko / City Event / MINT. */
 export const BRANA_TRHY_REDAKCNI_POLOZKA_ID = "trhy";
 const TREBONSKO_REMESLNE_TRHY_PATH = "/remeslne-trhy-trebon";
+
+/** Normalizace segmentu pro zdrojIdentita (bez diakritiky, kebab). */
+function slugProZdrojIdentitu(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/** Cesta /koncert/… bez query a trailing slash. */
+function normalizovatKoncertCestu(href: string): string | null {
+  try {
+    const u = new URL(href, "https://trebonskanocturna.cz");
+    const path = u.pathname.replace(/\/+$/, "").toLowerCase();
+    if (!path.includes("/koncert/")) {
+      return null;
+    }
+    return path;
+  } catch {
+    return null;
+  }
+}
 const MAX_KANDIDATU_TREBONSKO_TRHY = 40;
 const CITYEVENT_PRO_UCASTNIKY_PATH = "/pro-ucastniky";
 const MAX_KANDIDATU_CITYEVENT_TRHY = 20;
@@ -562,14 +591,16 @@ function parsovatTrebonskaNocturnaKoncerty(
 
     const odkazy = [
       ...okno.matchAll(
-        /<a[^>]*href=["'][^"']*\/koncert\/[^"']*["'][^>]*>([\s\S]*?)<\/a>/gi,
+        /<a[^>]*href=["']([^"']*\/koncert\/[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi,
       ),
     ];
     let nazev = "";
+    let koncertCesta: string | null = null;
     for (const odkaz of odkazy) {
-      const kandidatNazev = textBezHtmlTagu(odkaz[1] ?? "");
+      const kandidatNazev = textBezHtmlTagu(odkaz[2] ?? "");
       if (jePouzitelnyNazevNocturnaKoncertu(kandidatNazev)) {
         nazev = kandidatNazev;
+        koncertCesta = normalizovatKoncertCestu(odkaz[1] ?? "");
         break;
       }
     }
@@ -581,6 +612,12 @@ function parsovatTrebonskaNocturnaKoncerty(
       const zH2 = textBezHtmlTagu(h2?.[1] ?? "");
       if (jePouzitelnyNazevNocturnaKoncertu(zH2)) {
         nazev = zH2;
+      }
+      if (!koncertCesta) {
+        const h2Href = okno.match(
+          /href=["']([^"']*\/koncert\/[^"']*)["']/i,
+        );
+        koncertCesta = normalizovatKoncertCestu(h2Href?.[1] ?? "");
       }
     }
     if (!nazev) {
@@ -617,6 +654,9 @@ function parsovatTrebonskaNocturnaKoncerty(
       datumDo: rozklad.datum,
       cas: rozklad.cas,
       mistoNeboTyp,
+      ...(koncertCesta
+        ? { zdrojIdentita: `nocturna|${koncertCesta}` }
+        : {}),
     });
   }
 }
@@ -1525,12 +1565,18 @@ function parsovatTabulkuVylovuRybarstvi(
       if (!nazev) {
         continue;
       }
+      const slug = slugProZdrojIdentitu(
+        nazev.replace(/^v[ýy]lov\s+/i, ""),
+      );
       vysledek.push({
         nazev,
         datumOd: rozsah.datumOd,
         datumDo: rozsah.datumDo,
         cas: "",
         mistoNeboTyp: "",
+        ...(slug
+          ? { zdrojIdentita: `rybarstvi|${slug}|${rok}` }
+          : {}),
       });
     }
   }
@@ -1604,12 +1650,16 @@ function parsovatProzuVylovuRybarstvi(
     if (!nalezeno) {
       continue;
     }
+    const slug = slugProZdrojIdentitu(
+      kanon.replace(/^v[ýy]lov\s+/i, ""),
+    );
     vysledek.push({
       nazev: kanon,
       datumOd: nalezeno.datumOd,
       datumDo: nalezeno.datumDo,
       cas: "",
       mistoNeboTyp: "",
+      ...(slug ? { zdrojIdentita: `rybarstvi|${slug}|${rok}` } : {}),
     });
   }
 }
@@ -1801,6 +1851,10 @@ function parsovatTrebonskoRemeslneTrhy(
   }
 
   const liShody = html.matchAll(/<li>([\s\S]*?)<\/li>/gi);
+  // Počet výskytů slug|rok — poradi jen při kolizi stejného typu.
+  // Bez HTML ID zůstává u opakovaných Adventních zbytkové riziko
+  // při vložení/smazání termínu stejného typu (identity |1/|2 se posunou).
+  const pocetSlugRok = new Map<string, number>();
   for (const m of liShody) {
     if (vysledek.length >= MAX_KANDIDATU_TREBONSKO_TRHY) {
       return;
@@ -1838,12 +1892,23 @@ function parsovatTrebonskoRemeslneTrhy(
       continue;
     }
     const datum = formatujIsoDen(rokStranky, mesic, den);
+    const slug = slugProZdrojIdentitu(rozliseni);
+    const zaklad = `trebonsko-trhy|${slug}|${rokStranky}`;
+    const poradi = (pocetSlugRok.get(zaklad) ?? 0) + 1;
+    pocetSlugRok.set(zaklad, poradi);
+    if (poradi === 2) {
+      const prvni = vysledek.find((k) => k.zdrojIdentita === zaklad);
+      if (prvni) {
+        prvni.zdrojIdentita = `${zaklad}|1`;
+      }
+    }
     vysledek.push({
       nazev: rozliseni,
       datumOd: datum,
       datumDo: datum,
       cas: "",
       mistoNeboTyp: rozliseni,
+      zdrojIdentita: poradi === 1 ? zaklad : `${zaklad}|${poradi}`,
     });
   }
 }
@@ -2037,9 +2102,19 @@ function vytahnoutCityEventNazevZDetailu(html: string): string | null {
   return null;
 }
 
+function cityEventValueBezDatovychTokenu(text: string): string {
+  return text
+    .replace(/\d{1,2}\s*[-–]\s*\d{1,2}\.\s*\d{1,2}\.\s*20\d{2}/g, " ")
+    .replace(/\d{1,2}\.\s*\d{1,2}\.\s*20\d{2}/g, " ")
+    .replace(/\s*[-–:]\s*$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /**
  * Listing /pro-ucastniky/: checkboxy festivaly[] — jen Třeboň whitelist.
  * cas vždy "". Zrušené řádky neemituje.
+ * Identita: slug z value bez dat + rok; poradi jen při kolizi stejného základu.
  */
 function parsovatCityEventProUcastniky(
   html: string,
@@ -2048,6 +2123,7 @@ function parsovatCityEventProUcastniky(
   const hodnoty = html.matchAll(
     /<input[^>]*name=["']festivaly\[\]["'][^>]*value=["']([^"']+)["'][^>]*>/gi,
   );
+  const pocetZakladu = new Map<string, number>();
   for (const m of hodnoty) {
     if (vysledek.length >= MAX_KANDIDATU_CITYEVENT_TRHY) {
       return;
@@ -2064,12 +2140,25 @@ function parsovatCityEventProUcastniky(
     if (!data) {
       continue;
     }
+    const rok = Number(data.datumOd.slice(0, 4));
+    const labelBezDat = cityEventValueBezDatovychTokenu(surovy);
+    const slug = slugProZdrojIdentitu(labelBezDat || rozliseni);
+    const zaklad = `cityevent|trhy|${slug}|${rok}`;
+    const poradi = (pocetZakladu.get(zaklad) ?? 0) + 1;
+    pocetZakladu.set(zaklad, poradi);
+    if (poradi === 2) {
+      const prvni = vysledek.find((k) => k.zdrojIdentita === zaklad);
+      if (prvni) {
+        prvni.zdrojIdentita = `${zaklad}|1`;
+      }
+    }
     vysledek.push({
       nazev: rozliseni,
       datumOd: data.datumOd,
       datumDo: data.datumDo,
       cas: "",
       mistoNeboTyp: rozliseni,
+      zdrojIdentita: poradi === 1 ? zaklad : `${zaklad}|${poradi}`,
     });
   }
 }
@@ -2131,12 +2220,37 @@ function parsovatCityEventFestivalTrebonDetail(
     return;
   }
 
+  let festivalCesta: string | null = null;
+  const canon =
+    html.match(
+      /<link[^>]*rel=["']canonical["'][^>]*href=["']([^"']+)["']/i,
+    )?.[1] ??
+    html.match(
+      /<meta[^>]*property=["']og:url["'][^>]*content=["']([^"']+)["']/i,
+    )?.[1];
+  if (canon) {
+    try {
+      const path = new URL(canon, "https://www.cityevent.cz").pathname
+        .replace(/\/+$/, "")
+        .toLowerCase();
+      if (path.startsWith("/festival/") && path.includes("trebon")) {
+        festivalCesta = path;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  const slug = slugProZdrojIdentitu(rozliseni);
+  const rok = Number(datumOd.slice(0, 4));
   vysledek.push({
     nazev: rozliseni,
     datumOd,
     datumDo,
     cas: "",
     mistoNeboTyp: rozliseni,
+    zdrojIdentita: festivalCesta
+      ? `cityevent|${festivalCesta}`
+      : `cityevent|trhy|${slug}|${rok}|detail`,
   });
 }
 
@@ -2411,6 +2525,7 @@ function parsovatMintMarketListing(
       datumDo: data.datumDo,
       cas: "",
       mistoNeboTyp: rozliseni,
+      zdrojIdentita: `mintmarket|/trh/${slug}`,
     });
   }
 }
@@ -2461,12 +2576,17 @@ function parsovatMintMarketTrebonDetail(
     return;
   }
 
+  const slugMatch = html.match(/\/trh\/(trebon-\d+)/i);
+  const slug = (slugMatch?.[1] ?? "").toLowerCase();
   vysledek.push({
     nazev: rozliseni,
     datumOd: data.datumOd,
     datumDo: data.datumDo,
     cas: "",
     mistoNeboTyp: rozliseni,
+    ...(slug.startsWith("trebon-")
+      ? { zdrojIdentita: `mintmarket|/trh/${slug}` }
+      : {}),
   });
 }
 
@@ -2558,6 +2678,10 @@ export function parsovatUdalostiZeZdroje(
 }
 
 function klicKandidata(k: BranaScanKandidat): string {
+  const identita = k.zdrojIdentita?.trim();
+  if (identita) {
+    return `id\0${identita}`;
+  }
   return `${k.nazev}\0${k.datumOd}\0${k.cas}\0${k.mistoNeboTyp}`.toLowerCase();
 }
 
