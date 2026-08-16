@@ -55,6 +55,9 @@ import {
   sparovatVlastnictvimHlidaneKotvy,
 } from "./zdroj-scan-sparovani";
 import {
+  sestavHlavickyScanFetch,
+} from "./scan-fetch-hlavicky";
+import {
   nacistZdroje,
   nacistZdrojeProScheduler,
   type NacistZdrojeVysledek,
@@ -331,13 +334,7 @@ function httpRequestNaOvereneAdresy(
       path: `${cil.pathname}${cil.search}`,
       method: "GET",
       family: pinned.family,
-      headers: {
-        Accept:
-          "text/html, application/xhtml+xml, application/ld+json, application/json;q=0.9, */*;q=0.8",
-        "User-Agent": "BranaAdminScan/1.0",
-        // Host zůstává původní hostname (+ nestandardní port z URL).
-        Host: cil.host,
-      },
+      headers: sestavHlavickyScanFetch(cil.toString(), cil.host),
       timeout: FETCH_TIMEOUT_MS,
       // HTTPS: SNI + ověření certifikátu proti původnímu hostname, ne proti IP.
       servername: puvodniHostname,
