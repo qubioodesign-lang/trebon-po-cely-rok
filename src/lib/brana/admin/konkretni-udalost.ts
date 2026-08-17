@@ -90,6 +90,13 @@ export type BranaKonkretniUdalost = {
    */
   zdrojIdentita?: string;
   /**
+   * Snapshot typu zdroje v okamžiku vzniku nové automatické karty.
+   * Pouze `"RYCHLY"` u karet vytvořených z RYCHLÉHO zdroje.
+   * Chybí u starších / ručních / DLOUHODOBÝCH záznamů → dnešní chování.
+   * Nezobrazuje se ve veřejné BRÁNĚ. Není součástí identity / dedupu.
+   */
+  typZdroje?: "RYCHLY";
+  /**
    * Pole, která redaktor skutečně změnil v Upravit.
    * Chybí u starších / neupravených záznamů → scan se chová jako dosud.
    * `mistoNeboTyp` = celá skupina CO / místo (včetně verejneCo + verejneRozliseni).
@@ -104,6 +111,23 @@ export function jeBranaStavSchvaleni(
     hodnota === "CEKA_NA_SCHVALENI" ||
     hodnota === "SCHVALENO" ||
     hodnota === "VYRAZENO"
+  );
+}
+
+export function jeRychlyTypZdrojeUdalosti(udalost: {
+  typZdroje?: "RYCHLY";
+}): boolean {
+  return udalost.typZdroje === "RYCHLY";
+}
+
+/** Pracovní Kalendář: jemné podložení jen CEKA se snapshotem RYCHLY. */
+export function maRychleCekaPodlozeni(udalost: {
+  stavSchvaleni: BranaStavSchvaleni;
+  typZdroje?: "RYCHLY";
+}): boolean {
+  return (
+    udalost.stavSchvaleni === "CEKA_NA_SCHVALENI" &&
+    jeRychlyTypZdrojeUdalosti(udalost)
   );
 }
 

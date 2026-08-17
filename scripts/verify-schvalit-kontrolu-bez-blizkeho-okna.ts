@@ -6,6 +6,7 @@
 import { dnesVPraze, pridatDny } from "../src/lib/brana/cas";
 import {
   BRANA_KONTROLNI_BLOK_DNI,
+  duvodZamitnutiUdalostiProSchvalitKontrolu,
   isoDnyBlizkehoOknaVPraze,
   kontrolniBlokVPraze,
   patriUdalostDoBlizkehoOkna,
@@ -30,6 +31,7 @@ function udalost(
   datumOd: string,
   stavSchvaleni: BranaKonkretniUdalost["stavSchvaleni"],
   redakcniPolozkaId: string | null,
+  typZdroje?: "RYCHLY",
 ): BranaKonkretniUdalost {
   return {
     id,
@@ -41,6 +43,7 @@ function udalost(
     nazev: id,
     rucniPoziceVDni: redakcniPolozkaId === null ? 0 : null,
     stavSchvaleni,
+    ...(typZdroje === "RYCHLY" ? { typZdroje } : {}),
   };
 }
 
@@ -140,6 +143,74 @@ assert(
 assert(davka.has(idVyhled), "5: CEKA ve Výhledu JE v dávce");
 assert(!davka.has(idRucni), "6: ruční událost NENÍ v dávce");
 assert(!davka.has(idSchvaleno), "7: SCHVALENO událost NENÍ v dávce");
+
+const idStaraBlok = "ceka-stara-blok";
+const idRychlaRezerva = "ceka-rychla-rezerva";
+const idRychlaBlok = "ceka-rychla-blok";
+const idRychlaVyhled = "ceka-rychla-vyhled";
+
+const rychleAStare: BranaKonkretniUdalost[] = [
+  ...persistovane,
+  udalost(idStaraBlok, blok.blokOdIso, "CEKA_NA_SCHVALENI", polozkaBezVyhledu),
+  udalost(
+    idRychlaRezerva,
+    blok.rezervaIsoDny[0],
+    "CEKA_NA_SCHVALENI",
+    polozkaBezVyhledu,
+    "RYCHLY",
+  ),
+  udalost(
+    idRychlaBlok,
+    blok.blokOdIso,
+    "CEKA_NA_SCHVALENI",
+    polozkaBezVyhledu,
+    "RYCHLY",
+  ),
+  udalost(
+    idRychlaVyhled,
+    denZaBlokem,
+    "CEKA_NA_SCHVALENI",
+    polozkaSVyhledem,
+    "RYCHLY",
+  ),
+];
+
+const davkaRychla = new Set(
+  sestavIdProSchvalitKontrolu(rychleAStare, maVyhledAno),
+);
+
+assert(
+  davkaRychla.has(idStaraBlok),
+  "R1: stará CEKA bez snapshotu v 21denním bloku JE v dávce",
+);
+assert(
+  !davkaRychla.has(idRychlaRezerva),
+  "R2: RYCHLÁ CEKA v 7denní rezervě NENÍ v dávce",
+);
+assert(
+  !davkaRychla.has(idRychlaBlok),
+  "R3: RYCHLÁ CEKA posunutá do 21denního bloku STÁLE NENÍ v dávce",
+);
+assert(
+  !davkaRychla.has(idRychlaVyhled),
+  "R4: RYCHLÁ CEKA na kotvě Výhled = ANO mimo blok NENÍ v dávce",
+);
+assert(
+  davkaRychla.has(idVyhled),
+  "R4b: DLOUHODOBÁ CEKA ve Výhledu zůstává v dávce",
+);
+
+const rychlaProServer = rychleAStare.find((u) => u.id === idRychlaBlok)!;
+const staraProServer = rychleAStare.find((u) => u.id === idStaraBlok)!;
+assert(
+  duvodZamitnutiUdalostiProSchvalitKontrolu(rychlaProServer) ===
+    "Kontrolu nelze schválit: dávka obsahuje rychlou událost. Nic nebylo uloženo.",
+  "R5: serverová cesta zamítne crafted ID RYCHLÉ CEKA před SCHVALENO",
+);
+assert(
+  duvodZamitnutiUdalostiProSchvalitKontrolu(staraProServer) === null,
+  "R5b: stará CEKA bez snapshotu serverová cesta nezamítá",
+);
 
 if (selhalo > 0) {
   console.error(`\nSelhalo: ${selhalo}`);

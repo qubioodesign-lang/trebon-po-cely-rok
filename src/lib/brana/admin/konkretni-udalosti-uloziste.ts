@@ -15,6 +15,7 @@ import {
   jeUdalostCelaMinula,
   type BranaKonkretniUdalost,
 } from "./konkretni-udalost";
+import { duvodZamitnutiUdalostiProSchvalitKontrolu } from "./kontrolni-blok";
 import { validovatRucniUdalostVstup, validovatAutomatickouCekaUpravuVstup } from "./rucni-udalost-validace";
 import { aplikovatUpravuAutomatickeUdalosti, normalizovatRedakcneUpravenaPoleZBlobu } from "./redakcni-override";
 import {
@@ -87,6 +88,7 @@ function vychoziDokument(): BranaKonkretniUdalostiDokument {
  * Pole stavSchvaleni smí chybět (starší záznamy) – pak SCHVALENO.
  * Pole scanKlic smí chybět (starší / ruční záznamy).
  * Pole zdrojIdentita smí chybět (starší / ruční / parsery bez identity).
+ * Pole typZdroje smí chybět (starší / ruční / DLOUHODOBÉ); přítomné jen `"RYCHLY"`.
  * Pole redakcneUpravenaPole smí chybět (starší / neupravené záznamy).
  */
 function jeUdalostZBlobu(hodnota: unknown): boolean {
@@ -148,6 +150,10 @@ function jeUdalostZBlobu(hodnota: unknown): boolean {
     return false;
   }
 
+  if (u.typZdroje !== undefined && u.typZdroje !== "RYCHLY") {
+    return false;
+  }
+
   if (u.redakcneUpravenaPole !== undefined) {
     if (!Array.isArray(u.redakcneUpravenaPole)) {
       return false;
@@ -174,6 +180,7 @@ function normalizovatUdalostZBlobu(hodnota: unknown): BranaKonkretniUdalost {
     typeof u.zdrojIdentita === "string" && u.zdrojIdentita.trim().length > 0
       ? u.zdrojIdentita.trim()
       : undefined;
+  const typZdroje = u.typZdroje === "RYCHLY" ? ("RYCHLY" as const) : undefined;
   const redakcneUpravenaPole = normalizovatRedakcneUpravenaPoleZBlobu(
     u.redakcneUpravenaPole,
   );
@@ -192,6 +199,7 @@ function normalizovatUdalostZBlobu(hodnota: unknown): BranaKonkretniUdalost {
     stavSchvaleni: normalizovatStavSchvaleni(u.stavSchvaleni),
     ...(scanKlic !== undefined ? { scanKlic } : {}),
     ...(zdrojIdentita !== undefined ? { zdrojIdentita } : {}),
+    ...(typZdroje !== undefined ? { typZdroje } : {}),
     ...verejnaPole,
     ...(redakcneUpravenaPole !== undefined
       ? { redakcneUpravenaPole }
@@ -623,15 +631,9 @@ export async function schvalitKontroluKonkretnichUdalosti(
         "Kontrolu nelze schválit: některá událost nebyla nalezena. Nic nebylo uloženo.",
       );
     }
-    if (existujici.redakcniPolozkaId === null) {
-      throw new Error(
-        "Kontrolu nelze schválit: dávka obsahuje ruční událost. Nic nebylo uloženo.",
-      );
-    }
-    if (existujici.stavSchvaleni !== "CEKA_NA_SCHVALENI") {
-      throw new Error(
-        "Kontrolu nelze schválit: dávka obsahuje položku, která už není čekající. Nic nebylo uloženo.",
-      );
+    const duvod = duvodZamitnutiUdalostiProSchvalitKontrolu(existujici);
+    if (duvod) {
+      throw new Error(duvod);
     }
     const index = dokument.udalosti.findIndex((u) => u.id === id);
     if (index < 0) {

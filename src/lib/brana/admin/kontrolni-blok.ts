@@ -8,6 +8,7 @@ import { dnesVPraze, pridatDny, zitraVPraze } from "@/lib/brana/cas";
 import { BRANA_DLOUHODOBY_INTERVAL_VYCHOZI } from "@/lib/brana/admin/zdroj";
 import { isoDnyObdobi7DniVPraze } from "@/lib/brana/admin/obdobi-7-dni";
 import {
+  jeRychlyTypZdrojeUdalosti,
   posledniPlatnyDenUdalosti,
   projektujVyhledPodleRoku,
   type BranaKalendarDen,
@@ -122,9 +123,30 @@ export function patriUdalostDoBlizkehoOkna(
 }
 
 /**
+ * Serverová i výběrová ochrana hromadného „Schválit kontrolu“.
+ * RYCHLÁ CEKA (snapshot typZdroje) do dávky nepatří.
+ * Význam Výhledu / 21denního bloku se zde neřeší — jen zamítnutí konkrétní karty.
+ */
+export function duvodZamitnutiUdalostiProSchvalitKontrolu(
+  udalost: BranaKonkretniUdalost,
+): string | null {
+  if (udalost.redakcniPolozkaId === null) {
+    return "Kontrolu nelze schválit: dávka obsahuje ruční událost. Nic nebylo uloženo.";
+  }
+  if (udalost.stavSchvaleni !== "CEKA_NA_SCHVALENI") {
+    return "Kontrolu nelze schválit: dávka obsahuje položku, která už není čekající. Nic nebylo uloženo.";
+  }
+  if (jeRychlyTypZdrojeUdalosti(udalost)) {
+    return "Kontrolu nelze schválit: dávka obsahuje rychlou událost. Nic nebylo uloženo.";
+  }
+  return null;
+}
+
+/**
  * Explicitní unikátní ID pro „Schválit kontrolu“:
  * auto CEKA s průnikem 21denního bloku ∪ auto CEKA z Admin Výhledu.
  * Blízké okno (dnes + 7denní rezerva) se tímto tlačítkem neschvaluje.
+ * RYCHLÁ CEKA (snapshot) se do dávky nezařazuje — ani v bloku, ani ve Výhledu.
  * Vstup musí být jen skutečné PRIVATE (persistované) události – bez ukázek.
  */
 export function sestavIdProSchvalitKontrolu(
@@ -141,6 +163,9 @@ export function sestavIdProSchvalitKontrolu(
     if (udalost.stavSchvaleni !== "CEKA_NA_SCHVALENI") {
       continue;
     }
+    if (jeRychlyTypZdrojeUdalosti(udalost)) {
+      continue;
+    }
     if (patriUdalostDoKontrolnihoBloku(udalost, blok)) {
       idSet.add(udalost.id);
     }
@@ -152,9 +177,13 @@ export function sestavIdProSchvalitKontrolu(
   );
   for (const skupina of vyhledSkupiny) {
     for (const udalost of skupina.udalosti) {
-      if (udalost.stavSchvaleni === "CEKA_NA_SCHVALENI") {
-        idSet.add(udalost.id);
+      if (udalost.stavSchvaleni !== "CEKA_NA_SCHVALENI") {
+        continue;
       }
+      if (jeRychlyTypZdrojeUdalosti(udalost)) {
+        continue;
+      }
+      idSet.add(udalost.id);
     }
   }
 

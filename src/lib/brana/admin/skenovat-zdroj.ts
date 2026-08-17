@@ -790,6 +790,7 @@ async function skenovatZnamyZdrojJadro(
       ...(kandidat.zdrojIdentita
         ? { zdrojIdentita: kandidat.zdrojIdentita }
         : {}),
+      ...(zdroj.typ === "RYCHLY" ? { typZdroje: "RYCHLY" as const } : {}),
       ...(zapis.nazevProScanKlic
         ? { nazevProScanKlic: zapis.nazevProScanKlic }
         : {}),

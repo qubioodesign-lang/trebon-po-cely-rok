@@ -29,6 +29,11 @@ export type BranaScanAutomatickaUdalostVstup = {
   nazevProScanKlic?: string;
   /** Stabilní identita napříč scany (bez volatilního data, pokud možné). */
   zdrojIdentita?: string;
+  /**
+   * Snapshot z `zdroj.typ` jen při vzniku nové karty.
+   * In-place update existující CEKA toto pole ze vstupu nepřebírá.
+   */
+  typZdroje?: "RYCHLY";
 };
 
 export type PridatCekajiciZeScanuVysledek = {
@@ -178,6 +183,7 @@ function aplikovatObsahNaCeka(
     ...(existujici.redakcneUpravenaPole !== undefined
       ? { redakcneUpravenaPole: existujici.redakcneUpravenaPole }
       : {}),
+    ...(existujici.typZdroje === "RYCHLY" ? { typZdroje: "RYCHLY" as const } : {}),
   };
 }
 
@@ -248,6 +254,9 @@ export function aplikovatScanKandidatyNaUdalosti(
         ? { nazevProScanKlic: nazevProScanKlic }
         : {}),
       ...(zdrojIdentita !== undefined ? { zdrojIdentita } : {}),
+      ...(kandidat.typZdroje === "RYCHLY"
+        ? { typZdroje: "RYCHLY" as const }
+        : {}),
     };
 
     if (!nazevProScanKlic || !normalizovany.datumOd) {
@@ -335,6 +344,9 @@ export function aplikovatScanKandidatyNaUdalosti(
             verejneCo: normalizovany.verejneCo,
             verejneRozliseni: normalizovany.verejneRozliseni ?? null,
           }
+        : {}),
+      ...(normalizovany.typZdroje === "RYCHLY"
+        ? { typZdroje: "RYCHLY" as const }
         : {}),
     };
     nove.push(nova);

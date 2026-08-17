@@ -13,11 +13,12 @@ import {
   vyrazitAutomatickouCekaUdalostAkce,
 } from "@/app/brana/admin/actions";
 import { rozlozAkci } from "@/lib/brana/admin/akce-rozlozeni";
-import type {
-  BranaKalendarDen,
-  BranaKonkretniUdalost,
+import {
+  maRychleCekaPodlozeni,
+  popisekVolbyPozice,
+  type BranaKalendarDen,
+  type BranaKonkretniUdalost,
 } from "@/lib/brana/admin/konkretni-udalost";
-import { popisekVolbyPozice } from "@/lib/brana/admin/konkretni-udalost";
 import { jeStrukturovanyVerejnyZapis } from "@/lib/brana/admin/redakcni-override";
 
 const VSTUP =
@@ -170,7 +171,9 @@ function SeznamDnu({
                         key={`${udalost.id}-${den.isoDen}`}
                         className={
                           cekaNaSchvaleni
-                            ? "brana-admin-akce-ceka-na-schvaleni"
+                            ? maRychleCekaPodlozeni(udalost)
+                              ? "brana-admin-akce-ceka-na-schvaleni brana-admin-akce-ceka-rychla"
+                              : "brana-admin-akce-ceka-na-schvaleni"
                             : undefined
                         }
                       >

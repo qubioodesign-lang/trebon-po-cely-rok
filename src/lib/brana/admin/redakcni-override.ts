@@ -140,7 +140,7 @@ export function sloucitRedakcneUpravenaPole(
 
 /**
  * Aplikuje Upravit na automatickou událost: obsah, přímý zápis verejne*, override.
- * Nemění id, redakcniPolozkaId, scanKlic, stav, zdrojIdentita.
+ * Nemění id, redakcniPolozkaId, scanKlic, stav, zdrojIdentita, typZdroje.
  * Strukturovaná událost vyžaduje explicitní CO/KDE — neskládá je z mistoNeboTyp.
  */
 export function aplikovatUpravuAutomatickeUdalosti(
@@ -194,6 +194,9 @@ export function aplikovatUpravuAutomatickeUdalosti(
       : {}),
     ...(existujici.zdrojIdentita !== undefined
       ? { zdrojIdentita: existujici.zdrojIdentita }
+      : {}),
+    ...(existujici.typZdroje === "RYCHLY"
+      ? { typZdroje: "RYCHLY" as const }
       : {}),
     ...(strukturovana
       ? {

@@ -163,6 +163,10 @@
   padding-bottom: 0.2rem;
 }
 
+.brana-admin-seznam-akci > li.brana-admin-akce-ceka-na-schvaleni.brana-admin-akce-ceka-rychla {
+  background: rgb(207 145 104 / 0.18);
+}
+
 .brana-admin-akce-ceka-stitok {
   display: block;
   margin-top: 0.125rem;
