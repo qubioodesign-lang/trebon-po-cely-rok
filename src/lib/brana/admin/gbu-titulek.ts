@@ -37,6 +37,14 @@ function oriznoutUvodniOddelovac(zbytek: string): string {
   return zbytek.replace(/^[\s]*[–\-:][\s]*/u, "").trim();
 }
 
+function velkePrvniPismenoCs(text: string): string {
+  const t = text.trim();
+  if (!t) {
+    return t;
+  }
+  return t.charAt(0).toLocaleUpperCase("cs-CZ") + t.slice(1);
+}
+
 /**
  * Pozorovaná EHD konstrukce: první věta končí `?`, hned `V rámci Dnů evropského dědictví`.
  * Null = není tato konstrukce.
@@ -59,7 +67,64 @@ function rozdelGbuEhdTitulek(titulek: string): GbuTitulekRozdeleni | null {
 }
 
 /**
- * Fail-closed: jen EHD konstrukce a schválené prefixy.
+ * Přesný prefix `DED:` → CO Dny evropského dědictví.
+ * Bez dvojtečky se neshoduje. Prázdný zbytek = není tato konstrukce.
+ */
+function rozdelGbuDedPrefix(titulek: string): GbuTitulekRozdeleni | null {
+  const shoda = titulek.match(/^DED\s*:\s*/iu);
+  if (!shoda) {
+    return null;
+  }
+  const zbytek = titulek.slice(shoda[0].length).trim();
+  if (!zbytek) {
+    return null;
+  }
+  return {
+    co: "Dny evropského dědictví",
+    nazev: velkePrvniPismenoCs(zbytek),
+  };
+}
+
+/**
+ * Přesný začátek `Zvuková lázeň` + oddělovač + neprázdný zbytek.
+ * Holé slovo „lázeň“ / „koncert“ v jiném titulku se neshoduje.
+ */
+function rozdelGbuZvukovaLazen(titulek: string): GbuTitulekRozdeleni | null {
+  const shoda = titulek.match(/^Zvuková lázeň(?=\s|[–\-:]|$)/iu);
+  if (!shoda) {
+    return null;
+  }
+  const zbytek = oriznoutUvodniOddelovac(titulek.slice(shoda[0].length));
+  if (!zbytek) {
+    return null;
+  }
+  return {
+    co: "Zvuková lázeň",
+    nazev: velkePrvniPismenoCs(zbytek),
+  };
+}
+
+/**
+ * Přesně `Kakaová ceremonie a ` + neprázdný zbytek.
+ * Holé „ceremonie“ / „kakao“ v jiném titulku se neshoduje.
+ */
+function rozdelGbuKakaoCeremonie(titulek: string): GbuTitulekRozdeleni | null {
+  const shoda = titulek.match(/^Kakaová ceremonie a\s+/iu);
+  if (!shoda) {
+    return null;
+  }
+  const zbytek = titulek.slice(shoda[0].length).trim();
+  if (!zbytek) {
+    return null;
+  }
+  return {
+    co: "Kakaová ceremonie",
+    nazev: velkePrvniPismenoCs(zbytek),
+  };
+}
+
+/**
+ * Fail-closed: jen známé GBU konstrukce a schválené prefixy.
  * Null = titulek se nemění (neznámý tvar).
  */
 export function rozdelGbuTitulek(surovy: string): GbuTitulekRozdeleni | null {
@@ -71,6 +136,21 @@ export function rozdelGbuTitulek(surovy: string): GbuTitulekRozdeleni | null {
   const ehd = rozdelGbuEhdTitulek(titulek);
   if (ehd) {
     return ehd;
+  }
+
+  const ded = rozdelGbuDedPrefix(titulek);
+  if (ded) {
+    return ded;
+  }
+
+  const zvukova = rozdelGbuZvukovaLazen(titulek);
+  if (zvukova) {
+    return zvukova;
+  }
+
+  const kakao = rozdelGbuKakaoCeremonie(titulek);
+  if (kakao) {
+    return kakao;
   }
 
   for (const radek of GBU_PREFIXY) {

@@ -472,6 +472,118 @@ const kandidati = parsovatUdalostiZeZdroje(FIXTURE, "text/html");
   console.log("OK prefix Přednáška:");
 }
 
+/* A. Zvuková lázeň — přesná konstrukce, ne substring „lázeň“ / „koncert“ */
+{
+  const surovy =
+    "Zvuková lázeň - harmonizační koncert tibetských mís";
+  const rozdel = rozdelGbuTitulek(surovy);
+  assert(rozdel !== null, "A konstrukce");
+  assert(rozdel.co === "Zvuková lázeň", `A CO ${rozdel.co}`);
+  assert(
+    rozdel.nazev === "Harmonizační koncert tibetských mís",
+    `A Název ${rozdel.nazev}`,
+  );
+  const zapis = sestavGbuZapisPoSparovani({
+    surovyNazev: surovy,
+    jazyk: jazykGbu(),
+  });
+  assert(zapis.verejneCo === "Zvuková lázeň", "A zápis CO");
+  assert(zapis.verejneRozliseni === BRANA_GBU_KDE, "A zápis KDE");
+  assert(
+    zapis.nazev === "Harmonizační koncert tibetských mís",
+    "A zápis Název",
+  );
+  assert(zapis.nazevProScanKlic === surovy, "A scanKlic surový");
+  assert(rozdelGbuTitulek("Zvuková lázeň") === null, "A bez zbytku → fallback");
+  assert(
+    rozdelGbuTitulek("Večer s tibetskými mísami a koncertem") === null,
+    "A bez prefixu Zvuková lázeň → fallback",
+  );
+  console.log("OK A Zvuková lázeň CO/Název");
+}
+
+/* B. DED: — dnešní živý titulek; stará EHD konstrukce s ? zůstává zvlášť */
+{
+  const surovy =
+    "DED: Druhý život vodárenské věže - od chátrající památky ke Galerii buddhistického umění";
+  const rozdel = rozdelGbuTitulek(surovy);
+  assert(rozdel !== null, "B konstrukce");
+  assert(rozdel.co === "Dny evropského dědictví", `B CO ${rozdel.co}`);
+  assert(
+    rozdel.nazev ===
+      "Druhý život vodárenské věže - od chátrající památky ke Galerii buddhistického umění",
+    `B Název ${rozdel.nazev}`,
+  );
+  const zapis = sestavGbuZapisPoSparovani({
+    surovyNazev: surovy,
+    jazyk: jazykGbu(),
+  });
+  assert(zapis.verejneCo === "Dny evropského dědictví", "B zápis CO");
+  assert(zapis.verejneRozliseni === BRANA_GBU_KDE, "B zápis KDE");
+  assert(
+    zapis.nazev ===
+      "Druhý život vodárenské věže - od chátrající památky ke Galerii buddhistického umění",
+    "B zápis Název",
+  );
+  assert(rozdelGbuTitulek("DED") === null, "B bez dvojtečky → fallback");
+  assert(rozdelGbuTitulek("DED:") === null, "B prázdný zbytek → fallback");
+  console.log("OK B DED: CO/Název");
+}
+
+/* C. Kakaová ceremonie a — přesná konstrukce, ne slovo ceremonie */
+{
+  const surovy = "Kakaová ceremonie a rovnováha principů";
+  const rozdel = rozdelGbuTitulek(surovy);
+  assert(rozdel !== null, "C konstrukce");
+  assert(rozdel.co === "Kakaová ceremonie", `C CO ${rozdel.co}`);
+  assert(rozdel.nazev === "Rovnováha principů", `C Název ${rozdel.nazev}`);
+  const zapis = sestavGbuZapisPoSparovani({
+    surovyNazev: surovy,
+    jazyk: jazykGbu(),
+  });
+  assert(zapis.verejneCo === "Kakaová ceremonie", "C zápis CO");
+  assert(zapis.verejneRozliseni === BRANA_GBU_KDE, "C zápis KDE");
+  assert(zapis.nazev === "Rovnováha principů", "C zápis Název");
+  assert(
+    rozdelGbuTitulek("Kakaová ceremonie") === null,
+    "C bez spojky a → fallback",
+  );
+  assert(
+    rozdelGbuTitulek("Večerní ceremonie v kruhu") === null,
+    "C ceremonie bez přesného prefixu → fallback",
+  );
+  console.log("OK C Kakaová ceremonie CO/Název");
+}
+
+/* D. Modelová neznámá akce — kandidát zůstane, CO null, surový Název */
+{
+  const surovy = "Setkání u věže — program upřesníme";
+  assert(rozdelGbuTitulek(surovy) === null, "D žádné pravidlo");
+  const zapis = sestavGbuZapisPoSparovani({
+    surovyNazev: surovy,
+    jazyk: jazykGbu(),
+  });
+  assert(zapis.nazev === surovy, "D surový Název");
+  assert(
+    zapis.verejneCo === null ||
+      zapis.verejneCo === undefined ||
+      zapis.verejneCo === "",
+    `D CO null: ${JSON.stringify(zapis.verejneCo)}`,
+  );
+  assert(zapis.verejneRozliseni === BRANA_GBU_KDE, "D KDE");
+  assert(zapis.nazevProScanKlic === undefined, "D bez nazevProScanKlic");
+  const vstup = gbuVstup(surovy, "2026-10-03", "17:00", "itrebon|29999");
+  const ceka = aplikovatScanKandidatyNaUdalosti(
+    [],
+    [vstup],
+    "2026-08-17",
+    jeUdalostCelaMinula,
+  );
+  assert(ceka.vysledek.pridano === 1, "D → CEKA");
+  assert(ceka.udalosti[0]?.nazev === surovy, "D CEKA název surový");
+  console.log("OK D neznámá akce fallback + CEKA");
+}
+
 /* 9. Dedup stejné itrebon|{id} */
 {
   const sloucene = deduplikovatScanKandidaty([...kandidati, ...kandidati]);
