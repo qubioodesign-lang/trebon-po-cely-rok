@@ -194,9 +194,7 @@ export function BranaAdminUpozorneniFormulare({
         <h3 className="text-sm font-normal text-text-jemny">Rychlé zdroje</h3>
         <p className="text-sm text-text">Pondělí · 9:00</p>
         <p className="text-sm text-text">Čtvrtek · 9:00</p>
-        <p className="text-sm text-text-jemny">
-          Europe/Prague · budoucí automatický scan (zatím neběží)
-        </p>
+        <p className="text-sm text-text-jemny">Europe/Prague</p>
       </div>
 
       <div className="space-y-1.5">
@@ -205,8 +203,7 @@ export function BranaAdminUpozorneniFormulare({
         </h3>
         <p className="text-sm text-text">Každých 21 dní · pondělí · 9:00</p>
         <p className="text-sm text-text-jemny">
-          Kontrola zdrojů + budoucí schválení/publikování Kalendáře (zatím
-          neběží)
+          Automatická kontrola zdrojů
         </p>
       </div>
 
