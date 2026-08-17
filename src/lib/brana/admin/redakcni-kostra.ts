@@ -194,7 +194,7 @@ const DEFINITIVNI_SEED: Readonly<
     vyhled: "NE",
     jazyk: {
       co: Z_UDALOSTI,
-      rozliseni: pevne("Galerie buddhistického umění"),
+      rozliseni: pevne("Galerie buddhistického um."),
     },
   },
   "zamecka-lekarna-trebon": {

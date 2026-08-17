@@ -10,12 +10,13 @@
  * cityevent.cz/pro-ucastniky (+ /festival/*trebon*) pro Street Food / Beer & Food Fest,
  * mintmarket.cz (listing / detail /trh/trebon-*) pro MINT Market,
  * visittrebon.cz/kalendar-akci-trebon/2 (jen MINT Market Třeboň → trhy),
- * trebonsko.cz/otevirani-lazenske-sezony-v-treboni (max. trh + hlavní zahájení)
- * a trebonsko.cz/kategorie/kina/ (měsíční program Světozor + Aurora – discovery ve scanu).
+ * trebonsko.cz/otevirani-lazenske-sezony-v-treboni (max. trh + hlavní zahájení),
+ * trebonsko.cz/kategorie/kina/ (měsíční program Světozor + Aurora – discovery ve scanu)
+ * a itrebon.cz/kalendar.html (jen Galerie buddhistického umění – stránkování ve scanu).
  * Odděleně od Kalendáře a Blob zápisu.
  * Datum/čas: Europe/Prague (včetně DST) přes stávající brana/cas.
  * Multi-měsíční fetch DSN / Zámecká lékárna / Rybářství / Visit / Třeboňsko kino
- * horizont žije ve scan orchestraci, ne zde.
+ * a stránkování iTřeboň GBU žije ve scan orchestraci, ne zde.
  */
 
 import { dnesVPraze, okamzikVPraze, type BranaDatum } from "@/lib/brana/cas";
@@ -105,7 +106,13 @@ const MAX_KANDIDATU_CITYEVENT_TRHY = 20;
 const MAX_KANDIDATU_MINT_TRHY = 20;
 /** VisitTřeboň: jen MINT Market Třeboň (fail-closed). */
 const MAX_KANDIDATU_VISIT_MINT = 20;
+const MAX_KANDIDATU_ITREBON_GBU = 40;
+const ITREBON_KALENDAR_MAX_STRANEK = 12;
 const VISIT_TREBON_KALENDAR_PATH = "/cz/kalendar-akci-trebon/2";
+const ITREBON_GBU_MISTO_PRESNE = "Galerie buddhistického umění";
+const ITREBON_GBU_MISTO_GBU = "GBU (Galerie budd.umění)";
+/** Ověřený CMS zápis jurty — bez mezer kolem lomítka. */
+const ITREBON_GBU_MISTO_JURTA = "Galerie buddhistického umění/jurta";
 const MINT_TREBON_ROZLISENI = "MINT Market";
 const MINT_MESICE_CS: Record<string, number> = {
   ledna: 1,
@@ -3415,6 +3422,198 @@ function parsovatTrebonskoKinoMesicniProgram(
   );
 }
 
+/** True, pokud URL míří na český výpis kalendáře iTřeboň (s/bez www). */
+
+/** True, pokud URL míří na český výpis kalendáře iTřeboň (s/bez www). */
+export function jeItrebonGalerieBuddhistickehoUmeniZdrojUrl(
+  url: string,
+): boolean {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./i, "").toLowerCase();
+    if (host !== "itrebon.cz") {
+      return false;
+    }
+    const path = parsed.pathname.replace(/\/+$/, "").toLowerCase();
+    return path === "/kalendar.html" || path === "/kalendar";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Stránky českého výpisu iTřeboň: 1 = /kalendar.html, 2…N = ?page=.
+ * Horní limit jako u DSN (pevný počet fetchů), bez neomezeného procházení.
+ */
+export function sestavItrebonKalendarUrlky(zdrojUrl: string): string[] {
+  if (!jeItrebonGalerieBuddhistickehoUmeniZdrojUrl(zdrojUrl)) {
+    return [];
+  }
+  const base = new URL(zdrojUrl);
+  const koren = `${base.protocol}//${base.host}/kalendar.html`;
+  const urlky = [koren];
+  for (let strana = 2; strana <= ITREBON_KALENDAR_MAX_STRANEK; strana++) {
+    urlky.push(`${koren}?page=${strana}`);
+  }
+  return urlky;
+}
+
+function jeItrebonKalendarHtml(html: string): boolean {
+  return (
+    /itrebon\.cz/i.test(html) && /\bkalendarAkceBox\b/i.test(html)
+  );
+}
+
+function normalizovatItrebonMezery(text: string): string {
+  return text.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function jePresneItrebonGbuMisto(misto: string): boolean {
+  const n = normalizovatItrebonMezery(misto);
+  return (
+    n === ITREBON_GBU_MISTO_PRESNE ||
+    n === ITREBON_GBU_MISTO_GBU ||
+    n === ITREBON_GBU_MISTO_JURTA
+  );
+}
+
+/** Úzký token hathajógy — ne holé „jóga“. */
+function jeItrebonHathajogaText(text: string): boolean {
+  const n = text.normalize("NFC").toLowerCase().replace(/\s+/g, " ");
+  return (
+    n.includes("hathajóg") ||
+    n.includes("hathajoga") ||
+    n.includes("hatha jóg")
+  );
+}
+
+function obsahPrvkuPodleTridy(html: string, className: string): string {
+  const re = new RegExp(
+    `<[^>]*\\bclass=["'][^"']*\\b${className}\\b[^"']*["'][^>]*>([\\s\\S]*?)</`,
+    "i",
+  );
+  const shoda = html.match(re);
+  return textBezHtmlTagu(shoda?.[1] ?? "");
+}
+
+function itrebonHrefAId(karta: string): { href: string; id: string } | null {
+  const shoda = karta.match(
+    /href=["']([^"']*\/kalendar\/[^"'?#]*_(\d+)\.html[^"']*)["']/i,
+  );
+  const href = (shoda?.[1] ?? "").trim();
+  const id = (shoda?.[2] ?? "").trim();
+  if (!href || !id) {
+    return null;
+  }
+  return { href, id };
+}
+
+function itrebonDatumyZTextu(
+  datumText: string,
+): { datumOd: string; datumDo: string } | null {
+  const shody = [
+    ...normalizovatItrebonMezery(datumText).matchAll(
+      /(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})/g,
+    ),
+  ];
+  if (shody.length === 0) {
+    return null;
+  }
+  const prvni = shody[0];
+  const den = Number(prvni[1]);
+  const mesic = Number(prvni[2]);
+  const rok = Number(prvni[3]);
+  if (mesic < 1 || mesic > 12 || den < 1 || den > 31) {
+    return null;
+  }
+  const datumOd = formatujIsoDen(rok, mesic, den);
+  if (shody.length < 2) {
+    return { datumOd, datumDo: datumOd };
+  }
+  const druhy = shody[1];
+  const denDo = Number(druhy[1]);
+  const mesicDo = Number(druhy[2]);
+  const rokDo = Number(druhy[3]);
+  if (mesicDo < 1 || mesicDo > 12 || denDo < 1 || denDo > 31) {
+    return { datumOd, datumDo: datumOd };
+  }
+  return { datumOd, datumDo: formatujIsoDen(rokDo, mesicDo, denDo) };
+}
+
+function itrebonZacatekCasu(casText: string): string {
+  const shoda = normalizovatItrebonMezery(casText).match(
+    /(\d{1,2}):(\d{2})/,
+  );
+  if (!shoda) {
+    return "";
+  }
+  const hodina = Number(shoda[1]);
+  const minuta = Number(shoda[2]);
+  if (hodina > 23 || minuta > 59) {
+    return "";
+  }
+  return formatujCas(hodina, minuta);
+}
+
+/**
+ * HTML výpis itrebon.cz/kalendar.html → jen GBU (věž / galerie / jurta).
+ * Cizí místa a hathajóga se tiše zahodí (ne Nezařazené).
+ * Katalogová varianta s mezerami kolem lomítka (`… umění / jurta`) se nepřijímá.
+ */
+function parsovatItrebonGalerieBuddhistickehoUmeni(
+  html: string,
+  vysledek: BranaScanKandidat[],
+): void {
+  const karty = [
+    ...html.matchAll(
+      /<div[^>]*\bclass=["'][^"']*\bkalendarAkceBox\b[^"']*["'][^>]*>[\s\S]*?(?=<div[^>]*\bclass=["'][^"']*\bkalendarAkceBox\b|<\/body>|$)/gi,
+    ),
+  ];
+  for (const kartaMatch of karty) {
+    if (vysledek.length >= MAX_KANDIDATU_ITREBON_GBU) {
+      return;
+    }
+    const karta = kartaMatch[0];
+    const misto = obsahPrvkuPodleTridy(karta, "kalTerminMisto");
+    if (!jePresneItrebonGbuMisto(misto)) {
+      continue;
+    }
+
+    const identita = itrebonHrefAId(karta);
+    if (!identita) {
+      continue;
+    }
+
+    const datumy = itrebonDatumyZTextu(
+      obsahPrvkuPodleTridy(karta, "kalTerminDatum"),
+    );
+    if (!datumy) {
+      continue;
+    }
+
+    const kalNazev = obsahPrvkuPodleTridy(karta, "kal-nazev");
+    const anotace = obsahPrvkuPodleTridy(karta, "kalanotace");
+    const nazev =
+      kalNazev.length >= 2 ? kalNazev : anotace;
+    if (!nazev || nazev.length < 2) {
+      continue;
+    }
+
+    if (jeItrebonHathajogaText(`${nazev} ${anotace} ${identita.href}`)) {
+      continue;
+    }
+
+    vysledek.push({
+      nazev,
+      datumOd: datumy.datumOd,
+      datumDo: datumy.datumDo,
+      cas: itrebonZacatekCasu(obsahPrvkuPodleTridy(karta, "kalTerminCas")),
+      mistoNeboTyp: normalizovatItrebonMezery(misto),
+      zdrojIdentita: `itrebon|${identita.id}`,
+    });
+  }
+}
+
 /**
  * Z HTML (nebo čistého JSON) vytáhne kandidátní události.
  * Bez vymyšlených údajů – chybí-li název nebo datum, kandidát se zahodí.
@@ -3481,6 +3680,12 @@ export function parsovatUdalostiZeZdroje(
   // VisitTřeboň: jen MINT Market Třeboň → trhy; ostatní event-row tiše pryč.
   if (jeVisitTrebonKalendarHtml(telo)) {
     parsovatVisitTrebonMintMarket(telo, vysledek);
+    return deduplikovatScanKandidaty(vysledek);
+  }
+
+  // iTřeboň: jen Galerie buddhistického umění — bez JSON-LD mixu.
+  if (jeItrebonKalendarHtml(telo)) {
+    parsovatItrebonGalerieBuddhistickehoUmeni(telo, vysledek);
     return deduplikovatScanKandidaty(vysledek);
   }
 
