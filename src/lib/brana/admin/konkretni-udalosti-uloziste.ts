@@ -16,6 +16,7 @@ import {
   type BranaKonkretniUdalost,
 } from "./konkretni-udalost";
 import { validovatRucniUdalostVstup, validovatAutomatickouCekaUpravuVstup } from "./rucni-udalost-validace";
+import { aplikovatUpravuAutomatickeUdalosti, normalizovatRedakcneUpravenaPoleZBlobu } from "./redakcni-override";
 import {
   aplikovatScanKandidatyNaUdalosti,
   type BranaScanAutomatickaUdalostVstup,
@@ -86,6 +87,7 @@ function vychoziDokument(): BranaKonkretniUdalostiDokument {
  * Pole stavSchvaleni smí chybět (starší záznamy) – pak SCHVALENO.
  * Pole scanKlic smí chybět (starší / ruční záznamy).
  * Pole zdrojIdentita smí chybět (starší / ruční / parsery bez identity).
+ * Pole redakcneUpravenaPole smí chybět (starší / neupravené záznamy).
  */
 function jeUdalostZBlobu(hodnota: unknown): boolean {
   if (!hodnota || typeof hodnota !== "object") {
@@ -146,6 +148,15 @@ function jeUdalostZBlobu(hodnota: unknown): boolean {
     return false;
   }
 
+  if (u.redakcneUpravenaPole !== undefined) {
+    if (!Array.isArray(u.redakcneUpravenaPole)) {
+      return false;
+    }
+    if (!u.redakcneUpravenaPole.every((p) => typeof p === "string")) {
+      return false;
+    }
+  }
+
   return true;
 }
 
@@ -163,6 +174,9 @@ function normalizovatUdalostZBlobu(hodnota: unknown): BranaKonkretniUdalost {
     typeof u.zdrojIdentita === "string" && u.zdrojIdentita.trim().length > 0
       ? u.zdrojIdentita.trim()
       : undefined;
+  const redakcneUpravenaPole = normalizovatRedakcneUpravenaPoleZBlobu(
+    u.redakcneUpravenaPole,
+  );
   const jazyk = normalizovatVerejnaJazykovaPoleZBlobu(u);
   const verejnaPole = jazyk.ok ? jazyk.pole : {};
   return {
@@ -179,6 +193,9 @@ function normalizovatUdalostZBlobu(hodnota: unknown): BranaKonkretniUdalost {
     ...(scanKlic !== undefined ? { scanKlic } : {}),
     ...(zdrojIdentita !== undefined ? { zdrojIdentita } : {}),
     ...verejnaPole,
+    ...(redakcneUpravenaPole !== undefined
+      ? { redakcneUpravenaPole }
+      : {}),
   };
 }
 
@@ -699,27 +716,10 @@ export async function upravitAutomatickouCekaUdalost(
     );
   }
 
-  const upravena: BranaKonkretniUdalost = {
-    id: existujici.id,
-    redakcniPolozkaId: existujici.redakcniPolozkaId,
-    datumOd: validace.uprava.datumOd,
-    datumDo: validace.uprava.datumDo,
-    cas: validace.uprava.cas,
-    mistoNeboTyp: validace.uprava.mistoNeboTyp,
-    nazev: validace.uprava.nazev,
-    rucniPoziceVDni: null,
-    stavSchvaleni: existujici.stavSchvaleni,
-    scanKlic: existujici.scanKlic,
-    ...(existujici.zdrojIdentita !== undefined
-      ? { zdrojIdentita: existujici.zdrojIdentita }
-      : {}),
-    ...(existujici.verejneCo !== undefined
-      ? {
-          verejneCo: existujici.verejneCo,
-          verejneRozliseni: existujici.verejneRozliseni ?? null,
-        }
-      : {}),
-  };
+  const upravena = aplikovatUpravuAutomatickeUdalosti(
+    existujici,
+    validace.uprava,
+  );
 
   const noveUdalosti = dokument.udalosti.slice();
   noveUdalosti[index] = upravena;

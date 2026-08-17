@@ -15,6 +15,30 @@ export type BranaStavSchvaleni =
   | "SCHVALENO"
   | "VYRAZENO";
 
+/** Editovatelné skupiny formuláře Upravit u automatické události. */
+export const BRANA_REDAKCNI_OVERRIDE_POLE = [
+  "datumOd",
+  "datumDo",
+  "cas",
+  "nazev",
+  "mistoNeboTyp",
+] as const;
+
+export type BranaRedakcniOverridePole =
+  (typeof BRANA_REDAKCNI_OVERRIDE_POLE)[number];
+
+export function jeBranaRedakcniOverridePole(
+  hodnota: unknown,
+): hodnota is BranaRedakcniOverridePole {
+  return (
+    hodnota === "datumOd" ||
+    hodnota === "datumDo" ||
+    hodnota === "cas" ||
+    hodnota === "nazev" ||
+    hodnota === "mistoNeboTyp"
+  );
+}
+
 export type BranaKonkretniUdalost = {
   /** Identita konkrétní události (ne redakční katalog) */
   id: string;
@@ -65,6 +89,12 @@ export type BranaKonkretniUdalost = {
    * Neobsahuje volatilní datum/čas/název, pokud to není nutný fallback.
    */
   zdrojIdentita?: string;
+  /**
+   * Pole, která redaktor skutečně změnil v Upravit.
+   * Chybí u starších / neupravených záznamů → scan se chová jako dosud.
+   * `mistoNeboTyp` = celá skupina CO / místo (včetně verejneCo + verejneRozliseni).
+   */
+  redakcneUpravenaPole?: readonly BranaRedakcniOverridePole[];
 };
 
 export function jeBranaStavSchvaleni(

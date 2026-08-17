@@ -2,7 +2,8 @@
  * Čistá logika zápisu automatických CEKA ze scanu.
  * Bez Blob / server-only — testovatelná unitárně.
  *
- * Etapa 1: zdrojIdentita → CEKA in-place update; SCHVALENO/VYRAZENO bez overwrite.
+ * Etapa 1: zdrojIdentita → CEKA in-place update (redakční override zachová
+ * změněná pole); SCHVALENO/VYRAZENO bez overwrite.
  */
 
 import {
@@ -10,6 +11,7 @@ import {
   type BranaKonkretniUdalost,
   type BranaStavSchvaleni,
 } from "./konkretni-udalost";
+import { maRedakcniOverride } from "./redakcni-override";
 
 export type BranaScanAutomatickaUdalostVstup = {
   redakcniPolozkaId: string;
@@ -88,36 +90,98 @@ function jeDuplicitniPodleScanKlic(
   );
 }
 
+function verejnaPolePoScanu(
+  existujici: BranaKonkretniUdalost,
+  kandidat: BranaScanAutomatickaUdalostVstup,
+  zamknoutMisto: boolean,
+): {
+  verejneCo?: string | null;
+  verejneRozliseni?: string | null;
+} {
+  if (zamknoutMisto) {
+    return existujici.verejneCo !== undefined
+      ? {
+          verejneCo: existujici.verejneCo,
+          verejneRozliseni: existujici.verejneRozliseni ?? null,
+        }
+      : {};
+  }
+  if (kandidat.verejneCo !== undefined) {
+    return {
+      verejneCo: kandidat.verejneCo,
+      verejneRozliseni: kandidat.verejneRozliseni ?? null,
+    };
+  }
+  if (existujici.verejneCo !== undefined) {
+    return {
+      verejneCo: existujici.verejneCo,
+      verejneRozliseni: existujici.verejneRozliseni ?? null,
+    };
+  }
+  return {};
+}
+
 function aplikovatObsahNaCeka(
   existujici: BranaKonkretniUdalost,
   kandidat: BranaScanAutomatickaUdalostVstup,
-  scanKlic: string,
   zdrojIdentita: string,
 ): BranaKonkretniUdalost {
+  const datumOd = maRedakcniOverride(existujici, "datumOd")
+    ? existujici.datumOd
+    : kandidat.datumOd;
+  const datumDo = maRedakcniOverride(existujici, "datumDo")
+    ? existujici.datumDo
+    : kandidat.datumDo || kandidat.datumOd;
+  const cas = maRedakcniOverride(existujici, "cas")
+    ? existujici.cas
+    : kandidat.cas;
+  const nazev = maRedakcniOverride(existujici, "nazev")
+    ? existujici.nazev
+    : kandidat.nazev;
+  const zamknoutMisto = maRedakcniOverride(existujici, "mistoNeboTyp");
+  const mistoNeboTyp = zamknoutMisto
+    ? existujici.mistoNeboTyp
+    : kandidat.mistoNeboTyp;
+  const scanKlic = vytvoritScanKlicAutomatickeUdalosti({
+    redakcniPolozkaId: existujici.redakcniPolozkaId as string,
+    datumOd,
+    cas,
+    nazev,
+  });
+
   return {
     id: existujici.id,
     redakcniPolozkaId: existujici.redakcniPolozkaId,
-    datumOd: kandidat.datumOd,
-    datumDo: kandidat.datumDo || kandidat.datumOd,
-    cas: kandidat.cas,
-    mistoNeboTyp: kandidat.mistoNeboTyp,
-    nazev: kandidat.nazev,
+    datumOd,
+    datumDo,
+    cas,
+    mistoNeboTyp,
+    nazev,
     rucniPoziceVDni: null,
     stavSchvaleni: "CEKA_NA_SCHVALENI" satisfies BranaStavSchvaleni,
     scanKlic,
     zdrojIdentita,
-    ...(kandidat.verejneCo !== undefined
-      ? {
-          verejneCo: kandidat.verejneCo,
-          verejneRozliseni: kandidat.verejneRozliseni ?? null,
-        }
-      : existujici.verejneCo !== undefined
-        ? {
-            verejneCo: existujici.verejneCo,
-            verejneRozliseni: existujici.verejneRozliseni ?? null,
-          }
-        : {}),
+    ...verejnaPolePoScanu(existujici, kandidat, zamknoutMisto),
+    ...(existujici.redakcneUpravenaPole !== undefined
+      ? { redakcneUpravenaPole: existujici.redakcneUpravenaPole }
+      : {}),
   };
+}
+
+function jeStejnyObsahPoAktualizaci(
+  pred: BranaKonkretniUdalost,
+  po: BranaKonkretniUdalost,
+): boolean {
+  return (
+    pred.datumOd === po.datumOd &&
+    pred.datumDo === po.datumDo &&
+    pred.cas === po.cas &&
+    pred.mistoNeboTyp === po.mistoNeboTyp &&
+    pred.nazev === po.nazev &&
+    (pred.verejneCo ?? null) === (po.verejneCo ?? null) &&
+    (pred.verejneRozliseni ?? null) === (po.verejneRozliseni ?? null) &&
+    (pred.scanKlic ?? "") === (po.scanKlic ?? "")
+  );
 }
 
 /**
@@ -198,12 +262,16 @@ export function aplikovatScanKandidatyNaUdalosti(
             jizExistuje += 1;
             continue;
           }
-          nove[idx] = aplikovatObsahNaCeka(
+          const slouceny = aplikovatObsahNaCeka(
             exist,
             normalizovany,
-            scanKlic,
             zdrojIdentita,
           );
+          if (jeStejnyObsahPoAktualizaci(exist, slouceny)) {
+            jizExistuje += 1;
+            continue;
+          }
+          nove[idx] = slouceny;
           aktualizovano += 1;
           zmena = true;
           continue;

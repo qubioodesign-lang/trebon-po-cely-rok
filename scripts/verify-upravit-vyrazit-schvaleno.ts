@@ -249,12 +249,16 @@ assert(
     ui.includes("muzeVyrazitAutomatickou"),
   "UI: SCHVALENO v podmínkách Upravit/Vyřadit",
 );
+const override = readFileSync(
+  join(root, "src/lib/brana/admin/redakcni-override.ts"),
+  "utf8",
+);
 assert(
-  uloziste.includes("stavSchvaleni: existujici.stavSchvaleni") &&
+  uloziste.includes("aplikovatUpravuAutomatickeUdalosti") &&
+    override.includes("stavSchvaleni: existujici.stavSchvaleni") &&
     !/stavSchvaleni:\s*"CEKA_NA_SCHVALENI"/.test(
-      uloziste.slice(
-        uloziste.indexOf("export async function upravitAutomatickouCekaUdalost"),
-        uloziste.indexOf("export async function vyrazitAutomatickouCekaUdalost"),
+      override.slice(
+        override.indexOf("export function aplikovatUpravuAutomatickeUdalosti"),
       ),
     ),
   "storage: Upravit zachová existující stav (ne hardcode CEKA)",
