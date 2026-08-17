@@ -12,14 +12,28 @@
  * visittrebon.cz/kalendar-akci-trebon/2 (jen MINT Market Třeboň → trhy),
  * trebonsko.cz/otevirani-lazenske-sezony-v-treboni (max. trh + hlavní zahájení),
  * trebonsko.cz/kategorie/kina/ (měsíční program Světozor + Aurora – discovery ve scanu)
- * a itrebon.cz/kalendar.html (jen Galerie buddhistického umění – stránkování ve scanu).
+ * a itrebon.cz/kalendar.html (jen Galerie buddhistického umění – stránkování ve scanu)
+ * a dumprirody.cz/dum-prirody-trebonska/akce/ (výlety / exkurze / přednášky).
  * Odděleně od Kalendáře a Blob zápisu.
  * Datum/čas: Europe/Prague (včetně DST) přes stávající brana/cas.
- * Multi-měsíční fetch DSN / Zámecká lékárna / Rybářství / Visit / Třeboňsko kino
- * a stránkování iTřeboň GBU žije ve scan orchestraci, ne zde.
+ * Multi-měsíční fetch DSN / Zámecká lékárna / Rybářství / Visit / Třeboňsko kino,
+ * stránkování iTřeboň GBU a listing→detail DPT žije ve scan orchestraci, ne zde.
  */
 
 import { dnesVPraze, okamzikVPraze, type BranaDatum } from "@/lib/brana/cas";
+import {
+  jeDumPrirodyTrebonskaHtml,
+  parsovatDumPrirodyTrebonska,
+} from "./dum-prirody";
+
+export {
+  BRANA_DPT_CO,
+  BRANA_DPT_REDAKCNI_POLOZKA_ID,
+  jeDumPrirodyTrebonskaZdrojUrl,
+  sestavDumPrirodyHubUrl,
+  vytahnoutDumPrirodyDetailUrlky,
+  zaraditDptFormat,
+} from "./dum-prirody";
 
 export type BranaScanKandidat = {
   nazev: string;
@@ -3686,6 +3700,12 @@ export function parsovatUdalostiZeZdroje(
   // iTřeboň: jen Galerie buddhistického umění — bez JSON-LD mixu.
   if (jeItrebonKalendarHtml(telo)) {
     parsovatItrebonGalerieBuddhistickehoUmeni(telo, vysledek);
+    return deduplikovatScanKandidaty(vysledek);
+  }
+
+  // Dům přírody Třeboňska: listing a.article / detail p.info — bez JSON-LD mixu.
+  if (jeDumPrirodyTrebonskaHtml(telo)) {
+    parsovatDumPrirodyTrebonska(telo, vysledek);
     return deduplikovatScanKandidaty(vysledek);
   }
 

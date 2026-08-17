@@ -32,6 +32,10 @@ import {
   jeItrebonGalerieBuddhistickehoUmeniZdrojUrl,
   jeVisitTrebonHlidaneAkceZdrojUrl,
   jeZameckaLekarnaZdrojUrl,
+  jeDumPrirodyTrebonskaZdrojUrl,
+  sestavDumPrirodyHubUrl,
+  vytahnoutDumPrirodyDetailUrlky,
+  BRANA_DPT_REDAKCNI_POLOZKA_ID,
   parsovatUdalostiZeZdroje,
   sestavItrebonKalendarUrlky,
   sestavDumStepankaKalendarUrlkyCtyriMesice,
@@ -676,6 +680,18 @@ async function skenovatZnamyZdrojJadro(
       sloucene.push(...parsovatUdalostiZeZdroje(text, contentType));
     }
     kandidati = deduplikovatScanKandidaty(sloucene);
+  } else if (jeDumPrirodyTrebonskaZdrojUrl(zdroj.url)) {
+    const hubUrl = sestavDumPrirodyHubUrl(zdroj.url);
+    const { text: hubHtml, contentType: hubCt } = await nacistTeloZdroje(hubUrl);
+    const sloucene: BranaScanKandidat[] = [
+      ...parsovatUdalostiZeZdroje(hubHtml, hubCt),
+    ];
+    const detaily = vytahnoutDumPrirodyDetailUrlky(hubHtml, hubUrl);
+    for (const detailUrl of detaily) {
+      const { text, contentType } = await nacistTeloZdroje(detailUrl);
+      sloucene.push(...parsovatUdalostiZeZdroje(text, contentType));
+    }
+    kandidati = deduplikovatScanKandidaty(sloucene);
   } else {
     const { text, contentType } = await nacistTeloZdroje(zdroj.url);
     kandidati = parsovatUdalostiZeZdroje(text, contentType);
@@ -725,6 +741,12 @@ async function skenovatZnamyZdrojJadro(
                 zdroj.hlidaneRedakcniPolozkaIds,
                 BRANA_GBU_REDAKCNI_POLOZKA_ID,
               )
+            : hlidaneKotvy && jeDumPrirodyTrebonskaZdrojUrl(zdroj.url)
+              ? sparovatVlastnictvimHlidaneKotvy(
+                  redakcni.polozky,
+                  zdroj.hlidaneRedakcniPolozkaIds,
+                  BRANA_DPT_REDAKCNI_POLOZKA_ID,
+                )
             : hlidaneKotvy
             ? sparovatSHlidanymiKotvami(
                 kandidat,

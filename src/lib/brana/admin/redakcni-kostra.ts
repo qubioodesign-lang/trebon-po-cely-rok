@@ -186,7 +186,7 @@ const DEFINITIVNI_SEED: Readonly<
     polozka: "Dům přírody Třeboňska",
     priorita: 12,
     vyhled: "NE",
-    jazyk: { co: pevne("Dům přírody Třeboňska"), rozliseni: Z_UDALOSTI },
+    jazyk: { co: pevne("Dům přírody"), rozliseni: Z_UDALOSTI },
   },
   "galerie-buddhistickeho-umeni": {
     polozka: "Galerie buddhistického umění",
