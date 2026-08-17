@@ -94,22 +94,43 @@ function scan(
 }
 
 const NOVE_MISTO = "Třeboňská nocturna Divadlo J. K. Tyla";
+const NOVE_KDE = "Divadlo J. K. Tyla";
+
+function strukturovanaUprava(
+  u: BranaKonkretniUdalost,
+  patch: Partial<{
+    datumOd: string;
+    datumDo: string;
+    cas: string;
+    nazev: string;
+    verejneCo: string | null;
+    verejneRozliseni: string | null;
+  }> = {},
+) {
+  return {
+    datumOd: patch.datumOd ?? u.datumOd,
+    datumDo: patch.datumDo ?? u.datumDo,
+    cas: patch.cas ?? u.cas,
+    nazev: patch.nazev ?? u.nazev,
+    mistoNeboTyp: u.mistoNeboTyp,
+    verejneCo:
+      patch.verejneCo !== undefined ? patch.verejneCo : (u.verejneCo ?? null),
+    verejneRozliseni:
+      patch.verejneRozliseni !== undefined
+        ? patch.verejneRozliseni
+        : (u.verejneRozliseni ?? null),
+  };
+}
 
 {
   const pred = ceka({ id: "auto-a" });
-  const po = aplikovatUpravuAutomatickeUdalosti(pred, {
-    datumOd: pred.datumOd,
-    datumDo: pred.datumDo,
-    cas: pred.cas,
-    mistoNeboTyp: NOVE_MISTO,
-    nazev: pred.nazev,
-  });
-  assert(po.mistoNeboTyp === NOVE_MISTO, "A: mistoNeboTyp uložen");
-  assert(po.verejneCo === "Třeboňská nocturna", "A: verejneCo zachováno");
-  assert(
-    po.verejneRozliseni === "Divadlo J. K. Tyla",
-    "A: verejneRozliseni ze zbytku",
+  const po = aplikovatUpravuAutomatickeUdalosti(
+    pred,
+    strukturovanaUprava(pred, { verejneRozliseni: NOVE_KDE }),
   );
+  assert(po.mistoNeboTyp === NOVE_MISTO, "A: mistoNeboTyp složeno");
+  assert(po.verejneCo === "Třeboňská nocturna", "A: verejneCo zachováno");
+  assert(po.verejneRozliseni === NOVE_KDE, "A: verejneRozliseni z KDE");
   assert(verejnyRadek(po) === NOVE_MISTO, "A: render = uložený řádek");
   assert(maRedakcniOverride(po, "mistoNeboTyp"), "A: CO skupina je override");
   assert(!maRedakcniOverride(po, "cas"), "A: čas není override");
@@ -118,13 +139,10 @@ const NOVE_MISTO = "Třeboňská nocturna Divadlo J. K. Tyla";
 }
 
 {
-  const pred = aplikovatUpravuAutomatickeUdalosti(ceka({ id: "auto-b" }), {
-    datumOd: "2026-10-15",
-    datumDo: "2026-10-15",
-    cas: "19:00",
-    mistoNeboTyp: NOVE_MISTO,
-    nazev: "Matyáš Novák - Smetana Reborn",
-  });
+  const pred = aplikovatUpravuAutomatickeUdalosti(
+    ceka({ id: "auto-b" }),
+    strukturovanaUprava(ceka({ id: "auto-b" }), { verejneRozliseni: NOVE_KDE }),
+  );
   const { udalosti, vysledek } = scan( [pred], kandidat({ cas: "20:30" }));
   assert(vysledek.pridano === 0, "B: bez druhé CEKA");
   assert(udalosti.length === 1, "B: stále 1");
@@ -139,13 +157,10 @@ const NOVE_MISTO = "Třeboňská nocturna Divadlo J. K. Tyla";
 }
 
 {
-  const pred = aplikovatUpravuAutomatickeUdalosti(ceka({ id: "auto-c" }), {
-    datumOd: "2026-10-15",
-    datumDo: "2026-10-15",
-    cas: "18:00",
-    mistoNeboTyp: ceka({ id: "x" }).mistoNeboTyp,
-    nazev: "Matyáš Novák - Smetana Reborn",
-  });
+  const pred = aplikovatUpravuAutomatickeUdalosti(
+    ceka({ id: "auto-c" }),
+    strukturovanaUprava(ceka({ id: "auto-c" }), { cas: "18:00" }),
+  );
   assert(maRedakcniOverride(pred, "cas"), "C: čas je override");
   assert(!maRedakcniOverride(pred, "mistoNeboTyp"), "C: CO není override");
   const { udalosti } = scan(
@@ -164,13 +179,10 @@ const NOVE_MISTO = "Třeboňská nocturna Divadlo J. K. Tyla";
 }
 
 {
-  const pred = aplikovatUpravuAutomatickeUdalosti(ceka({ id: "auto-d" }), {
-    datumOd: "2026-10-15",
-    datumDo: "2026-10-15",
-    cas: "19:00",
-    mistoNeboTyp: ceka({ id: "x" }).mistoNeboTyp,
-    nazev: "Opravený název",
-  });
+  const pred = aplikovatUpravuAutomatickeUdalosti(
+    ceka({ id: "auto-d" }),
+    strukturovanaUprava(ceka({ id: "auto-d" }), { nazev: "Opravený název" }),
+  );
   assert(maRedakcniOverride(pred, "nazev"), "D: název je override");
   assert(!maRedakcniOverride(pred, "cas"), "D: čas není zmrazen");
   assert(!maRedakcniOverride(pred, "mistoNeboTyp"), "D: CO není zmrazeno");
@@ -180,18 +192,8 @@ const NOVE_MISTO = "Třeboňská nocturna Divadlo J. K. Tyla";
 }
 
 {
-  const pred = ceka({
-    id: "auto-e",
-    mistoNeboTyp: NOVE_MISTO,
-    verejneRozliseni: "Divadlo J. K. Tyla, Třeboň",
-  });
-  const po = aplikovatUpravuAutomatickeUdalosti(pred, {
-    datumOd: pred.datumOd,
-    datumDo: pred.datumDo,
-    cas: pred.cas,
-    mistoNeboTyp: pred.mistoNeboTyp,
-    nazev: pred.nazev,
-  });
+  const pred = ceka({ id: "auto-e" });
+  const po = aplikovatUpravuAutomatickeUdalosti(pred, strukturovanaUprava(pred));
   assert(!maRedakcniOverride(po, "datumOd"), "E: datumOd nezamčen");
   assert(!maRedakcniOverride(po, "datumDo"), "E: datumDo nezamčen");
   assert(!maRedakcniOverride(po, "cas"), "E: čas nezamčen");
@@ -199,24 +201,44 @@ const NOVE_MISTO = "Třeboňská nocturna Divadlo J. K. Tyla";
   assert(!maRedakcniOverride(po, "mistoNeboTyp"), "E: CO nezamčeno bez změny");
   assert(po.redakcneUpravenaPole === undefined, "E: bez override pole");
   assert(
-    po.verejneRozliseni === "Divadlo J. K. Tyla",
-    "E: verejne* synchronizováno",
+    po.verejneCo === pred.verejneCo,
+    "E: verejneCo beze změny",
   );
-  assert(verejnyRadek(po) === NOVE_MISTO, "E: Kalendář ukáže uložený řádek");
+  assert(
+    po.verejneRozliseni === pred.verejneRozliseni,
+    "E: verejneRozliseni beze změny",
+  );
+  assert(po.mistoNeboTyp === pred.mistoNeboTyp, "E: mistoNeboTyp beze změny");
+  assert(verejnyRadek(po) === verejnyRadek(pred), "E: Kalendář stejný řádek");
 }
 
 {
-  const pred = ceka({ id: "auto-f" });
-  const po = aplikovatUpravuAutomatickeUdalosti(pred, {
-    datumOd: pred.datumOd,
-    datumDo: pred.datumDo,
-    cas: pred.cas,
-    mistoNeboTyp: "Koncert na nádvoří",
-    nazev: pred.nazev,
+  const pred = ceka({
+    id: "auto-f",
+    verejneCo: "Kino",
+    verejneRozliseni: null,
+    mistoNeboTyp: "Kino",
   });
-  assert(po.verejneCo === "Koncert na nádvoří", "F: celý řádek = verejneCo");
-  assert(po.verejneRozliseni === null, "F: verejneRozliseni = null");
-  assert(verejnyRadek(po) === "Koncert na nádvoří", "F: render bez hádání");
+  const po = aplikovatUpravuAutomatickeUdalosti(
+    pred,
+    strukturovanaUprava(pred, {
+      verejneCo: null,
+      verejneRozliseni: "Kino",
+    }),
+  );
+  assert(po.verejneCo === null, "F: CO prázdné");
+  assert(po.verejneRozliseni === "Kino", "F: KDE = Kino");
+  assert(po.mistoNeboTyp === "Kino", "F: složený řetězec stejný");
+  assert(maRedakcniOverride(po, "mistoNeboTyp"), "F: override podle slotů");
+  const radek = rozlozAkci({
+    mistoNeboTyp: po.mistoNeboTyp,
+    nazev: po.nazev,
+    cas: po.cas,
+    verejneCo: po.verejneCo,
+    verejneRozliseni: po.verejneRozliseni ?? null,
+  });
+  assert(radek.typ === "", "F: CO prázdné v renderu");
+  assert(radek.misto === "Kino", "F: KDE v renderu");
 }
 
 {
@@ -266,20 +288,19 @@ const NOVE_MISTO = "Třeboňská nocturna Divadlo J. K. Tyla";
 }
 
 {
-  const pred = aplikovatUpravuAutomatickeUdalosti(ceka({ id: "auto-union" }), {
-    datumOd: "2026-10-15",
-    datumDo: "2026-10-15",
-    cas: "19:00",
-    mistoNeboTyp: NOVE_MISTO,
-    nazev: "Matyáš Novák - Smetana Reborn",
-  });
-  const po = aplikovatUpravuAutomatickeUdalosti(pred, {
-    datumOd: "2026-10-16",
-    datumDo: "2026-10-16",
-    cas: "19:00",
-    mistoNeboTyp: NOVE_MISTO,
-    nazev: pred.nazev,
-  });
+  const pred = aplikovatUpravuAutomatickeUdalosti(
+    ceka({ id: "auto-union" }),
+    strukturovanaUprava(ceka({ id: "auto-union" }), {
+      verejneRozliseni: NOVE_KDE,
+    }),
+  );
+  const po = aplikovatUpravuAutomatickeUdalosti(
+    pred,
+    strukturovanaUprava(pred, {
+      datumOd: "2026-10-16",
+      datumDo: "2026-10-16",
+    }),
+  );
   assert(maRedakcniOverride(po, "mistoNeboTyp"), "union: dřívější CO zůstane");
   assert(maRedakcniOverride(po, "datumOd"), "union: nové datumOd");
   assert(maRedakcniOverride(po, "datumDo"), "union: nové datumDo");

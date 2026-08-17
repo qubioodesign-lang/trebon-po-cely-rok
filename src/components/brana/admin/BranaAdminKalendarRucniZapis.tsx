@@ -18,6 +18,7 @@ import type {
   BranaKonkretniUdalost,
 } from "@/lib/brana/admin/konkretni-udalost";
 import { popisekVolbyPozice } from "@/lib/brana/admin/konkretni-udalost";
+import { jeStrukturovanyVerejnyZapis } from "@/lib/brana/admin/redakcni-override";
 
 const VSTUP =
   "w-full border border-text-velmiJemny/25 bg-transparent px-1.5 py-1 text-sm text-text outline-none focus:border-text-jemny/50";
@@ -317,6 +318,9 @@ export function BranaAdminKalendarRucniZapis({
   const [datumDo, setDatumDo] = useState("");
   const [cas, setCas] = useState("");
   const [mistoNeboTyp, setMistoNeboTyp] = useState("");
+  const [verejneCo, setVerejneCo] = useState("");
+  const [verejneRozliseni, setVerejneRozliseni] = useState("");
+  const [editaceStrukturovana, setEditaceStrukturovana] = useState(false);
   const [nazev, setNazev] = useState("");
   const [rucniPoziceVDni, setRucniPoziceVDni] = useState(0);
   const [chyba, setChyba] = useState<string | null>(null);
@@ -409,6 +413,9 @@ export function BranaAdminKalendarRucniZapis({
     setDatumDo("");
     setCas("");
     setMistoNeboTyp("");
+    setVerejneCo("");
+    setVerejneRozliseni("");
+    setEditaceStrukturovana(false);
     setNazev("");
     setRucniPoziceVDni(0);
   }
@@ -443,6 +450,10 @@ export function BranaAdminKalendarRucniZapis({
     setDatumDo(udalost.datumDo);
     setCas(udalost.cas);
     setMistoNeboTyp(udalost.mistoNeboTyp);
+    const strukturovana = !jeRucni && jeStrukturovanyVerejnyZapis(udalost);
+    setEditaceStrukturovana(strukturovana);
+    setVerejneCo(strukturovana ? (udalost.verejneCo ?? "") : "");
+    setVerejneRozliseni(strukturovana ? (udalost.verejneRozliseni ?? "") : "");
     setNazev(udalost.nazev);
     // 0 = Na začátek – nesmí se ztratit přes truthy kontrolu
     setRucniPoziceVDni(
@@ -457,13 +468,22 @@ export function BranaAdminKalendarRucniZapis({
     setChyba(null);
     setZprava(null);
     if (editaceAutomaticke && editovaneId) {
-      const vstup = {
-        datumOd,
-        datumDo: datumDo || datumOd,
-        cas,
-        mistoNeboTyp,
-        nazev,
-      };
+      const vstup = editaceStrukturovana
+        ? {
+            datumOd,
+            datumDo: datumDo || datumOd,
+            cas,
+            nazev,
+            verejneCo: verejneCo.trim() || null,
+            verejneRozliseni: verejneRozliseni.trim() || null,
+          }
+        : {
+            datumOd,
+            datumDo: datumDo || datumOd,
+            cas,
+            mistoNeboTyp,
+            nazev,
+          };
       startTransition(async () => {
         const vysledek = await upravitAutomatickouCekaUdalostAkce(
           editovaneId,
@@ -754,16 +774,41 @@ export function BranaAdminKalendarRucniZapis({
                 </select>
               </label>
             ) : null}
-            <label className="space-y-1 text-sm text-text sm:col-span-2">
-              <span className="text-text-jemny">CO / místo nebo typ</span>
-              <input
-                type="text"
-                className={VSTUP}
-                value={mistoNeboTyp}
-                maxLength={100}
-                onChange={(e) => setMistoNeboTyp(e.target.value)}
-              />
-            </label>
+            {editaceAutomaticke && editaceStrukturovana ? (
+              <>
+                <label className="space-y-1 text-sm text-text sm:col-span-2">
+                  <span className="text-text-jemny">CO</span>
+                  <input
+                    type="text"
+                    className={VSTUP}
+                    value={verejneCo}
+                    maxLength={100}
+                    onChange={(e) => setVerejneCo(e.target.value)}
+                  />
+                </label>
+                <label className="space-y-1 text-sm text-text sm:col-span-2">
+                  <span className="text-text-jemny">KDE</span>
+                  <input
+                    type="text"
+                    className={VSTUP}
+                    value={verejneRozliseni}
+                    maxLength={100}
+                    onChange={(e) => setVerejneRozliseni(e.target.value)}
+                  />
+                </label>
+              </>
+            ) : (
+              <label className="space-y-1 text-sm text-text sm:col-span-2">
+                <span className="text-text-jemny">CO / místo nebo typ</span>
+                <input
+                  type="text"
+                  className={VSTUP}
+                  value={mistoNeboTyp}
+                  maxLength={100}
+                  onChange={(e) => setMistoNeboTyp(e.target.value)}
+                />
+              </label>
+            )}
             <label className="space-y-1 text-sm text-text sm:col-span-2">
               <span className="text-text-jemny">Název</span>
               <input

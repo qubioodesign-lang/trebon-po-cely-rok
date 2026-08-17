@@ -16,7 +16,46 @@ export type BranaAutomatickaUpravaObsahu = {
   cas: string;
   mistoNeboTyp: string;
   nazev: string;
+  /**
+   * Klíč přítomen = strukturovaný zápis Upravit (i když hodnota je null).
+   * Legacy payload klíč neobsahuje.
+   */
+  verejneCo?: string | null;
+  verejneRozliseni?: string | null;
 };
+
+/** Záznam už má strukturovaný veřejný jazyk (klíč verejneCo, i null). */
+export function jeStrukturovanyVerejnyZapis(
+  udalost: Pick<BranaKonkretniUdalost, "verejneCo">,
+): boolean {
+  return udalost.verejneCo !== undefined;
+}
+
+export function normalizovatVerejnySlot(
+  hodnota: string | null | undefined,
+): string | null {
+  const text = (hodnota ?? "").trim();
+  return text.length > 0 ? text : null;
+}
+
+/** Interní kompatibilní mistoNeboTyp: CO + mezera + KDE, prázdné části pryč. */
+export function slozitMistoNeboTypZCoKde(
+  co: string | null | undefined,
+  kde: string | null | undefined,
+): string {
+  const c = normalizovatVerejnySlot(co) ?? "";
+  const k = normalizovatVerejnySlot(kde) ?? "";
+  if (c && k) {
+    return `${c} ${k}`;
+  }
+  return c || k;
+}
+
+function maExplicitniCoKde(
+  uprava: BranaAutomatickaUpravaObsahu,
+): boolean {
+  return Object.prototype.hasOwnProperty.call(uprava, "verejneCo");
+}
 
 export function normalizovatRedakcneUpravenaPoleZBlobu(
   hodnota: unknown,
@@ -46,7 +85,13 @@ export function maRedakcniOverride(
 export function zjistitZmenenaRedakcniPole(
   pred: Pick<
     BranaKonkretniUdalost,
-    "datumOd" | "datumDo" | "cas" | "nazev" | "mistoNeboTyp"
+    | "datumOd"
+    | "datumDo"
+    | "cas"
+    | "nazev"
+    | "mistoNeboTyp"
+    | "verejneCo"
+    | "verejneRozliseni"
   >,
   po: BranaAutomatickaUpravaObsahu,
 ): BranaRedakcniOverridePole[] {
@@ -63,7 +108,17 @@ export function zjistitZmenenaRedakcniPole(
   if (pred.nazev.trim() !== po.nazev.trim()) {
     zmenena.push("nazev");
   }
-  if (pred.mistoNeboTyp.trim() !== po.mistoNeboTyp.trim()) {
+  if (jeStrukturovanyVerejnyZapis(pred) && maExplicitniCoKde(po)) {
+    const coZmena =
+      normalizovatVerejnySlot(pred.verejneCo) !==
+      normalizovatVerejnySlot(po.verejneCo);
+    const kdeZmena =
+      normalizovatVerejnySlot(pred.verejneRozliseni) !==
+      normalizovatVerejnySlot(po.verejneRozliseni);
+    if (coZmena || kdeZmena) {
+      zmenena.push("mistoNeboTyp");
+    }
+  } else if (pred.mistoNeboTyp.trim() !== po.mistoNeboTyp.trim()) {
     zmenena.push("mistoNeboTyp");
   }
   return zmenena;
@@ -84,50 +139,44 @@ export function sloucitRedakcneUpravenaPole(
 }
 
 /**
- * Invertuje známé skládání `verejneCo + " " + verejneRozliseni`.
- * Nehádá význam, když prefix nesedí.
- * Legacy (verejneCo chybí) → null, pole se nepřidávají.
- */
-export function synchronizovatVerejnyZapisZMistoNeboTyp(
-  mistoNeboTyp: string,
-  existujiciVerejneCo: string | null | undefined,
-  maStrukturovanyJazyk: boolean,
-): { verejneCo: string | null; verejneRozliseni: string | null } | null {
-  if (!maStrukturovanyJazyk) {
-    return null;
-  }
-  const radek = mistoNeboTyp.trim();
-  const co = (existujiciVerejneCo ?? "").trim();
-  if (co && (radek === co || radek.startsWith(`${co} `))) {
-    const zbytek = radek === co ? "" : radek.slice(co.length + 1).trim();
-    return {
-      verejneCo: co,
-      verejneRozliseni: zbytek.length > 0 ? zbytek : null,
-    };
-  }
-  return {
-    verejneCo: radek.length > 0 ? radek : null,
-    verejneRozliseni: null,
-  };
-}
-
-/**
- * Aplikuje Upravit na automatickou událost: obsah, sync verejne*, evidence override.
+ * Aplikuje Upravit na automatickou událost: obsah, přímý zápis verejne*, override.
  * Nemění id, redakcniPolozkaId, scanKlic, stav, zdrojIdentita.
+ * Strukturovaná událost vyžaduje explicitní CO/KDE — neskládá je z mistoNeboTyp.
  */
 export function aplikovatUpravuAutomatickeUdalosti(
   existujici: BranaKonkretniUdalost,
   uprava: BranaAutomatickaUpravaObsahu,
 ): BranaKonkretniUdalost {
-  const zmenena = zjistitZmenenaRedakcniPole(existujici, uprava);
+  const strukturovana = jeStrukturovanyVerejnyZapis(existujici);
+  if (strukturovana && !maExplicitniCoKde(uprava)) {
+    throw new Error("Strukturovanou událost upravte poli CO a KDE.");
+  }
+
+  const verejneCo = strukturovana
+    ? normalizovatVerejnySlot(uprava.verejneCo)
+    : undefined;
+  const verejneRozliseni = strukturovana
+    ? normalizovatVerejnySlot(uprava.verejneRozliseni)
+    : undefined;
+  const mistoNeboTyp = strukturovana
+    ? slozitMistoNeboTypZCoKde(verejneCo, verejneRozliseni)
+    : uprava.mistoNeboTyp;
+  if (!mistoNeboTyp) {
+    throw new Error(
+      strukturovana ? "Vyplňte CO nebo KDE." : "Vyplňte CO / místo nebo typ.",
+    );
+  }
+
+  const zmenena = zjistitZmenenaRedakcniPole(existujici, {
+    ...uprava,
+    mistoNeboTyp,
+    ...(strukturovana
+      ? { verejneCo: verejneCo ?? null, verejneRozliseni: verejneRozliseni ?? null }
+      : {}),
+  });
   const slouceny = sloucitRedakcneUpravenaPole(
     existujici.redakcneUpravenaPole,
     zmenena,
-  );
-  const verejny = synchronizovatVerejnyZapisZMistoNeboTyp(
-    uprava.mistoNeboTyp,
-    existujici.verejneCo,
-    existujici.verejneCo !== undefined,
   );
 
   return {
@@ -136,7 +185,7 @@ export function aplikovatUpravuAutomatickeUdalosti(
     datumOd: uprava.datumOd,
     datumDo: uprava.datumDo,
     cas: uprava.cas,
-    mistoNeboTyp: uprava.mistoNeboTyp,
+    mistoNeboTyp,
     nazev: uprava.nazev,
     rucniPoziceVDni: null,
     stavSchvaleni: existujici.stavSchvaleni,
@@ -146,17 +195,12 @@ export function aplikovatUpravuAutomatickeUdalosti(
     ...(existujici.zdrojIdentita !== undefined
       ? { zdrojIdentita: existujici.zdrojIdentita }
       : {}),
-    ...(verejny
+    ...(strukturovana
       ? {
-          verejneCo: verejny.verejneCo,
-          verejneRozliseni: verejny.verejneRozliseni,
+          verejneCo: verejneCo ?? null,
+          verejneRozliseni: verejneRozliseni ?? null,
         }
-      : existujici.verejneCo !== undefined
-        ? {
-            verejneCo: existujici.verejneCo,
-            verejneRozliseni: existujici.verejneRozliseni ?? null,
-          }
-        : {}),
+      : {}),
     ...(slouceny !== undefined ? { redakcneUpravenaPole: slouceny } : {}),
   };
 }

@@ -326,6 +326,8 @@ function scan(
       cas: "19:00",
       mistoNeboTyp: NOCTURNA_MISTO,
       nazev: "Matyáš Novák - Smetana Reborn",
+      verejneCo: "Třeboňská nocturna",
+      verejneRozliseni: KANONICKE_MISTO,
     },
   );
   assert(maRedakcniOverride(pred, "mistoNeboTyp"), "I: místo je override");

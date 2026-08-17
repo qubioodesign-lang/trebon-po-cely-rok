@@ -370,9 +370,12 @@ for (const p of prevody) {
     cas: u.cas,
     mistoNeboTyp: u.mistoNeboTyp,
     nazev: u.nazev,
+    verejneCo: u.verejneCo ?? null,
+    verejneRozliseni: u.verejneRozliseni ?? null,
   });
   assert(po.scanKlic === u.scanKlic, "I: Upravit nemění scanKlic");
   assert(po.nazev === u.nazev, "I: Upravit ponechá čistý nazev");
+  assert(po.redakcneUpravenaPole === undefined, "I: Uložit bez změny bez override");
 }
 
 /* K — SCHVALENO / VYRAZENO */
