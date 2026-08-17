@@ -39,6 +39,34 @@ function normalizovatProSrovnani(text: string): string {
   return text.replace(/\s+/g, " ").trim().toLowerCase();
 }
 
+/** Cílový redakční zápis budovy — bez města. */
+const KANONICKE_MISTO_DIVADLO_JK_TYLA = "Divadlo J. K. Tyla";
+
+/**
+ * Klíč jen pro úzký alias budovy.
+ * Sjednotí mezery a zápis teček; nestrhává `, Třeboň` z jiných míst.
+ */
+function klicAliasuMistaDivadloJkTyla(text: string): string {
+  return normalizovatProSrovnani(text)
+    .replace(/\.\s+/g, ".")
+    .replace(/\s*,\s*/g, ",");
+}
+
+const KLIC_ALIAS_DIVADLO_JK_TYLA_TREBON = klicAliasuMistaDivadloJkTyla(
+  "Divadlo J. K. Tyla, Třeboň",
+);
+
+/**
+ * Po spárování: místo z události kanonizuje jen známý alias budovy.
+ * Parser / matching tento text nevidí.
+ */
+function kanonizovatMistoZUdalosti(text: string): string {
+  if (klicAliasuMistaDivadloJkTyla(text) === KLIC_ALIAS_DIVADLO_JK_TYLA_TREBON) {
+    return KANONICKE_MISTO_DIVADLO_JK_TYLA;
+  }
+  return text;
+}
+
 function sestavLegacyMistoNeboTyp(vstup: {
   polozka: string;
   kandidatMisto: string;
@@ -90,10 +118,14 @@ function coZUdalosti(kandidatMisto: string): string | null {
 
 /**
  * KDE z události: místo kandidáta, jinak název zdroje; prázdné → null.
+ * Úzká kanonizace budovy až zde — po matchingu, před zápisem verejne*.
  */
 function kdeZUdalosti(kandidatMisto: string, zdrojNazev: string): string | null {
   const text = (kandidatMisto.trim() || zdrojNazev.trim()).trim();
-  return text || null;
+  if (!text) {
+    return null;
+  }
+  return kanonizovatMistoZUdalosti(text);
 }
 
 function vyhodnotSlot(
