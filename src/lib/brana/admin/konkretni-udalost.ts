@@ -361,6 +361,17 @@ export function projektujKalendarDny(
     }));
 }
 
+/**
+ * Zobrazovací filtr pracovního Kalendáře.
+ * Skryje dny s isoDen < dnesIso (Europe/Prague). Nemění persistovaná data.
+ */
+export function filtrujDnyPracovnihoKalendareOdDnes(
+  dny: readonly BranaKalendarDen[],
+  dnesIso: string = dnesIsoVPraze(),
+): BranaKalendarDen[] {
+  return dny.filter((den) => den.isoDen >= dnesIso);
+}
+
 export type BranaVyhledRokSkupina = {
   rok: number;
   udalosti: BranaKonkretniUdalost[];

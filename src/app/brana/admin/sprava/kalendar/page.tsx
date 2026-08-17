@@ -2,6 +2,8 @@ import { headers } from "next/headers";
 import { BranaAdminKalendarRucniZapis } from "@/components/brana/admin/BranaAdminKalendarRucniZapis";
 import { BranaAdminObal } from "@/components/brana/admin/BranaAdminObal";
 import {
+  dnesIsoVPraze,
+  filtrujDnyPracovnihoKalendareOdDnes,
   formatujDenKalendare,
   projektujKalendarDny,
   type BranaKonkretniUdalost,
@@ -80,10 +82,13 @@ export default async function StrankaBranaAdminKalendar() {
         )
       : { prazdneIsoDny: [] as string[], pocet: 0 };
 
-  const dny = doplnPrazdneDnyDoKalendare(
-    dnyZUdalosti,
-    prazdneIsoDny,
-    formatujDenKalendare,
+  const dny = filtrujDnyPracovnihoKalendareOdDnes(
+    doplnPrazdneDnyDoKalendare(
+      dnyZUdalosti,
+      prazdneIsoDny,
+      formatujDenKalendare,
+    ),
+    dnesIsoVPraze(),
   );
 
   const automatickePodleDne: Record<string, BranaKonkretniUdalost[]> = {};
