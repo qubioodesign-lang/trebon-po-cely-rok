@@ -150,7 +150,7 @@ const DEFINITIVNI_SEED: Readonly<
     polozka: "Dům Štěpánka Netolického",
     priorita: 6,
     vyhled: "NE",
-    jazyk: { co: Z_UDALOSTI, rozliseni: pevne("Dům Štěpánka Netolického") },
+    jazyk: { co: Z_UDALOSTI, rozliseni: pevne("Dům Š. Netolického") },
   },
   "galerie-105": {
     polozka: "Galerie 105",

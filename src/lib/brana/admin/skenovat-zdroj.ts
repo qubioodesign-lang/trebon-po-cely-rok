@@ -41,6 +41,10 @@ import {
   vytahnoutZameckaLekarnaMesicUrlky,
   type BranaScanKandidat,
 } from "./zdroj-scan-parser";
+import {
+  BRANA_DSN_REDAKCNI_POLOZKA_ID,
+  sestavDsnZapisPoSparovani,
+} from "./dsn-titulek";
 import { sestavJazykBranyPoSparovani } from "./jazyk-brany-po-sparovani";
 import {
   dnesIsoVPraze,
@@ -733,20 +737,39 @@ async function skenovatZnamyZdrojJadro(
       zdrojNazev: zdroj.nazev,
       jazykVerejny: pravidlo?.jazykVerejny ?? null,
     });
+    const zapis =
+      sparovani.redakcniPolozkaId === BRANA_DSN_REDAKCNI_POLOZKA_ID
+        ? sestavDsnZapisPoSparovani({
+            surovyNazev: kandidat.nazev,
+            jazyk,
+          })
+        : {
+            mistoNeboTyp: jazyk.mistoNeboTyp,
+            nazev: kandidat.nazev,
+            ...(jazyk.verejneCo !== undefined
+              ? {
+                  verejneCo: jazyk.verejneCo,
+                  verejneRozliseni: jazyk.verejneRozliseni ?? null,
+                }
+              : {}),
+          };
     kUlozeni.push({
       redakcniPolozkaId: sparovani.redakcniPolozkaId,
       datumOd: kandidat.datumOd,
       datumDo: kandidat.datumDo,
       cas: kandidat.cas,
-      mistoNeboTyp: jazyk.mistoNeboTyp,
-      nazev: kandidat.nazev,
+      mistoNeboTyp: zapis.mistoNeboTyp,
+      nazev: zapis.nazev,
       ...(kandidat.zdrojIdentita
         ? { zdrojIdentita: kandidat.zdrojIdentita }
         : {}),
-      ...(jazyk.verejneCo !== undefined
+      ...(zapis.nazevProScanKlic
+        ? { nazevProScanKlic: zapis.nazevProScanKlic }
+        : {}),
+      ...(zapis.verejneCo !== undefined
         ? {
-            verejneCo: jazyk.verejneCo,
-            verejneRozliseni: jazyk.verejneRozliseni ?? null,
+            verejneCo: zapis.verejneCo,
+            verejneRozliseni: zapis.verejneRozliseni ?? null,
           }
         : {}),
     });

@@ -22,6 +22,11 @@ export type BranaScanAutomatickaUdalostVstup = {
   nazev: string;
   verejneCo?: string | null;
   verejneRozliseni?: string | null;
+  /**
+   * Surový zdrojový název jen pro výpočet scanKlic.
+   * Chybí-li → klic z `nazev` (dnešní chování všech zdrojů).
+   */
+  nazevProScanKlic?: string;
   /** Stabilní identita napříč scany (bez volatilního data, pokud možné). */
   zdrojIdentita?: string;
 };
@@ -71,6 +76,13 @@ function jeStejnyObsahCeka(
   return true;
 }
 
+function nazevProScanKlicZKandidata(
+  kandidat: BranaScanAutomatickaUdalostVstup,
+): string {
+  const zeZdroje = kandidat.nazevProScanKlic?.trim();
+  return (zeZdroje && zeZdroje.length > 0 ? zeZdroje : kandidat.nazev).trim();
+}
+
 function jeDuplicitniPodleScanKlic(
   existujici: BranaKonkretniUdalost,
   kandidat: BranaScanAutomatickaUdalostVstup,
@@ -86,7 +98,8 @@ function jeDuplicitniPodleScanKlic(
     existujici.redakcniPolozkaId === kandidat.redakcniPolozkaId &&
     existujici.datumOd === kandidat.datumOd &&
     existujici.cas.trim() === kandidat.cas.trim() &&
-    existujici.nazev.trim().toLowerCase() === kandidat.nazev.trim().toLowerCase()
+    existujici.nazev.trim().toLowerCase() ===
+      nazevProScanKlicZKandidata(kandidat).toLowerCase()
   );
 }
 
@@ -214,6 +227,7 @@ export function aplikovatScanKandidatyNaUdalosti(
     }
 
     const zdrojIdentita = normalizovatZdrojIdentitu(kandidat.zdrojIdentita);
+    const nazevProScanKlic = nazevProScanKlicZKandidata(kandidat);
     const normalizovany: BranaScanAutomatickaUdalostVstup = {
       redakcniPolozkaId,
       datumOd: kandidat.datumOd.trim(),
@@ -230,10 +244,13 @@ export function aplikovatScanKandidatyNaUdalosti(
                 : kandidat.verejneRozliseni,
           }
         : {}),
+      ...(kandidat.nazevProScanKlic !== undefined
+        ? { nazevProScanKlic: nazevProScanKlic }
+        : {}),
       ...(zdrojIdentita !== undefined ? { zdrojIdentita } : {}),
     };
 
-    if (!normalizovany.nazev || !normalizovany.datumOd) {
+    if (!nazevProScanKlic || !normalizovany.datumOd) {
       continue;
     }
 
@@ -245,7 +262,7 @@ export function aplikovatScanKandidatyNaUdalosti(
       redakcniPolozkaId: normalizovany.redakcniPolozkaId,
       datumOd: normalizovany.datumOd,
       cas: normalizovany.cas,
-      nazev: normalizovany.nazev,
+      nazev: nazevProScanKlic,
     });
 
     // 1) Primární match: zdrojIdentita
