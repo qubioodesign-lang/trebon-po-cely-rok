@@ -52,6 +52,11 @@ export type BranaUpozorneniNastaveniDokument = {
   posledniUpozorneniRychle: string | null;
   /** ISO YYYY-MM-DD – den posledního dlouhodobého upozornění */
   posledniUpozorneniDlouhodobe: string | null;
+  /**
+   * ISO YYYY-MM-DD – kotva dlouhého scanu, pro kterou už šla
+   * připomínka asistovaných zdrojů (kotva − 3 dny).
+   */
+  posledniUpozorneniAsistovaneKotva: string | null;
 };
 
 /** Veřejný pohled pro admin UI – bez endpoint/keys. */
@@ -79,6 +84,7 @@ export function vychoziUpozorneniNastaveni(): BranaUpozorneniNastaveniDokument {
     posledniDokoncenaDlouhodobaKontrola: null,
     posledniUpozorneniRychle: null,
     posledniUpozorneniDlouhodobe: null,
+    posledniUpozorneniAsistovaneKotva: null,
   };
 }
 
@@ -311,6 +317,14 @@ export function validovatUpozorneniDokument(
     return posledniDlouhodobe;
   }
 
+  const posledniAsistovaneKotva = validovatVolitelnyIsoDenPole(
+    raw.posledniUpozorneniAsistovaneKotva,
+    "Poslední připomínka asistovaných zdrojů",
+  );
+  if (!posledniAsistovaneKotva.ok) {
+    return posledniAsistovaneKotva;
+  }
+
   return {
     ok: true,
     dokument: {
@@ -321,6 +335,7 @@ export function validovatUpozorneniDokument(
       posledniDokoncenaDlouhodobaKontrola: posledniDokoncena.hodnota,
       posledniUpozorneniRychle: posledniRychle.hodnota,
       posledniUpozorneniDlouhodobe: posledniDlouhodobe.hodnota,
+      posledniUpozorneniAsistovaneKotva: posledniAsistovaneKotva.hodnota,
     },
   };
 }
@@ -750,6 +765,45 @@ export async function ulozitPosledniUpozorneniDlouhodobeProScheduler(
   const vyslednyNavrh: BranaUpozorneniNastaveniDokument = {
     ...stary,
     posledniUpozorneniDlouhodobe: den.hodnota,
+  };
+
+  const celek = validovatUpozorneniDokument(vyslednyNavrh);
+  if (!celek.ok) {
+    throw new Error(celek.chyba);
+  }
+
+  await ulozitDokument(celek.dokument);
+  return celek.dokument;
+}
+
+/**
+ * Zápis posledniUpozorneniAsistovaneKotva pro scheduler (po ověření CRON_SECRET).
+ * Ukládá kotvu dlouhého scanu, ne den odeslání. Bez admin session.
+ * Volat výhradně po úspěšném webpush.sendNotification připomínky asistovaných zdrojů.
+ */
+export async function ulozitPosledniUpozorneniAsistovaneKotvuProScheduler(
+  posledniUpozorneniAsistovaneKotva: string,
+): Promise<BranaUpozorneniNastaveniDokument> {
+  if (!maBranaAdminBlobKonfiguraci()) {
+    throw new Error(
+      "Nelze uložit nastavení upozornění: chybí BLOB_BRANA_ADMIN_STORE_ID nebo BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
+    );
+  }
+
+  const den = validovatVolitelnyIsoDenPole(
+    posledniUpozorneniAsistovaneKotva,
+    "Poslední připomínka asistovaných zdrojů",
+  );
+  if (!den.ok || den.hodnota === null) {
+    throw new Error(
+      "Poslední připomínka asistovaných zdrojů musí být datum ve formátu RRRR-MM-DD.",
+    );
+  }
+
+  const stary = await nacistNeboVychoziDokument();
+  const vyslednyNavrh: BranaUpozorneniNastaveniDokument = {
+    ...stary,
+    posledniUpozorneniAsistovaneKotva: den.hodnota,
   };
 
   const celek = validovatUpozorneniDokument(vyslednyNavrh);

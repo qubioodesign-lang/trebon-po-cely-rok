@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { BranaAdminKalendarRucniZapis } from "@/components/brana/admin/BranaAdminKalendarRucniZapis";
 import { BranaAdminObal } from "@/components/brana/admin/BranaAdminObal";
+import { textStariAsistovanychZdroju } from "@/lib/brana/admin/asistovane-zdroje-stari";
 import {
   dnesIsoVPraze,
   filtrujDnyPracovnihoKalendareOdDnes,
@@ -100,6 +101,7 @@ export default async function StrankaBranaAdminKalendar() {
 
   const isoDenPoslednihoDneKontrolnihoBloku =
     isoDenPoslednihoDneKontrolnihoBlokuVPraze();
+  const textStariAsistovanych = textStariAsistovanychZdroju();
 
   return (
     <BranaAdminObal
@@ -117,6 +119,17 @@ export default async function StrankaBranaAdminKalendar() {
         >
           Pracovní kalendář
         </h2>
+        <div className="space-y-1">
+          {textStariAsistovanych ? (
+            <p className="text-sm text-text">{textStariAsistovanych}</p>
+          ) : null}
+          <p className="text-sm text-text">
+            Aktualizuj všechny asistované zdroje podle uloženého postupu.
+          </p>
+          <p className="text-xs text-text-jemny">
+            Vlož do Cursoru → projekt trebon-po-cely-rok
+          </p>
+        </div>
 
         {!uloziste.ok ? (
           <p className="text-sm text-text" role="alert">

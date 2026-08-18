@@ -2,6 +2,7 @@ import { timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { vyhodnotitBranaCasovyPlanProScheduler } from "@/lib/brana/admin/casovy-motor-uloziste";
 import { uklidMinulychKonkretnichUdalostiProScheduler } from "@/lib/brana/admin/konkretni-udalosti-uloziste";
+import { vyhodnotitAOdeslatAsistovaneUpozorneniPredKotvou } from "@/lib/brana/admin/odeslat-asistovane-upozorneni-automaticky";
 import { vyhodnotitAOdeslatPravidelneUpozorneniPoCheckpointu } from "@/lib/brana/admin/odeslat-pravidelne-upozorneni-automaticky";
 import { vyhodnotitAOdeslatRychleUpozorneniPoScanu } from "@/lib/brana/admin/odeslat-rychle-upozorneni-automaticky";
 import { skenovatDlouhodobeZdrojeAutomaticky } from "@/lib/brana/admin/skenovat-dlouhodobe-zdroje-automaticky";
@@ -16,6 +17,7 @@ export const dynamic = "force-dynamic";
  * denní úklid minulých událostí (před early return) →
  * při jeRychlyTermin sekvenční Rychlý scan;
  * při jeDlouhodobyTermin sekvenční Dlouhodobý scan + stavový checkpoint (+21) + Pravidelný push;
+ * při jeAsistovanyPripravnyTermin pouze push (kotva − 3 dny), bez scanu;
  * při úspěšném souběhu potlačí Rychlý push ve prospěch Pravidelného.
  */
 
@@ -58,22 +60,42 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { jeRychlyTermin, jeDlouhodobyTermin, datumVPraze } = vysledek.plan;
+    const {
+      jeRychlyTermin,
+      jeDlouhodobyTermin,
+      jeAsistovanyPripravnyTermin,
+      datumVPraze,
+    } = vysledek.plan;
 
     // Denní úklid vždy (i bez scanového termínu); idempotentní při 2× cron/den.
     const uklidMinulych = await uklidMinulychKonkretnichUdalostiProScheduler();
+
+    let asistovanePush = null;
+    if (jeAsistovanyPripravnyTermin) {
+      try {
+        asistovanePush =
+          await vyhodnotitAOdeslatAsistovaneUpozorneniPredKotvou({
+            datumVPraze,
+          });
+      } catch (error) {
+        console.error("[brana-asistovane-push] neočekávané selhání", error);
+        asistovanePush = { stav: "neposlan" as const };
+      }
+    }
 
     if (!jeRychlyTermin && !jeDlouhodobyTermin) {
       return NextResponse.json({
         ok: true,
         jeRychlyTermin,
         jeDlouhodobyTermin,
+        jeAsistovanyPripravnyTermin,
         uklidMinulych,
         rychlyScan: null,
         rychlyPush: null,
         dlouhodobyScan: null,
         dlouhodobyCheckpoint: null,
         pravidelnyPush: null,
+        asistovanePush,
       });
     }
 
@@ -137,12 +159,14 @@ export async function GET(request: NextRequest) {
       ok: true,
       jeRychlyTermin,
       jeDlouhodobyTermin,
+      jeAsistovanyPripravnyTermin,
       uklidMinulych,
       rychlyScan,
       rychlyPush,
       dlouhodobyScan,
       dlouhodobyCheckpoint,
       pravidelnyPush,
+      asistovanePush,
     });
   } catch {
     return NextResponse.json(
