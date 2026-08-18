@@ -60,6 +60,11 @@ import {
   jeItrebonDivadloJkTylaZdroj,
   parsovatItrebonDivadloJkTyla,
 } from "./divadlo-jk-tyla";
+import {
+  jeItrebonPreConnectRetryHost,
+  provestSItrebonPreConnectRetry,
+  type ItrebonSitFaze,
+} from "./itrebon-preconnect-retry";
 import { sestavJazykBranyPoSparovani } from "./jazyk-brany-po-sparovani";
 import {
   dnesIsoVPraze,
@@ -316,6 +321,7 @@ function httpRequestNaOvereneAdresy(
   cil: URL,
   overeneAdresy: LookupAddress[],
   signal: AbortSignal,
+  sitFaze?: ItrebonSitFaze,
 ): Promise<FetchVysledek> {
   const transport = cil.protocol === "https:" ? https : http;
   const pinned = overeneAdresy[0];
@@ -450,6 +456,9 @@ function httpRequestNaOvereneAdresy(
         encrypted,
       });
       socket.on("connect", () => {
+        if (sitFaze) {
+          sitFaze.probehlConnect = true;
+        }
         const connectFamily =
           "remoteFamily" in socket && typeof socket.remoteFamily === "string"
             ? socket.remoteFamily
@@ -467,6 +476,9 @@ function httpRequestNaOvereneAdresy(
         typeof (socket as { on?: unknown }).on === "function"
       ) {
         socket.on("secureConnect", () => {
+          if (sitFaze) {
+            sitFaze.probehlSecureConnect = true;
+          }
           logPhase("secureConnect", {
             socketFamily:
               "remoteFamily" in socket &&
@@ -515,6 +527,45 @@ function httpRequestNaOvereneAdresy(
   });
 }
 
+async function httpGetItrebonSPreConnectRetry(
+  aktualni: URL,
+  overeneAdresy: LookupAddress[],
+  sdilenySignal: AbortSignal,
+): Promise<FetchVysledek> {
+  return provestSItrebonPreConnectRetry(
+    aktualni.hostname,
+    async (sitFaze, cisloPokusu) => {
+      if (cisloPokusu === 1) {
+        return httpRequestNaOvereneAdresy(
+          aktualni,
+          overeneAdresy,
+          sdilenySignal,
+          sitFaze,
+        );
+      }
+      const controller = new AbortController();
+      const abortSignalStartedAt = Date.now();
+      const timeout = setTimeout(() => {
+        console.error("[BRANA_SCAN_NET_PHASE]", {
+          phase: "abort-signal",
+          elapsedMs: Date.now() - abortSignalStartedAt,
+        });
+        controller.abort();
+      }, FETCH_TIMEOUT_MS);
+      try {
+        return await httpRequestNaOvereneAdresy(
+          aktualni,
+          overeneAdresy,
+          controller.signal,
+          sitFaze,
+        );
+      } finally {
+        clearTimeout(timeout);
+      }
+    },
+  );
+}
+
 async function nacistTeloZdroje(
   url: string,
 ): Promise<{ text: string; contentType: string | null }> {
@@ -534,11 +585,17 @@ async function nacistTeloZdroje(
 
     for (let redirect = 0; redirect <= MAX_REDIRECTS; redirect++) {
       const overeneAdresy = await resolvovatAOveritHostname(aktualni.hostname);
-      const odpoved = await httpRequestNaOvereneAdresy(
-        aktualni,
-        overeneAdresy,
-        controller.signal,
-      );
+      const odpoved = jeItrebonPreConnectRetryHost(aktualni.hostname)
+        ? await httpGetItrebonSPreConnectRetry(
+            aktualni,
+            overeneAdresy,
+            controller.signal,
+          )
+        : await httpRequestNaOvereneAdresy(
+            aktualni,
+            overeneAdresy,
+            controller.signal,
+          );
 
       if (odpoved.status >= 300 && odpoved.status < 400) {
         const location = odpoved.headers.location;
