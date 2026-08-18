@@ -43,6 +43,10 @@ import {
   sestavTdfProgramUrl,
   urcitTdfKotvu,
   BRANA_TDF_REDAKCNI_POLOZKA_ID,
+  jeTrebonskoLazenskyKulturniProgramZdrojUrl,
+  sestavTrebonskoLazenskyKulturniProgramHubUrl,
+  urcitTanecniVecerKotvu,
+  vytahnoutTrebonskoTanecniVecerMesicUrlky,
   parsovatUdalostiZeZdroje,
   sestavItrebonKalendarUrlky,
   sestavDumStepankaKalendarUrlkyCtyriMesice,
@@ -645,6 +649,7 @@ async function skenovatZnamyZdrojJadro(
   // Rybářství Třeboň: 1 fetch autoritativní /podzimni-vylov-rybniku.
   // VisitTřeboň: 1 GET s dynamickým horizontem dnes→+12 měsíců.
   // Třeboňsko kino: hub /kategorie/kina/ → aktuální + následující měsíc.
+  // Třeboňsko taneční večery: hub lázeňského programu → Aurora + Berta měsíc.
   // iTřeboň JKT: ověřený JSON mezidokument, bez živého HTTP.
   // Větev před GBU — stejná URL by jinak spustila GBU parser.
   // iTřeboň GBU: výpis /kalendar.html + stránky 2…12.
@@ -719,6 +724,16 @@ async function skenovatZnamyZdrojJadro(
     const programUrl = sestavTdfProgramUrl(zdroj.url);
     const { text, contentType } = await nacistTeloZdroje(programUrl);
     kandidati = parsovatUdalostiZeZdroje(text, contentType);
+  } else if (jeTrebonskoLazenskyKulturniProgramZdrojUrl(zdroj.url)) {
+    const hubUrl = sestavTrebonskoLazenskyKulturniProgramHubUrl(zdroj.url);
+    const { text: hubHtml } = await nacistTeloZdroje(hubUrl);
+    const mesice = vytahnoutTrebonskoTanecniVecerMesicUrlky(hubHtml, hubUrl);
+    const sloucene: BranaScanKandidat[] = [];
+    for (const mesic of mesice) {
+      const { text, contentType } = await nacistTeloZdroje(mesic.url);
+      sloucene.push(...parsovatUdalostiZeZdroje(text, contentType));
+    }
+    kandidati = deduplikovatScanKandidaty(sloucene);
   } else {
     const { text, contentType } = await nacistTeloZdroje(zdroj.url);
     kandidati = parsovatUdalostiZeZdroje(text, contentType);
@@ -749,8 +764,21 @@ async function skenovatZnamyZdrojJadro(
     const tdfKotva = jeTdfZdrojUrl(zdroj.url)
       ? urcitTdfKotvu(kandidat)
       : null;
+    const tanecniKotva = jeTrebonskoLazenskyKulturniProgramZdrojUrl(zdroj.url)
+      ? urcitTanecniVecerKotvu(kandidat, redakcni.polozky)
+      : null;
     const sparovani =
-      jeTdfZdrojUrl(zdroj.url)
+      jeTrebonskoLazenskyKulturniProgramZdrojUrl(zdroj.url)
+        ? tanecniKotva
+          ? sparovatVlastnictvimHlidaneKotvy(
+              redakcni.polozky,
+              hlidaneKotvy
+                ? zdroj.hlidaneRedakcniPolozkaIds
+                : [tanecniKotva],
+              tanecniKotva,
+            )
+          : { ok: false as const }
+      : jeTdfZdrojUrl(zdroj.url)
         ? tdfKotva
           ? sparovatVlastnictvimHlidaneKotvy(
               redakcni.polozky,
@@ -839,6 +867,11 @@ async function skenovatZnamyZdrojJadro(
           cas: kandidat.cas,
           mistoNeboTyp: kandidat.mistoNeboTyp,
         });
+        continue;
+      }
+      // Taneční večery: parser vydá jen Taneční večer. Neshoda kotvy
+      // (chybí živá Položka Adéla/Harmonie) → tiše, bez Nezařazených.
+      if (jeTrebonskoLazenskyKulturniProgramZdrojUrl(zdroj.url)) {
         continue;
       }
       // Bohatý zdroj: neshody se neposílají do Nezařazených (provozní šum).

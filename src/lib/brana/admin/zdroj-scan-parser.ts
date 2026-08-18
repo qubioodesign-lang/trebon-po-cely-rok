@@ -18,7 +18,9 @@
  * a scan větev podle hlídané kotvy — tato HTML větev GBU nemění.
  * a dumprirody.cz/dum-prirody-trebonska/akce/ (výlety / exkurze / přednášky),
  * okolotrebone.cz/program/ (v1 jen hrobka + lázeňské matiné; JKT drop),
- * tdf.cz (Třeboňský divadelní festival – homepage title/place/data-date).
+ * tdf.cz (Třeboňský divadelní festival – homepage title/place/data-date),
+ * trebonsko.cz/kategorie/lazensky-kulturni-program/ (jen Taneční večer
+ *   Aurora→Harmonie / Berta→Adéla; discovery ve scanu).
  * Odděleně od Kalendáře a Blob zápisu.
  * Datum/čas: Europe/Prague (včetně DST) přes stávající brana/cas.
  * Multi-měsíční fetch DSN / Zámecká lékárna / Rybářství / Visit / Třeboňsko kino,
@@ -35,6 +37,10 @@ import {
   parsovatOkoloTrebone,
 } from "./okolo-trebone";
 import { jeTdfProgramHtml, parsovatTdf } from "./tdf";
+import {
+  jeTanecniVeceryMesicHtml,
+  parsovatTanecniVecery,
+} from "./tanecni-vecery";
 
 export {
   BRANA_DPT_CO,
@@ -59,6 +65,16 @@ export {
   sestavTdfProgramUrl,
   urcitTdfKotvu,
 } from "./tdf";
+
+export {
+  BRANA_TANECNI_VECER_ADELA_POLOZKA,
+  BRANA_TANECNI_VECER_CO,
+  BRANA_TANECNI_VECER_HARMONIE_POLOZKA,
+  jeTrebonskoLazenskyKulturniProgramZdrojUrl,
+  sestavTrebonskoLazenskyKulturniProgramHubUrl,
+  urcitTanecniVecerKotvu,
+  vytahnoutTrebonskoTanecniVecerMesicUrlky,
+} from "./tanecni-vecery";
 
 export type BranaScanKandidat = {
   nazev: string;
@@ -3686,6 +3702,12 @@ export function parsovatUdalostiZeZdroje(
   // Třeboňsko OLS: max. trh + hlavní — bez JSON-LD mixu.
   if (jeTrebonskoOlsHtml(telo)) {
     parsovatTrebonskoOteviraniLazenskeSezony(telo, vysledek);
+    return deduplikovatScanKandidaty(vysledek);
+  }
+
+  // Třeboňsko lázeňský program: jen Taneční večer Aurora/Berta — před kinem.
+  if (jeTanecniVeceryMesicHtml(telo)) {
+    parsovatTanecniVecery(telo, vysledek);
     return deduplikovatScanKandidaty(vysledek);
   }
 
