@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "app/brana/admin/**/*": {
+      "regions": ["fra1"]
+    }
+  },
   "crons": [
     {
       "path": "/api/brana/casovy-plan",
