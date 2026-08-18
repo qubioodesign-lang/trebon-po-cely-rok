@@ -8,6 +8,8 @@
 
 import { BRANA_GBU_REDAKCNI_POLOZKA_ID } from "./gbu-titulek";
 import type { BranaScanKandidat } from "./zdroj-scan-parser";
+import { readFileSync } from "node:fs";
+import jktItrebonMezidokument from "./divadlo-jk-tyla-itrebon.json";
 
 export const BRANA_JKT_REDAKCNI_POLOZKA_ID = "divadlo-jk-tyla";
 
@@ -314,4 +316,121 @@ export function parsovatItrebonDivadloJkTyla(html: string): BranaScanKandidat[] 
     });
   }
   return vysledek;
+}
+
+const JKT_IDENTITA_RE = /^itrebon\|[1-9]\d*$/;
+const JKT_ISO_DEN_RE = /^\d{4}-\d{2}-\d{2}$/;
+const JKT_CAS_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+const JKT_MEZIDOKUMENT_CHYBA_KONEC = "Nic nebylo uloženo.";
+
+export const BRANA_JKT_ITREBON_MEZIDOKUMENT_RELATIVNI_CESTA =
+  "src/lib/brana/admin/divadlo-jk-tyla-itrebon.json";
+
+function jktMezidokumentChyba(duvod: string): never {
+  throw new Error(
+    `JKT mezidokument iTřeboň ${duvod} ${JKT_MEZIDOKUMENT_CHYBA_KONEC}`,
+  );
+}
+
+function jeNeprazdnyText(hodnota: unknown): hodnota is string {
+  return typeof hodnota === "string";
+}
+
+/**
+ * Fail-closed čtení mezidokumentu. Nevolá iTřeboň.
+ * `vytvoreno` se zachovává v souboru, stáří se zde neblokuje.
+ */
+export function parsovatItrebonJktMezidokument(
+  surovy: unknown,
+): BranaScanKandidat[] {
+  let data: unknown = surovy;
+  if (typeof surovy === "string") {
+    try {
+      data = JSON.parse(surovy);
+    } catch {
+      jktMezidokumentChyba("není validní JSON.");
+    }
+  }
+  if (data === null || typeof data !== "object" || Array.isArray(data)) {
+    jktMezidokumentChyba("má neočekávanou strukturu.");
+  }
+  const dokument = data as Record<string, unknown>;
+  if (!Array.isArray(dokument.kandidati)) {
+    jktMezidokumentChyba("nemá pole kandidati.");
+  }
+  if (dokument.kandidati.length > MAX_KANDIDATU_JKT) {
+    jktMezidokumentChyba("má příliš mnoho kandidátů.");
+  }
+
+  const vysledek: BranaScanKandidat[] = [];
+  const videne = new Set<string>();
+  for (const polozka of dokument.kandidati) {
+    if (
+      polozka === null ||
+      typeof polozka !== "object" ||
+      Array.isArray(polozka)
+    ) {
+      jktMezidokumentChyba("obsahuje neplatného kandidáta.");
+    }
+    const k = polozka as Record<string, unknown>;
+    if (
+      !jeNeprazdnyText(k.zdrojIdentita) ||
+      k.zdrojIdentita.trim().length === 0
+    ) {
+      jktMezidokumentChyba("obsahuje kandidáta bez zdrojIdentita.");
+    }
+    const zdrojIdentita = k.zdrojIdentita.trim();
+    if (!JKT_IDENTITA_RE.test(zdrojIdentita)) {
+      jktMezidokumentChyba("má neplatnou zdrojIdentita.");
+    }
+    if (videne.has(zdrojIdentita)) {
+      jktMezidokumentChyba("obsahuje duplicitní zdrojIdentita.");
+    }
+    videne.add(zdrojIdentita);
+    if (!jeNeprazdnyText(k.nazev) || k.nazev.trim().length < 2) {
+      jktMezidokumentChyba("obsahuje kandidáta s neplatným názvem.");
+    }
+    if (!jeNeprazdnyText(k.datumOd) || !JKT_ISO_DEN_RE.test(k.datumOd)) {
+      jktMezidokumentChyba("obsahuje kandidáta s neplatným datumOd.");
+    }
+    if (!jeNeprazdnyText(k.datumDo) || !JKT_ISO_DEN_RE.test(k.datumDo)) {
+      jktMezidokumentChyba("obsahuje kandidáta s neplatným datumDo.");
+    }
+    if (!jeNeprazdnyText(k.cas) || (k.cas !== "" && !JKT_CAS_RE.test(k.cas))) {
+      jktMezidokumentChyba("obsahuje kandidáta s neplatným časem.");
+    }
+    if (
+      !jeNeprazdnyText(k.mistoNeboTyp) ||
+      k.mistoNeboTyp.trim() !== JKT_MISTO_PRESNE
+    ) {
+      jktMezidokumentChyba("obsahuje kandidáta s neplatným místem.");
+    }
+    vysledek.push({
+      nazev: k.nazev,
+      datumOd: k.datumOd,
+      datumDo: k.datumDo,
+      cas: k.cas,
+      mistoNeboTyp: JKT_MISTO_PRESNE,
+      zdrojIdentita,
+    });
+  }
+  return vysledek;
+}
+
+/** Produkční JKT scan: zabalený ověřený JSON, bez HTTP. */
+export function nacistItrebonJktKandidatyZMezidokumentu(): BranaScanKandidat[] {
+  return parsovatItrebonJktMezidokument(jktItrebonMezidokument);
+}
+
+/** Ověření chybějícího souboru. Produkční scan používá zabalený JSON. */
+export function nacistItrebonJktMezidokumentZeSouboru(
+  cesta: string,
+): BranaScanKandidat[] {
+  let text: string;
+  try {
+    text = readFileSync(cesta, "utf8");
+  } catch {
+    jktMezidokumentChyba("chybí.");
+  }
+  return parsovatItrebonJktMezidokument(text);
 }

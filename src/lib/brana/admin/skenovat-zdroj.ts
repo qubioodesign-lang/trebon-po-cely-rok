@@ -58,7 +58,7 @@ import {
 import {
   BRANA_JKT_REDAKCNI_POLOZKA_ID,
   jeItrebonDivadloJkTylaZdroj,
-  parsovatItrebonDivadloJkTyla,
+  nacistItrebonJktKandidatyZMezidokumentu,
 } from "./divadlo-jk-tyla";
 import { sestavJazykBranyPoSparovani } from "./jazyk-brany-po-sparovani";
 import {
@@ -638,8 +638,8 @@ async function skenovatZnamyZdrojJadro(
   // Rybářství Třeboň: 1 fetch autoritativní /podzimni-vylov-rybniku.
   // VisitTřeboň: 1 GET s dynamickým horizontem dnes→+12 měsíců.
   // Třeboňsko kino: hub /kategorie/kina/ → aktuální + následující měsíc.
-  // iTřeboň JKT: stejný výpis /kalendar.html, jen kotva divadlo-jk-tyla
-  // (větev před GBU — stejná URL by jinak spustila GBU parser).
+  // iTřeboň JKT: ověřený JSON mezidokument, bez živého HTTP.
+  // Větev před GBU — stejná URL by jinak spustila GBU parser.
   // iTřeboň GBU: výpis /kalendar.html + stránky 2…12.
   // Ostatní zdroje: 1 fetch = 1 URL.
   let kandidati: BranaScanKandidat[];
@@ -680,13 +680,9 @@ async function skenovatZnamyZdrojJadro(
     const { text, contentType } = await nacistTeloZdroje(visitUrl);
     kandidati = parsovatUdalostiZeZdroje(text, contentType);
   } else if (jeItrebonDivadloJkTylaZdroj(zdroj)) {
-    const urlky = sestavItrebonKalendarUrlky(zdroj.url);
-    const sloucene: BranaScanKandidat[] = [];
-    for (const strankaUrl of urlky) {
-      const { text } = await nacistTeloZdroje(strankaUrl);
-      sloucene.push(...parsovatItrebonDivadloJkTyla(text));
-    }
-    kandidati = deduplikovatScanKandidaty(sloucene);
+    kandidati = deduplikovatScanKandidaty(
+      nacistItrebonJktKandidatyZMezidokumentu(),
+    );
   } else if (jeItrebonGalerieBuddhistickehoUmeniZdrojUrl(zdroj.url)) {
     const urlky = sestavItrebonKalendarUrlky(zdroj.url);
     const sloucene: BranaScanKandidat[] = [];

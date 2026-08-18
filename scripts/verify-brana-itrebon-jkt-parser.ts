@@ -2,9 +2,13 @@
  * Úzký parser iTřeboň → Divadlo J. K. Tyla.
  * Spuštění: npx tsx scripts/verify-brana-itrebon-jkt-parser.ts
  * READ-ONLY: fixture HTML, žádný Blob / ostrý scan / admin zdroj.
- * Živý předscan: npx tsx scripts/verify-brana-itrebon-jkt-parser.ts --prescan
+ * Živý předscan + JSON mezidokument:
+ *   npx tsx scripts/verify-brana-itrebon-jkt-parser.ts --prescan
+ * Produkční scan JSON zatím nečte.
  */
 
+import { readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import { rozlozAkci } from "../src/lib/brana/admin/akce-rozlozeni";
 import {
   BRANA_JKT_CO,
@@ -29,11 +33,37 @@ import {
   type BranaScanAutomatickaUdalostVstup,
 } from "../src/lib/brana/admin/scan-ceka-zapis";
 import {
+  deduplikovatScanKandidaty,
   jeItrebonGalerieBuddhistickehoUmeniZdrojUrl,
   parsovatUdalostiZeZdroje,
   sestavItrebonKalendarUrlky,
+  type BranaScanKandidat,
 } from "../src/lib/brana/admin/zdroj-scan-parser";
 import { sparovatVlastnictvimHlidaneKotvy } from "../src/lib/brana/admin/zdroj-scan-sparovani";
+
+const JKT_ITREBON_ZDROJ_URL = "https://www.itrebon.cz/kalendar.html";
+const JKT_MEZIDOKUMENT_CESTA = path.join(
+  "src",
+  "lib",
+  "brana",
+  "admin",
+  "divadlo-jk-tyla-itrebon.json",
+);
+
+type JktMezidokumentKandidat = {
+  nazev: string;
+  datumOd: string;
+  datumDo: string;
+  cas: string;
+  mistoNeboTyp: string;
+  zdrojIdentita: string;
+};
+
+type JktMezidokument = {
+  vytvoreno: string;
+  zdrojUrl: string;
+  kandidati: JktMezidokumentKandidat[];
+};
 
 function fail(msg: string): never {
   console.error(`FAIL: ${msg}`);
@@ -156,6 +186,66 @@ function jediny(html: string, ocekavanyNazev: string, id: string): void {
   assert(k[0].zdrojIdentita === `itrebon|${id}`, `id ${k[0].zdrojIdentita}`);
   assert(k[0].mistoNeboTyp === BRANA_JKT_CO, "místo kandidáta");
   overZapis(k[0].nazev, ocekavanyNazev);
+}
+
+function jktKandidatProMezidokument(
+  k: BranaScanKandidat,
+): JktMezidokumentKandidat {
+  const zdrojIdentita = k.zdrojIdentita?.trim() ?? "";
+  if (!zdrojIdentita.startsWith("itrebon|")) {
+    fail(`Kandidát bez identity itrebon|: ${k.nazev}`);
+  }
+  return {
+    nazev: k.nazev,
+    datumOd: k.datumOd,
+    datumDo: k.datumDo,
+    cas: k.cas,
+    mistoNeboTyp: k.mistoNeboTyp,
+    zdrojIdentita,
+  };
+}
+
+function porovnatParserAMezidokument(
+  zParseru: readonly JktMezidokumentKandidat[],
+  zJson: readonly JktMezidokumentKandidat[],
+): string[] {
+  const chyby: string[] = [];
+  if (zParseru.length !== zJson.length) {
+    chyby.push(`počet parser=${zParseru.length} json=${zJson.length}`);
+  }
+  const n = Math.max(zParseru.length, zJson.length);
+  const pole: Array<keyof JktMezidokumentKandidat> = [
+    "zdrojIdentita",
+    "nazev",
+    "datumOd",
+    "datumDo",
+    "cas",
+    "mistoNeboTyp",
+  ];
+  for (let i = 0; i < n; i++) {
+    const a = zParseru[i];
+    const b = zJson[i];
+    if (!a || !b) {
+      chyby.push(`index ${i}: chybí ${a ? "JSON" : "parser"}`);
+      continue;
+    }
+    for (const klic of pole) {
+      if (a[klic] !== b[klic]) {
+        chyby.push(
+          `index ${i} ${klic}: parser=${JSON.stringify(a[klic])} json=${JSON.stringify(b[klic])}`,
+        );
+      }
+    }
+  }
+  return chyby;
+}
+
+function cistJktMezidokument(text: string): JktMezidokumentKandidat[] {
+  const dokument = JSON.parse(text) as JktMezidokument;
+  if (!Array.isArray(dokument.kandidati)) {
+    fail("JSON mezidokument nemá pole kandidati.");
+  }
+  return dokument.kandidati;
 }
 
 const MIX = shell(
@@ -836,6 +926,21 @@ if (!process.argv.includes("--prescan")) {
     console.log("OK X čas 00:00 není obecné vyřazení");
   }
 
+  {
+    const zParseru = deduplikovatScanKandidaty(
+      parsovatItrebonDivadloJkTyla(MIX),
+    ).map(jktKandidatProMezidokument);
+    const dokument: JktMezidokument = {
+      vytvoreno: "2026-08-18T00:00:00.000Z",
+      zdrojUrl: JKT_ITREBON_ZDROJ_URL,
+      kandidati: zParseru,
+    };
+    const zJson = cistJktMezidokument(JSON.stringify(dokument));
+    const chyby = porovnatParserAMezidokument(zParseru, zJson);
+    assert(chyby.length === 0, `fixture parser→JSON: ${chyby.join("; ")}`);
+    console.log(`OK Y fixture parser→JSON (${zParseru.length} kandidátů)`);
+  }
+
   console.log("\nVšechny kontroly JKT parseru prošly.");
 }
 
@@ -847,16 +952,15 @@ if (process.argv.includes("--prescan")) {
 }
 
 async function spustitJktPrescan(): Promise<void> {
-  const urlky = sestavItrebonKalendarUrlky(
-    "https://www.itrebon.cz/kalendar.html",
-  );
-  const prijate: ReturnType<typeof parsovatItrebonDivadloJkTyla> = [];
+  const urlky = sestavItrebonKalendarUrlky(JKT_ITREBON_ZDROJ_URL);
+  const prijate: BranaScanKandidat[] = [];
   const tdf: string[][] = [];
   const nocturna: string[][] = [];
   const foyer: string[][] = [];
   const vystava: string[][] = [];
   const jine: string[][] = [];
   const videne = new Set<string>();
+  let nactenoStran = 0;
 
   for (const url of urlky) {
     const res = await fetch(url, {
@@ -865,7 +969,11 @@ async function spustitJktPrescan(): Promise<void> {
         Accept: "text/html",
       },
     });
+    if (!res.ok) {
+      fail(`iTřeboň HTTP ${res.status} na ${url}`);
+    }
     const html = await res.text();
+    nactenoStran += 1;
     prijate.push(...parsovatItrebonDivadloJkTyla(html));
     for (const stopa of vytahnoutJktRelevantniStopu(html)) {
       if (videne.has(stopa.id)) {
@@ -898,17 +1006,29 @@ async function spustitJktPrescan(): Promise<void> {
     }
   }
 
-  const jedinecnePrijate = new Map<string, (typeof prijate)[0]>();
-  for (const k of prijate) {
-    const id = k.zdrojIdentita ?? k.nazev;
-    if (!jedinecnePrijate.has(id)) {
-      jedinecnePrijate.set(id, k);
-    }
+  const parserKandidati = deduplikovatScanKandidaty(prijate).map(
+    jktKandidatProMezidokument,
+  );
+  const dokument: JktMezidokument = {
+    vytvoreno: new Date().toISOString(),
+    zdrojUrl: JKT_ITREBON_ZDROJ_URL,
+    kandidati: parserKandidati,
+  };
+  const jsonText = `${JSON.stringify(dokument, null, 2)}\n`;
+  writeFileSync(JKT_MEZIDOKUMENT_CESTA, jsonText, "utf8");
+  const zJson = cistJktMezidokument(
+    readFileSync(JKT_MEZIDOKUMENT_CESTA, "utf8"),
+  );
+  const chyby = porovnatParserAMezidokument(parserKandidati, zJson);
+  if (chyby.length > 0) {
+    fail(`parser → JSON se neshoduje:\n${chyby.join("\n")}`);
   }
+
   const jazyk = jazykJkt();
   console.log("\n=== READ-ONLY PŘEDSCAN JKT ===");
-  console.log(`PŘIJATO: ${jedinecnePrijate.size}`);
-  for (const k of jedinecnePrijate.values()) {
+  console.log(`STRAN NAČTENO: ${nactenoStran} / ${urlky.length}`);
+  console.log(`PŘIJATO: ${parserKandidati.length}`);
+  for (const k of parserKandidati) {
     console.log(
       [
         k.datumOd,
@@ -943,7 +1063,11 @@ async function spustitJktPrescan(): Promise<void> {
     console.log(r.join(" | "));
   }
   console.log(
-    `\nETALON 20/2/6/1/1/0 → živě ${jedinecnePrijate.size}/${tdf.length}/${nocturna.length}/${foyer.length}/${vystava.length}/${jine.length}`,
+    `\nŽIVĚ ${parserKandidati.length}/${tdf.length}/${nocturna.length}/${foyer.length}/${vystava.length}/${jine.length}`,
+  );
+  console.log(`MEZIDOKUMENT: ${JKT_MEZIDOKUMENT_CESTA}`);
+  console.log(
+    `PARSER → JSON: shoda ${parserKandidati.length}/${parserKandidati.length}`,
   );
 }
 
