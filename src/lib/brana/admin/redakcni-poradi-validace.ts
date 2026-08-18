@@ -2,6 +2,7 @@ import type {
   BranaJazykSlot,
   BranaRedakcniJazykVerejny,
   BranaRedakcniPolozkaStav,
+  BranaRedakcniPolozkaVychozi,
 } from "./redakcni-kostra";
 import {
   BRANA_REDAKCNI_CISLO_MAX,
@@ -382,9 +383,15 @@ export function validovatRedakcniPoradiVstup(
   return { ok: true, polozky: vysledek };
 }
 
-/** Sloučí uložené hodnoty s pevným katalogem podle stabilního id. */
+/**
+ * Sloučí uložené hodnoty s pevným katalogem podle stabilního id.
+ * Uložený prázdný NE slot (Položka "") se nesmí doplnit seedovým názvem.
+ * Seed jen pro id, které v uloženém dokumentu chybí.
+ * `katalog` jen pro izolovaný test rozšíření; produkce bere 54 ID.
+ */
 export function sloucitUlozeneSKostrou(
   ulozene: unknown,
+  katalog: readonly BranaRedakcniPolozkaVychozi[] = BRANA_REDAKCNI_VSECHNY_VYCHOZI,
 ): BranaRedakcniPolozkaStav[] {
   if (!ulozene || typeof ulozene !== "object") {
     return vytvoritVychoziRedakcniPoradi();
@@ -406,14 +413,18 @@ export function sloucitUlozeneSKostrou(
     }
   }
 
-  return BRANA_REDAKCNI_VSECHNY_VYCHOZI.map((vychozi) => {
+  return katalog.map((vychozi) => {
     const ulozeny = mapa.get(vychozi.id);
     if (!ulozeny) {
       return vytvoritVychoziStavPolozky(vychozi);
     }
 
-    const nazev = normalizovatNazevPolozky(ulozeny.polozka);
-    const pouzivat = normalizovatPouzivat(ulozeny.pouzivat);
+    const pouzivatRaw = normalizovatPouzivat(ulozeny.pouzivat);
+    const pouzivat =
+      pouzivatRaw === "neplatne" ? vychozi.pouzivat : pouzivatRaw;
+    const nazev = normalizovatNazevPolozky(ulozeny.polozka, {
+      povolitPrazdne: pouzivat === "NE",
+    });
     const prioritaRaw = normalizovatCislo(ulozeny.priorita);
     const subprioritaRaw = normalizovatCislo(ulozeny.subpriorita);
     const vyhledRaw = normalizovatVyhled(vychozi.id, ulozeny.vyhled, true);
@@ -431,7 +442,7 @@ export function sloucitUlozeneSKostrou(
     return {
       id: vychozi.id,
       polozka: nazev.ok ? nazev.text : vychozi.polozka,
-      pouzivat: pouzivat === "neplatne" ? vychozi.pouzivat : pouzivat,
+      pouzivat,
       priorita: prioritaRaw === "neplatne" ? null : prioritaRaw,
       subpriorita: subprioritaRaw === "neplatne" ? null : subprioritaRaw,
       vyhled: vyhledRaw === "neplatne" ? vychoziVyhledProId(vychozi.id) : vyhledRaw,
