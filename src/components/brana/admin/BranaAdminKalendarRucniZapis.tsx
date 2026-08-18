@@ -701,14 +701,22 @@ export function BranaAdminKalendarRucniZapis({
       ) : null}
 
       {rucniZapisPovolen && idCekaKeSchvaleniKontroly.length > 0 ? (
-        <button
-          type="button"
-          onClick={schvalitKontrolu}
-          disabled={pending}
-          className="text-sm font-light text-text-jemny underline-offset-2 hover:underline disabled:opacity-50"
-        >
-          {pending ? "Ukládám…" : "Schválit kontrolu"}
-        </button>
+        <>
+          <p className="text-sm text-red-500">
+            Před schválením: Aktualizuj všechny asistované zdroje podle uloženého postupu.
+          </p>
+          <p className="text-xs text-text-jemny">
+            Vlož do Cursoru → projekt trebon-po-cely-rok
+          </p>
+          <button
+            type="button"
+            onClick={schvalitKontrolu}
+            disabled={pending}
+            className="text-sm font-light text-text-jemny underline-offset-2 hover:underline disabled:opacity-50"
+          >
+            {pending ? "Ukládám…" : "Schválit kontrolu"}
+          </button>
+        </>
       ) : null}
 
       {formularOtevren ? (
