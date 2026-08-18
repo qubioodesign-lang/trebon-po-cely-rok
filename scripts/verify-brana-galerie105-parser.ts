@@ -1,7 +1,9 @@
 /**
- * Regrese: úzký HTML parser Galerie 105 / trebon105.cz (`article.event`).
+ * Regrese: úzký HTML parser Galerie 105 / Biograf 105 / trebon105.cz (`article.event`).
  * Jen sekce Akce (`event-list` bez `event-list--exhibitions`).
+ * Biograf: vnořený `event-list` v `<section class="section">`.
  * Spuštění: npx tsx scripts/verify-brana-galerie105-parser.ts
+ * READ-ONLY předscan Biograf: npx tsx scripts/verify-brana-galerie105-parser.ts --zivy
  */
 
 import { readFileSync, existsSync } from "fs";
@@ -9,7 +11,11 @@ import { join } from "path";
 import { parsovatUdalostiZeZdroje } from "../src/lib/brana/admin/zdroj-scan-parser";
 import { sparovatSRedakcniPolozkou } from "../src/lib/brana/admin/zdroj-scan-sparovani";
 import { vytvoritVychoziRedakcniPoradi } from "../src/lib/brana/admin/redakcni-kostra";
-import { projektujKalendarDny } from "../src/lib/brana/admin/konkretni-udalost";
+import {
+  dnesIsoVPraze,
+  jeUdalostCelaMinula,
+  projektujKalendarDny,
+} from "../src/lib/brana/admin/konkretni-udalost";
 
 function fail(msg: string): never {
   console.error(`FAIL: ${msg}`);
@@ -105,6 +111,42 @@ ${eventCard({
   </div>
 </section>
 <footer>Masarykovo náměstí 105</footer>
+</body></html>`;
+
+/** Živá struktura filtru Biograf: event-list vnořený v section.section. */
+const FIXTURE_BIOGRAF_VNORENA = `<!DOCTYPE html>
+<html><head>
+<title>Program - Třeboň 105</title>
+<link rel="canonical" href="https://trebon105.cz/program/prostor:biograf"/>
+</head><body>
+<nav class="filter-nav">
+  <a class="filter-nav-item" href="https://trebon105.cz/program">Vše</a>
+  <a class="filter-nav-item" href="https://trebon105.cz/program/prostor:galerie">Galerie</a>
+  <a class="filter-nav-item is-active" href="https://trebon105.cz/program/prostor:biograf">Biograf</a>
+</nav>
+<section class="section">
+<section class="event-list event-list--exhibitions">
+  <h3 class="event-list__title">Výstavy</h3>
+${eventCard({
+  dateHtml: "27. 6. - 30. 8. 2026",
+  title: "Výstava nesmí projít",
+  venue: "Galerie",
+})}
+</section>
+<section class="event-list">
+  <h3 class="event-list__title">Akce</h3>
+${eventCard({
+  dateHtml: "Středa<br> 19. 8. 18:00 - 19:15",
+  title: "Soutěžní videoklipy (Ozvěny Anifilmu)",
+  venue: "Biograf",
+})}
+${eventCard({
+  dateHtml: "Čtvrtek<br> 20. 8. 14:00 - 15:00",
+  title: "Bardo",
+  venue: "Biograf",
+})}
+</section>
+</section>
 </body></html>`;
 
 /** Timed overnight, ale konec ≠ 23:59 → rozsah se nesmí zkrátit. */
@@ -303,6 +345,40 @@ function overMatching(): void {
   console.log("OK matching zdrojNazev Galerie 105 → galerie-105");
 }
 
+function overBiografVnorenaSekce(): void {
+  const k = parsovatUdalostiZeZdroje(FIXTURE_BIOGRAF_VNORENA, "text/html");
+  assert(k.length === 2, `vnořený Biograf: 2 kandidáti, je ${k.length}`);
+  assert(
+    k.every((x) => x.mistoNeboTyp === "Biograf"),
+    `venue Biograf, je ${k.map((x) => x.mistoNeboTyp).join(",")}`,
+  );
+  assert(
+    !k.some((x) => /Výstava|Galerie/i.test(x.nazev) || x.mistoNeboTyp === "Galerie"),
+    "z Biografu nesmí vzniknout kandidát Galerie / výstavy",
+  );
+  const klipy = k.find((x) => x.nazev.includes("videoklipy"));
+  assert(klipy, "videoklipy");
+  assert(klipy.datumOd === "2026-08-19", `klipy den ${klipy.datumOd}`);
+  assert(klipy.cas === "18:00", `klipy čas ${klipy.cas}`);
+  const bardo = k.find((x) => x.nazev === "Bardo");
+  assert(bardo, "Bardo");
+  assert(bardo.datumOd === "2026-08-20", `Bardo den ${bardo.datumOd}`);
+  assert(bardo.cas === "14:00", `Bardo čas ${bardo.cas}`);
+
+  const polozky = vytvoritVychoziRedakcniPoradi();
+  for (const kandidat of k) {
+    const s = sparovatSRedakcniPolozkou(kandidat, polozky, {
+      zdrojNazev: "Biograf 105",
+    });
+    assert(s.ok, `Biograf match fail ${kandidat.nazev}`);
+    assert(
+      s.redakcniPolozkaId === "biograf-105",
+      `kotva ${s.ok ? s.redakcniPolozkaId : "?"}`,
+    );
+  }
+  console.log("OK vnořený Biograf: 2 kandidáti → biograf-105, 0 Galerie/výstavy");
+}
+
 function overRegreseOstatni(): void {
   const kino = parsovatUdalostiZeZdroje(KINOTREBON_FIXTURE, "text/html");
   assert(kino.length >= 1, "kino regrese");
@@ -365,6 +441,37 @@ async function overZivyProgramVolitelne(): Promise<void> {
   console.log(`OK živý prostor:galerie → ${k.length} Akcí (z ${cards} karet)`);
 }
 
+async function zivyPredscanBiograf(): Promise<void> {
+  const url = "https://trebon105.cz/program/prostor:biograf";
+  const res = await fetch(url, {
+    headers: {
+      Accept: "text/html",
+      "User-Agent": "BranaAdminScan/1.0",
+    },
+  });
+  if (!res.ok) {
+    fail(`živý GET Biograf ${res.status}`);
+  }
+  const html = await res.text();
+  const k = parsovatUdalostiZeZdroje(html, "text/html");
+  const polozky = vytvoritVychoziRedakcniPoradi();
+  const dnesIso = dnesIsoVPraze();
+  const budouci = k.filter((x) => !jeUdalostCelaMinula(x, dnesIso));
+  console.log("\nREAD-ONLY předscan", url);
+  console.log("Nalezeno kandidátů (včetně minulých):", k.length);
+  console.log("Budoucích kandidátů:", budouci.length);
+  console.log("Očekávané CO/KDE z uloženého Redakčního pořadí: Biograf / Biograf 105");
+  for (const kandidat of budouci) {
+    const s = sparovatSRedakcniPolozkou(kandidat, polozky, {
+      zdrojNazev: "Biograf 105",
+    });
+    const kotva = s.ok ? s.redakcniPolozkaId : "NO-MATCH";
+    console.log(
+      `- ${kandidat.nazev} | ${kandidat.datumOd} | ${kandidat.cas || "(bez času)"} | ${kandidat.mistoNeboTyp} | ${kotva}`,
+    );
+  }
+}
+
 async function main(): Promise<void> {
   overFixture();
   overFluenceKalendarSimulace();
@@ -372,9 +479,13 @@ async function main(): Promise<void> {
   overNavigaceNedavaKandidaty();
   overJenVystavySekce();
   overMatching();
+  overBiografVnorenaSekce();
   overRegreseOstatni();
   await overZivyProgramVolitelne();
   console.log("ALL OK verify-brana-galerie105-parser");
+  if (process.argv.includes("--zivy")) {
+    await zivyPredscanBiograf();
+  }
 }
 
 main().catch((e) => {

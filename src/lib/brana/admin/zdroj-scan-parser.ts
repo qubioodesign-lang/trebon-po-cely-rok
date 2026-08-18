@@ -3,7 +3,8 @@
  * Preferuje JSON-LD schema.org Event; úzké HTML větve jen pro program
  * kinotrebon.cz (`.section-event`), trebonskanocturna.cz (karty `/koncert/`),
  * dumstepankanetolickeho.cz (`.home-block-wrapper.event-item`),
- * trebon105.cz (`article.event` jen v sekci Akce, ne Výstavy),
+ * trebon105.cz (`article.event` jen v sekci Akce, ne Výstavy;
+ *   `event-list` i vnořený do `<section class="section">` – filtr Biograf),
  * zameckalekarnatrebon.cz (měsíční `.articleContent` denní program),
  * rybarstvi.cz (podzimní výlovy – roční sekce / tabulka),
  * trebonsko.cz/remeslne-trhy-trebon (městské Trhy – fail-closed whitelist),
@@ -1104,11 +1105,14 @@ function rozlozTrebon105EventDate(
 
 /**
  * Vnitřek sekcí `event-list` BEZ `event-list--exhibitions` (programová Akce).
+ * Bere i `event-list` vnořený do `<section class="section">` (filtr Biograf).
  * Sekci Výstavy (`event-list--exhibitions`) úplně vynechá – bez textové heuristiky.
  */
 function vytahnoutTrebon105AkceSekceHtml(html: string): string {
   const sekce = [
-    ...html.matchAll(/<section\b([^>]*)>([\s\S]*?)<\/section>/gi),
+    ...html.matchAll(
+      /<section\b([^>]*\bevent-list\b[^>]*)>([\s\S]*?)<\/section>/gi,
+    ),
   ];
   const casti: string[] = [];
   for (const m of sekce) {
@@ -3750,7 +3754,7 @@ export function parsovatUdalostiZeZdroje(
     parsovatDumStepankaEventItem(telo, vysledek);
   }
 
-  // Jen trebon105.cz – karty article.event (Galerie / program).
+  // Jen trebon105.cz – karty article.event (Galerie / Biograf / program).
   if (jeTrebon105ProgramHtml(telo)) {
     parsovatTrebon105EventArticles(telo, vysledek);
   }
