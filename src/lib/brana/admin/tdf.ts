@@ -75,6 +75,40 @@ function textBezHtmlTdf(html: string): string {
   return dekodovatTdfText(html.replace(/<[^>]+>/g, " "));
 }
 
+function normalizovatJktBezMesta(text: string): string {
+  return text.replace(
+    /Divadlo\s+J\.\s*K\.\s*Tyla(?:\s*,\s*Třeboň|\s+v\s+Třeboni)?/gi,
+    "Divadlo J. K. Tyla",
+  );
+}
+
+function normalizovatNadvoriBezMesta(text: string): string {
+  return text.replace(/Malé nádvoří zámku(?:\s+Třeboň)?/gi, "Malé nádvoří zámku");
+}
+
+/**
+ * Jen veřejné KDE TDF: bez přívěsku města u JKT a u Malého nádvoří zámku.
+ * Závorka s náhradním místem při dešti zůstane. Klasifikace / identita
+ * dál vidí surový text ze zdroje.
+ */
+export function normalizovatTdfMistoProKde(misto: string): string {
+  const surove = misto.replace(/\s+/g, " ").trim();
+  if (!surove) {
+    return surove;
+  }
+  const seZavorkou = surove.match(/^(.*?)\s*\((.*)\)\s*$/);
+  const hlavni = (seZavorkou?.[1] ?? surove).trim();
+  const zavorka = seZavorkou?.[2]?.trim() ?? null;
+  const hlavniKde = normalizovatJktBezMesta(
+    normalizovatNadvoriBezMesta(hlavni),
+  ).replace(/\s+/g, " ").trim();
+  if (!zavorka) {
+    return hlavniKde;
+  }
+  const zavorkaKde = normalizovatJktBezMesta(zavorka).replace(/\s+/g, " ").trim();
+  return `${hlavniKde} (${zavorkaKde})`;
+}
+
 function slugProTdfIdentitu(text: string): string {
   return normalizovatTdf(text)
     .replace(/[^a-z0-9]+/g, "-")
@@ -279,7 +313,7 @@ export function parsovatTdfProgram(html: string): TdfScanKandidat[] {
       datumOd: termin.datum,
       datumDo: termin.datum,
       cas: termin.cas,
-      mistoNeboTyp: misto,
+      mistoNeboTyp: normalizovatTdfMistoProKde(misto),
       zdrojIdentita: sestavTdfZdrojIdentitu({
         itrebonCmsId: vytahnoutItrebonCmsId(blok),
         datumOd: termin.datum,

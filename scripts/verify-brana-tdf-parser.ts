@@ -19,6 +19,7 @@ import { aplikovatScanKandidatyNaUdalosti } from "../src/lib/brana/admin/scan-ce
 import {
   BRANA_TDF_REDAKCNI_POLOZKA_ID,
   jeTdfZdrojUrl,
+  normalizovatTdfMistoProKde,
   parsovatTdfProgram,
   sestavTdfProgramUrl,
   urcitTdfKotvu,
@@ -170,6 +171,32 @@ function jazykTdf(kandidat: { mistoNeboTyp: string }): {
   });
 }
 
+function overKdeNormalizaci(): void {
+  assert(
+    normalizovatTdfMistoProKde("Divadlo J. K. Tyla v Třeboni") ===
+      "Divadlo J. K. Tyla",
+    "A JKT v Třeboni",
+  );
+  assert(
+    normalizovatTdfMistoProKde("Malé nádvoří zámku Třeboň") ===
+      "Malé nádvoří zámku",
+    "B nádvoří Třeboň",
+  );
+  assert(
+    normalizovatTdfMistoProKde(
+      "Malé nádvoří zámku Třeboň (v případě deště Divadlo J. K. Tyla)",
+    ) === "Malé nádvoří zámku (v případě deště Divadlo J. K. Tyla)",
+    "C nádvoří + závorka JKT",
+  );
+  assert(
+    normalizovatTdfMistoProKde(
+      "Malé nádvoří zámku Třeboň (v případě deště Divadlo J. K. Tyla v Třeboni)",
+    ) === "Malé nádvoří zámku (v případě deště Divadlo J. K. Tyla)",
+    "C2 JKT v Třeboni i v závorce",
+  );
+  console.log("OK KDE normalizace A/B/C");
+}
+
 function overUrl(): void {
   assert(jeTdfZdrojUrl("https://www.tdf.cz/"), "homepage URL");
   assert(jeTdfZdrojUrl("https://tdf.cz/predstaveni-festivalu/"), "podstránka");
@@ -199,25 +226,53 @@ function overFixture(): void {
   assert(nezarazene[0]?.nazev === "Komorní čtení", "Nezařazené = Kostel");
 
   const ocekavane = [
-    ["Velká zebra aneb Jakže se to jmenujete?", "2026-06-10", "19:30", "tdf|itrebon|19484"],
-    ["Právo první noci", "2026-07-27", "20:00", "tdf|itrebon|19489"],
-    ["Dlouhý, Široký a Bystrozraký", "2026-08-10", "17:00", "tdf|itrebon|19490"],
-    ["Sirény na cestách 2026", "2026-08-24", "19:00", "tdf|itrebon|19491"],
-    ["Za dveřmi kanceláří", "2026-09-03", "19:30", "tdf|itrebon|19485"],
+    [
+      "Velká zebra aneb Jakže se to jmenujete?",
+      "2026-06-10",
+      "19:30",
+      "tdf|itrebon|19484",
+      "Divadlo J. K. Tyla",
+    ],
+    [
+      "Právo první noci",
+      "2026-07-27",
+      "20:00",
+      "tdf|itrebon|19489",
+      "Malé nádvoří zámku",
+    ],
+    [
+      "Dlouhý, Široký a Bystrozraký",
+      "2026-08-10",
+      "17:00",
+      "tdf|itrebon|19490",
+      "Malé nádvoří zámku (v případě deště Schwarzenberský sál)",
+    ],
+    [
+      "Sirény na cestách 2026",
+      "2026-08-24",
+      "19:00",
+      "tdf|itrebon|19491",
+      "Malé nádvoří zámku (v případě deště Divadlo J. K. Tyla)",
+    ],
+    [
+      "Za dveřmi kanceláří",
+      "2026-09-03",
+      "19:30",
+      "tdf|itrebon|19485",
+      "Divadlo J. K. Tyla",
+    ],
   ] as const;
-  for (const [nazev, den, cas, identita] of ocekavane) {
+  for (const [nazev, den, cas, identita, kde] of ocekavane) {
     const polozka = tdf.find((x) => x.nazev === nazev);
     assert(polozka, nazev);
     assert(polozka.datumOd === den, `${nazev} den ${polozka.datumOd}`);
     assert(polozka.cas === cas, `${nazev} čas ${polozka.cas}`);
     assert(polozka.zdrojIdentita === identita, `${nazev} ${polozka.zdrojIdentita}`);
     assert(sparujTdf(polozka) === BRANA_TDF_REDAKCNI_POLOZKA_ID, `${nazev} kotva`);
+    assert(polozka.mistoNeboTyp === kde, `${nazev} místo ${polozka.mistoNeboTyp}`);
     const jazyk = jazykTdf(polozka);
     assert(jazyk.verejneCo === "Divadelní festival", `${nazev} CO`);
-    assert(
-      jazyk.verejneRozliseni === polozka.mistoNeboTyp,
-      `${nazev} KDE ${jazyk.verejneRozliseni}`,
-    );
+    assert(jazyk.verejneRozliseni === kde, `${nazev} KDE ${jazyk.verejneRozliseni}`);
   }
   assert(
     tdf.filter((x) => x.nazev.includes("Sirény")).length === 1,
@@ -376,6 +431,7 @@ async function zivyPredscan(): Promise<void> {
 
 async function main(): Promise<void> {
   overUrl();
+  overKdeNormalizaci();
   overFixture();
   overJktAOkoloDrop();
   overIdentitaDedupZapis();
