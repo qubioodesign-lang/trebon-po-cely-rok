@@ -1,6 +1,6 @@
 {
   "functions": {
-    "src/app/brana/admin/sprava/zdroje/page.tsx": {
+    "app/brana/admin/**/*": {
       "regions": ["fra1"]
     }
   },
