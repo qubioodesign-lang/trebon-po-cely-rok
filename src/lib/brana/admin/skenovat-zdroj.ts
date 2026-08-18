@@ -39,6 +39,10 @@ import {
   jeOkoloTreboneZdrojUrl,
   sestavOkoloTreboneProgramUrl,
   urcitOkoloTreboneKotvu,
+  jeTdfZdrojUrl,
+  sestavTdfProgramUrl,
+  urcitTdfKotvu,
+  BRANA_TDF_REDAKCNI_POLOZKA_ID,
   parsovatUdalostiZeZdroje,
   sestavItrebonKalendarUrlky,
   sestavDumStepankaKalendarUrlkyCtyriMesice,
@@ -711,6 +715,10 @@ async function skenovatZnamyZdrojJadro(
     const programUrl = sestavOkoloTreboneProgramUrl(zdroj.url);
     const { text, contentType } = await nacistTeloZdroje(programUrl);
     kandidati = parsovatUdalostiZeZdroje(text, contentType);
+  } else if (jeTdfZdrojUrl(zdroj.url)) {
+    const programUrl = sestavTdfProgramUrl(zdroj.url);
+    const { text, contentType } = await nacistTeloZdroje(programUrl);
+    kandidati = parsovatUdalostiZeZdroje(text, contentType);
   } else {
     const { text, contentType } = await nacistTeloZdroje(zdroj.url);
     kandidati = parsovatUdalostiZeZdroje(text, contentType);
@@ -738,8 +746,19 @@ async function skenovatZnamyZdrojJadro(
     const okoloKotva = jeOkoloTreboneZdrojUrl(zdroj.url)
       ? urcitOkoloTreboneKotvu(kandidat)
       : null;
+    const tdfKotva = jeTdfZdrojUrl(zdroj.url)
+      ? urcitTdfKotvu(kandidat)
+      : null;
     const sparovani =
-      jeOkoloTreboneZdrojUrl(zdroj.url)
+      jeTdfZdrojUrl(zdroj.url)
+        ? tdfKotva
+          ? sparovatVlastnictvimHlidaneKotvy(
+              redakcni.polozky,
+              [BRANA_TDF_REDAKCNI_POLOZKA_ID],
+              tdfKotva,
+            )
+          : { ok: false as const }
+      : jeOkoloTreboneZdrojUrl(zdroj.url)
         ? okoloKotva
           ? sparovatVlastnictvimHlidaneKotvy(
               redakcni.polozky,
@@ -808,8 +827,26 @@ async function skenovatZnamyZdrojJadro(
         });
         continue;
       }
+      // TDF: třeboňský program má kotvu ownership. Úplná karta bez
+      // bezpečného třeboňského místa → existující Nezařazené.
+      // Mimo / neúplné parser nevydá. Neshoda kotvy (Používat NE) tiše.
+      if (jeTdfZdrojUrl(zdroj.url) && !tdfKotva) {
+        nezarazeno += 1;
+        nesparovane.push({
+          nazev: kandidat.nazev,
+          datumOd: kandidat.datumOd,
+          datumDo: kandidat.datumDo,
+          cas: kandidat.cas,
+          mistoNeboTyp: kandidat.mistoNeboTyp,
+        });
+        continue;
+      }
       // Bohatý zdroj: neshody se neposílají do Nezařazených (provozní šum).
-      if (hlidaneKotvy || jeOkoloTreboneZdrojUrl(zdroj.url)) {
+      if (
+        hlidaneKotvy ||
+        jeOkoloTreboneZdrojUrl(zdroj.url) ||
+        jeTdfZdrojUrl(zdroj.url)
+      ) {
         continue;
       }
       nezarazeno += 1;

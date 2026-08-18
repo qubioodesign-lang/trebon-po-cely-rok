@@ -17,7 +17,8 @@
  * Divadlo J. K. Tyla ze stejné URL má vlastní parser (divadlo-jk-tyla.ts)
  * a scan větev podle hlídané kotvy — tato HTML větev GBU nemění.
  * a dumprirody.cz/dum-prirody-trebonska/akce/ (výlety / exkurze / přednášky),
- * okolotrebone.cz/program/ (v1 jen hrobka + lázeňské matiné; JKT drop).
+ * okolotrebone.cz/program/ (v1 jen hrobka + lázeňské matiné; JKT drop),
+ * tdf.cz (Třeboňský divadelní festival – homepage title/place/data-date).
  * Odděleně od Kalendáře a Blob zápisu.
  * Datum/čas: Europe/Prague (včetně DST) přes stávající brana/cas.
  * Multi-měsíční fetch DSN / Zámecká lékárna / Rybářství / Visit / Třeboňsko kino,
@@ -33,6 +34,7 @@ import {
   jeOkoloTreboneProgramHtml,
   parsovatOkoloTrebone,
 } from "./okolo-trebone";
+import { jeTdfProgramHtml, parsovatTdf } from "./tdf";
 
 export {
   BRANA_DPT_CO,
@@ -50,6 +52,13 @@ export {
   sestavOkoloTreboneProgramUrl,
   urcitOkoloTreboneKotvu,
 } from "./okolo-trebone";
+
+export {
+  BRANA_TDF_REDAKCNI_POLOZKA_ID,
+  jeTdfZdrojUrl,
+  sestavTdfProgramUrl,
+  urcitTdfKotvu,
+} from "./tdf";
 
 export type BranaScanKandidat = {
   nazev: string;
@@ -3732,6 +3741,12 @@ export function parsovatUdalostiZeZdroje(
   // Okolo Třeboně: v1 jen hrobka + matiné — bez JSON-LD mixu, JKT drop.
   if (jeOkoloTreboneProgramHtml(telo)) {
     parsovatOkoloTrebone(telo, vysledek);
+    return deduplikovatScanKandidaty(vysledek);
+  }
+
+  // TDF: homepage title/place/data-date — bez JSON-LD mixu, JKT matching ne.
+  if (jeTdfProgramHtml(telo)) {
+    parsovatTdf(telo, vysledek);
     return deduplikovatScanKandidaty(vysledek);
   }
 
