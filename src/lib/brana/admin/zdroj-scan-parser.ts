@@ -15,7 +15,8 @@
  * a itrebon.cz/kalendar.html (jen Galerie buddhistického umění – stránkování ve scanu).
  * Divadlo J. K. Tyla ze stejné URL má vlastní parser (divadlo-jk-tyla.ts)
  * a scan větev podle hlídané kotvy — tato HTML větev GBU nemění.
- * a dumprirody.cz/dum-prirody-trebonska/akce/ (výlety / exkurze / přednášky).
+ * a dumprirody.cz/dum-prirody-trebonska/akce/ (výlety / exkurze / přednášky),
+ * okolotrebone.cz/program/ (v1 jen hrobka + lázeňské matiné; JKT drop).
  * Odděleně od Kalendáře a Blob zápisu.
  * Datum/čas: Europe/Prague (včetně DST) přes stávající brana/cas.
  * Multi-měsíční fetch DSN / Zámecká lékárna / Rybářství / Visit / Třeboňsko kino,
@@ -27,6 +28,10 @@ import {
   jeDumPrirodyTrebonskaHtml,
   parsovatDumPrirodyTrebonska,
 } from "./dum-prirody";
+import {
+  jeOkoloTreboneProgramHtml,
+  parsovatOkoloTrebone,
+} from "./okolo-trebone";
 
 export {
   BRANA_DPT_CO,
@@ -36,6 +41,14 @@ export {
   vytahnoutDumPrirodyDetailUrlky,
   zaraditDptFormat,
 } from "./dum-prirody";
+
+export {
+  BRANA_OKOLO_HROBKA_REDAKCNI_POLOZKA_ID,
+  BRANA_OKOLO_MATINE_REDAKCNI_POLOZKA_ID,
+  jeOkoloTreboneZdrojUrl,
+  sestavOkoloTreboneProgramUrl,
+  urcitOkoloTreboneKotvu,
+} from "./okolo-trebone";
 
 export type BranaScanKandidat = {
   nazev: string;
@@ -3709,6 +3722,12 @@ export function parsovatUdalostiZeZdroje(
   // Dům přírody Třeboňska: listing a.article / detail p.info — bez JSON-LD mixu.
   if (jeDumPrirodyTrebonskaHtml(telo)) {
     parsovatDumPrirodyTrebonska(telo, vysledek);
+    return deduplikovatScanKandidaty(vysledek);
+  }
+
+  // Okolo Třeboně: v1 jen hrobka + matiné — bez JSON-LD mixu, JKT drop.
+  if (jeOkoloTreboneProgramHtml(telo)) {
+    parsovatOkoloTrebone(telo, vysledek);
     return deduplikovatScanKandidaty(vysledek);
   }
 

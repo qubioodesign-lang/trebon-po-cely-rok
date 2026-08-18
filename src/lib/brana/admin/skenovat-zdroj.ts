@@ -36,6 +36,9 @@ import {
   sestavDumPrirodyHubUrl,
   vytahnoutDumPrirodyDetailUrlky,
   BRANA_DPT_REDAKCNI_POLOZKA_ID,
+  jeOkoloTreboneZdrojUrl,
+  sestavOkoloTreboneProgramUrl,
+  urcitOkoloTreboneKotvu,
   parsovatUdalostiZeZdroje,
   sestavItrebonKalendarUrlky,
   sestavDumStepankaKalendarUrlkyCtyriMesice,
@@ -641,6 +644,7 @@ async function skenovatZnamyZdrojJadro(
   // iTřeboň JKT: ověřený JSON mezidokument, bez živého HTTP.
   // Větev před GBU — stejná URL by jinak spustila GBU parser.
   // iTřeboň GBU: výpis /kalendar.html + stránky 2…12.
+  // Okolo Třeboně: 1 GET /program/.
   // Ostatní zdroje: 1 fetch = 1 URL.
   let kandidati: BranaScanKandidat[];
   if (jeDumStepankaNetolickehoZdrojUrl(zdroj.url)) {
@@ -703,6 +707,10 @@ async function skenovatZnamyZdrojJadro(
       sloucene.push(...parsovatUdalostiZeZdroje(text, contentType));
     }
     kandidati = deduplikovatScanKandidaty(sloucene);
+  } else if (jeOkoloTreboneZdrojUrl(zdroj.url)) {
+    const programUrl = sestavOkoloTreboneProgramUrl(zdroj.url);
+    const { text, contentType } = await nacistTeloZdroje(programUrl);
+    kandidati = parsovatUdalostiZeZdroje(text, contentType);
   } else {
     const { text, contentType } = await nacistTeloZdroje(zdroj.url);
     kandidati = parsovatUdalostiZeZdroje(text, contentType);
@@ -727,8 +735,19 @@ async function skenovatZnamyZdrojJadro(
       continue;
     }
 
+    const okoloKotva = jeOkoloTreboneZdrojUrl(zdroj.url)
+      ? urcitOkoloTreboneKotvu(kandidat)
+      : null;
     const sparovani =
-      hlidaneKotvy &&
+      jeOkoloTreboneZdrojUrl(zdroj.url)
+        ? okoloKotva
+          ? sparovatVlastnictvimHlidaneKotvy(
+              redakcni.polozky,
+              hlidaneKotvy ? zdroj.hlidaneRedakcniPolozkaIds : [okoloKotva],
+              okoloKotva,
+            )
+          : { ok: false as const }
+      : hlidaneKotvy &&
       (jeTrebonskoRemeslneTrhyZdrojUrl(zdroj.url) ||
         jeCityEventTrhyZdrojUrl(zdroj.url) ||
         jeMintTrhyZdrojUrl(zdroj.url) ||
@@ -776,7 +795,8 @@ async function skenovatZnamyZdrojJadro(
 
     if (!sparovani.ok) {
       // Bohatý zdroj: neshody se neposílají do Nezařazených (provozní šum).
-      if (hlidaneKotvy) {
+      // Okolo v1: JKT a ostatní už parser dropnul; neshoda kotvy také ignorovat.
+      if (hlidaneKotvy || jeOkoloTreboneZdrojUrl(zdroj.url)) {
         continue;
       }
       nezarazeno += 1;
