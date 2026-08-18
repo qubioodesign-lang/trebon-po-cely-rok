@@ -22,7 +22,8 @@ const JKT_TDF_NAZEV_PREFIX = "TDF:";
 const JKT_NOCTURNA_ZIMNI_PREFIX = "Třeboňská zimní nocturna";
 const JKT_NOCTURNA_PREFIX = "Třeboňská nocturna";
 
-const MAX_KANDIDATU_JKT = 40;
+/** Horní strop parseru i mezidokumentu. Při přesně tomto počtu nelze poznat ořez. */
+export const MAX_KANDIDATU_JKT = 40;
 
 export type ItrebonJktVyrazeni =
   | "tdf"

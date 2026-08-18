@@ -1,0 +1,19 @@
+---
+description: Aktualizuj všechny asistované zdroje podle uloženého postupu. JKT mezidokument, stavy OK / KONTROLA / STOP.
+alwaysApply: true
+---
+
+# Asistované zdroje BRÁNY
+
+Při pokynu **„Aktualizuj všechny asistované zdroje podle uloženého postupu.“**:
+
+1. Na tomto PC spusť jen:
+   `npx tsx scripts/brana-asistovane-zdroje.ts --aktualizovat`
+2. Výsledek bere **jen** z orchestrátoru: OK / KONTROLA / STOP.
+3. Neimprovizuj. Nepoužívej `--prescan`. Nesahej na parser, scan, GBU, Zdroje, Kalendář, cron, `vercel.json`.
+
+**STOP** — nic dalšího. Mezidokument neměň, necommit, nepush, nedeploy.
+
+**KONTROLA** — mezidokument už není zapsaný. Zeptej se uživatele. Bez souhlasu nic dalšího.
+
+**OK** — ukaž souhrn. Orchestrátor už JSON zapsal. **Bez dalšího souhlasu nepushuj na main.** Commit jen když o něj uživatel výslovně požádá, a jen `src/lib/brana/admin/divadlo-jk-tyla-itrebon.json`.
