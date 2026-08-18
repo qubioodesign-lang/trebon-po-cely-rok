@@ -794,8 +794,21 @@ async function skenovatZnamyZdrojJadro(
               });
 
     if (!sparovani.ok) {
+      // Okolo: A/B už mají kotvu a ownership. Kandidát bez kotvy = úplný
+      // třeboňský zbytek → existující Nezařazené. JKT/nocturna/TDF/mimo
+      // parser nevydá. Neshoda kotvy A/B (konfigurace) dál tiše ignorovat.
+      if (jeOkoloTreboneZdrojUrl(zdroj.url) && !okoloKotva) {
+        nezarazeno += 1;
+        nesparovane.push({
+          nazev: kandidat.nazev,
+          datumOd: kandidat.datumOd,
+          datumDo: kandidat.datumDo,
+          cas: kandidat.cas,
+          mistoNeboTyp: kandidat.mistoNeboTyp,
+        });
+        continue;
+      }
       // Bohatý zdroj: neshody se neposílají do Nezařazených (provozní šum).
-      // Okolo v1: JKT a ostatní už parser dropnul; neshoda kotvy také ignorovat.
       if (hlidaneKotvy || jeOkoloTreboneZdrojUrl(zdroj.url)) {
         continue;
       }

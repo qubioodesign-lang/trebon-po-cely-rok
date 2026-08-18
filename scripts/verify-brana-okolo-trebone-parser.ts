@@ -1,5 +1,6 @@
 /**
- * Úzký v1 parser Okolo Třeboně: jen hrobka + lázeňské matiné.
+ * Úzký parser Okolo Třeboně: hrobka + lázeňské matiné automaticky;
+ * úplný třeboňský zbytek bez kotvy → Nezařazené.
  * Spuštění: npx tsx scripts/verify-brana-okolo-trebone-parser.ts
  * READ-ONLY předscan: npx tsx scripts/verify-brana-okolo-trebone-parser.ts --zivy
  */
@@ -16,7 +17,13 @@ import {
 import { sparovatVlastnictvimHlidaneKotvy } from "../src/lib/brana/admin/zdroj-scan-sparovani";
 import { vytvoritVychoziRedakcniPoradi } from "../src/lib/brana/admin/redakcni-kostra";
 import { aplikovatScanKandidatyNaUdalosti } from "../src/lib/brana/admin/scan-ceka-zapis";
+import { sestavJazykBranyPoSparovani } from "../src/lib/brana/admin/jazyk-brany-po-sparovani";
 import {
+  pridatNesparovaneDoNezarazenych,
+  vychoziNezarazeneDokument,
+} from "../src/lib/brana/admin/nezarazene";
+import {
+  dnesIsoVPraze,
   jeUdalostCelaMinula,
   vytvoritScanKlicAutomatickeUdalosti,
   type BranaKonkretniUdalost,
@@ -60,10 +67,20 @@ ${blok(`<p><strong>30. října 2026 od 19:00 <a href="https://shop.entradio.cz/e
 <p><strong>Jazz and blues v Třeboni: Jan Spálený, Foyer Divadla J.K. Tyla</strong></p>`)}
 ${blok(`<p><strong>5. září 2026 od 19:00</strong></p>
 <p><strong>Hosté z Lomnici, Lomnice nad Lužnicí</strong></p>`)}
+${blok(`<p><strong>8. září 2026 od 19:30</strong></p>
+<p><strong>Třeboňská nocturna: Abonentní koncert, Kostel sv. Jiljí</strong></p>`)}
+${blok(`<p><strong>12. září 2026 od 19:00</strong></p>
+<p><strong>TDF: Hamlet, Zámek Třeboň</strong></p>`)}
 ${blok(`<p><strong>6. září 2026 od 14:00</strong></p>
 <p><strong>Zavírání plavecké sezóny, Ostende</strong></p>`)}
 ${blok(`<p><strong>20. září 2026 od 11:00</strong></p>
 <p><strong>Třeboňská lázeňská matiné: připravujeme</strong></p>`)}
+${blok(`<p><strong>12. října 2026 od 18:00</strong></p>
+<p><strong>Podzimní koncert pěveckého sboru, Zámecké nádvoří</strong></p>`)}
+${blok(`<p><strong>3. listopadu 2026 od 17:00</strong></p>
+<p><strong>Křest knihy o Třeboni, Infocentrum Třeboň</strong></p>`)}
+${blok(`<p><strong>8. prosince 2026 od 19:00</strong></p>
+<p><strong>Svíčkový koncert, Kostel sv. Jiljí Třeboň</strong></p>`)}
 ${blok(`<p><strong>25. června 2027 od 20:00</strong></p>
 <p><strong>Žalman, Masarykovo náměstí</strong></p>`)}
 </body></html>`;
@@ -134,15 +151,33 @@ function overUrl(): void {
   console.log("OK URL Okolo Třeboně");
 }
 
+function jazykPoKotve(
+  kandidat: { nazev: string; mistoNeboTyp: string },
+  kotvaId: string,
+): { verejneCo?: string | null; verejneRozliseni?: string | null } {
+  const pravidlo = vytvoritVychoziRedakcniPoradi().find((p) => p.id === kotvaId);
+  assert(pravidlo, `chybí pravidlo ${kotvaId}`);
+  return sestavJazykBranyPoSparovani({
+    polozka: pravidlo.polozka,
+    kandidatMisto: kandidat.mistoNeboTyp,
+    zdrojNazev: "Okolo Třeboně",
+    jazykVerejny: pravidlo.jazykVerejny,
+  });
+}
+
 function overFixture(): void {
   const shrnuti = parsovatOkoloTreboneProgram(FIXTURE);
   const k = parsovatUdalostiZeZdroje(FIXTURE, "text/html");
-  assert(k.length === 2, `právě 2 kandidáti, je ${k.length}`);
-  assert(shrnuti.kandidati.length === 2, "shrnutí kandidáti");
+  assert(k.length === 7, `7 kandidátů (2 auto + 5 nezařazených), je ${k.length}`);
+  assert(shrnuti.kandidati.length === 7, "shrnutí kandidáti");
   assert(shrnuti.prijetoHrobka === 1, `hrobka ${shrnuti.prijetoHrobka}`);
   assert(shrnuti.prijetoMatine === 1, `matiné ${shrnuti.prijetoMatine}`);
+  assert(shrnuti.prijetoNezarazene === 5, `nezařazené ${shrnuti.prijetoNezarazene}`);
   assert(shrnuti.odmitnutoJkt === 2, `JKT drop ${shrnuti.odmitnutoJkt}`);
-  assert(shrnuti.odmitnutoOstatni >= 3, `ostatní ${shrnuti.odmitnutoOstatni}`);
+  assert(shrnuti.odmitnutoNocturna === 1, `nocturna ${shrnuti.odmitnutoNocturna}`);
+  assert(shrnuti.odmitnutoTdf === 1, `TDF ${shrnuti.odmitnutoTdf}`);
+  assert(shrnuti.odmitnutoMimo === 1, `mimo ${shrnuti.odmitnutoMimo}`);
+  assert(shrnuti.odmitnutoNeuplne >= 1, `neúplné ${shrnuti.odmitnutoNeuplne}`);
 
   const hrobka = k.find((x) => x.nazev.includes("Veverka"));
   assert(hrobka, "hrobka kandidát");
@@ -159,6 +194,12 @@ function overFixture(): void {
   assert(
     sparujOkolo(hrobka) === BRANA_OKOLO_HROBKA_REDAKCNI_POLOZKA_ID,
     "kotva hrobka",
+  );
+  const jazykHrobka = jazykPoKotve(hrobka, BRANA_OKOLO_HROBKA_REDAKCNI_POLOZKA_ID);
+  assert(jazykHrobka.verejneCo === "Koncert", `hrobka CO ${jazykHrobka.verejneCo}`);
+  assert(
+    jazykHrobka.verejneRozliseni === "Schwarzenberská hrobka",
+    `hrobka KDE ${jazykHrobka.verejneRozliseni}`,
   );
 
   const matine = k.find((x) => /matiné/i.test(x.nazev));
@@ -178,6 +219,33 @@ function overFixture(): void {
     sparujOkolo(matine) === BRANA_OKOLO_MATINE_REDAKCNI_POLOZKA_ID,
     "kotva matiné",
   );
+  const jazykMatine = jazykPoKotve(matine, BRANA_OKOLO_MATINE_REDAKCNI_POLOZKA_ID);
+  assert(
+    jazykMatine.verejneCo === "Lázeňské matiné",
+    `matiné CO ${jazykMatine.verejneCo}`,
+  );
+  assert(
+    /berta/i.test(jazykMatine.verejneRozliseni ?? ""),
+    `matiné KDE z události ${jazykMatine.verejneRozliseni}`,
+  );
+
+  const ocekavanaNeznama = [
+    "Zavírání plavecké sezóny",
+    "Podzimní koncert pěveckého sboru",
+    "Křest knihy o Třeboni",
+    "Svíčkový koncert",
+    "Žalman",
+  ];
+  const neznama = k.filter((x) => urcitOkoloTreboneKotvu(x) === null);
+  assert(neznama.length === 5, `5 bez kotvy, je ${neznama.length}`);
+  for (const nazev of ocekavanaNeznama) {
+    const polozka = neznama.find((x) => x.nazev.includes(nazev));
+    assert(polozka, `neznámá položka ${nazev}`);
+    assert(polozka.datumOd.length === 10, `${nazev} datum`);
+    assert(/^\d{2}:\d{2}$/.test(polozka.cas), `${nazev} čas`);
+    assert(polozka.mistoNeboTyp.trim().length >= 2, `${nazev} místo`);
+  }
+  assert(neznama[4], "pátá neznámá se neztratila");
 
   assert(
     !k.some((x) => /tyla/i.test(x.mistoNeboTyp) || /Deczi|Spálený/.test(x.nazev)),
@@ -187,9 +255,30 @@ function overFixture(): void {
     !k.some((x) => /lomnice/i.test(x.mistoNeboTyp)),
     "žádný mimo Třeboň",
   );
-  assert(!k.some((x) => /Ostende|Žalman|připravujeme/i.test(x.nazev)), "žádný festival/Ostende/neúplné");
+  assert(!k.some((x) => /nocturn/i.test(x.nazev)), "žádná nocturna");
+  assert(!k.some((x) => /\bTDF\b/i.test(x.nazev)), "žádné TDF");
+  assert(!k.some((x) => /připravujeme/i.test(x.nazev)), "žádné neúplné");
 
-  console.log("OK fixture: 1 hrobka, 1 matiné, JKT+mimo+ostatní = 0");
+  let n = 0;
+  const inbox = pridatNesparovaneDoNezarazenych(vychoziNezarazeneDokument(), {
+    zdrojId: "okolo-test",
+    zdrojNazev: "Okolo Třeboně",
+    nesparovane: neznama,
+    noveId: () => `n-${++n}`,
+  });
+  assert(inbox.otevrene.length === 5, `inbox 5, je ${inbox.otevrene.length}`);
+  assert(
+    !inbox.otevrene.some((x) => /Veverka|matiné/i.test(x.nazev)),
+    "A/B nesmí do Nezařazených",
+  );
+  for (const nazev of ocekavanaNeznama) {
+    assert(
+      inbox.otevrene.some((x) => x.nazev.includes(nazev)),
+      `inbox má ${nazev}`,
+    );
+  }
+
+  console.log("OK fixture: 1 hrobka, 1 matiné, 5 nezařazených, JKT+nocturna+TDF+mimo+neúplné = 0");
 }
 
 function overJktKotvaNull(): void {
@@ -289,22 +378,65 @@ async function zivyPredscan(): Promise<void> {
   const html = await res.text();
   const shrnuti = parsovatOkoloTreboneProgram(html);
   const polozky = vytvoritVychoziRedakcniPoradi();
-  console.log("\nREAD-ONLY předscan", url);
+  const dnesIso = dnesIsoVPraze();
+
+  const automaticky: string[] = [];
+  const nezarazene: string[] = [];
+  const minule: string[] = [];
+
   for (const k of shrnuti.kandidati) {
+    const radek = `${k.nazev} | ${k.datumOd} | ${k.cas} | ${k.mistoNeboTyp}`;
+    if (jeUdalostCelaMinula(k, dnesIso)) {
+      minule.push(radek);
+      continue;
+    }
     const kotva = urcitOkoloTreboneKotvu(k);
-    const sparovani = kotva
-      ? sparovatVlastnictvimHlidaneKotvy(polozky, HLIDANE_KOTVY, kotva)
-      : { ok: false as const };
-    const kotvaId = sparovani.ok ? sparovani.redakcniPolozkaId : "(žádná)";
+    if (kotva) {
+      const sparovani = sparovatVlastnictvimHlidaneKotvy(
+        polozky,
+        HLIDANE_KOTVY,
+        kotva,
+      );
+      const kotvaId = sparovani.ok ? sparovani.redakcniPolozkaId : "(nesparováno)";
+      automaticky.push(`${radek} | ${kotvaId}`);
+      continue;
+    }
+    nezarazene.push(radek);
+  }
+
+  console.log("\nREAD-ONLY předscan", url);
+  console.log("\nAUTOMATICKY:");
+  if (automaticky.length === 0) {
+    console.log("(žádné)");
+  } else {
+    for (const r of automaticky) {
+      console.log(`- ${r}`);
+    }
+  }
+  console.log("\nNEZAŘAZENÉ:");
+  if (nezarazene.length === 0) {
+    console.log("(žádné)");
+  } else {
+    for (const r of nezarazene) {
+      console.log(`- ${r}`);
+    }
+  }
+  console.log("\nZAHOZENO:");
+  console.log(`- JKT: ${shrnuti.odmitnutoJkt}`);
+  console.log(`- nocturna: ${shrnuti.odmitnutoNocturna}`);
+  console.log(`- TDF: ${shrnuti.odmitnutoTdf}`);
+  console.log(`- mimo Třeboň: ${shrnuti.odmitnutoMimo}`);
+  console.log(`- neúplné: ${shrnuti.odmitnutoNeuplne}`);
+  console.log(`- bez termínu (layout/šum): ${shrnuti.odmitnutoBezTerminu}`);
+  console.log(`- minulá (scan by nezapsal): ${minule.length}`);
+  for (const z of shrnuti.zahazene) {
     console.log(
-      `- ${k.nazev} | ${k.datumOd} ${k.cas} | ${k.mistoNeboTyp} | ${kotvaId} | ${k.zdrojIdentita ?? ""}`,
+      `  · ${z.skupina}: ${z.nazev} | ${z.datumOd} | ${z.cas} | ${z.mistoNeboTyp}`,
     );
   }
-  console.log("Nalezeno", shrnuti.nalezeno);
-  console.log("Přijato hrobka", shrnuti.prijetoHrobka);
-  console.log("Přijato matiné", shrnuti.prijetoMatine);
-  console.log("Odmítnuto JKT", shrnuti.odmitnutoJkt);
-  console.log("Odmítnuto ostatní", shrnuti.odmitnutoOstatni);
+  for (const r of minule) {
+    console.log(`  · minulá: ${r}`);
+  }
 }
 
 if (process.argv.includes("--zivy")) {

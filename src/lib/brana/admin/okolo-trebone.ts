@@ -1,11 +1,13 @@
 /**
  * Úzký fail-closed parser programu Okolo Třeboně (okolotrebone.cz/program/).
- * V1 přijímá jen:
+ * Automaticky jen:
  * - koncerty na Schwarzenberské hrobce → schwarzenberska-hrobka
  * - Třeboňská lázeňská matiné → trebonska-lazenska-matine
- * JKT / foyer / TDF / nocturna / mimo Třeboň / festival / Ostende / bez data
- * nebo bez místa → 0 kandidátů. Matching na kotvu dělá scan ownership,
- * ne obecný BEZNY (ten by JKT místo přiřadil k divadlo-jk-tyla).
+ * JKT / foyer / TDF / nocturna / mimo Třeboň / bez data, času, názvu nebo
+ * místa → 0 kandidátů. Ostatní úplná třeboňská událost → kandidát bez kotvy
+ * (scan ji pošle do existujících Nezařazených). Matching A/B dělá scan
+ * ownership, ne obecný BEZNY (ten by JKT místo přiřadil k divadlo-jk-tyla).
+ * Počet neznámých položek není důvod k zahození.
  */
 
 export const BRANA_OKOLO_HROBKA_REDAKCNI_POLOZKA_ID = "schwarzenberska-hrobka";
@@ -33,15 +35,33 @@ export type OkoloTreboneZarazeni =
   | { druh: "hrobka"; kotva: typeof BRANA_OKOLO_HROBKA_REDAKCNI_POLOZKA_ID }
   | { druh: "matine"; kotva: typeof BRANA_OKOLO_MATINE_REDAKCNI_POLOZKA_ID }
   | { druh: "jkt" }
-  | { druh: "ostatni" };
+  | { druh: "nocturna" }
+  | { druh: "tdf" }
+  | { druh: "mimo" }
+  | { druh: "neuplne" }
+  | { druh: "nezarazene" };
+
+export type OkoloTreboneZahazenaPolozka = {
+  skupina: "jkt" | "nocturna" | "tdf" | "mimo" | "neuplne";
+  nazev: string;
+  datumOd: string;
+  cas: string;
+  mistoNeboTyp: string;
+};
 
 export type OkoloTreboneParseShrnuti = {
   kandidati: OkoloTreboneScanKandidat[];
   nalezeno: number;
   prijetoHrobka: number;
   prijetoMatine: number;
+  prijetoNezarazene: number;
   odmitnutoJkt: number;
-  odmitnutoOstatni: number;
+  odmitnutoNocturna: number;
+  odmitnutoTdf: number;
+  odmitnutoMimo: number;
+  odmitnutoNeuplne: number;
+  odmitnutoBezTerminu: number;
+  zahazene: OkoloTreboneZahazenaPolozka[];
 };
 
 const MESICE_GENITIV: Record<string, number> = {
@@ -196,8 +216,9 @@ function jeMatineNazev(nazev: string): boolean {
 }
 
 /**
- * Fail-closed v1: jen A (hrobka podle místa) nebo B (matiné podle názvu).
+ * A = hrobka podle místa, B = matiné podle názvu.
  * JKT místo má přednost — nikdy se nevykrývá program JKT.
+ * Úplný třeboňský zbytek → nezarazene (bez kotvy).
  */
 export function zaraditOkoloTreboneUdalost(
   nazev: string,
@@ -206,21 +227,20 @@ export function zaraditOkoloTreboneUdalost(
   const nazevCisty = nazev.replace(/\s+/g, " ").trim();
   const mistoCiste = misto.replace(/\s+/g, " ").trim();
   if (!nazevCisty || !mistoCiste) {
-    return { druh: "ostatni" };
+    return { druh: "neuplne" };
   }
   if (jeMistoJkt(mistoCiste, nazevCisty)) {
     return { druh: "jkt" };
   }
   const t = normalizovatOkolo(`${nazevCisty} ${mistoCiste}`);
-  if (
-    /trebonsk/.test(t) && /nocturn/.test(t) ||
-    /\btdf\b/.test(t) ||
-    t.includes("trebonsky divadelni festival")
-  ) {
-    return { druh: "ostatni" };
+  if (/trebonsk/.test(t) && /nocturn/.test(t)) {
+    return { druh: "nocturna" };
+  }
+  if (/\btdf\b/.test(t) || t.includes("trebonsky divadelni festival")) {
+    return { druh: "tdf" };
   }
   if (jeMimoTrebon(mistoCiste)) {
-    return { druh: "ostatni" };
+    return { druh: "mimo" };
   }
   if (jeHrobkaMisto(mistoCiste)) {
     return {
@@ -234,7 +254,7 @@ export function zaraditOkoloTreboneUdalost(
       kotva: BRANA_OKOLO_MATINE_REDAKCNI_POLOZKA_ID,
     };
   }
-  return { druh: "ostatni" };
+  return { druh: "nezarazene" };
 }
 
 export function urcitOkoloTreboneKotvu(
@@ -391,31 +411,61 @@ function prvniOdstavecBezPopisu(blokHtml: string): string | null {
   return null;
 }
 
-/**
- * Webnode program: jeden `.b-text-c` blok = nejvýš jedna událost.
- * Bez data, času nebo místa se blok počítá do Nalezeno, ale nevrací kandidáta.
- */
-export function parsovatOkoloTreboneProgram(
-  html: string,
-): OkoloTreboneParseShrnuti {
-  const prazdne: OkoloTreboneParseShrnuti = {
+function prazdneOkoloShrnuti(): OkoloTreboneParseShrnuti {
+  return {
     kandidati: [],
     nalezeno: 0,
     prijetoHrobka: 0,
     prijetoMatine: 0,
+    prijetoNezarazene: 0,
     odmitnutoJkt: 0,
-    odmitnutoOstatni: 0,
+    odmitnutoNocturna: 0,
+    odmitnutoTdf: 0,
+    odmitnutoMimo: 0,
+    odmitnutoNeuplne: 0,
+    odmitnutoBezTerminu: 0,
+    zahazene: [],
   };
+}
+
+function pridejZahazenou(
+  shrnuti: OkoloTreboneParseShrnuti,
+  skupina: OkoloTreboneZahazenaPolozka["skupina"],
+  nazev: string,
+  misto: string,
+  termin: { datum: string; cas: string },
+): void {
+  shrnuti.zahazene.push({
+    skupina,
+    nazev,
+    datumOd: termin.datum,
+    cas: termin.cas,
+    mistoNeboTyp: misto,
+  });
+}
+
+/**
+ * Webnode program: jeden `.b-text-c` blok = nejvýš jedna událost.
+ * Bez data, času nebo místa se blok nevrací jako kandidát.
+ * A/B se berou zvlášť (stávající strop jen na ně). Neznámý úplný třeboňský
+ * zbytek se nevydává podle počtu.
+ */
+export function parsovatOkoloTreboneProgram(
+  html: string,
+): OkoloTreboneParseShrnuti {
+  const shrnuti = prazdneOkoloShrnuti();
   if (!jeOkoloTreboneProgramHtml(html)) {
-    return prazdne;
+    return shrnuti;
   }
 
-  const shrnuti: OkoloTreboneParseShrnuti = { ...prazdne, kandidati: [] };
+  const auto: OkoloTreboneScanKandidat[] = [];
+  const nezarazene: OkoloTreboneScanKandidat[] = [];
   const videne = new Set<string>();
 
   for (const blok of vytahnoutTextoveBloky(html)) {
     const termin = rozlozTerminOkolo(textBezHtmlOkolo(blok));
     if (!termin) {
+      shrnuti.odmitnutoBezTerminu += 1;
       continue;
     }
     shrnuti.nalezeno += 1;
@@ -423,21 +473,37 @@ export function parsovatOkoloTreboneProgram(
     const radek = prvniOdstavecBezPopisu(blok);
     const rozdel = radek ? rozdelNazevAMisto(radek) : null;
     if (!rozdel) {
-      shrnuti.odmitnutoOstatni += 1;
+      shrnuti.odmitnutoNeuplne += 1;
+      pridejZahazenou(shrnuti, "neuplne", radek ?? "", "", termin);
       continue;
     }
 
     const zarazeni = zaraditOkoloTreboneUdalost(rozdel.nazev, rozdel.misto);
-    if (zarazeni.druh === "jkt") {
-      shrnuti.odmitnutoJkt += 1;
-      continue;
-    }
-    if (zarazeni.druh !== "hrobka" && zarazeni.druh !== "matine") {
-      shrnuti.odmitnutoOstatni += 1;
-      continue;
-    }
-    if (shrnuti.kandidati.length >= MAX_KANDIDATU_OKOLO) {
-      shrnuti.odmitnutoOstatni += 1;
+    if (
+      zarazeni.druh === "jkt" ||
+      zarazeni.druh === "nocturna" ||
+      zarazeni.druh === "tdf" ||
+      zarazeni.druh === "mimo" ||
+      zarazeni.druh === "neuplne"
+    ) {
+      if (zarazeni.druh === "jkt") {
+        shrnuti.odmitnutoJkt += 1;
+      } else if (zarazeni.druh === "nocturna") {
+        shrnuti.odmitnutoNocturna += 1;
+      } else if (zarazeni.druh === "tdf") {
+        shrnuti.odmitnutoTdf += 1;
+      } else if (zarazeni.druh === "mimo") {
+        shrnuti.odmitnutoMimo += 1;
+      } else {
+        shrnuti.odmitnutoNeuplne += 1;
+      }
+      pridejZahazenou(
+        shrnuti,
+        zarazeni.druh,
+        rozdel.nazev,
+        rozdel.misto,
+        termin,
+      );
       continue;
     }
 
@@ -460,14 +526,25 @@ export function parsovatOkoloTreboneProgram(
       continue;
     }
     videne.add(klic);
-    shrnuti.kandidati.push(kandidat);
-    if (zarazeni.druh === "hrobka") {
-      shrnuti.prijetoHrobka += 1;
-    } else {
-      shrnuti.prijetoMatine += 1;
+
+    if (zarazeni.druh === "hrobka" || zarazeni.druh === "matine") {
+      if (auto.length >= MAX_KANDIDATU_OKOLO) {
+        continue;
+      }
+      auto.push(kandidat);
+      if (zarazeni.druh === "hrobka") {
+        shrnuti.prijetoHrobka += 1;
+      } else {
+        shrnuti.prijetoMatine += 1;
+      }
+      continue;
     }
+
+    nezarazene.push(kandidat);
+    shrnuti.prijetoNezarazene += 1;
   }
 
+  shrnuti.kandidati = [...auto, ...nezarazene];
   return shrnuti;
 }
 
@@ -477,9 +554,6 @@ export function parsovatOkoloTrebone(
 ): void {
   const shrnuti = parsovatOkoloTreboneProgram(html);
   for (const k of shrnuti.kandidati) {
-    if (vysledek.length >= MAX_KANDIDATU_OKOLO) {
-      return;
-    }
     vysledek.push(k);
   }
 }
