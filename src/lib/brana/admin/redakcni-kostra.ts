@@ -81,6 +81,7 @@ function pevne(text: string): BranaJazykSlot {
 }
 
 const Z_UDALOSTI: BranaJazykSlot = { rezim: "Z_UDALOSTI" };
+const NIC: BranaJazykSlot = { rezim: "NIC" };
 
 /**
  * Definitivní seed veřejného jazyka + priority + Výhled pro 22 pravidel.
@@ -144,7 +145,7 @@ const DEFINITIVNI_SEED: Readonly<
     polozka: "Divadlo J. K. Tyla",
     priorita: 5,
     vyhled: "NE",
-    jazyk: { co: pevne("Divadlo"), rozliseni: pevne("J. K. Tyla") },
+    jazyk: { co: pevne("Divadlo J. K. Tyla"), rozliseni: NIC },
   },
   "dum-stepanka-netolickeho": {
     polozka: "Dům Štěpánka Netolického",

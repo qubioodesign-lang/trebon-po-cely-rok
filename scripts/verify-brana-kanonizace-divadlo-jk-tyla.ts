@@ -246,8 +246,8 @@ function scan(
     zdrojNazev: "iTřeboň – kalendář akcí",
     jazykVerejny: vychoziJazykVerejnyProId("divadlo-jk-tyla"),
   });
-  assert(jazyk.verejneCo === "Divadlo", "F: PEVNE CO");
-  assert(jazyk.verejneRozliseni === "J. K. Tyla", "F: PEVNE rozlišení");
+  assert(jazyk.verejneCo === "Divadlo J. K. Tyla", "F: PEVNE CO");
+  assert(jazyk.verejneRozliseni === null, "F: KDE NIC");
   assert(jazyk.mistoNeboTyp === "Divadlo J. K. Tyla", "F: mistoNeboTyp PEVNE");
 }
 

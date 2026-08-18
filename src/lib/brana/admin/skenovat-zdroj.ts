@@ -55,6 +55,11 @@ import {
   BRANA_GBU_REDAKCNI_POLOZKA_ID,
   sestavGbuZapisPoSparovani,
 } from "./gbu-titulek";
+import {
+  BRANA_JKT_REDAKCNI_POLOZKA_ID,
+  jeItrebonDivadloJkTylaZdroj,
+  parsovatItrebonDivadloJkTyla,
+} from "./divadlo-jk-tyla";
 import { sestavJazykBranyPoSparovani } from "./jazyk-brany-po-sparovani";
 import {
   dnesIsoVPraze,
@@ -633,6 +638,8 @@ async function skenovatZnamyZdrojJadro(
   // Rybářství Třeboň: 1 fetch autoritativní /podzimni-vylov-rybniku.
   // VisitTřeboň: 1 GET s dynamickým horizontem dnes→+12 měsíců.
   // Třeboňsko kino: hub /kategorie/kina/ → aktuální + následující měsíc.
+  // iTřeboň JKT: stejný výpis /kalendar.html, jen kotva divadlo-jk-tyla
+  // (větev před GBU — stejná URL by jinak spustila GBU parser).
   // iTřeboň GBU: výpis /kalendar.html + stránky 2…12.
   // Ostatní zdroje: 1 fetch = 1 URL.
   let kandidati: BranaScanKandidat[];
@@ -672,6 +679,14 @@ async function skenovatZnamyZdrojJadro(
     const visitUrl = sestavVisitTrebonKalendarUrl(zdroj.url);
     const { text, contentType } = await nacistTeloZdroje(visitUrl);
     kandidati = parsovatUdalostiZeZdroje(text, contentType);
+  } else if (jeItrebonDivadloJkTylaZdroj(zdroj)) {
+    const urlky = sestavItrebonKalendarUrlky(zdroj.url);
+    const sloucene: BranaScanKandidat[] = [];
+    for (const strankaUrl of urlky) {
+      const { text } = await nacistTeloZdroje(strankaUrl);
+      sloucene.push(...parsovatItrebonDivadloJkTyla(text));
+    }
+    kandidati = deduplikovatScanKandidaty(sloucene);
   } else if (jeItrebonGalerieBuddhistickehoUmeniZdrojUrl(zdroj.url)) {
     const urlky = sestavItrebonKalendarUrlky(zdroj.url);
     const sloucene: BranaScanKandidat[] = [];
@@ -734,6 +749,12 @@ async function skenovatZnamyZdrojJadro(
               zdroj.hlidaneRedakcniPolozkaIds,
               BRANA_ZAHAJENI_LAZENSKE_SEZONY_POLOZKA_ID,
             )
+          : hlidaneKotvy && jeItrebonDivadloJkTylaZdroj(zdroj)
+            ? sparovatVlastnictvimHlidaneKotvy(
+                redakcni.polozky,
+                zdroj.hlidaneRedakcniPolozkaIds,
+                BRANA_JKT_REDAKCNI_POLOZKA_ID,
+              )
           : hlidaneKotvy &&
               jeItrebonGalerieBuddhistickehoUmeniZdrojUrl(zdroj.url)
             ? sparovatVlastnictvimHlidaneKotvy(

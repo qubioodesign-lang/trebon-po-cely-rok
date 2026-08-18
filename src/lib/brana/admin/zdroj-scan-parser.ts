@@ -12,7 +12,9 @@
  * visittrebon.cz/kalendar-akci-trebon/2 (jen MINT Market Třeboň → trhy),
  * trebonsko.cz/otevirani-lazenske-sezony-v-treboni (max. trh + hlavní zahájení),
  * trebonsko.cz/kategorie/kina/ (měsíční program Světozor + Aurora – discovery ve scanu)
- * a itrebon.cz/kalendar.html (jen Galerie buddhistického umění – stránkování ve scanu)
+ * a itrebon.cz/kalendar.html (jen Galerie buddhistického umění – stránkování ve scanu).
+ * Divadlo J. K. Tyla ze stejné URL má vlastní parser (divadlo-jk-tyla.ts)
+ * a scan větev podle hlídané kotvy — tato HTML větev GBU nemění.
  * a dumprirody.cz/dum-prirody-trebonska/akce/ (výlety / exkurze / přednášky).
  * Odděleně od Kalendáře a Blob zápisu.
  * Datum/čas: Europe/Prague (včetně DST) přes stávající brana/cas.
@@ -3698,6 +3700,7 @@ export function parsovatUdalostiZeZdroje(
   }
 
   // iTřeboň: jen Galerie buddhistického umění — bez JSON-LD mixu.
+  // JKT ze stejné URL sem nesmí vstoupit: scan volá parsovatItrebonDivadloJkTyla.
   if (jeItrebonKalendarHtml(telo)) {
     parsovatItrebonGalerieBuddhistickehoUmeni(telo, vysledek);
     return deduplikovatScanKandidaty(vysledek);
