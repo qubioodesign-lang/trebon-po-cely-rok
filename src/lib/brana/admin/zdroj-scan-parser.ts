@@ -5,7 +5,8 @@
  * dumstepankanetolickeho.cz (`.home-block-wrapper.event-item`),
  * trebon105.cz (`article.event` jen v sekci Akce, ne Výstavy;
  *   `event-list` i vnořený do `<section class="section">` – filtr Biograf;
- *   `prostor:koncert`: excerpt s VIDINY se neemitovává),
+ *   `prostor:koncert`: excerpt s VIDINY se neemitovává;
+ *   detail `/program/festival-vizualni-tvorby-vidiny(-20xx)`: 1 karta festivalu),
  * zameckalekarnatrebon.cz (měsíční `.articleContent` denní program),
  * rybarstvi.cz (podzimní výlovy – roční sekce / tabulka),
  * trebonsko.cz/remeslne-trhy-trebon (městské Trhy – fail-closed whitelist),
@@ -61,6 +62,11 @@ import {
   excerptTrebon105ObsahujeVidiny,
   jeTrebon105KoncertListingHtml,
 } from "./koncert-105";
+import {
+  BRANA_VIDINY_KANDIDAT_NAZEV,
+  h1Trebon105ObsahujeVidiny,
+  jeTrebon105VidinyFestivalDetailHtml,
+} from "./vidiny";
 
 export {
   BRANA_DPT_CO,
@@ -1300,6 +1306,51 @@ function parsovatTrebon105EventArticles(
       mistoNeboTyp,
     });
   }
+}
+
+/**
+ * Oficiální detail festivalu VIDINY (Kirby single-event).
+ * H1 musí obsahovat VIDINY, datum musí být rozsah bez času.
+ * Venue se nečte jako podmínka.
+ */
+function parsovatTrebon105VidinyFestivalDetail(
+  html: string,
+  vysledek: BranaScanKandidat[],
+): void {
+  const h1Match = html.match(
+    /<h1\b[^>]*\bsingle-event__title\b[^>]*>([\s\S]*?)<\/h1>/i,
+  );
+  const nadpis = textBezHtmlTagu(h1Match?.[1] ?? "");
+  if (!h1Trebon105ObsahujeVidiny(nadpis)) {
+    return;
+  }
+
+  const datumMatch = html.match(
+    /<div\b[^>]*\bmeta-item--date\b[^>]*>[\s\S]*?<span\b[^>]*\bmeta-item__text\b[^>]*>([\s\S]*?)<\/span>/i,
+  );
+  const datumText = textBezHtmlTagu(datumMatch?.[1] ?? "");
+  if (!datumText) {
+    return;
+  }
+
+  const dnes = dnesVPraze();
+  const dnesIso = formatujIsoDen(dnes.rok, dnes.mesic, dnes.den);
+  const rozklad = rozlozTrebon105EventDate(datumText, dnes.rok, dnesIso);
+  if (
+    !rozklad ||
+    rozklad.cas !== "" ||
+    rozklad.datumOd === rozklad.datumDo
+  ) {
+    return;
+  }
+
+  vysledek.push({
+    nazev: BRANA_VIDINY_KANDIDAT_NAZEV,
+    datumOd: rozklad.datumOd,
+    datumDo: rozklad.datumDo,
+    cas: "",
+    mistoNeboTyp: "",
+  });
 }
 
 /** True, pokud URL zdroje míří na oficiální web Zámecké lékárny (s/bez www). */
@@ -3865,6 +3916,13 @@ export function parsovatUdalostiZeZdroje(
   }
   if (jeKkcRohacVenueHtml(telo)) {
     parsovatKkcRohac(telo, vysledek);
+    return deduplikovatScanKandidaty(vysledek);
+  }
+
+  // Třeboň 105: jedna karta festivalu VIDINY ze single-event detailu.
+  // Před JSON-LD i před listingem article.event. Fail-closed → 0, bez mixu.
+  if (jeTrebon105VidinyFestivalDetailHtml(telo)) {
+    parsovatTrebon105VidinyFestivalDetail(telo, vysledek);
     return deduplikovatScanKandidaty(vysledek);
   }
 

@@ -100,6 +100,10 @@ import {
   jeTrebon105KoncertZdrojUrl,
   najitKoncert105KotvuId,
 } from "./koncert-105";
+import {
+  jeTrebon105VidinyFestivalZdrojUrl,
+  najitVidinyKotvuId,
+} from "./vidiny";
 import { sestavJazykBranyPoSparovani } from "./jazyk-brany-po-sparovani";
 import {
   dnesIsoVPraze,
@@ -858,6 +862,9 @@ async function skenovatZnamyZdrojJadro(
     const koncert105Kotva = jeTrebon105KoncertZdrojUrl(zdroj.url)
       ? najitKoncert105KotvuId(redakcni.polozky)
       : null;
+    const vidinyKotva = jeTrebon105VidinyFestivalZdrojUrl(zdroj.url)
+      ? najitVidinyKotvuId(redakcni.polozky)
+      : null;
     const sparovani =
       jeTrebonskoLazenskyKulturniProgramZdrojUrl(zdroj.url)
         ? tanecniKotva
@@ -925,6 +932,16 @@ async function skenovatZnamyZdrojJadro(
                 ? zdroj.hlidaneRedakcniPolozkaIds
                 : [koncert105Kotva],
               koncert105Kotva,
+            )
+          : { ok: false as const }
+      : jeTrebon105VidinyFestivalZdrojUrl(zdroj.url)
+        ? vidinyKotva
+          ? sparovatVlastnictvimHlidaneKotvy(
+              redakcni.polozky,
+              hlidaneKotvy
+                ? zdroj.hlidaneRedakcniPolozkaIds
+                : [vidinyKotva],
+              vidinyKotva,
             )
           : { ok: false as const }
       : jeTdfZdrojUrl(zdroj.url)
@@ -1048,6 +1065,12 @@ async function skenovatZnamyZdrojJadro(
       // Položka Koncert 105 s Používat=ANO) → tiše, bez hrobky,
       // bez JKT, bez Nezařazených.
       if (jeTrebon105KoncertZdrojUrl(zdroj.url)) {
+        continue;
+      }
+      // VIDINY: neshoda kotvy (chybí právě jedna živá
+      // Položka VIDINY s Používat=ANO) → tiše, bez Nezařazených,
+      // bez Galerie / Biograf / Divadlo / Koncert 105.
+      if (jeTrebon105VidinyFestivalZdrojUrl(zdroj.url)) {
         continue;
       }
       // Bohatý zdroj: neshody se neposílají do Nezařazených (provozní šum).
