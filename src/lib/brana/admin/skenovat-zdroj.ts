@@ -55,6 +55,8 @@ import {
   najitBesedaKotvuId,
   jeRozmberskaNocZdrojUrl,
   najitRozmberskaNocKotvuId,
+  jeKkcRohacZdrojUrl,
+  najitKkcRohacKotvuId,
   parsovatUdalostiZeZdroje,
   sestavItrebonKalendarUrlky,
   sestavDumStepankaKalendarUrlkyCtyriMesice,
@@ -839,6 +841,9 @@ async function skenovatZnamyZdrojJadro(
     const rozmberskaNocKotva = jeRozmberskaNocZdrojUrl(zdroj.url)
       ? najitRozmberskaNocKotvuId(redakcni.polozky)
       : null;
+    const kkcRohacKotva = jeKkcRohacZdrojUrl(zdroj.url)
+      ? najitKkcRohacKotvuId(redakcni.polozky)
+      : null;
     const sparovani =
       jeTrebonskoLazenskyKulturniProgramZdrojUrl(zdroj.url)
         ? tanecniKotva
@@ -876,6 +881,16 @@ async function skenovatZnamyZdrojJadro(
                 ? zdroj.hlidaneRedakcniPolozkaIds
                 : [rozmberskaNocKotva],
               rozmberskaNocKotva,
+            )
+          : { ok: false as const }
+      : jeKkcRohacZdrojUrl(zdroj.url)
+        ? kkcRohacKotva
+          ? sparovatVlastnictvimHlidaneKotvy(
+              redakcni.polozky,
+              hlidaneKotvy
+                ? zdroj.hlidaneRedakcniPolozkaIds
+                : [kkcRohacKotva],
+              kkcRohacKotva,
             )
           : { ok: false as const }
       : jeTdfZdrojUrl(zdroj.url)
@@ -982,6 +997,11 @@ async function skenovatZnamyZdrojJadro(
       // Rožmberská noc: neshoda kotvy (chybí právě jedna živá
       // Položka Rožmberská noc s id rozmberska-noc) → tiše, bez Nezařazených.
       if (jeRozmberskaNocZdrojUrl(zdroj.url)) {
+        continue;
+      }
+      // KKC Roháč: neshoda kotvy (chybí právě jedna živá
+      // Položka KKC Roháč s jazykem Roháč / KKC) → tiše, bez Nezařazených.
+      if (jeKkcRohacZdrojUrl(zdroj.url)) {
         continue;
       }
       // Bohatý zdroj: neshody se neposílají do Nezařazených (provozní šum).

@@ -1,5 +1,5 @@
 /**
- * Statická Redakční kostra – katalog 54 pevných ID a výchozí prioritní seznam (22 ANO).
+ * Statická Redakční kostra – katalog 55 pevných ID a výchozí prioritní seznam (22 ANO).
  * Editovatelné hodnoty se ukládají do samostatného Vercel Blob dokumentu (verzeUloziste ≥ 2).
  *
  * Veřejný jazyk BRÁNY (CO / KDE) je oddělený od identity položky (matching).
@@ -369,9 +369,10 @@ export const BRANA_REDAKCNI_MIMO_KOSTRA: readonly BranaRedakcniPolozkaVychozi[] 
     { id: "rybarske-muzeum-rozmberk", polozka: "Rybářské muzeum Rožmberk", pouzivat: "NE", mimoKostru: true },
     { id: "farska-louka-lomnice", polozka: "Farská louka (Lomnice nad Lužnicí)", pouzivat: "NE", mimoKostru: true },
     { id: "plaz-u-rybnika-svet", polozka: "Pláž u rybníka Svět", pouzivat: "NE", mimoKostru: true },
+    { id: "kkc-rohac", polozka: "KKC Roháč", pouzivat: "NE", mimoKostru: true },
   ];
 
-/** Pevné pořadí všech 54 položek (kostra + mimo) – kompatibilita Blob / matching */
+/** Pevné pořadí všech 55 položek (kostra + mimo) – kompatibilita Blob / matching */
 export const BRANA_REDAKCNI_VSECHNY_VYCHOZI: readonly BranaRedakcniPolozkaVychozi[] =
   [...BRANA_REDAKCNI_KOSTRA, ...BRANA_REDAKCNI_MIMO_KOSTRA];
 

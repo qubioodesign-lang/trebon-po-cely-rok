@@ -23,7 +23,8 @@
  *   Aurora→Harmonie / Berta→Adéla + Třeboňská lázeňská matiné;
  *   discovery ve scanu),
  * besedaclub.cz (Music Club Beseda – karty /program.html; discovery ve scanu),
- * zamek-trebon.cz/cs/akce (listing → discovery Rožmberské noci, 1 karta / den).
+ * zamek-trebon.cz/cs/akce (listing → discovery Rožmberské noci, 1 karta / den),
+ * ticketportal.cz/venue/1203336 a smsticket.cz/mista/5734 (KKC Roháč).
  * Odděleně od Kalendáře a Blob zápisu.
  * Datum/čas: Europe/Prague (včetně DST) přes stávající brana/cas.
  * Multi-měsíční fetch DSN / Zámecká lékárna / Rybářství / Visit / Třeboňsko kino,
@@ -50,6 +51,11 @@ import {
   jeRozmberskaNocHtml,
   parsovatRozmberskaNoc,
 } from "./rozmberska-noc";
+import {
+  jeKkcRohacKonfliktHtml,
+  jeKkcRohacVenueHtml,
+  parsovatKkcRohac,
+} from "./kkc-rohac";
 
 export {
   BRANA_DPT_CO,
@@ -113,6 +119,20 @@ export {
   najitRozmberskaNocKotvuId,
   sestavRozmberskaNocListingUrl,
 } from "./rozmberska-noc";
+
+export {
+  BRANA_KKC_ROHAC_CO,
+  BRANA_KKC_ROHAC_KDE,
+  BRANA_KKC_ROHAC_MISTO,
+  BRANA_KKC_ROHAC_POLOZKA,
+  BRANA_KKC_ROHAC_REDAKCNI_POLOZKA_ID,
+  jeKkcRohacZdrojIdentita,
+  jeKkcRohacZdrojUrl,
+  jeSmsticketRohacZdrojUrl,
+  jeTicketportalRohacZdrojUrl,
+  najitKkcRohacKotvuId,
+  sestavKkcRohacZdrojIdentitu,
+} from "./kkc-rohac";
 
 export type BranaScanKandidat = {
   nazev: string;
@@ -3820,6 +3840,15 @@ export function parsovatUdalostiZeZdroje(
   // Rožmberská noc: jen stránka akce zamek-trebon.cz — 1 karta / den.
   if (jeRozmberskaNocHtml(telo)) {
     parsovatRozmberskaNoc(telo, vysledek);
+    return deduplikovatScanKandidaty(vysledek);
+  }
+
+  // KKC Roháč: Ticketportal venue 1203336 / SMSticket místo 5734.
+  if (jeKkcRohacKonfliktHtml(telo)) {
+    return [];
+  }
+  if (jeKkcRohacVenueHtml(telo)) {
+    parsovatKkcRohac(telo, vysledek);
     return deduplikovatScanKandidaty(vysledek);
   }
 

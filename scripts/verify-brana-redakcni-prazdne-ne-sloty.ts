@@ -57,7 +57,7 @@ function stejnyUlozenyObsah(
 }
 
 const seed = vytvoritVychoziRedakcniPoradi();
-assert(seed.length === 54, `katalog 54, je ${seed.length}`);
+assert(seed.length === 55, `katalog 55, je ${seed.length}`);
 
 const ulozenyPrazdny: BranaRedakcniPolozkaStav = {
   ...radekPodleId(seed, PRAZDNY_ID),
@@ -97,7 +97,7 @@ const poMerge = sloucitUlozeneSKostrou(
   katalog55,
 );
 
-assert(poMerge.length === 55, `po merge 55, je ${poMerge.length}`);
+assert(poMerge.length === 56, `po merge 56, je ${poMerge.length}`);
 
 const prazdnyPo = radekPodleId(poMerge, PRAZDNY_ID);
 assert(prazdnyPo.polozka === "", `prázdný slot zůstal prázdný: „${prazdnyPo.polozka}“`);
@@ -111,7 +111,7 @@ console.log("OK uložený prázdný NE slot zůstal prázdný");
 const nove = radekPodleId(poMerge, NOVE_ID);
 assert(nove.polozka === NOVE_SEED_NAZEV, `nové ID seed název: ${nove.polozka}`);
 assert(nove.pouzivat === "NE", "nové ID Používat NE ze seedu");
-console.log("OK nové 55. ID dostalo seed");
+console.log("OK nové testovací ID dostalo seed");
 
 stejnyUlozenyObsah(
   radekPodleId(poMerge, ANO_ID),
@@ -127,13 +127,13 @@ stejnyUlozenyObsah(
 );
 console.log("OK existující NE s názvem zůstalo 1:1");
 
-const jen54 = sloucitUlozeneSKostrou({ polozky: ulozenyDokument });
-assert(jen54.length === 54, "produkční katalog stále 54");
-assert(radekPodleId(jen54, PRAZDNY_ID).polozka === "", "54: prázdný zůstal");
+const jenProdukce = sloucitUlozeneSKostrou({ polozky: ulozenyDokument });
+assert(jenProdukce.length === 55, "produkční katalog 55");
+assert(radekPodleId(jenProdukce, PRAZDNY_ID).polozka === "", "55: prázdný zůstal");
 assert(
-  jen54.every((p) => p.id !== NOVE_ID),
-  "testovací 55. ID není v produkčním katalogu",
+  jenProdukce.every((p) => p.id !== NOVE_ID),
+  "testovací ID není v produkčním katalogu",
 );
-console.log("OK produkčních 54 ID beze změny");
+console.log("OK produkčních 55 ID beze změny");
 
 console.log("VŠE OK — prázdný NE slot při rozšíření katalogu");
