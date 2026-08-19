@@ -14,7 +14,6 @@ import {
   type BranaRedakcniPouzivat,
   type BranaRedakcniVyhled,
 } from "@/lib/brana/admin/redakcni-kostra";
-import { placeholderPrazdneNePolozky } from "@/lib/brana/admin/redakcni-poradi-placeholder";
 
 /** Jemné svislé oddělení – stejný tón jako vodorovné linky administrace */
 const ODD = "border-l border-text-velmiJemny/15";
@@ -267,7 +266,7 @@ function RedakcniTabulka({
                   className={VSTUP}
                   aria-label={`Položka – ${radek.id}`}
                   value={radek.polozka}
-                  placeholder={placeholderPrazdneNePolozky(radek)}
+                  placeholder=""
                   maxLength={BRANA_REDAKCNI_POLOZKA_MAX}
                   onChange={(e) =>
                     onChange(radek.id, {
