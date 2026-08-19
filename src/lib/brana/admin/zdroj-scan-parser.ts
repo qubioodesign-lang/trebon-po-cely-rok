@@ -4,7 +4,8 @@
  * kinotrebon.cz (`.section-event`), trebonskanocturna.cz (karty `/koncert/`),
  * dumstepankanetolickeho.cz (`.home-block-wrapper.event-item`),
  * trebon105.cz (`article.event` jen v sekci Akce, ne Výstavy;
- *   `event-list` i vnořený do `<section class="section">` – filtr Biograf),
+ *   `event-list` i vnořený do `<section class="section">` – filtr Biograf;
+ *   `prostor:koncert`: excerpt s VIDINY se neemitovává),
  * zameckalekarnatrebon.cz (měsíční `.articleContent` denní program),
  * rybarstvi.cz (podzimní výlovy – roční sekce / tabulka),
  * trebonsko.cz/remeslne-trhy-trebon (městské Trhy – fail-closed whitelist),
@@ -56,6 +57,10 @@ import {
   jeKkcRohacVenueHtml,
   parsovatKkcRohac,
 } from "./kkc-rohac";
+import {
+  excerptTrebon105ObsahujeVidiny,
+  jeTrebon105KoncertListingHtml,
+} from "./koncert-105";
 
 export {
   BRANA_DPT_CO,
@@ -1274,6 +1279,18 @@ function parsovatTrebon105EventArticles(
       /<div\b[^>]*\bclass=["'][^"']*\bevent__venue\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
     );
     const mistoNeboTyp = textBezHtmlTagu(venueMatch?.[1] ?? "");
+
+    // Jen listing Koncert 105: excerpt s jádrem VIDINY → neemitovat.
+    // Galerie / Biograf / Divadlo / hub tuto větev nevidí.
+    if (jeTrebon105KoncertListingHtml(html)) {
+      const excerptMatch = karta.match(
+        /<p\b[^>]*\bclass=["'][^"']*\bevent__excerpt\b[^"']*["'][^>]*>([\s\S]*?)<\/p>/i,
+      );
+      const excerpt = textBezHtmlTagu(excerptMatch?.[1] ?? "");
+      if (excerptTrebon105ObsahujeVidiny(excerpt)) {
+        continue;
+      }
+    }
 
     vysledek.push({
       nazev,
