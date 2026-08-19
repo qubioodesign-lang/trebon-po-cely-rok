@@ -92,6 +92,10 @@ import {
   jeItrebonDivadloJkTylaZdroj,
   nacistItrebonJktKandidatyZMezidokumentu,
 } from "./divadlo-jk-tyla";
+import {
+  jeTrebon105DivadloZdrojUrl,
+  najitDivadlo105KotvuId,
+} from "./divadlo-105";
 import { sestavJazykBranyPoSparovani } from "./jazyk-brany-po-sparovani";
 import {
   dnesIsoVPraze,
@@ -844,6 +848,9 @@ async function skenovatZnamyZdrojJadro(
     const kkcRohacKotva = jeKkcRohacZdrojUrl(zdroj.url)
       ? najitKkcRohacKotvuId(redakcni.polozky)
       : null;
+    const divadlo105Kotva = jeTrebon105DivadloZdrojUrl(zdroj.url)
+      ? najitDivadlo105KotvuId(redakcni.polozky)
+      : null;
     const sparovani =
       jeTrebonskoLazenskyKulturniProgramZdrojUrl(zdroj.url)
         ? tanecniKotva
@@ -891,6 +898,16 @@ async function skenovatZnamyZdrojJadro(
                 ? zdroj.hlidaneRedakcniPolozkaIds
                 : [kkcRohacKotva],
               kkcRohacKotva,
+            )
+          : { ok: false as const }
+      : jeTrebon105DivadloZdrojUrl(zdroj.url)
+        ? divadlo105Kotva
+          ? sparovatVlastnictvimHlidaneKotvy(
+              redakcni.polozky,
+              hlidaneKotvy
+                ? zdroj.hlidaneRedakcniPolozkaIds
+                : [divadlo105Kotva],
+              divadlo105Kotva,
             )
           : { ok: false as const }
       : jeTdfZdrojUrl(zdroj.url)
@@ -1002,6 +1019,12 @@ async function skenovatZnamyZdrojJadro(
       // KKC Roháč: neshoda kotvy (chybí právě jedna živá
       // Položka KKC Roháč s Používat=ANO) → tiše, bez Nezařazených.
       if (jeKkcRohacZdrojUrl(zdroj.url)) {
+        continue;
+      }
+      // Divadlo 105: neshoda kotvy (chybí právě jedna živá
+      // Položka Divadlo 105 s Používat=ANO) → tiše, bez JKT,
+      // bez Nezařazených.
+      if (jeTrebon105DivadloZdrojUrl(zdroj.url)) {
         continue;
       }
       // Bohatý zdroj: neshody se neposílají do Nezařazených (provozní šum).
