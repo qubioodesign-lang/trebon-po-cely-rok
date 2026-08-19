@@ -60,7 +60,7 @@ import {
 } from "./kkc-rohac";
 import {
   excerptTrebon105ObsahujeVidiny,
-  jeTrebon105KoncertListingHtml,
+  jeTrebon105VidinyExcerptListingHtml,
 } from "./koncert-105";
 import {
   BRANA_VIDINY_KANDIDAT_NAZEV,
@@ -1286,9 +1286,9 @@ function parsovatTrebon105EventArticles(
     );
     const mistoNeboTyp = textBezHtmlTagu(venueMatch?.[1] ?? "");
 
-    // Jen listing Koncert 105: excerpt s jádrem VIDINY → neemitovat.
-    // Galerie / Biograf / Divadlo / hub tuto větev nevidí.
-    if (jeTrebon105KoncertListingHtml(html)) {
+    // Listingy prostor:galerie / biograf / divadlo / koncert:
+    // excerpt s jádrem VIDINY → neemitovat. Hub a jiné detaily ne.
+    if (jeTrebon105VidinyExcerptListingHtml(html)) {
       const excerptMatch = karta.match(
         /<p\b[^>]*\bclass=["'][^"']*\bevent__excerpt\b[^"']*["'][^>]*>([\s\S]*?)<\/p>/i,
       );

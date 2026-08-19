@@ -10,6 +10,7 @@ import {
   najitDivadlo105KotvuId,
   BRANA_DIVADLO_105_POLOZKA,
 } from "../src/lib/brana/admin/divadlo-105";
+import { excerptTrebon105ObsahujeVidiny } from "../src/lib/brana/admin/koncert-105";
 import {
   sparovatSRedakcniPolozkou,
   sparovatVlastnictvimHlidaneKotvy,
@@ -45,8 +46,10 @@ function eventCard(opts: {
   title: string;
   venue?: string;
   artist?: string;
+  excerpt?: string;
 }): string {
   const venue = opts.venue ?? "Divadlo";
+  const excerpt = opts.excerpt ?? "Anotace";
   const artist = opts.artist
     ? `<div class="event__artist">${opts.artist}</div>`
     : "";
@@ -64,7 +67,7 @@ function eventCard(opts: {
       <h4 class="event__title">${opts.title}</h4>
     </header>
     <div class="event__excerpt-wrapper">
-      <p class="event__excerpt">Anotace</p>
+      <p class="event__excerpt">${excerpt}</p>
     </div>
   </article>
 </a>`;
@@ -221,6 +224,36 @@ function overParserFixture(): void {
   console.log("OK fixture parser: 2 Divadlo, 0 výstavy, Znovuzrozená 4. 9. 18:00");
 }
 
+function overVidinyExcerptRedukce(): void {
+  const html = `<!DOCTYPE html>
+<html><head>
+<link rel="canonical" href="https://trebon105.cz/program/prostor:divadlo"/>
+</head><body>
+<nav class="filter-nav">
+  <a class="filter-nav-item is-active" href="https://trebon105.cz/program/prostor:divadlo">Divadlo</a>
+</nav>
+<section class="event-list">
+  <h3 class="event-list__title">Akce</h3>
+${eventCard({
+  dateHtml: "Sobota 22. 8. 17:00",
+  title: "Eliška Brtnická: OBRYSY",
+  excerpt: "VIDINY 2026",
+})}
+${eventCard({
+  dateHtml: "Pátek 4. 9. 2026 18:00",
+  title: "Znovuzrozená",
+  excerpt: "Hospicová péče sv. Kleofáše",
+})}
+</section>
+</body></html>`;
+  const k = parsovatUdalostiZeZdroje(html, "text/html");
+  assert(k.length === 1, `Divadlo excerpt: 1, je ${k.length}`);
+  assert(k[0].nazev === "Znovuzrozená", `zůstala Znovuzrozená, je ${k[0].nazev}`);
+  assert(k[0].datumOd === "2026-09-04", `den ${k[0].datumOd}`);
+  assert(k[0].cas === "18:00", `čas ${k[0].cas}`);
+  console.log("OK excerpt VIDINY: Divadlo zahodí festival, Znovuzrozená projde");
+}
+
 function overOwnership(): void {
   const seed = vytvoritVychoziRedakcniPoradi();
   const k = parsovatUdalostiZeZdroje(FIXTURE, "text/html");
@@ -350,8 +383,21 @@ async function overZivyProgram(): Promise<void> {
   });
   assert(res.ok, `živý GET ${res.status}`);
   const html = await res.text();
+  const kartyPred = [
+    ...html.matchAll(
+      /<article\b[^>]*\bclass=["'][^"']*\bevent\b[^"']*["'][^>]*>[\s\S]*?<\/article>/gi,
+    ),
+  ];
+  const vidinyPred = kartyPred.filter((m) => {
+    const ex = (m[0].match(
+      /<p\b[^>]*\bevent__excerpt\b[^>]*>([\s\S]*?)<\/p>/i,
+    )?.[1] ?? "").replace(/<[^>]+>/g, " ");
+    return excerptTrebon105ObsahujeVidiny(ex);
+  });
+  assert(kartyPred.length === 5, `před filtrem 5 karet, je ${kartyPred.length}`);
+  assert(vidinyPred.length === 4, `4 VIDIN excerptů, je ${vidinyPred.length}`);
   const k = parsovatUdalostiZeZdroje(html, "text/html");
-  assert(k.length >= 1, `živý parser 0 kandidátů`);
+  assert(k.length === 1, `živý parser 5→1, je ${k.length}`);
   assert(
     k.every((x) => x.mistoNeboTyp === "Divadlo"),
     `živý venue jen Divadlo, je ${[...new Set(k.map((x) => x.mistoNeboTyp))].join(",")}`,
@@ -377,13 +423,14 @@ async function overZivyProgram(): Promise<void> {
   assert(zMatch.ok && zMatch.redakcniPolozkaId === "divadlo-105", "Znovuzrozená → Divadlo 105");
 
   console.log(
-    `OK živý prostor:divadlo → ${k.length} Divadlo, Znovuzrozená 2026-09-04 18:00 → divadlo-105`,
+    "OK živý prostor:divadlo → 5 karet, 4 VIDIN zahozeno, Znovuzrozená 2026-09-04 18:00 → divadlo-105",
   );
 }
 
 async function main(): Promise<void> {
   overUrl();
   overParserFixture();
+  overVidinyExcerptRedukce();
   overOwnership();
   overJazyk();
   overGalerieBiografBezeZmeny();

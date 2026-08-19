@@ -3,19 +3,13 @@
  * Jen sekce Akce (`event-list` bez `event-list--exhibitions`).
  * Biograf: vnořený `event-list` v `<section class="section">`.
  * Spuštění: npx tsx scripts/verify-brana-galerie105-parser.ts
- * READ-ONLY předscan Biograf: npx tsx scripts/verify-brana-galerie105-parser.ts --zivy
  */
 
-import { readFileSync, existsSync } from "fs";
-import { join } from "path";
 import { parsovatUdalostiZeZdroje } from "../src/lib/brana/admin/zdroj-scan-parser";
 import { sparovatSRedakcniPolozkou } from "../src/lib/brana/admin/zdroj-scan-sparovani";
 import { vytvoritVychoziRedakcniPoradi } from "../src/lib/brana/admin/redakcni-kostra";
-import {
-  dnesIsoVPraze,
-  jeUdalostCelaMinula,
-  projektujKalendarDny,
-} from "../src/lib/brana/admin/konkretni-udalost";
+import { excerptTrebon105ObsahujeVidiny } from "../src/lib/brana/admin/koncert-105";
+import { projektujKalendarDny } from "../src/lib/brana/admin/konkretni-udalost";
 
 function fail(msg: string): never {
   console.error(`FAIL: ${msg}`);
@@ -33,8 +27,10 @@ function eventCard(opts: {
   title: string;
   venue?: string;
   artist?: string;
+  excerpt?: string;
 }): string {
   const venue = opts.venue ?? "Galerie";
+  const excerpt = opts.excerpt ?? "Anotace";
   const artist = opts.artist
     ? `<div class="event__artist">${opts.artist}</div>`
     : "";
@@ -52,7 +48,7 @@ function eventCard(opts: {
       <h4 class="event__title">${opts.title}</h4>
     </header>
     <div class="event__excerpt-wrapper">
-      <p class="event__excerpt">Anotace</p>
+      <p class="event__excerpt">${excerpt}</p>
     </div>
   </article>
 </a>`;
@@ -250,6 +246,79 @@ function overFixture(): void {
   console.log("OK Galerie 105: Výstavy ignorovány, Fluence pátek/sobota 1 den");
 }
 
+function overVidinyExcerptRedukce(): void {
+  const html = `<!DOCTYPE html>
+<html><head>
+<link rel="canonical" href="https://trebon105.cz/program/prostor:galerie"/>
+</head><body>
+<section class="event-list">
+  <h3 class="event-list__title">Akce</h3>
+${eventCard({
+  dateHtml: "Středa 19. 8. 17:00",
+  title: "Uvidíš: Zahájení VIDIN",
+  excerpt: "VIDINY 2026",
+})}
+${eventCard({
+  dateHtml: "Sobota 4. 9. 18:00",
+  title: "Literárně-hudební představení",
+  excerpt: "Běžná anotace",
+})}
+</section>
+</body></html>`;
+  const k = parsovatUdalostiZeZdroje(html, "text/html");
+  assert(k.length === 1, `Galerie excerpt: 1 běžná, je ${k.length}`);
+  assert(
+    k[0].nazev.includes("Literárně-hudební"),
+    `zůstala běžná karta, je ${k[0].nazev}`,
+  );
+
+  const biograf = `<!DOCTYPE html>
+<html><head>
+<link rel="canonical" href="https://trebon105.cz/program/prostor:biograf"/>
+</head><body>
+<nav class="filter-nav">
+  <a class="filter-nav-item is-active" href="https://trebon105.cz/program/prostor:biograf">Biograf</a>
+</nav>
+<section class="section">
+<section class="event-list">
+${eventCard({
+  dateHtml: "Středa 19. 8. 18:00",
+  title: "Festivalový film",
+  venue: "Biograf",
+  excerpt: "VIDINY 2026",
+})}
+${eventCard({
+  dateHtml: "Čtvrtek 20. 8. 14:00",
+  title: "Bardo",
+  venue: "Biograf",
+  excerpt: "Běžná anotace",
+})}
+</section>
+</section>
+</body></html>`;
+  const b = parsovatUdalostiZeZdroje(biograf, "text/html");
+  assert(b.length === 1 && b[0].nazev === "Bardo", "Biograf: VIDIN zahozen, Bardo zůstane");
+
+  const hub = `<!DOCTYPE html>
+<html><head>
+<link rel="canonical" href="https://trebon105.cz/program"/>
+</head><body>
+<section class="event-list">
+${eventCard({
+  dateHtml: "Středa 19. 8. 17:00",
+  title: "Hub karta s VIDINY",
+  excerpt: "VIDINY 2026",
+})}
+</section>
+</body></html>`;
+  const h = parsovatUdalostiZeZdroje(hub, "text/html");
+  assert(
+    h.length === 1 && h[0].nazev.includes("Hub karta"),
+    "hub excerpt VIDINY se nefiltruje",
+  );
+  console.log("OK excerpt VIDINY: Galerie/Biograf listing zahodí, hub ne, běžná karta projde");
+}
+
 function overFluenceKalendarSimulace(): void {
   const k = parsovatUdalostiZeZdroje(FIXTURE, "text/html").filter((x) =>
     x.nazev.includes("Fluence"),
@@ -395,50 +464,79 @@ function overRegreseOstatni(): void {
 }
 
 async function overZivyProgramVolitelne(): Promise<void> {
-  const temp = process.env.TEMP || process.env.TMP || "/tmp";
-  const cached = join(temp, "g105-galerie.html");
-  let html: string | null = null;
-  if (existsSync(cached)) {
-    html = readFileSync(cached, "utf8");
-  } else {
-    try {
-      const res = await fetch(
-        "https://trebon105.cz/program/prostor:galerie",
-      );
-      if (res.ok) {
-        html = await res.text();
-      }
-    } catch {
-      html = null;
-    }
+  const res = await fetch("https://trebon105.cz/program/prostor:galerie", {
+    headers: {
+      Accept: "text/html",
+      "User-Agent": "BranaAdminScan/1.0",
+    },
+  });
+  if (!res.ok) {
+    fail(`živý GET Galerie ${res.status}`);
   }
-  if (!html) {
-    console.log("SKIP živý program (není cache/síť)");
-    return;
-  }
+  const html = await res.text();
   const cards = (html.match(/<article class="event">/g) || []).length;
   const k = parsovatUdalostiZeZdroje(html, "text/html");
-  assert(cards === 25, `živý article.event = 25, je ${cards}`);
-  assert(k.length === 6, `živý: právě 6 Akcí, je ${k.length}`);
+  const kartyAkce = [
+    ...html.matchAll(
+      /<section\b([^>]*\bevent-list\b[^>]*)>([\s\S]*?)<\/section>/gi,
+    ),
+  ].filter((m) => {
+    const classes = (m[1] ?? "").match(/\bclass=["']([^"']*)["']/i)?.[1] ?? "";
+    return (
+      classes.split(/\s+/).includes("event-list") &&
+      !classes.split(/\s+/).includes("event-list--exhibitions")
+    );
+  });
+  const akceHtml = kartyAkce.map((m) => m[2] ?? "").join("\n");
+  const akceKarty = [
+    ...akceHtml.matchAll(
+      /<article\b[^>]*\bclass=["'][^"']*\bevent\b[^"']*["'][^>]*>[\s\S]*?<\/article>/gi,
+    ),
+  ];
+  const vidinyAkce = akceKarty.filter((m) => {
+    const ex = (m[0].match(
+      /<p\b[^>]*\bevent__excerpt\b[^>]*>([\s\S]*?)<\/p>/i,
+    )?.[1] ?? "").replace(/<[^>]+>/g, " ");
+    return excerptTrebon105ObsahujeVidiny(ex);
+  });
+  assert(
+    vidinyAkce.length === 5,
+    `živý Galerie: 5 Akcí s excerptem VIDINY, je ${vidinyAkce.length} (karet ${cards})`,
+  );
+  assert(
+    k.length === akceKarty.length - vidinyAkce.length,
+    `živý Galerie po redukci ${akceKarty.length}→${k.length}, VIDIN ${vidinyAkce.length}`,
+  );
+  assert(
+    k.every((x) => !/zahájení|fluence|videoprojekce/i.test(x.nazev)),
+    "živý Galerie: 0 festivalových Akcí VIDINY",
+  );
+  assert(
+    k.length === 0 || k.every((x) => x.mistoNeboTyp === "Galerie"),
+    "filtr Galerie → venue Galerie",
+  );
   assert(
     !k.some((x) => x.cas === "" && x.datumOd !== x.datumDo && x.datumOd <= "2026-08-10"),
     "nesmí projít typická dlouhodobá výstava bez času ze sekce Výstavy",
   );
   assert(
-    k.every((x) => x.mistoNeboTyp === "Galerie"),
-    "filtr Galerie → venue Galerie",
+    k.every((x) => {
+      const shoda = akceKarty.find((m) =>
+        m[0].includes(x.nazev.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+      );
+      if (!shoda) {
+        return true;
+      }
+      const ex = (shoda[0].match(
+        /<p\b[^>]*\bevent__excerpt\b[^>]*>([\s\S]*?)<\/p>/i,
+      )?.[1] ?? "").replace(/<[^>]+>/g, " ");
+      return !excerptTrebon105ObsahujeVidiny(ex);
+    }),
+    "živý Galerie: 0 emitovaných karet s excerptem vidiny",
   );
-  const nazvy = k.map((x) => x.nazev).join(" | ");
-  assert(nazvy.includes("Videoprojekce"), `akce videoprojekce: ${nazvy}`);
-  assert(nazvy.includes("Zahájení"), `akce zahájení: ${nazvy}`);
-  assert(nazvy.includes("Fluence"), `akce Fluence: ${nazvy}`);
-  const fluence = k.filter((x) => x.nazev.includes("Fluence"));
-  assert(fluence.length === 2, `živý: 2 Fluence, je ${fluence.length}`);
-  const f21 = fluence.find((x) => x.datumOd === "2026-08-21");
-  const f22 = fluence.find((x) => x.datumOd === "2026-08-22");
-  assert(f21 && f21.datumDo === "2026-08-21" && f21.cas === "22:00", "živý pátek Fluence 1 den");
-  assert(f22 && f22.datumDo === "2026-08-22" && f22.cas === "22:00", "živý sobota Fluence 1 den");
-  console.log(`OK živý prostor:galerie → ${k.length} Akcí (z ${cards} karet)`);
+  console.log(
+    `OK živý prostor:galerie → ${akceKarty.length} Akcí, ${vidinyAkce.length} VIDIN zahozeno, ${k.length} ponecháno (z ${cards} karet)`,
+  );
 }
 
 async function zivyPredscanBiograf(): Promise<void> {
@@ -453,27 +551,27 @@ async function zivyPredscanBiograf(): Promise<void> {
     fail(`živý GET Biograf ${res.status}`);
   }
   const html = await res.text();
+  const kartyPred = [
+    ...html.matchAll(
+      /<article\b[^>]*\bclass=["'][^"']*\bevent\b[^"']*["'][^>]*>[\s\S]*?<\/article>/gi,
+    ),
+  ];
+  const vidinyPred = kartyPred.filter((m) => {
+    const ex = (m[0].match(
+      /<p\b[^>]*\bevent__excerpt\b[^>]*>([\s\S]*?)<\/p>/i,
+    )?.[1] ?? "").replace(/<[^>]+>/g, " ");
+    return excerptTrebon105ObsahujeVidiny(ex);
+  });
+  assert(kartyPred.length === 13, `před filtrem 13 karet, je ${kartyPred.length}`);
+  assert(vidinyPred.length === 13, `13 VIDIN excerptů, je ${vidinyPred.length}`);
   const k = parsovatUdalostiZeZdroje(html, "text/html");
-  const polozky = vytvoritVychoziRedakcniPoradi();
-  const dnesIso = dnesIsoVPraze();
-  const budouci = k.filter((x) => !jeUdalostCelaMinula(x, dnesIso));
-  console.log("\nREAD-ONLY předscan", url);
-  console.log("Nalezeno kandidátů (včetně minulých):", k.length);
-  console.log("Budoucích kandidátů:", budouci.length);
-  console.log("Očekávané CO/KDE z uloženého Redakčního pořadí: Biograf / Biograf 105");
-  for (const kandidat of budouci) {
-    const s = sparovatSRedakcniPolozkou(kandidat, polozky, {
-      zdrojNazev: "Biograf 105",
-    });
-    const kotva = s.ok ? s.redakcniPolozkaId : "NO-MATCH";
-    console.log(
-      `- ${kandidat.nazev} | ${kandidat.datumOd} | ${kandidat.cas || "(bez času)"} | ${kandidat.mistoNeboTyp} | ${kotva}`,
-    );
-  }
+  assert(k.length === 0, `po filtru 0 festivalových karet, je ${k.length}`);
+  console.log("OK živý prostor:biograf → 13 karet, 13 VIDIN zahozeno, 0 ponecháno");
 }
 
 async function main(): Promise<void> {
   overFixture();
+  overVidinyExcerptRedukce();
   overFluenceKalendarSimulace();
   overSkutecnyOvernightNezkracovat();
   overNavigaceNedavaKandidaty();
@@ -482,10 +580,8 @@ async function main(): Promise<void> {
   overBiografVnorenaSekce();
   overRegreseOstatni();
   await overZivyProgramVolitelne();
+  await zivyPredscanBiograf();
   console.log("ALL OK verify-brana-galerie105-parser");
-  if (process.argv.includes("--zivy")) {
-    await zivyPredscanBiograf();
-  }
 }
 
 main().catch((e) => {

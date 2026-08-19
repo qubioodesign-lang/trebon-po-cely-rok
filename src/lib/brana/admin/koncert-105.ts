@@ -1,8 +1,10 @@
 /**
  * Úzký sběr Koncertu 105: jen URL trebon105.cz `/program/prostor:koncert`.
- * Izolaci dělá filtrovaná URL. Excerpt s jádrem „VIDINY“ se na tomto
- * listingu neemitovává (běžný program 105 zůstane). Galerie / Biograf /
- * Divadlo tuto redukci nevidí.
+ * Izolaci dělá filtrovaná URL.
+ *
+ * Redukce excerptu s jádrem „VIDINY“ platí na listingách
+ * prostor:galerie / biograf / divadlo / koncert. Hub a jiné detaily ne.
+ * Běžný program bez „vidiny“ v excerptu zůstane.
  *
  * Ownership podle živého názvu Položky „Koncert 105“ s Používat=ANO.
  * Interní id se nehádá. 0 nebo 2+ → 0 zápis, bez hrobky, bez JKT,
@@ -15,6 +17,12 @@ export const BRANA_KONCERT_105_POLOZKA = "Koncert 105";
 
 const TREBON105_HOST = "trebon105.cz";
 const KONCERT_PROGRAM_CESTA = "/program/prostor:koncert";
+const VIDINY_EXCERPT_LISTING_CESTY = [
+  "/program/prostor:galerie",
+  "/program/prostor:biograf",
+  "/program/prostor:divadlo",
+  "/program/prostor:koncert",
+] as const;
 
 function hostBezWww(url: string): string | null {
   try {
@@ -56,10 +64,16 @@ function canonicalHrefZHtml(html: string): string | null {
   return sHrefRel?.[1] ?? null;
 }
 
-/** Listing HTML větve Koncert 105. Canonical na živém webu míří na hub; aktivní filtr je prostor:koncert. */
-export function jeTrebon105KoncertListingHtml(html: string): boolean {
+function jeTrebon105ProstorUrl(url: string, cesta: string): boolean {
+  return hostBezWww(url) === TREBON105_HOST && cestaProgramu(url) === cesta;
+}
+
+function jeTrebon105ListingHtmlPro(
+  html: string,
+  jeUrl: (url: string) => boolean,
+): boolean {
   const canon = canonicalHrefZHtml(html);
-  if (canon && jeTrebon105KoncertZdrojUrl(canon)) {
+  if (canon && jeUrl(canon)) {
     return true;
   }
   for (const m of html.matchAll(/<a\b([^>]*)>/gi)) {
@@ -68,15 +82,32 @@ export function jeTrebon105KoncertListingHtml(html: string): boolean {
       continue;
     }
     const href = attrs.match(/\bhref=["']([^"']+)["']/i)?.[1];
-    if (href && jeTrebon105KoncertZdrojUrl(href)) {
+    if (href && jeUrl(href)) {
       return true;
     }
   }
   return false;
 }
 
+/** Listing HTML větve Koncert 105. Canonical na živém webu míří na hub; aktivní filtr je prostor:koncert. */
+export function jeTrebon105KoncertListingHtml(html: string): boolean {
+  return jeTrebon105ListingHtmlPro(html, jeTrebon105KoncertZdrojUrl);
+}
+
 /**
- * Redakční filtr jen pro Koncert 105: jádro VIDINY v excerptu, bez roku.
+ * Listing, na kterém platí redukce excerptu VIDINY:
+ * prostor:galerie / biograf / divadlo / koncert. Hub ne.
+ */
+export function jeTrebon105VidinyExcerptListingHtml(html: string): boolean {
+  return jeTrebon105ListingHtmlPro(html, (url) =>
+    VIDINY_EXCERPT_LISTING_CESTY.some((cesta) =>
+      jeTrebon105ProstorUrl(url, cesta),
+    ),
+  );
+}
+
+/**
+ * Redakční filtr listingů 105: jádro VIDINY v excerptu, bez roku.
  * Vstup už bez HTML tagů.
  */
 export function excerptTrebon105ObsahujeVidiny(excerpt: string): boolean {

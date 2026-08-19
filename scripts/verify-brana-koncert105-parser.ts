@@ -461,6 +461,12 @@ ${eventCard({
   title: "Uvidíš: Zahájení VIDIN",
   excerpt: "VIDINY 2026",
 })}
+${eventCard({
+  dateHtml: "Sobota 4. 9. 18:00",
+  venue: "Galerie",
+  title: "Literárně-hudební představení",
+  excerpt: "Běžná anotace bez festivalu",
+})}
   </div>
 </section>
 </body></html>`;
@@ -470,11 +476,12 @@ ${eventCard({
   );
   const galerieK = parsovatUdalostiZeZdroje(galerieHtml, "text/html");
   assert(
-    galerieK.length === 1 && galerieK[0].nazev.includes("Zahájení VIDIN"),
-    "Galerie VIDIN excerpt se na prostor:galerie nezahazuje",
+    galerieK.length === 1 &&
+      galerieK[0].nazev.includes("Literárně-hudební"),
+    "Galerie: VIDIN excerpt zahozen, běžná karta zůstane",
   );
   console.log(
-    "OK Galerie / Biograf / hrobka / Okolo matching nedotčen; Galerie VIDIN excerpt zůstává",
+    "OK Galerie / Biograf / hrobka / Okolo matching nedotčen; Galerie VIDIN excerpt zahozen",
   );
 }
 
