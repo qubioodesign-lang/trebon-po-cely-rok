@@ -3,18 +3,14 @@
  * a SMSticket místo 5734. Společná identita `rohac|YYYY-MM-DD|HH:MM`.
  *
  * Interní ID kotvy se nehádá. Scan najde právě jednu živou Položku
- * „KKC Roháč“ s Používat=ANO a jazykem Roháč / KKC.
+ * „KKC Roháč“ s Používat=ANO (libovolné existující katalogové ID).
  * 0 nebo 2+ → 0 zápis, bez Nezařazených.
  */
 
 import { okamzikVPraze } from "@/lib/brana/cas";
-import type {
-  BranaRedakcniJazykVerejny,
-  BranaRedakcniPolozkaStav,
-} from "./redakcni-kostra";
+import type { BranaRedakcniPolozkaStav } from "./redakcni-kostra";
 import type { BranaScanKandidat } from "./zdroj-scan-parser";
 
-export const BRANA_KKC_ROHAC_REDAKCNI_POLOZKA_ID = "kkc-rohac";
 export const BRANA_KKC_ROHAC_POLOZKA = "KKC Roháč";
 export const BRANA_KKC_ROHAC_MISTO = "KKC Roháč";
 export const BRANA_KKC_ROHAC_CO = "Roháč";
@@ -147,22 +143,8 @@ export function jeKkcRohacKonfliktHtml(html: string): boolean {
   );
 }
 
-function jeKkcRohacJazyk(
-  jazyk: BranaRedakcniJazykVerejny | null,
-): boolean {
-  if (!jazyk) {
-    return false;
-  }
-  return (
-    jazyk.co.rezim === "PEVNE" &&
-    jazyk.co.text === BRANA_KKC_ROHAC_CO &&
-    jazyk.rozliseni.rezim === "PEVNE" &&
-    jazyk.rozliseni.text === BRANA_KKC_ROHAC_KDE
-  );
-}
-
 /**
- * Právě jedna ANO Položka „KKC Roháč“ s kanonickým jazykem.
+ * Právě jedna ANO Položka „KKC Roháč“. Interní id se nehádá.
  * Jinak null (0 karet).
  */
 export function najitKkcRohacKotvuId(
@@ -171,8 +153,7 @@ export function najitKkcRohacKotvuId(
   const shody = polozky.filter(
     (p) =>
       p.pouzivat === "ANO" &&
-      (p.polozka ?? "").trim() === BRANA_KKC_ROHAC_POLOZKA &&
-      jeKkcRohacJazyk(p.jazykVerejny),
+      (p.polozka ?? "").trim() === BRANA_KKC_ROHAC_POLOZKA,
   );
   return shody.length === 1 ? shody[0].id : null;
 }

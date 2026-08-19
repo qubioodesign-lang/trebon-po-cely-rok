@@ -1000,7 +1000,7 @@ async function skenovatZnamyZdrojJadro(
         continue;
       }
       // KKC Roháč: neshoda kotvy (chybí právě jedna živá
-      // Položka KKC Roháč s jazykem Roháč / KKC) → tiše, bez Nezařazených.
+      // Položka KKC Roháč s Používat=ANO) → tiše, bez Nezařazených.
       if (jeKkcRohacZdrojUrl(zdroj.url)) {
         continue;
       }

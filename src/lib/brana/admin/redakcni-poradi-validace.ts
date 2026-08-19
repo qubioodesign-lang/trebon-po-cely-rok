@@ -222,7 +222,7 @@ function normalizovatJazykVerejny(
 
 /**
  * Validuje a normalizuje kompletní sadu řádků podle stabilních id.
- * Musí obsahovat přesně všech 55 pevných položek, žádné jiné.
+ * Musí obsahovat přesně všech 54 pevných položek, žádné jiné.
  * Text Položka se zachová (validovaný); katalog slouží jen jako výchozí při chybějících datech.
  *
  * @param volby.legacyVyhled – true při načtení starého Blobu (null → mapa);
@@ -387,7 +387,7 @@ export function validovatRedakcniPoradiVstup(
  * Sloučí uložené hodnoty s pevným katalogem podle stabilního id.
  * Uložený prázdný NE slot (Položka "") se nesmí doplnit seedovým názvem.
  * Seed jen pro id, které v uloženém dokumentu chybí.
- * `katalog` jen pro izolovaný test rozšíření; produkce bere 55 ID.
+ * `katalog` jen pro izolovaný test rozšíření; produkce bere 54 ID.
  */
 export function sloucitUlozeneSKostrou(
   ulozene: unknown,

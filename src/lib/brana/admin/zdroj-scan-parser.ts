@@ -125,7 +125,6 @@ export {
   BRANA_KKC_ROHAC_KDE,
   BRANA_KKC_ROHAC_MISTO,
   BRANA_KKC_ROHAC_POLOZKA,
-  BRANA_KKC_ROHAC_REDAKCNI_POLOZKA_ID,
   jeKkcRohacZdrojIdentita,
   jeKkcRohacZdrojUrl,
   jeSmsticketRohacZdrojUrl,

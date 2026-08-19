@@ -176,8 +176,8 @@ function kandidat(
 
 function overSeed(): void {
   assert(
-    BRANA_REDAKCNI_VSECHNY_VYCHOZI.length === 55,
-    `katalog 55, je ${BRANA_REDAKCNI_VSECHNY_VYCHOZI.length}`,
+    BRANA_REDAKCNI_VSECHNY_VYCHOZI.length === 54,
+    `katalog 54, je ${BRANA_REDAKCNI_VSECHNY_VYCHOZI.length}`,
   );
   const polozky = vytvoritVychoziRedakcniPoradi();
   const ols = polozky.find((p) => p.id === OLS_ID);

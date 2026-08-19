@@ -14,7 +14,6 @@ import {
   BRANA_KKC_ROHAC_KDE,
   BRANA_KKC_ROHAC_MISTO,
   BRANA_KKC_ROHAC_POLOZKA,
-  BRANA_KKC_ROHAC_REDAKCNI_POLOZKA_ID,
   jeKkcRohacZdrojIdentita,
   jeKkcRohacZdrojUrl,
   jeSmsticketRohacZdrojUrl,
@@ -52,6 +51,7 @@ function assert(cond: unknown, msg: string): asserts cond {
 const TP_URL = "https://www.ticketportal.cz/venue/1203336";
 const SMS_URL =
   "https://www.smsticket.cz/mista/5734-kongresove-a-kulturni-centrum-rohac-trebon";
+const TEST_SLOT_ID = "test-slot";
 
 function jazykRohac(): BranaRedakcniPolozkaStav["jazykVerejny"] {
   return {
@@ -60,18 +60,30 @@ function jazykRohac(): BranaRedakcniPolozkaStav["jazykVerejny"] {
   };
 }
 
+function testSlotKotva(
+  volby?: { bezJazyka?: boolean; pouzivat?: "ANO" | "NE" },
+): BranaRedakcniPolozkaStav {
+  return {
+    id: TEST_SLOT_ID,
+    polozka: BRANA_KKC_ROHAC_POLOZKA,
+    pouzivat: volby?.pouzivat ?? "ANO",
+    priorita: 6,
+    subpriorita: 1,
+    vyhled: "NE",
+    vyhledSerie: true,
+    poznamka: "",
+    mimoKostru: true,
+    jazykVerejny: volby?.bezJazyka ? null : jazykRohac(),
+  };
+}
+
 function redakceSKotvou(
   volby?: { druhaKotva?: boolean; bezJazyka?: boolean },
 ): BranaRedakcniPolozkaStav[] {
-  const polozky = vytvoritVychoziRedakcniPoradi().map((p) =>
-    p.id === BRANA_KKC_ROHAC_REDAKCNI_POLOZKA_ID
-      ? {
-          ...p,
-          pouzivat: "ANO" as const,
-          jazykVerejny: volby?.bezJazyka ? null : jazykRohac(),
-        }
-      : p,
-  );
+  const polozky = [
+    ...vytvoritVychoziRedakcniPoradi(),
+    testSlotKotva(volby),
+  ];
   if (!volby?.druhaKotva) {
     return polozky;
   }
@@ -292,7 +304,7 @@ function overSmsticketFixture(): void {
 function overJazykARenderer(): void {
   const polozky = redakceSKotvou();
   const kotvaId = najitKkcRohacKotvuId(polozky);
-  assert(kotvaId === BRANA_KKC_ROHAC_REDAKCNI_POLOZKA_ID, `kotva: ${kotvaId}`);
+  assert(kotvaId === TEST_SLOT_ID, `kotva: ${kotvaId}`);
   const pravidlo = polozky.find((p) => p.id === kotvaId);
   const jazyk = sestavJazykBranyPoSparovani({
     polozka: pravidlo?.polozka ?? "",
@@ -372,6 +384,10 @@ function overDeduplikaci(): void {
     jeUdalostCelaMinula,
   );
   assert(prvni.vysledek.pridano === 1, `první scan +1, je ${prvni.vysledek.pridano}`);
+  assert(
+    prvni.udalosti[0].redakcniPolozkaId === TEST_SLOT_ID,
+    "kandidát nese existující id test-slot, ne kkc-rohac",
+  );
   const druhyStejnyZdroj = aplikovatScanKandidatyNaUdalosti(
     prvni.udalosti,
     [scanKandidat(helena)],
@@ -407,24 +423,38 @@ function overDeduplikaci(): void {
 function overOwnership(): void {
   const seed = vytvoritVychoziRedakcniPoradi();
   const helena = parsovatTicketportalRohacVenue(FIXTURE_TP)[0];
-  assert(najitKkcRohacKotvuId(seed) === null, "seed NE → 0 kotva");
-  assert(najitKkcRohacKotvuId(redakceSKotvou({ bezJazyka: true })) === null, "bez jazyka 0");
+  assert(najitKkcRohacKotvuId(seed) === null, "seed bez KKC Roháč → 0 kotva");
+  assert(
+    najitKkcRohacKotvuId([
+      ...seed,
+      testSlotKotva({ pouzivat: "NE" }),
+    ]) === null,
+    "Položka KKC Roháč s Používat NE → 0 kotva",
+  );
+  assert(
+    najitKkcRohacKotvuId(redakceSKotvou({ bezJazyka: true })) === TEST_SLOT_ID,
+    "jazyk není podmínkou ownership",
+  );
   assert(najitKkcRohacKotvuId(redakceSKotvou({ druhaKotva: true })) === null, "2 kotvy 0");
   const jedna = redakceSKotvou();
   const id = najitKkcRohacKotvuId(jedna);
-  assert(id === BRANA_KKC_ROHAC_REDAKCNI_POLOZKA_ID, "právě jedna kotva");
+  assert(id === TEST_SLOT_ID, "kotva = existující id test-slot, ne kkc-rohac");
   const ok = sparovatVlastnictvimHlidaneKotvy(jedna, [id], id);
-  assert(ok.ok && ok.redakcniPolozkaId === id, "ownership");
+  assert(ok.ok && ok.redakcniPolozkaId === TEST_SLOT_ID, "ownership");
   const jina = sparovatVlastnictvimHlidaneKotvy(jedna, ["kino-svetozor"], id);
   assert(!jina.ok, "cizí hlídaná kotva ne");
 
-  const vstupy = [helena]
+  const vstupyNula = [helena]
     .map((k) => doScanVstupu(k, seed))
     .filter((x): x is BranaScanAutomatickaUdalostVstup => x !== null);
-  assert(vstupy.length === 0, "chybějící kotva → 0 CEKA vstupů");
+  assert(vstupyNula.length === 0, "0 shod → 0 CEKA vstupů");
+  const vstupyDve = [helena]
+    .map((k) => doScanVstupu(k, redakceSKotvou({ druhaKotva: true })))
+    .filter((x): x is BranaScanAutomatickaUdalostVstup => x !== null);
+  assert(vstupyDve.length === 0, "2+ shod → 0 CEKA vstupů");
   const ceka = aplikovatScanKandidatyNaUdalosti(
     [],
-    vstupy,
+    vstupyNula,
     "2026-08-19",
     jeUdalostCelaMinula,
   );
@@ -436,25 +466,25 @@ function overOwnership(): void {
     noveId: () => "x",
   });
   assert(inbox.otevrene.length === 0, "0 Nezařazených");
-  console.log("OK ownership 0/1/2 → 0 CEKA, 0 Nezařazených");
+  console.log("OK ownership podle živého názvu, 0/2+ → 0 CEKA, 0 Nezařazených");
 }
 
 function overKatalog(): void {
   assert(
-    BRANA_REDAKCNI_VSECHNY_VYCHOZI.some(
-      (p) =>
-        p.id === BRANA_KKC_ROHAC_REDAKCNI_POLOZKA_ID &&
-        p.polozka === BRANA_KKC_ROHAC_POLOZKA,
+    BRANA_REDAKCNI_VSECHNY_VYCHOZI.length === 54,
+    `katalog 54, je ${BRANA_REDAKCNI_VSECHNY_VYCHOZI.length}`,
+  );
+  assert(
+    BRANA_REDAKCNI_VSECHNY_VYCHOZI.every((p) => p.id !== "kkc-rohac"),
+    "katalog bez id kkc-rohac",
+  );
+  assert(
+    BRANA_REDAKCNI_VSECHNY_VYCHOZI.every(
+      (p) => p.polozka !== BRANA_KKC_ROHAC_POLOZKA,
     ),
-    "katalogové ID",
+    "katalog bez seedové Položky KKC Roháč",
   );
-  const seed = vytvoritVychoziRedakcniPoradi().find(
-    (p) => p.id === BRANA_KKC_ROHAC_REDAKCNI_POLOZKA_ID,
-  );
-  assert(seed?.pouzivat === "NE", "seed Používat NE (bez vymýšlení priority/výhledu)");
-  assert(seed?.priorita === null, "seed priorita null");
-  assert(seed?.vyhled === "NE", "seed výhled NE z fallbacku");
-  console.log("OK katalog kkc-rohac");
+  console.log("OK katalog 54, bez kkc-rohac");
 }
 
 function overIdentituHelper(): void {
