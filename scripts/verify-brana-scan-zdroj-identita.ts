@@ -546,5 +546,58 @@ function cityTrebonIdentityMap(html: string): Map<string, string> {
   console.log("OK matiné alias: Okolo SCHVALENO + Třeboňsko = 1");
 }
 
+{
+  const html = `<!DOCTYPE html><html><body>
+<div class="event">
+  <h1>TŘEBOŇ: Rožmberská noc – VYPRODÁNO</h1>
+  <p>10. 9. 2026 – 12. 9. 2026</p>
+  <p>18.00 – 19.00, 19.15 – 20.15, 20.30 – 21.30</p>
+  <div class="post-text"></div>
+</div>
+</body></html>`;
+  const k = parsovatUdalostiZeZdroje(html, "text/html");
+  assert(k.length === 3, `RN parser 3, bylo ${k.length}`);
+  assert(
+    k[0].zdrojIdentita === "rozmberska-noc|2026-09-10",
+    `RN identita 10.9. ${k[0].zdrojIdentita}`,
+  );
+  assert(
+    k[1].zdrojIdentita === "rozmberska-noc|2026-09-11",
+    "RN identita 11.9.",
+  );
+  assert(
+    k[2].zdrojIdentita === "rozmberska-noc|2026-09-12",
+    "RN identita 12.9.",
+  );
+  assert(k.every((x) => x.cas === ""), "RN cas prázdný");
+  const vstupy = k.map((x) =>
+    kandidat({
+      nazev: x.nazev,
+      datumOd: x.datumOd,
+      cas: x.cas,
+      mistoNeboTyp: x.mistoNeboTyp,
+      verejneCo: x.mistoNeboTyp,
+      verejneRozliseni: null,
+      zdrojIdentita: x.zdrojIdentita,
+    }),
+  );
+  const prvni = aplikovatScanKandidatyNaUdalosti(
+    [],
+    vstupy,
+    DNES,
+    jeUdalostCelaMinula,
+  );
+  assert(prvni.vysledek.pridano === 3, "RN první 3");
+  const druhy = aplikovatScanKandidatyNaUdalosti(
+    prvni.udalosti,
+    vstupy,
+    DNES,
+    jeUdalostCelaMinula,
+  );
+  assert(druhy.vysledek.pridano === 0, "RN opakovaně 0");
+  assert(druhy.vysledek.jizExistuje === 3, "RN 3× Již existuje");
+  console.log("OK Rožmberská noc: identita den, 0 nových / 3× Již existuje");
+}
+
 void dnesIsoVPraze;
 console.log("VŠE OK — zdrojIdentita CEKA in-place");

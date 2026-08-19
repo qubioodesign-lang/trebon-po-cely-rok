@@ -53,6 +53,8 @@ import {
   sestavBesedaProgramUrl,
   vytahnoutBesedaProgramUrl,
   najitBesedaKotvuId,
+  jeRozmberskaNocZdrojUrl,
+  najitRozmberskaNocKotvuId,
   parsovatUdalostiZeZdroje,
   sestavItrebonKalendarUrlky,
   sestavDumStepankaKalendarUrlkyCtyriMesice,
@@ -73,6 +75,16 @@ import {
   sestavGbuZapisPoSparovani,
 } from "./gbu-titulek";
 import { sestavBesedaZapisPoSparovani } from "./beseda";
+import {
+  jeRozmberskaNocDetailUrl,
+  jeRozmberskaNocListingUrl,
+  sestavRozmberskaNocListingUrl,
+  sestavRozmberskaNocMesicPostTelo,
+  sestavRozmberskaNocZapisPoSparovani,
+  vytahnoutRozmberskaNocDetailUrlZListingu,
+  vytahnoutRozmberskaNocMesiceZListingu,
+  vybratJednoznacnyRozmberskaNocDetailUrl,
+} from "./rozmberska-noc";
 import {
   BRANA_JKT_REDAKCNI_POLOZKA_ID,
   jeItrebonDivadloJkTylaZdroj,
@@ -334,6 +346,7 @@ function httpRequestNaOvereneAdresy(
   cil: URL,
   overeneAdresy: LookupAddress[],
   signal: AbortSignal,
+  postTelo?: string,
 ): Promise<FetchVysledek> {
   const transport = cil.protocol === "https:" ? https : http;
   const pinned = overeneAdresy[0];
@@ -366,6 +379,18 @@ function httpRequestNaOvereneAdresy(
       return;
     }
 
+    const headers: Record<string, string> = {
+      Accept:
+        "text/html, application/xhtml+xml, application/ld+json, application/json;q=0.9, */*;q=0.8",
+      "User-Agent": "BranaAdminScan/1.0",
+      // Host zůstává původní hostname (+ nestandardní port z URL).
+      Host: cil.host,
+    };
+    if (postTelo !== undefined) {
+      headers["Content-Type"] = "application/x-www-form-urlencoded";
+      headers["Content-Length"] = String(Buffer.byteLength(postTelo));
+    }
+
     // Stejné options, které půjdou do transport.request – diagnostika čte přímo je.
     const requestOptions = {
       protocol: cil.protocol,
@@ -373,15 +398,9 @@ function httpRequestNaOvereneAdresy(
       hostname: pinned.address,
       port: cil.port || (cil.protocol === "https:" ? 443 : 80),
       path: `${cil.pathname}${cil.search}`,
-      method: "GET",
+      method: postTelo !== undefined ? "POST" : "GET",
       family: pinned.family,
-      headers: {
-        Accept:
-          "text/html, application/xhtml+xml, application/ld+json, application/json;q=0.9, */*;q=0.8",
-        "User-Agent": "BranaAdminScan/1.0",
-        // Host zůstává původní hostname (+ nestandardní port z URL).
-        Host: cil.host,
-      },
+      headers,
       timeout: FETCH_TIMEOUT_MS,
       // HTTPS: SNI + ověření certifikátu proti původnímu hostname, ne proti IP.
       servername: puvodniHostname,
@@ -529,12 +548,13 @@ function httpRequestNaOvereneAdresy(
       }
       reject(error);
     });
-    req.end();
+    req.end(postTelo);
   });
 }
 
 async function nacistTeloZdroje(
   url: string,
+  postTelo?: string,
 ): Promise<{ text: string; contentType: string | null }> {
   const controller = new AbortController();
   // DOČASNÁ DIAGNOSTIKA – odstranit po získání produkčního důkazu.
@@ -556,6 +576,7 @@ async function nacistTeloZdroje(
         aktualni,
         overeneAdresy,
         controller.signal,
+        postTelo,
       );
 
       if (odpoved.status >= 300 && odpoved.status < 400) {
@@ -748,6 +769,33 @@ async function skenovatZnamyZdrojJadro(
     const programUrl = zOdkazu || sestavBesedaProgramUrl(zdroj.url);
     const { text, contentType } = await nacistTeloZdroje(programUrl);
     kandidati = parsovatUdalostiZeZdroje(text, contentType);
+  } else if (jeRozmberskaNocListingUrl(zdroj.url)) {
+    const listingUrl = sestavRozmberskaNocListingUrl(zdroj.url);
+    const { text: listingHtml } = await nacistTeloZdroje(listingUrl);
+    const nalezene = vytahnoutRozmberskaNocDetailUrlZListingu(
+      listingHtml,
+      listingUrl,
+    );
+    const mesice = vytahnoutRozmberskaNocMesiceZListingu(listingHtml);
+    for (const mesic of mesice) {
+      const { text: mesicHtml } = await nacistTeloZdroje(
+        listingUrl,
+        sestavRozmberskaNocMesicPostTelo(mesic),
+      );
+      nalezene.push(
+        ...vytahnoutRozmberskaNocDetailUrlZListingu(mesicHtml, listingUrl),
+      );
+    }
+    const detailUrl = vybratJednoznacnyRozmberskaNocDetailUrl(nalezene);
+    if (!detailUrl) {
+      kandidati = [];
+    } else {
+      const { text, contentType } = await nacistTeloZdroje(detailUrl);
+      kandidati = parsovatUdalostiZeZdroje(text, contentType);
+    }
+  } else if (jeRozmberskaNocDetailUrl(zdroj.url)) {
+    const { text, contentType } = await nacistTeloZdroje(zdroj.url);
+    kandidati = parsovatUdalostiZeZdroje(text, contentType);
   } else {
     const { text, contentType } = await nacistTeloZdroje(zdroj.url);
     kandidati = parsovatUdalostiZeZdroje(text, contentType);
@@ -788,6 +836,9 @@ async function skenovatZnamyZdrojJadro(
     const besedaKotva = jeBesedaZdrojUrl(zdroj.url)
       ? najitBesedaKotvuId(redakcni.polozky)
       : null;
+    const rozmberskaNocKotva = jeRozmberskaNocZdrojUrl(zdroj.url)
+      ? najitRozmberskaNocKotvuId(redakcni.polozky)
+      : null;
     const sparovani =
       jeTrebonskoLazenskyKulturniProgramZdrojUrl(zdroj.url)
         ? tanecniKotva
@@ -815,6 +866,16 @@ async function skenovatZnamyZdrojJadro(
                 ? zdroj.hlidaneRedakcniPolozkaIds
                 : [besedaKotva],
               besedaKotva,
+            )
+          : { ok: false as const }
+      : jeRozmberskaNocZdrojUrl(zdroj.url)
+        ? rozmberskaNocKotva
+          ? sparovatVlastnictvimHlidaneKotvy(
+              redakcni.polozky,
+              hlidaneKotvy
+                ? zdroj.hlidaneRedakcniPolozkaIds
+                : [rozmberskaNocKotva],
+              rozmberskaNocKotva,
             )
           : { ok: false as const }
       : jeTdfZdrojUrl(zdroj.url)
@@ -918,6 +979,11 @@ async function skenovatZnamyZdrojJadro(
       if (jeBesedaZdrojUrl(zdroj.url)) {
         continue;
       }
+      // Rožmberská noc: neshoda kotvy (chybí právě jedna živá
+      // Položka Rožmberská noc s id rozmberska-noc) → tiše, bez Nezařazených.
+      if (jeRozmberskaNocZdrojUrl(zdroj.url)) {
+        continue;
+      }
       // Bohatý zdroj: neshody se neposílají do Nezařazených (provozní šum).
       if (
         hlidaneKotvy ||
@@ -960,6 +1026,10 @@ async function skenovatZnamyZdrojJadro(
             ? sestavBesedaZapisPoSparovani({
                 surovyNazev: kandidat.nazev,
                 jazyk,
+              })
+          : jeRozmberskaNocZdrojUrl(zdroj.url)
+            ? sestavRozmberskaNocZapisPoSparovani({
+                verejneCo: kandidat.mistoNeboTyp,
               })
           : {
               mistoNeboTyp: jazyk.mistoNeboTyp,

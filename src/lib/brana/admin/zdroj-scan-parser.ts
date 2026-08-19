@@ -22,7 +22,8 @@
  * trebonsko.cz/kategorie/lazensky-kulturni-program/ (Taneční večer
  *   Aurora→Harmonie / Berta→Adéla + Třeboňská lázeňská matiné;
  *   discovery ve scanu),
- * besedaclub.cz (Music Club Beseda – karty /program.html; discovery ve scanu).
+ * besedaclub.cz (Music Club Beseda – karty /program.html; discovery ve scanu),
+ * zamek-trebon.cz/cs/akce (listing → discovery Rožmberské noci, 1 karta / den).
  * Odděleně od Kalendáře a Blob zápisu.
  * Datum/čas: Europe/Prague (včetně DST) přes stávající brana/cas.
  * Multi-měsíční fetch DSN / Zámecká lékárna / Rybářství / Visit / Třeboňsko kino,
@@ -45,6 +46,10 @@ import {
 } from "./tanecni-vecery";
 import { parsovatLazenskaMatine } from "./lazenska-matine";
 import { jeBesedaProgramHtml, parsovatBeseda } from "./beseda";
+import {
+  jeRozmberskaNocHtml,
+  parsovatRozmberskaNoc,
+} from "./rozmberska-noc";
 
 export {
   BRANA_DPT_CO,
@@ -98,6 +103,16 @@ export {
   sestavBesedaProgramUrl,
   vytahnoutBesedaProgramUrl,
 } from "./beseda";
+
+export {
+  BRANA_ROZMBERSKA_NOC_POLOZKA,
+  BRANA_ROZMBERSKA_NOC_REDAKCNI_POLOZKA_ID,
+  jeRozmberskaNocListingUrl,
+  jeRozmberskaNocZdrojIdentita,
+  jeRozmberskaNocZdrojUrl,
+  najitRozmberskaNocKotvuId,
+  sestavRozmberskaNocListingUrl,
+} from "./rozmberska-noc";
 
 export type BranaScanKandidat = {
   nazev: string;
@@ -3799,6 +3814,12 @@ export function parsovatUdalostiZeZdroje(
   // Music Club Beseda: pojmenované karty /program.html — bez JSON-LD mixu.
   if (jeBesedaProgramHtml(telo)) {
     parsovatBeseda(telo, vysledek);
+    return deduplikovatScanKandidaty(vysledek);
+  }
+
+  // Rožmberská noc: jen stránka akce zamek-trebon.cz — 1 karta / den.
+  if (jeRozmberskaNocHtml(telo)) {
+    parsovatRozmberskaNoc(telo, vysledek);
     return deduplikovatScanKandidaty(vysledek);
   }
 
