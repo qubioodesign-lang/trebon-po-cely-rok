@@ -20,7 +20,8 @@
  * okolotrebone.cz/program/ (v1 jen hrobka + lázeňské matiné; JKT drop),
  * tdf.cz (Třeboňský divadelní festival – homepage title/place/data-date),
  * trebonsko.cz/kategorie/lazensky-kulturni-program/ (jen Taneční večer
- *   Aurora→Harmonie / Berta→Adéla; discovery ve scanu).
+ *   Aurora→Harmonie / Berta→Adéla; discovery ve scanu),
+ * besedaclub.cz (Music Club Beseda – karty /program.html; discovery ve scanu).
  * Odděleně od Kalendáře a Blob zápisu.
  * Datum/čas: Europe/Prague (včetně DST) přes stávající brana/cas.
  * Multi-měsíční fetch DSN / Zámecká lékárna / Rybářství / Visit / Třeboňsko kino,
@@ -41,6 +42,7 @@ import {
   jeTanecniVeceryMesicHtml,
   parsovatTanecniVecery,
 } from "./tanecni-vecery";
+import { jeBesedaProgramHtml, parsovatBeseda } from "./beseda";
 
 export {
   BRANA_DPT_CO,
@@ -75,6 +77,16 @@ export {
   urcitTanecniVecerKotvu,
   vytahnoutTrebonskoTanecniVecerMesicUrlky,
 } from "./tanecni-vecery";
+
+export {
+  BRANA_BESEDA_KDE,
+  BRANA_BESEDA_POLOZKA,
+  jeBesedaZdrojUrl,
+  najitBesedaKotvuId,
+  sestavBesedaHomeUrl,
+  sestavBesedaProgramUrl,
+  vytahnoutBesedaProgramUrl,
+} from "./beseda";
 
 export type BranaScanKandidat = {
   nazev: string;
@@ -3769,6 +3781,12 @@ export function parsovatUdalostiZeZdroje(
   // TDF: homepage title/place/data-date — bez JSON-LD mixu, JKT matching ne.
   if (jeTdfProgramHtml(telo)) {
     parsovatTdf(telo, vysledek);
+    return deduplikovatScanKandidaty(vysledek);
+  }
+
+  // Music Club Beseda: pojmenované karty /program.html — bez JSON-LD mixu.
+  if (jeBesedaProgramHtml(telo)) {
+    parsovatBeseda(telo, vysledek);
     return deduplikovatScanKandidaty(vysledek);
   }
 

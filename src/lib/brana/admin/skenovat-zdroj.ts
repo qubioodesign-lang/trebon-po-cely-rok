@@ -47,6 +47,11 @@ import {
   sestavTrebonskoLazenskyKulturniProgramHubUrl,
   urcitTanecniVecerKotvu,
   vytahnoutTrebonskoTanecniVecerMesicUrlky,
+  jeBesedaZdrojUrl,
+  sestavBesedaHomeUrl,
+  sestavBesedaProgramUrl,
+  vytahnoutBesedaProgramUrl,
+  najitBesedaKotvuId,
   parsovatUdalostiZeZdroje,
   sestavItrebonKalendarUrlky,
   sestavDumStepankaKalendarUrlkyCtyriMesice,
@@ -66,6 +71,7 @@ import {
   BRANA_GBU_REDAKCNI_POLOZKA_ID,
   sestavGbuZapisPoSparovani,
 } from "./gbu-titulek";
+import { sestavBesedaZapisPoSparovani } from "./beseda";
 import {
   BRANA_JKT_REDAKCNI_POLOZKA_ID,
   jeItrebonDivadloJkTylaZdroj,
@@ -734,6 +740,13 @@ async function skenovatZnamyZdrojJadro(
       sloucene.push(...parsovatUdalostiZeZdroje(text, contentType));
     }
     kandidati = deduplikovatScanKandidaty(sloucene);
+  } else if (jeBesedaZdrojUrl(zdroj.url)) {
+    const homeUrl = sestavBesedaHomeUrl(zdroj.url);
+    const { text: hubHtml } = await nacistTeloZdroje(homeUrl);
+    const zOdkazu = vytahnoutBesedaProgramUrl(hubHtml, homeUrl);
+    const programUrl = zOdkazu || sestavBesedaProgramUrl(zdroj.url);
+    const { text, contentType } = await nacistTeloZdroje(programUrl);
+    kandidati = parsovatUdalostiZeZdroje(text, contentType);
   } else {
     const { text, contentType } = await nacistTeloZdroje(zdroj.url);
     kandidati = parsovatUdalostiZeZdroje(text, contentType);
@@ -767,6 +780,9 @@ async function skenovatZnamyZdrojJadro(
     const tanecniKotva = jeTrebonskoLazenskyKulturniProgramZdrojUrl(zdroj.url)
       ? urcitTanecniVecerKotvu(kandidat, redakcni.polozky)
       : null;
+    const besedaKotva = jeBesedaZdrojUrl(zdroj.url)
+      ? najitBesedaKotvuId(redakcni.polozky)
+      : null;
     const sparovani =
       jeTrebonskoLazenskyKulturniProgramZdrojUrl(zdroj.url)
         ? tanecniKotva
@@ -776,6 +792,16 @@ async function skenovatZnamyZdrojJadro(
                 ? zdroj.hlidaneRedakcniPolozkaIds
                 : [tanecniKotva],
               tanecniKotva,
+            )
+          : { ok: false as const }
+      : jeBesedaZdrojUrl(zdroj.url)
+        ? besedaKotva
+          ? sparovatVlastnictvimHlidaneKotvy(
+              redakcni.polozky,
+              hlidaneKotvy
+                ? zdroj.hlidaneRedakcniPolozkaIds
+                : [besedaKotva],
+              besedaKotva,
             )
           : { ok: false as const }
       : jeTdfZdrojUrl(zdroj.url)
@@ -874,6 +900,11 @@ async function skenovatZnamyZdrojJadro(
       if (jeTrebonskoLazenskyKulturniProgramZdrojUrl(zdroj.url)) {
         continue;
       }
+      // Beseda: jen karty programu. Neshoda kotvy (chybí právě jedna
+      // živá Položka Music Club Beseda) → tiše, bez Nezařazených.
+      if (jeBesedaZdrojUrl(zdroj.url)) {
+        continue;
+      }
       // Bohatý zdroj: neshody se neposílají do Nezařazených (provozní šum).
       if (
         hlidaneKotvy ||
@@ -912,6 +943,11 @@ async function skenovatZnamyZdrojJadro(
               surovyNazev: kandidat.nazev,
               jazyk,
             })
+          : jeBesedaZdrojUrl(zdroj.url)
+            ? sestavBesedaZapisPoSparovani({
+                surovyNazev: kandidat.nazev,
+                jazyk,
+              })
           : {
               mistoNeboTyp: jazyk.mistoNeboTyp,
               nazev: kandidat.nazev,
