@@ -10,7 +10,8 @@
  * odkazu na hubu, stejný princip jako Třeboňsko kino.
  *
  * Pouze řádky s „Taneční večer“. Kapela/DJ se může přečíst ke kontrole,
- * do BRÁNY se nepřenáší. Ostatní lázeňský program (kino, přednášky, matiné,
+ * do BRÁNY se nepřenáší. Třeboňská lázeňská matiné řeší lazenska-matine.ts
+ * ze stejného měsíčního článku. Ostatní lázeňský program (kino, přednášky,
  * Křeslo, letní setkávání, …) → 0 kandidátů, žádné Nezařazené.
  *
  * Interní ID kotev se NEHÁDAJÍ podle starého názvu slotu. Scan je najde
@@ -302,6 +303,13 @@ function rokMesicSpaZHtml(
     return null;
   }
   return { rok, mesic, spa };
+}
+
+/** Rok/měsíc z titulku měsíčního lázeňského článku — sdílené s větví matiné. */
+export function rokMesicSpaZTrebonskoLazenskyClanek(
+  html: string,
+): { rok: number; mesic: number; spa: TanecniVecerSpa } | null {
+  return rokMesicSpaZHtml(html);
 }
 
 export function jeTanecniVeceryMesicHtml(html: string): boolean {

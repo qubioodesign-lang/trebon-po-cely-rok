@@ -10,9 +10,15 @@
  * Počet neznámých položek není důvod k zahození.
  */
 
+import {
+  BRANA_MATINE_REDAKCNI_POLOZKA_ID,
+  kanonizovatMatinePrimarniMisto,
+  sestavMatineZdrojIdentitu,
+} from "./lazenska-matine";
+
 export const BRANA_OKOLO_HROBKA_REDAKCNI_POLOZKA_ID = "schwarzenberska-hrobka";
 export const BRANA_OKOLO_MATINE_REDAKCNI_POLOZKA_ID =
-  "trebonska-lazenska-matine";
+  BRANA_MATINE_REDAKCNI_POLOZKA_ID;
 
 export const OKOLO_TREBONE_PROGRAM_PATH = "/program";
 const OKOLO_HOST = "okolotrebone.cz";
@@ -508,18 +514,27 @@ export function parsovatOkoloTreboneProgram(
     }
 
     const entradioId = vytahnoutEntradioId(blok);
+    const jeMatine = zarazeni.druh === "matine";
+    const matineIdentita = jeMatine
+      ? sestavMatineZdrojIdentitu(termin.datum)
+      : "";
+    const matineMisto = jeMatine
+      ? kanonizovatMatinePrimarniMisto(rozdel.misto)
+      : null;
     const kandidat: OkoloTreboneScanKandidat = {
       nazev: rozdel.nazev,
       datumOd: termin.datum,
       datumDo: termin.datum,
       cas: termin.cas,
-      mistoNeboTyp: rozdel.misto,
-      zdrojIdentita: sestavOkoloTreboneZdrojIdentitu({
-        entradioId,
-        datumOd: termin.datum,
-        cas: termin.cas,
-        nazev: rozdel.nazev,
-      }),
+      mistoNeboTyp: matineMisto ?? rozdel.misto,
+      zdrojIdentita: matineIdentita
+        ? matineIdentita
+        : sestavOkoloTreboneZdrojIdentitu({
+            entradioId,
+            datumOd: termin.datum,
+            cas: termin.cas,
+            nazev: rozdel.nazev,
+          }),
     };
     const klic = klicOkoloKandidata(kandidat);
     if (videne.has(klic)) {

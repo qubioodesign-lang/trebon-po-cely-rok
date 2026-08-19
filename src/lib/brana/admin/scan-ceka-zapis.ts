@@ -11,6 +11,10 @@ import {
   type BranaKonkretniUdalost,
   type BranaStavSchvaleni,
 } from "./konkretni-udalost";
+import {
+  datumZMatineZdrojIdentity,
+  jeMatineZdrojIdentita,
+} from "./lazenska-matine";
 import { maRedakcniOverride } from "./redakcni-override";
 
 export type BranaScanAutomatickaUdalostVstup = {
@@ -275,12 +279,29 @@ export function aplikovatScanKandidatyNaUdalosti(
     });
 
     // 1) Primární match: zdrojIdentita
+    // Matiné: matine|{YYYY-MM-DD} = 1 koncert / den. Stejná kotva + datum
+    // najde i legacy karty Okolo (okolo|… / entraadio).
     if (zdrojIdentita) {
-      const idx = nove.findIndex(
-        (u) =>
+      const matineDen = jeMatineZdrojIdentita(zdrojIdentita)
+        ? datumZMatineZdrojIdentity(zdrojIdentita)
+        : null;
+      const idx = nove.findIndex((u) => {
+        if (
           typeof u.zdrojIdentita === "string" &&
-          u.zdrojIdentita === zdrojIdentita,
-      );
+          u.zdrojIdentita === zdrojIdentita
+        ) {
+          return true;
+        }
+        if (
+          matineDen &&
+          matineDen === normalizovany.datumOd &&
+          u.redakcniPolozkaId === redakcniPolozkaId &&
+          u.datumOd === matineDen
+        ) {
+          return true;
+        }
+        return false;
+      });
       if (idx >= 0) {
         const exist = nove[idx];
         if (exist.stavSchvaleni === "CEKA_NA_SCHVALENI") {

@@ -46,6 +46,7 @@ import {
   jeTrebonskoLazenskyKulturniProgramZdrojUrl,
   sestavTrebonskoLazenskyKulturniProgramHubUrl,
   urcitTanecniVecerKotvu,
+  urcitLazenskaMatineKotvu,
   vytahnoutTrebonskoTanecniVecerMesicUrlky,
   jeBesedaZdrojUrl,
   sestavBesedaHomeUrl,
@@ -780,6 +781,10 @@ async function skenovatZnamyZdrojJadro(
     const tanecniKotva = jeTrebonskoLazenskyKulturniProgramZdrojUrl(zdroj.url)
       ? urcitTanecniVecerKotvu(kandidat, redakcni.polozky)
       : null;
+    const matineKotva =
+      jeTrebonskoLazenskyKulturniProgramZdrojUrl(zdroj.url) && !tanecniKotva
+        ? urcitLazenskaMatineKotvu(kandidat, redakcni.polozky)
+        : null;
     const besedaKotva = jeBesedaZdrojUrl(zdroj.url)
       ? najitBesedaKotvuId(redakcni.polozky)
       : null;
@@ -793,7 +798,15 @@ async function skenovatZnamyZdrojJadro(
                 : [tanecniKotva],
               tanecniKotva,
             )
-          : { ok: false as const }
+          : matineKotva
+            ? sparovatVlastnictvimHlidaneKotvy(
+                redakcni.polozky,
+                hlidaneKotvy
+                  ? zdroj.hlidaneRedakcniPolozkaIds
+                  : [matineKotva],
+                matineKotva,
+              )
+            : { ok: false as const }
       : jeBesedaZdrojUrl(zdroj.url)
         ? besedaKotva
           ? sparovatVlastnictvimHlidaneKotvy(
@@ -895,8 +908,8 @@ async function skenovatZnamyZdrojJadro(
         });
         continue;
       }
-      // Taneční večery: parser vydá jen Taneční večer. Neshoda kotvy
-      // (chybí živá Položka Adéla/Harmonie) → tiše, bez Nezařazených.
+      // Taneční večery / matiné: neshoda kotvy (chybí živá Položka)
+      // → tiše, bez Nezařazených.
       if (jeTrebonskoLazenskyKulturniProgramZdrojUrl(zdroj.url)) {
         continue;
       }

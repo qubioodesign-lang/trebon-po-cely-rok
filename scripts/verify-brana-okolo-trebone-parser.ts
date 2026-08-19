@@ -211,8 +211,7 @@ function overFixture(): void {
     `matiné místo ${matine.mistoNeboTyp}`,
   );
   assert(
-    matine.zdrojIdentita ===
-      "okolo|2026-08-16|11:00|trebonska-lazenska-matine-jiri-rajnis-bariton-a-ladislav-horak-akordeon",
+    matine.zdrojIdentita === "matine|2026-08-16",
     `matiné identita ${matine.zdrojIdentita}`,
   );
   assert(
@@ -225,7 +224,7 @@ function overFixture(): void {
     `matiné CO ${jazykMatine.verejneCo}`,
   );
   assert(
-    /berta/i.test(jazykMatine.verejneRozliseni ?? ""),
+    jazykMatine.verejneRozliseni === "Altán u lázeňského domu Berta",
     `matiné KDE z události ${jazykMatine.verejneRozliseni}`,
   );
 

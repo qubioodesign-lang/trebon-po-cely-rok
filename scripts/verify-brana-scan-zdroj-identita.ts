@@ -502,5 +502,49 @@ function cityTrebonIdentityMap(html: string): Map<string, string> {
   console.log("OK stabilita F: unikátní bez pořadí");
 }
 
+// Matiné: Třeboňsko matine|datum nesmí založit druhou kartu vedle Okolo.
+{
+  const MATINE_KOTVA = "trebonska-lazenska-matine";
+  const exist: BranaKonkretniUdalost = {
+    id: "auto-okolo-m",
+    redakcniPolozkaId: MATINE_KOTVA,
+    datumOd: "2026-09-20",
+    datumDo: "2026-09-20",
+    cas: "11:00",
+    mistoNeboTyp: "Lázeňské matiné Altán u lázeňského domu Berta",
+    nazev: "Třeboňská lázeňská matiné: Cimbál",
+    rucniPoziceVDni: null,
+    stavSchvaleni: "SCHVALENO",
+    scanKlic: vytvoritScanKlicAutomatickeUdalosti({
+      redakcniPolozkaId: MATINE_KOTVA,
+      datumOd: "2026-09-20",
+      cas: "11:00",
+      nazev: "Třeboňská lázeňská matiné: Cimbál",
+    }),
+    zdrojIdentita:
+      "okolo|2026-09-20|11:00|trebonska-lazenska-matine-cimbal",
+  };
+  const { udalosti, vysledek } = aplikovatScanKandidatyNaUdalosti(
+    [exist],
+    [
+      {
+        redakcniPolozkaId: MATINE_KOTVA,
+        datumOd: "2026-09-20",
+        datumDo: "2026-09-20",
+        cas: "11:00",
+        mistoNeboTyp: "Lázeňské matiné Altán u lázeňského domu Berta",
+        nazev: "Cimbálová muzika - pocta vínu",
+        zdrojIdentita: "matine|2026-09-20",
+      },
+    ],
+    DNES,
+    jeUdalostCelaMinula,
+  );
+  assert(vysledek.pridano === 0, "matiné alias pridano=0");
+  assert(udalosti.length === 1, "matiné alias 1 karta");
+  assert(udalosti[0].id === "auto-okolo-m", "matiné alias stejné id");
+  console.log("OK matiné alias: Okolo SCHVALENO + Třeboňsko = 1");
+}
+
 void dnesIsoVPraze;
 console.log("VŠE OK — zdrojIdentita CEKA in-place");

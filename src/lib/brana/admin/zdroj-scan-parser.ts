@@ -19,8 +19,9 @@
  * a dumprirody.cz/dum-prirody-trebonska/akce/ (výlety / exkurze / přednášky),
  * okolotrebone.cz/program/ (v1 jen hrobka + lázeňské matiné; JKT drop),
  * tdf.cz (Třeboňský divadelní festival – homepage title/place/data-date),
- * trebonsko.cz/kategorie/lazensky-kulturni-program/ (jen Taneční večer
- *   Aurora→Harmonie / Berta→Adéla; discovery ve scanu),
+ * trebonsko.cz/kategorie/lazensky-kulturni-program/ (Taneční večer
+ *   Aurora→Harmonie / Berta→Adéla + Třeboňská lázeňská matiné;
+ *   discovery ve scanu),
  * besedaclub.cz (Music Club Beseda – karty /program.html; discovery ve scanu).
  * Odděleně od Kalendáře a Blob zápisu.
  * Datum/čas: Europe/Prague (včetně DST) přes stávající brana/cas.
@@ -42,6 +43,7 @@ import {
   jeTanecniVeceryMesicHtml,
   parsovatTanecniVecery,
 } from "./tanecni-vecery";
+import { parsovatLazenskaMatine } from "./lazenska-matine";
 import { jeBesedaProgramHtml, parsovatBeseda } from "./beseda";
 
 export {
@@ -77,6 +79,15 @@ export {
   urcitTanecniVecerKotvu,
   vytahnoutTrebonskoTanecniVecerMesicUrlky,
 } from "./tanecni-vecery";
+
+export {
+  BRANA_MATINE_CO,
+  BRANA_MATINE_KDE_ALTAN_BERTA,
+  BRANA_MATINE_POLOZKA,
+  BRANA_MATINE_REDAKCNI_POLOZKA_ID,
+  jeMatineZdrojIdentita,
+  urcitLazenskaMatineKotvu,
+} from "./lazenska-matine";
 
 export {
   BRANA_BESEDA_KDE,
@@ -3717,9 +3728,10 @@ export function parsovatUdalostiZeZdroje(
     return deduplikovatScanKandidaty(vysledek);
   }
 
-  // Třeboňsko lázeňský program: jen Taneční večer Aurora/Berta — před kinem.
+  // Třeboňsko lázeňský program: Taneční večer + matiné — před kinem.
   if (jeTanecniVeceryMesicHtml(telo)) {
     parsovatTanecniVecery(telo, vysledek);
+    parsovatLazenskaMatine(telo, vysledek);
     return deduplikovatScanKandidaty(vysledek);
   }
 

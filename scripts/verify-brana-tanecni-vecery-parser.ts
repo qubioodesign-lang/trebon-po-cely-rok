@@ -113,6 +113,8 @@ const FIXTURE_AURORA = clanekHtml({
     `7.8. pá 19.00 Přednáška "Léčivá síla rašeliny", přednáší Doc. Petr, vstupné zdarma, (BS)`,
     `10.8. po 19.30 Kino "Bardotky", komedie, vstupné 160,- Kč, (S)`,
     `13.8. čt 19.00 Taneční večer, hraje ALCANTO, vstupné zdarma, (H)`,
+    `16.8. ne 11.00 Třeboňská lázeňská matiné "Italské árie a kantilény" , Jiří Rajniš (baryton) a Ladislav Horák (akordeon) vstupné zdarma (Altán LDB) 384 754 455 - v případě nepříznivého počasí společenský sál LDA`,
+    `16.8. ne 19.30 Kino "Po večeřce", komedie, vstupné 150,- Kč, (S)`,
   ],
 });
 
@@ -122,7 +124,7 @@ const FIXTURE_BERTA = clanekHtml({
   rok: 2026,
   radky: [
     `3.8. po 19.00 Taneční večer, hraje DJ PÁNEK, vstupné zdarma, (A)`,
-    `16.8. ne 11.00 Třeboňská lázeňská matiné "Italské árie", vstupné zdarma – LDB (Altán)`,
+    `16.8. ne 11.00 Třeboňská lázeňská matiné "Italské árie a kantilény", Jiří Rajniš (baryton) a Ladislav Horák (akordeon) vstupné zdarma – LDB (Altán) 384 754 455 - v případě nepříznivého počasí společenský sál LDA`,
     `17.8. po 19.00 Taneční večer, hraje FALKO MELODI, vstupné zdarma, (A)`,
     `20.8. čt 19.00 Přednáška "Rebelka Erzsi", přednáší Dagmar, vstupné zdarma, (SZS)`,
   ],
@@ -313,10 +315,18 @@ function overFixture(): void {
   const aurora = parsovatTanecniVeceryProgram(FIXTURE_AURORA);
   const berta = parsovatTanecniVeceryProgram(FIXTURE_BERTA);
 
-  assert(auroraDispatch.length === 2, "Aurora dispatch 2");
-  assert(bertaDispatch.length === 2, "Berta dispatch 2");
+  assert(auroraDispatch.length === 3, `Aurora dispatch ${auroraDispatch.length}`);
+  assert(bertaDispatch.length === 3, `Berta dispatch ${bertaDispatch.length}`);
   assert(aurora.length === 2, "Aurora program 2");
   assert(berta.length === 2, "Berta program 2");
+  assert(
+    auroraDispatch.filter((k) => k.zdrojIdentita?.startsWith("trebonsko|tanecni-vecer|")).length === 2,
+    "Aurora 2 taneční",
+  );
+  assert(
+    bertaDispatch.filter((k) => k.zdrojIdentita?.startsWith("trebonsko|tanecni-vecer|")).length === 2,
+    "Berta 2 taneční",
+  );
 
   for (const k of aurora) {
     const j = verejnyJazyk(k, polozky);
