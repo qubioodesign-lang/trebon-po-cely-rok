@@ -1029,7 +1029,7 @@ async function skenovatZnamyZdrojJadro(
               })
           : jeRozmberskaNocZdrojUrl(zdroj.url)
             ? sestavRozmberskaNocZapisPoSparovani({
-                verejneCo: kandidat.mistoNeboTyp,
+                verejneRozliseni: kandidat.mistoNeboTyp,
               })
           : {
               mistoNeboTyp: jazyk.mistoNeboTyp,

@@ -4,8 +4,8 @@
  * s přesným názvem „Rožmberská noc“ → stávající parser detailu.
  * Ostatní akce zámku, Hradozámecká noc a obecný program → 0 kandidátů.
  *
- * Jeden kalendářní den = jedna karta. Tři denní vstupy jdou do verejneCo,
- * pole cas zůstává prázdné.
+ * Jeden kalendářní den = jedna karta. CO = „Rožmberská noc“,
+ * KDE = „Zámek“ + denní časy. Pole cas zůstává prázdné.
  *
  * Interní ID se nehádá. Scan najde kotvu v živém Redakčním pořadí:
  * id rozmberska-noc + Položka „Rožmberská noc“ + Používat=ANO.
@@ -18,7 +18,7 @@ import type { BranaScanKandidat } from "./zdroj-scan-parser";
 export const BRANA_ROZMBERSKA_NOC_REDAKCNI_POLOZKA_ID = "rozmberska-noc";
 export const BRANA_ROZMBERSKA_NOC_POLOZKA = "Rožmberská noc";
 export const BRANA_ROZMBERSKA_NOC_NAZEV = "Opera";
-export const BRANA_ROZMBERSKA_NOC_CO_ZAMEK = "Rožmberská noc · Zámek";
+export const BRANA_ROZMBERSKA_NOC_KDE_ZAMEK = "Zámek";
 
 const ZAMEK_HOST = "zamek-trebon.cz";
 const LISTING_CESTA = "/cs/akce";
@@ -32,7 +32,7 @@ export type RozmberskaNocZapisPoSparovani = {
   mistoNeboTyp: string;
   nazev: string;
   verejneCo: string;
-  verejneRozliseni: null;
+  verejneRozliseni: string;
   nazevProScanKlic?: string;
 };
 
@@ -436,12 +436,14 @@ export function vytahnoutRozmberskaNocCasyZacatku(text: string): string[] {
   return [...volne].sort();
 }
 
-export function sestavRozmberskaNocVerejneCo(casy: readonly string[]): string {
+export function sestavRozmberskaNocVerejneRozliseni(
+  casy: readonly string[],
+): string {
   const unikatni = [...new Set(casy.map((c) => c.trim()).filter(Boolean))].sort();
   if (unikatni.length === 0) {
     return "";
   }
-  return `${BRANA_ROZMBERSKA_NOC_CO_ZAMEK} · ${unikatni.join(" / ")}`;
+  return `${BRANA_ROZMBERSKA_NOC_KDE_ZAMEK} ${unikatni.join(" / ")}`;
 }
 
 export function najitRozmberskaNocKotvuId(
@@ -465,14 +467,15 @@ export function najitRozmberskaNocKotvuId(
 }
 
 export function sestavRozmberskaNocZapisPoSparovani(args: {
-  verejneCo: string;
+  verejneRozliseni: string;
 }): RozmberskaNocZapisPoSparovani {
-  const co = args.verejneCo.replace(/\s+/g, " ").trim();
+  const co = BRANA_ROZMBERSKA_NOC_POLOZKA;
+  const kde = args.verejneRozliseni.replace(/\s+/g, " ").trim();
   return {
-    mistoNeboTyp: co,
+    mistoNeboTyp: `${co} ${kde}`.trim(),
     nazev: BRANA_ROZMBERSKA_NOC_NAZEV,
     verejneCo: co,
-    verejneRozliseni: null,
+    verejneRozliseni: kde,
   };
 }
 
@@ -500,8 +503,8 @@ export function parsovatRozmberskaNocProgram(
     casyMeta.length > 0
       ? casyMeta
       : vytahnoutRozmberskaNocCasyZacatku(textPost);
-  const verejneCo = sestavRozmberskaNocVerejneCo(casy);
-  if (!verejneCo) {
+  const verejneRozliseni = sestavRozmberskaNocVerejneRozliseni(casy);
+  if (!verejneRozliseni) {
     return [];
   }
   const out: RozmberskaNocScanKandidat[] = [];
@@ -517,7 +520,7 @@ export function parsovatRozmberskaNocProgram(
       datumOd: den,
       datumDo: den,
       cas: "",
-      mistoNeboTyp: verejneCo,
+      mistoNeboTyp: verejneRozliseni,
       zdrojIdentita: identita,
     });
   }

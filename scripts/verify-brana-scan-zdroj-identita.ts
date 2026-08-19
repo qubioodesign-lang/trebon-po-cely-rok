@@ -14,6 +14,7 @@ import {
   type BranaKonkretniUdalost,
 } from "../src/lib/brana/admin/konkretni-udalost";
 import { parsovatUdalostiZeZdroje } from "../src/lib/brana/admin/zdroj-scan-parser";
+import { sestavRozmberskaNocZapisPoSparovani } from "../src/lib/brana/admin/rozmberska-noc";
 
 function fail(msg: string): never {
   console.error(`FAIL: ${msg}`);
@@ -570,17 +571,20 @@ function cityTrebonIdentityMap(html: string): Map<string, string> {
     "RN identita 12.9.",
   );
   assert(k.every((x) => x.cas === ""), "RN cas prázdný");
-  const vstupy = k.map((x) =>
-    kandidat({
-      nazev: x.nazev,
+  const vstupy = k.map((x) => {
+    const zapis = sestavRozmberskaNocZapisPoSparovani({
+      verejneRozliseni: x.mistoNeboTyp,
+    });
+    return kandidat({
+      nazev: zapis.nazev,
       datumOd: x.datumOd,
       cas: x.cas,
-      mistoNeboTyp: x.mistoNeboTyp,
-      verejneCo: x.mistoNeboTyp,
-      verejneRozliseni: null,
+      mistoNeboTyp: zapis.mistoNeboTyp,
+      verejneCo: zapis.verejneCo,
+      verejneRozliseni: zapis.verejneRozliseni,
       zdrojIdentita: x.zdrojIdentita,
-    }),
-  );
+    });
+  });
   const prvni = aplikovatScanKandidatyNaUdalosti(
     [],
     vstupy,

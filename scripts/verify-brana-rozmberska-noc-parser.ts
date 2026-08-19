@@ -16,7 +16,7 @@ import {
   parsovatRozmberskaNocProgram,
   sestavRozmberskaNocListingUrl,
   sestavRozmberskaNocMesicPostTelo,
-  sestavRozmberskaNocVerejneCo,
+  sestavRozmberskaNocVerejneRozliseni,
   sestavRozmberskaNocZapisPoSparovani,
   sestavRozmberskaNocZdrojIdentitu,
   vytahnoutRozmberskaNocDetailUrlZListingu,
@@ -38,6 +38,8 @@ import {
 import {
   dnesIsoVPraze,
   jeUdalostCelaMinula,
+  vytvoritScanKlicAutomatickeUdalosti,
+  type BranaKonkretniUdalost,
 } from "../src/lib/brana/admin/konkretni-udalost";
 import type { BranaScanAutomatickaUdalostVstup } from "../src/lib/brana/admin/scan-ceka-zapis";
 
@@ -55,8 +57,10 @@ function assert(cond: unknown, msg: string): asserts cond {
 const LISTING_URL = "https://www.zamek-trebon.cz/cs/akce";
 const DETAIL_URL_2026 =
   "https://www.zamek-trebon.cz/cs/cs/akce/102057-trebon-rozmberska-noc";
-const OCEKAVANE_CO =
-  "Rožmberská noc · Zámek · 18:00 / 19:15 / 20:30";
+const OCEKAVANE_CO = "Rožmberská noc";
+const OCEKAVANE_KDE = "Zámek 18:00 / 19:15 / 20:30";
+const OCEKAVANE_RADEK = "Rožmberská noc Zámek 18:00 / 19:15 / 20:30";
+const STARY_JAZYK_CO = "Rožmberská noc · Zámek · 18:00 / 19:15 / 20:30";
 const ZAKAZANE_KOTVY = [
   "statni-zamek-trebon",
   "kultura-pod-hvezdami",
@@ -130,7 +134,7 @@ function doScanVstupu(
     return null;
   }
   const zapis = sestavRozmberskaNocZapisPoSparovani({
-    verejneCo: k.mistoNeboTyp,
+    verejneRozliseni: k.mistoNeboTyp,
   });
   return {
     redakcniPolozkaId: sparovani.redakcniPolozkaId,
@@ -298,7 +302,7 @@ function overFixture2026(): void {
     assert(k.datumOd === dny[i], `datum ${k.datumOd}`);
     assert(k.datumDo === dny[i], `datumDo ${k.datumDo}`);
     assert(k.cas === "", `cas musí být prázdný, je "${k.cas}"`);
-    assert(k.mistoNeboTyp === OCEKAVANE_CO, `verejneCo ${k.mistoNeboTyp}`);
+    assert(k.mistoNeboTyp === OCEKAVANE_KDE, `KDE ${k.mistoNeboTyp}`);
     assert(k.nazev === BRANA_ROZMBERSKA_NOC_NAZEV, `nazev ${k.nazev}`);
     assert(
       k.zdrojIdentita === sestavRozmberskaNocZdrojIdentitu(dny[i]),
@@ -324,7 +328,8 @@ function overFixture2026(): void {
     assert(vstup, `zápis ${k.datumOd}`);
     assert(vstup.redakcniPolozkaId === kotva, "ownership RN");
     assert(vstup.verejneCo === OCEKAVANE_CO, "zápis CO");
-    assert(vstup.verejneRozliseni === null, "zápis rozlišení prázdné");
+    assert(vstup.verejneRozliseni === OCEKAVANE_KDE, "zápis KDE");
+    assert(vstup.mistoNeboTyp === OCEKAVANE_RADEK, "zápis mistoNeboTyp");
     assert(vstup.nazev === "Opera", "zápis nazev Opera");
     assert(vstup.cas === "", "zápis cas prázdný");
     assert(
@@ -341,7 +346,14 @@ function overFixture2026(): void {
       verejneRozliseni: vstup.verejneRozliseni,
     });
     assert(r.typ === OCEKAVANE_CO, `render CO ${r.typ}`);
-    assert(r.misto === "", `render KDE prázdné, je "${r.misto}"`);
+    assert(r.misto === OCEKAVANE_KDE, `render KDE ${r.misto}`);
+    assert(r.oddelovacPredMistem === " ", "oddělovač mezera, ne ·");
+    assert(
+      `${r.typ}${r.oddelovacPredMistem}${r.misto}` === OCEKAVANE_RADEK,
+      `veřejný 1. řádek ${r.typ}${r.oddelovacPredMistem}${r.misto}`,
+    );
+    assert(!OCEKAVANE_RADEK.includes("·"), "cílový řádek bez ·");
+    assert(!r.typ.includes("·") && !r.misto.includes("·"), "CO/KDE bez ·");
     assert(r.nazev === "Opera", `render nazev ${r.nazev}`);
     assert(r.cas === "", "render bez času vpravo");
   }
@@ -356,8 +368,8 @@ function overJinyRok(): void {
   assert(karty[1]?.datumOd === "2027-08-02", "2027-08-02");
   assert(
     karty[0]?.mistoNeboTyp ===
-      sestavRozmberskaNocVerejneCo(["17:00", "18:30"]),
-    `CO jiný rok ${karty[0]?.mistoNeboTyp}`,
+      sestavRozmberskaNocVerejneRozliseni(["17:00", "18:30"]),
+    `KDE jiný rok ${karty[0]?.mistoNeboTyp}`,
   );
   assert(karty[0]?.cas === "", "jiný rok cas prázdný");
   console.log("OK datumy a časy ze zdroje, ne hardcoded 2026");
@@ -455,6 +467,72 @@ function overDedup(): void {
   console.log("OK D: opakovaný průchod 0 nových / 3× Již existuje");
 }
 
+function staraCekaKarta(args: {
+  id: string;
+  datumOd: string;
+}): BranaKonkretniUdalost {
+  const cas = "";
+  const nazev = "Opera";
+  return {
+    id: args.id,
+    redakcniPolozkaId: BRANA_ROZMBERSKA_NOC_REDAKCNI_POLOZKA_ID,
+    datumOd: args.datumOd,
+    datumDo: args.datumOd,
+    cas,
+    mistoNeboTyp: STARY_JAZYK_CO,
+    nazev,
+    rucniPoziceVDni: null,
+    stavSchvaleni: "CEKA_NA_SCHVALENI",
+    scanKlic: vytvoritScanKlicAutomatickeUdalosti({
+      redakcniPolozkaId: BRANA_ROZMBERSKA_NOC_REDAKCNI_POLOZKA_ID,
+      datumOd: args.datumOd,
+      cas,
+      nazev,
+    }),
+    zdrojIdentita: sestavRozmberskaNocZdrojIdentitu(args.datumOd),
+    verejneCo: STARY_JAZYK_CO,
+    verejneRozliseni: null,
+  };
+}
+
+function overInPlaceUpdateStarehoJazyka(): void {
+  const polozky = vytvoritVychoziRedakcniPoradi();
+  const karty = parsovatRozmberskaNocProgram(FIXTURE_2026);
+  const kandidati = karty
+    .map((k) => doScanVstupu(k, polozky))
+    .filter((x): x is BranaScanAutomatickaUdalostVstup => x !== null);
+  const dny = ["2026-09-10", "2026-09-11", "2026-09-12"];
+  const stare = dny.map((datumOd, i) =>
+    staraCekaKarta({ id: `auto-rn-${i}`, datumOd }),
+  );
+
+  const vysledek = aplikovatScanKandidatyNaUdalosti(
+    stare,
+    kandidati,
+    "2026-08-19",
+    jeUdalostCelaMinula,
+  );
+  assert(vysledek.vysledek.pridano === 0, "starý jazyk: 0 nových");
+  assert(
+    vysledek.vysledek.aktualizovano === 3,
+    `starý jazyk: 3 in-place, je ${vysledek.vysledek.aktualizovano}`,
+  );
+  assert(vysledek.udalosti.length === 3, "starý jazyk: stále 3");
+  for (let i = 0; i < dny.length; i += 1) {
+    const u = vysledek.udalosti[i];
+    assert(u, `karta ${dny[i]}`);
+    assert(u.id === `auto-rn-${i}`, "stejné id");
+    assert(u.zdrojIdentita === `rozmberska-noc|${dny[i]}`, "stejná identita");
+    assert(u.verejneCo === OCEKAVANE_CO, "in-place CO");
+    assert(u.verejneRozliseni === OCEKAVANE_KDE, "in-place KDE");
+    assert(u.mistoNeboTyp === OCEKAVANE_RADEK, "in-place mistoNeboTyp");
+    assert(u.nazev === "Opera", "in-place nazev");
+    assert(u.cas === "", "in-place cas");
+    assert(u.stavSchvaleni === "CEKA_NA_SCHVALENI", "stále Čeká");
+  }
+  console.log("OK in-place: starý jazyk → nový, 0 duplicit / 3 aktualizováno");
+}
+
 function overCiziParsery(): void {
   const kino = parsovatUdalostiZeZdroje(
     `<!DOCTYPE html><html><body>
@@ -482,6 +560,7 @@ overJinyRok();
 overCiziAkce();
 overOwnershipFailClosed();
 overDedup();
+overInPlaceUpdateStarehoJazyka();
 overCiziParsery();
 console.log("OK verify-brana-rozmberska-noc-parser");
 
@@ -572,7 +651,7 @@ async function zivyPredscan(): Promise<void> {
   }
   for (const k of budouci) {
     assert(k.cas === "", `živě cas prázdný ${k.datumOd}`);
-    assert(k.mistoNeboTyp === OCEKAVANE_CO, `živě CO ${k.mistoNeboTyp}`);
+    assert(k.mistoNeboTyp === OCEKAVANE_KDE, `živě KDE ${k.mistoNeboTyp}`);
     assert(k.nazev === "Opera", `živě nazev ${k.nazev}`);
     assert(
       k.zdrojIdentita === `rozmberska-noc|${k.datumOd}`,
