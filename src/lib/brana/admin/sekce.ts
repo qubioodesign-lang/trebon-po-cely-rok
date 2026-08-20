@@ -10,6 +10,7 @@ export type BranaAdminSpravaSekce =
   | "vyhled"
   | "redakcni-poradi"
   | "nezarazene"
+  | "radar"
   | "zdroje"
   | "upozorneni"
   | "zaloha";
@@ -30,7 +31,7 @@ export const BRANA_ADMIN_HLAVNI_CASTI = [
 /**
  * Sekce Správy.
  * Kalendář, Výhled, Redakční pořadí, Nezařazené a Zdroje tvoří základní redakční strukturu;
- * Záloha zůstává připravená pro pozdější napojení.
+ * RADAR je výzkumný přehled oddělený od produkce; Záloha zůstává připravená.
  */
 export const BRANA_ADMIN_SPRAVA_SEKCE = [
   { id: "kalendar", label: "Kalendář", segment: "kalendar" },
@@ -41,6 +42,7 @@ export const BRANA_ADMIN_SPRAVA_SEKCE = [
     segment: "redakcni-poradi",
   },
   { id: "nezarazene", label: "Nezařazené", segment: "nezarazene" },
+  { id: "radar", label: "RADAR", segment: "radar" },
   { id: "zdroje", label: "Zdroje", segment: "zdroje" },
   { id: "upozorneni", label: "Upozornění", segment: "upozorneni" },
   { id: "zaloha", label: "Záloha", segment: "zaloha" },

@@ -25,6 +25,8 @@ import {
   type BranaSkenovatZdrojVysledek,
 } from "@/lib/brana/admin/skenovat-zdroj";
 import { smazatNezarazenyNalez } from "@/lib/brana/admin/nezarazene-uloziste";
+import { pridatRucniRadarNalez } from "@/lib/brana/admin/radar-uloziste";
+import { validovatRucniRadarNalezVstup } from "@/lib/brana/admin/radar";
 import type { BranaDlouhodobyIntervalDni, BranaZdroj } from "@/lib/brana/admin/zdroj";
 import {
   dokumentNaUi,
@@ -75,6 +77,10 @@ export type BranaZdrojAkceVysledek =
   | { uspech: false; chyba: string };
 
 export type BranaZdrojSmazatVysledek =
+  | { uspech: true }
+  | { uspech: false; chyba: string };
+
+export type BranaRadarRucniNalezVysledek =
   | { uspech: true }
   | { uspech: false; chyba: string };
 
@@ -602,6 +608,35 @@ export async function smazatBranaZdrojAkce(
     return {
       uspech: false,
       chyba: detail ?? "Zdroj se nepodařilo smazat.",
+    };
+  }
+}
+
+/** Uloží ruční nález pouze do historie RADARU. Nic nepublikuje. */
+export async function pridatRucniRadarNalezAkce(
+  vstup: unknown,
+): Promise<BranaRadarRucniNalezVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  const validace = validovatRucniRadarNalezVstup(vstup);
+  if (!validace.ok) {
+    return { uspech: false, chyba: validace.chyba };
+  }
+
+  try {
+    await pridatRucniRadarNalez(validace.nalez);
+    revalidatePath("/brana/admin/sprava/radar");
+    return { uspech: true };
+  } catch (error) {
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "Nález se nepodařilo uložit.",
     };
   }
 }
