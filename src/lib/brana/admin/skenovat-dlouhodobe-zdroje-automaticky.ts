@@ -1,6 +1,7 @@
 import "server-only";
 
 import { skenovatZnamyZdrojProScheduler } from "./skenovat-zdroj";
+import { nazevChybnehoZdrojeProStopu } from "./skupinovy-scan-stav";
 import { nacistZdrojeProScheduler } from "./zdroje-uloziste";
 
 /**
@@ -11,6 +12,7 @@ export type BranaDlouhodobyAutomatickyScanVysledek = {
   pocetZdroju: number;
   uspesneZdroje: number;
   chybneZdroje: number;
+  chybneZdrojeNazvy: string[];
   nalezeno: number;
   pridanoDoKalendare: number;
   jizExistuje: number;
@@ -22,6 +24,7 @@ function prazdnyVysledek(): BranaDlouhodobyAutomatickyScanVysledek {
     pocetZdroju: 0,
     uspesneZdroje: 0,
     chybneZdroje: 0,
+    chybneZdrojeNazvy: [],
     nalezeno: 0,
     pridanoDoKalendare: 0,
     jizExistuje: 0,
@@ -60,6 +63,9 @@ export async function skenovatDlouhodobeZdrojeAutomaticky(): Promise<BranaDlouho
       agregace.nezarazeno += vysledek.nezarazeno;
     } catch (error) {
       agregace.chybneZdroje += 1;
+      agregace.chybneZdrojeNazvy.push(
+        nazevChybnehoZdrojeProStopu(zdroj.nazev, zdroj.id),
+      );
       console.error(
         `[brana-dlouhodoby-scan] selhání zdroje id=${zdroj.id}`,
         error,

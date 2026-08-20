@@ -21,7 +21,9 @@ import {
   textUpozorneniPrazdnychDni,
 } from "@/lib/brana/admin/kontrolni-blok";
 import { nacistRedakcniPoradi } from "@/lib/brana/admin/redakcni-poradi-uloziste";
+import { textSkupinovehoScanuProKalendar } from "@/lib/brana/admin/skupinovy-scan-stav";
 import { maUkazkovyVyhledAno } from "@/lib/brana/admin/ukazkove-udalosti";
+import { nacistUpozorneniNastaveni } from "@/lib/brana/admin/upozorneni-uloziste";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 import "../../brana-admin-kalendar.css";
 
@@ -32,9 +34,10 @@ export default async function StrankaBranaAdminKalendar() {
   }
 
   const host = (await headers()).get("host");
-  const [uloziste, redakcni] = await Promise.all([
+  const [uloziste, redakcni, upozorneni] = await Promise.all([
     nacistKonkretniUdalosti(),
     nacistRedakcniPoradi(),
+    nacistUpozorneniNastaveni(),
   ]);
 
   const rucniUdalosti = uloziste.ok ? uloziste.udalosti : [];
@@ -83,13 +86,14 @@ export default async function StrankaBranaAdminKalendar() {
         )
       : { prazdneIsoDny: [] as string[], pocet: 0 };
 
+  const dnesIso = dnesIsoVPraze();
   const dny = filtrujDnyPracovnihoKalendareOdDnes(
     doplnPrazdneDnyDoKalendare(
       dnyZUdalosti,
       prazdneIsoDny,
       formatujDenKalendare,
     ),
-    dnesIsoVPraze(),
+    dnesIso,
   );
 
   const automatickePodleDne: Record<string, BranaKonkretniUdalost[]> = {};
@@ -102,6 +106,16 @@ export default async function StrankaBranaAdminKalendar() {
   const isoDenPoslednihoDneKontrolnihoBloku =
     isoDenPoslednihoDneKontrolnihoBlokuVPraze();
   const textStariAsistovanych = textStariAsistovanychZdroju();
+  const rychlyScanText = textSkupinovehoScanuProKalendar(
+    "Rychlý scan",
+    upozorneni.ok ? upozorneni.dokument.posledniRychlySkupinovyScan : null,
+    dnesIso,
+  );
+  const dlouhyScanText = textSkupinovehoScanuProKalendar(
+    "Dlouhý scan",
+    upozorneni.ok ? upozorneni.dokument.posledniDlouhySkupinovyScan : null,
+    dnesIso,
+  );
 
   return (
     <BranaAdminObal
@@ -113,12 +127,16 @@ export default async function StrankaBranaAdminKalendar() {
         className="brana-admin-kalendar space-y-3"
         aria-labelledby="brana-admin-kalendar-nadpis"
       >
-        <h2
-          id="brana-admin-kalendar-nadpis"
-          className="text-base font-normal text-text"
-        >
-          Pracovní kalendář
-        </h2>
+        <div className="space-y-1">
+          <h2
+            id="brana-admin-kalendar-nadpis"
+            className="text-base font-normal text-text"
+          >
+            Pracovní kalendář
+          </h2>
+          <p className="text-xs text-text-jemny">{rychlyScanText}</p>
+          <p className="text-xs text-text-jemny">{dlouhyScanText}</p>
+        </div>
         <div className="space-y-1">
           {textStariAsistovanych ? (
             <p className="text-sm text-text">{textStariAsistovanych}</p>

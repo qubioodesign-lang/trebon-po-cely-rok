@@ -8,6 +8,12 @@ import {
   maBranaAdminBlobKonfiguraci,
   ziskatVolbyBranaAdminBlob,
 } from "./env-blob-brana-admin";
+import {
+  nahraditSkupinovyScanStav,
+  validovatVolitelnySkupinovyScanStav,
+  type BranaSkupinovyScanStav,
+  type BranaSkupinovyScanTyp,
+} from "./skupinovy-scan-stav";
 
 /**
  * Objekt v PRIVATE Blob store administrace BRÁNY.
@@ -57,6 +63,16 @@ export type BranaUpozorneniNastaveniDokument = {
    * připomínka asistovaných zdrojů (kotva − 3 dny).
    */
   posledniUpozorneniAsistovaneKotva: string | null;
+  /**
+   * Poslední dokončený skupinový Rychlý scan (cron). Chybí ve starých datech → null.
+   * Individuální Skenovat nesmí toto pole měnit.
+   */
+  posledniRychlySkupinovyScan: BranaSkupinovyScanStav | null;
+  /**
+   * Poslední dokončený skupinový Dlouhý scan (cron). Chybí ve starých datech → null.
+   * Individuální Skenovat nesmí toto pole měnit.
+   */
+  posledniDlouhySkupinovyScan: BranaSkupinovyScanStav | null;
 };
 
 /** Veřejný pohled pro admin UI – bez endpoint/keys. */
@@ -85,6 +101,8 @@ export function vychoziUpozorneniNastaveni(): BranaUpozorneniNastaveniDokument {
     posledniUpozorneniRychle: null,
     posledniUpozorneniDlouhodobe: null,
     posledniUpozorneniAsistovaneKotva: null,
+    posledniRychlySkupinovyScan: null,
+    posledniDlouhySkupinovyScan: null,
   };
 }
 
@@ -325,6 +343,22 @@ export function validovatUpozorneniDokument(
     return posledniAsistovaneKotva;
   }
 
+  const posledniRychlySkupinovyScan = validovatVolitelnySkupinovyScanStav(
+    raw.posledniRychlySkupinovyScan,
+    "Poslední rychlý skupinový scan",
+  );
+  if (!posledniRychlySkupinovyScan.ok) {
+    return posledniRychlySkupinovyScan;
+  }
+
+  const posledniDlouhySkupinovyScan = validovatVolitelnySkupinovyScanStav(
+    raw.posledniDlouhySkupinovyScan,
+    "Poslední dlouhý skupinový scan",
+  );
+  if (!posledniDlouhySkupinovyScan.ok) {
+    return posledniDlouhySkupinovyScan;
+  }
+
   return {
     ok: true,
     dokument: {
@@ -336,6 +370,8 @@ export function validovatUpozorneniDokument(
       posledniUpozorneniRychle: posledniRychle.hodnota,
       posledniUpozorneniDlouhodobe: posledniDlouhodobe.hodnota,
       posledniUpozorneniAsistovaneKotva: posledniAsistovaneKotva.hodnota,
+      posledniRychlySkupinovyScan: posledniRychlySkupinovyScan.hodnota,
+      posledniDlouhySkupinovyScan: posledniDlouhySkupinovyScan.hodnota,
     },
   };
 }
@@ -814,3 +850,48 @@ export async function ulozitPosledniUpozorneniAsistovaneKotvuProScheduler(
   await ulozitDokument(celek.dokument);
   return celek.dokument;
 }
+
+/**
+ * Zápis posledního dokončeného skupinového Rychlého nebo Dlouhého scanu.
+ * Volat až po return agregace skupinové funkce. Bez admin session.
+ * Přepíše jen příslušný stav; druhý skupinový scan a 21denní kotvu nemění.
+ * Individuální Skenovat sem nesmí sahat.
+ */
+export async function ulozitPosledniSkupinovyScanProScheduler(
+  typ: BranaSkupinovyScanTyp,
+  stav: BranaSkupinovyScanStav,
+): Promise<BranaUpozorneniNastaveniDokument> {
+  if (!maBranaAdminBlobKonfiguraci()) {
+    throw new Error(
+      "Nelze uložit stav skupinového scanu: chybí BLOB_BRANA_ADMIN_STORE_ID nebo BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
+    );
+  }
+
+  const overeni = validovatVolitelnySkupinovyScanStav(
+    stav,
+    typ === "RYCHLY"
+      ? "Poslední rychlý skupinový scan"
+      : "Poslední dlouhý skupinový scan",
+  );
+  if (!overeni.ok || overeni.hodnota === null) {
+    throw new Error(
+      overeni.ok ? "Stav skupinového scanu chybí." : overeni.chyba,
+    );
+  }
+
+  const stary = await nacistNeboVychoziDokument();
+  const vyslednyNavrh = nahraditSkupinovyScanStav(
+    stary,
+    typ,
+    overeni.hodnota,
+  );
+
+  const celek = validovatUpozorneniDokument(vyslednyNavrh);
+  if (!celek.ok) {
+    throw new Error(celek.chyba);
+  }
+
+  await ulozitDokument(celek.dokument);
+  return celek.dokument;
+}
+

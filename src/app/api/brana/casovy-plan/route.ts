@@ -7,7 +7,31 @@ import { vyhodnotitAOdeslatPravidelneUpozorneniPoCheckpointu } from "@/lib/brana
 import { vyhodnotitAOdeslatRychleUpozorneniPoScanu } from "@/lib/brana/admin/odeslat-rychle-upozorneni-automaticky";
 import { skenovatDlouhodobeZdrojeAutomaticky } from "@/lib/brana/admin/skenovat-dlouhodobe-zdroje-automaticky";
 import { skenovatRychleZdrojeAutomaticky } from "@/lib/brana/admin/skenovat-rychle-zdroje-automaticky";
-import { dokoncitDlouhodobouKontroluProScheduler } from "@/lib/brana/admin/upozorneni-uloziste";
+import {
+  sestavitSkupinovyScanStav,
+  type BranaSkupinovyScanTyp,
+} from "@/lib/brana/admin/skupinovy-scan-stav";
+import {
+  dokoncitDlouhodobouKontroluProScheduler,
+  ulozitPosledniSkupinovyScanProScheduler,
+} from "@/lib/brana/admin/upozorneni-uloziste";
+
+async function zaznamenatDokoncenySkupinovyScan(
+  typ: BranaSkupinovyScanTyp,
+  chybneZdrojeNazvy: readonly string[],
+): Promise<void> {
+  try {
+    await ulozitPosledniSkupinovyScanProScheduler(
+      typ,
+      sestavitSkupinovyScanStav(chybneZdrojeNazvy),
+    );
+  } catch (error) {
+    console.error(
+      `[brana-${typ === "RYCHLY" ? "rychly" : "dlouhodoby"}-scan] stav dokončení se nepodařilo uložit`,
+      error,
+    );
+  }
+}
 
 export const dynamic = "force-dynamic";
 
@@ -102,6 +126,10 @@ export async function GET(request: NextRequest) {
     let rychlyScan = null;
     if (jeRychlyTermin) {
       rychlyScan = await skenovatRychleZdrojeAutomaticky();
+      await zaznamenatDokoncenySkupinovyScan(
+        "RYCHLY",
+        rychlyScan.chybneZdrojeNazvy,
+      );
     }
 
     let dlouhodobyScan = null;
@@ -115,6 +143,10 @@ export async function GET(request: NextRequest) {
     if (jeDlouhodobyTermin) {
       try {
         dlouhodobyScan = await skenovatDlouhodobeZdrojeAutomaticky();
+        await zaznamenatDokoncenySkupinovyScan(
+          "DLOUHY",
+          dlouhodobyScan.chybneZdrojeNazvy,
+        );
         const dokonceni =
           await dokoncitDlouhodobouKontroluProScheduler(datumVPraze);
         pravidelnyCheckpointStavoveDokonceno = true;
