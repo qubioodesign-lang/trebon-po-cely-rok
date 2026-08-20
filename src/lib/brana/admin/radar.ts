@@ -4,6 +4,8 @@
  * Tento modul nic nezapisuje do Kalendáře, Nezařazených, Zdrojů ani Redakčního pořadí.
  */
 
+import { dnesVPraze } from "@/lib/brana/cas";
+
 export const BRANA_RADAR_VERZE_ULOZISTE = 1;
 
 export const BRANA_RADAR_PUVOD_RUCNE_NALEZENO = "RUCNE_NALEZENO";
@@ -13,20 +15,15 @@ export type BranaRadarPuvodHistorie =
   | typeof BRANA_RADAR_PUVOD_RUCNE_NALEZENO
   | typeof BRANA_RADAR_PUVOD_POUZITO;
 
-export type BranaRadarPracovniDruh = "UDALOST" | "OZIVENI";
-
-/** Pracovní stopa inboxu. V tomto řezu se ještě nevytváří. */
+/** Pracovní stopa inboxu. Fingerprint se neukládá na stopě – počítá se. */
 export type BranaRadarPracovniStopa = {
   id: string;
-  klic: string;
   radarVstupId: string;
   datumOd: string;
   cas: string;
   nazev: string;
   kde: string;
-  upresneni: string;
   url: string;
-  druh: BranaRadarPracovniDruh;
   nalezenoAt: string;
 };
 
@@ -176,15 +173,12 @@ function jePlatnaPracovniStopa(
   const n = hodnota as Record<string, unknown>;
   return (
     jeNeprazdnyText(n.id) &&
-    jeNeprazdnyText(n.klic) &&
-    jeText(n.radarVstupId) &&
+    jeNeprazdnyText(n.radarVstupId) &&
     jeNeprazdnyText(n.datumOd) &&
     jeText(n.cas) &&
     jeNeprazdnyText(n.nazev) &&
     jeText(n.kde) &&
-    jeText(n.upresneni) &&
     jeText(n.url) &&
-    (n.druh === "UDALOST" || n.druh === "OZIVENI") &&
     jeNeprazdnyText(n.nalezenoAt)
   );
 }
@@ -226,15 +220,12 @@ function normalizovatPracovniStopu(
 ): BranaRadarPracovniStopa {
   return {
     id: n.id.trim(),
-    klic: n.klic,
     radarVstupId: n.radarVstupId.trim(),
     datumOd: n.datumOd.trim(),
     cas: n.cas.trim(),
     nazev: n.nazev.trim(),
     kde: n.kde.trim(),
-    upresneni: n.upresneni.trim(),
     url: n.url.trim(),
-    druh: n.druh,
     nalezenoAt: n.nalezenoAt.trim(),
   };
 }
@@ -360,4 +351,175 @@ export function pridatRucniNalezDoHistorie(
     historie: [...dokument.historie, zaznam],
     posledniBehAt: dokument.posledniBehAt,
   };
+}
+
+/** Dnešní ISO den YYYY-MM-DD v Europe/Prague. */
+export function radarDnesIso(okamzik: Date = new Date()): string {
+  const d = dnesVPraze(okamzik);
+  return `${d.rok}-${String(d.mesic).padStart(2, "0")}-${String(d.den).padStart(2, "0")}`;
+}
+
+/** Přesný otisk: vstup + datum konání + normalizovaný název. Bez času, bez fuzzy. */
+export function vytvoritRadarOtiskKlic(args: {
+  radarVstupId: string;
+  datumOd: string;
+  nazev: string;
+}): string {
+  return [
+    args.radarVstupId.trim(),
+    args.datumOd.trim(),
+    args.nazev.replace(/\s+/g, " ").trim().toLowerCase(),
+  ].join("\0");
+}
+
+export function validovatPracovniRadarStopu(
+  hodnota: unknown,
+): { ok: true; stopa: BranaRadarPracovniStopa } | { ok: false; chyba: string } {
+  if (!jePlatnaPracovniStopa(hodnota)) {
+    return { ok: false, chyba: "Neplatná pracovní stopa." };
+  }
+  if (!jePlatnyIsoDen(hodnota.datumOd.trim())) {
+    return { ok: false, chyba: "Datum pracovní stopy není platné." };
+  }
+  return { ok: true, stopa: normalizovatPracovniStopu(hodnota) };
+}
+
+export function seraditPracovniStopy(
+  stopy: readonly BranaRadarPracovniStopa[],
+): BranaRadarPracovniStopa[] {
+  return stopy.slice().sort((a, b) => {
+    if (a.datumOd !== b.datumOd) {
+      return a.datumOd < b.datumOd ? -1 : 1;
+    }
+    const casA = a.cas.trim();
+    const casB = b.cas.trim();
+    if (casA === casB) {
+      return 0;
+    }
+    if (!casA) {
+      return -1;
+    }
+    if (!casB) {
+      return 1;
+    }
+    return casA < casB ? -1 : 1;
+  });
+}
+
+export function formatujRadarDatum(iso: string): string {
+  const casti = iso.trim().split("-");
+  if (casti.length !== 3) {
+    return iso;
+  }
+  return `${Number(casti[2])}. ${Number(casti[1])}.`;
+}
+
+/** http(s) URL k otevření. Jiný text není odkaz. */
+export function radarZdrojOdkaz(url: string): string | null {
+  const u = url.trim();
+  if (u.startsWith("https://") || u.startsWith("http://")) {
+    return u;
+  }
+  return null;
+}
+
+/**
+ * Prošlé pracovní stopy a otisky pryč. Historie se stářím nemaže.
+ * Prošlé = datumOd < dnesIso (Europe/Prague). Dnešek zůstává.
+ */
+export function uklidRadarDokument(
+  dokument: BranaRadarDokument,
+  dnesIso: string,
+): BranaRadarDokument {
+  return {
+    verzeUloziste: BRANA_RADAR_VERZE_ULOZISTE,
+    pracovni: dokument.pracovni.filter((s) => s.datumOd >= dnesIso),
+    smazatOtisky: dokument.smazatOtisky.filter((o) => o.datumOd >= dnesIso),
+    historie: dokument.historie.slice(),
+    posledniBehAt: dokument.posledniBehAt,
+  };
+}
+
+function pridatOtiskPokudChybi(
+  otisky: readonly BranaRadarSmazatOtisk[],
+  stopa: BranaRadarPracovniStopa,
+): BranaRadarSmazatOtisk[] {
+  const klic = vytvoritRadarOtiskKlic(stopa);
+  if (otisky.some((o) => o.klic === klic)) {
+    return otisky.slice();
+  }
+  return [...otisky, { klic, datumOd: stopa.datumOd }];
+}
+
+/**
+ * Použít: pryč z pracovních, do historie RADAR_POUZITO, otisk proti opětovnému nabídnutí.
+ * Kalendář se nevolá.
+ */
+export function pouzitRadarStopu(
+  dokument: BranaRadarDokument,
+  id: string,
+  args: { tedIso: string },
+): BranaRadarDokument | { chyba: string } {
+  const idTrim = id.trim();
+  if (!idTrim) {
+    return { chyba: "Chybí id stopy." };
+  }
+  const stopa = dokument.pracovni.find((s) => s.id === idTrim);
+  if (!stopa) {
+    return { chyba: "Stopa už není v pracovním RADARU." };
+  }
+
+  const tedIso = args.tedIso.trim();
+  const zaznam: BranaRadarHistorieZaznam = {
+    id: stopa.id,
+    puvod: BRANA_RADAR_PUVOD_POUZITO,
+    datumOd: stopa.datumOd,
+    cas: stopa.cas,
+    nazev: stopa.nazev,
+    kde: stopa.kde,
+    radarVstupId: stopa.radarVstupId,
+    url: stopa.url,
+    rozhodnutoAt: tedIso,
+    nalezenoAt: stopa.nalezenoAt,
+  };
+
+  return {
+    verzeUloziste: BRANA_RADAR_VERZE_ULOZISTE,
+    pracovni: dokument.pracovni.filter((s) => s.id !== idTrim),
+    smazatOtisky: pridatOtiskPokudChybi(dokument.smazatOtisky, stopa),
+    historie: [...dokument.historie, zaznam],
+    posledniBehAt: dokument.posledniBehAt,
+  };
+}
+
+/**
+ * Smazat: pryč z pracovních, jen dočasný otisk. Historie beze změny.
+ */
+export function smazatRadarStopu(
+  dokument: BranaRadarDokument,
+  id: string,
+): BranaRadarDokument | { chyba: string } {
+  const idTrim = id.trim();
+  if (!idTrim) {
+    return { chyba: "Chybí id stopy." };
+  }
+  const stopa = dokument.pracovni.find((s) => s.id === idTrim);
+  if (!stopa) {
+    return { chyba: "Stopa už není v pracovním RADARU." };
+  }
+
+  return {
+    verzeUloziste: BRANA_RADAR_VERZE_ULOZISTE,
+    pracovni: dokument.pracovni.filter((s) => s.id !== idTrim),
+    smazatOtisky: pridatOtiskPokudChybi(dokument.smazatOtisky, stopa),
+    historie: dokument.historie.slice(),
+    posledniBehAt: dokument.posledniBehAt,
+  };
+}
+
+export function jeStejnyRadarDokument(
+  a: BranaRadarDokument,
+  b: BranaRadarDokument,
+): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
 }

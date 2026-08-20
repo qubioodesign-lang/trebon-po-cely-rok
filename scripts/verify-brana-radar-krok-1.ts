@@ -14,7 +14,13 @@ import {
 import {
   parsovatRadarDokument,
   pridatRucniNalezDoHistorie,
+  pouzitRadarStopu,
+  seraditPracovniStopy,
+  smazatRadarStopu,
+  uklidRadarDokument,
+  validovatPracovniRadarStopu,
   validovatRucniRadarNalezVstup,
+  vytvoritRadarOtiskKlic,
   vychoziRadarDokument,
   type BranaRadarDokument,
   type BranaRadarPracovniStopa,
@@ -62,15 +68,12 @@ const zakazaneImporty = [
 
 const stopa: BranaRadarPracovniStopa = {
   id: "stopa-1",
-  klic: "vstup\x002026-08-22\x00jazz",
   radarVstupId: "region-trebonsko",
   datumOd: "2026-08-22",
   cas: "19:00",
   nazev: "Jazz na terase",
   kde: "U Vodníka",
-  upresneni: "",
   url: "https://example.test/jazz",
-  druh: "UDALOST",
   nalezenoAt: "2026-08-20T12:00:00.000Z",
 };
 
@@ -121,12 +124,20 @@ assert(
 
 // B. prázdný pracovní RADAR
 assert(
-  strankaText.includes("RADAR zatím nemá žádné pracovní stopy."),
+  strankaText.includes("BranaAdminRadarSeznam"),
+  "B: stránka zobrazuje pracovní seznam",
+);
+const seznamText = cist(
+  "src/components/brana/admin/BranaAdminRadarSeznam.tsx",
+);
+assert(
+  seznamText.includes("RADAR zatím nemá žádné pracovní stopy."),
   "B: prázdný pracovní seznam",
 );
 assert(
-  !strankaText.includes("historie") &&
-    !strankaText.includes("Historie"),
+  !strankaText.includes("Historie") &&
+    !seznamText.includes("Historie") &&
+    !seznamText.includes("historie"),
   "B: stránka nezobrazuje historii",
 );
 const vychozi = vychoziRadarDokument();
@@ -289,7 +300,16 @@ const radarStranka = strankaText;
 const radarFormular = cist(
   "src/components/brana/admin/BranaAdminRadarPridat.tsx",
 );
-const noveRadarSoubory = [radarTs, radarUloziste, radarStranka, radarFormular];
+const radarSeznam = cist(
+  "src/components/brana/admin/BranaAdminRadarSeznam.tsx",
+);
+const noveRadarSoubory = [
+  radarTs,
+  radarUloziste,
+  radarStranka,
+  radarFormular,
+  radarSeznam,
+];
 for (const zakaz of zakazaneImporty) {
   assert(
     noveRadarSoubory.every((t) => !t.includes(zakaz)),
@@ -300,7 +320,9 @@ const akceRadarCast = radarAkce.slice(radarAkce.indexOf("pridatRucniRadarNalezAk
 assert(
   akceRadarCast.includes('revalidatePath("/brana/admin/sprava/radar")') &&
     !akceRadarCast.includes("kalendar") &&
-    !akceRadarCast.includes("pridatRucniKonkretniUdalost"),
+    !akceRadarCast.includes("pridatRucniKonkretniUdalost") &&
+    akceRadarCast.includes("pouzitBranaRadarStopuAkce") &&
+    akceRadarCast.includes("smazatBranaRadarStopuAkce"),
   "F: RADAR akce neinvaliduje Kalendář a nevolá ruční zápis",
 );
 assert(
@@ -334,9 +356,217 @@ assert(
 const typSekce: BranaAdminSpravaSekce = "radar";
 assert(typSekce === "radar", "A: typ sekce zahrnuje radar");
 
+const rucniPoPridani = pridatRucniNalezDoHistorie(vychoziRadarDokument(), {
+  datumOd: "2026-08-22",
+  cas: "",
+  nazev: "Jazz",
+  kde: "",
+  url: "",
+}, {
+  noveId: () => "radar-test-rucne",
+  tedIso: "2026-08-20T12:34:56.000Z",
+});
+assert(
+  rucniPoPridani.historie[0]?.puvod === "RUCNE_NALEZENO" &&
+    rucniPoPridani.pracovni.length === 0 &&
+    rucniPoPridani.smazatOtisky.length === 0,
+  "2A: RUCNE_NALEZENO stále bez pracovní stopy i otisku",
+);
+
+const neplatnaStopa = validovatPracovniRadarStopu({
+  id: "x",
+  radarVstupId: "",
+  datumOd: "2026-08-22",
+  cas: "",
+  nazev: "Jazz",
+  kde: "",
+  url: "",
+  nalezenoAt: "2026-08-20T12:00:00.000Z",
+});
+assert(neplatnaStopa.ok === false, "2B: pracovní stopa bez radarVstupId neprojde");
+const platnaStopa = validovatPracovniRadarStopu(stopa);
+assert(
+  platnaStopa.ok && platnaStopa.ok === true,
+  "2B: platná pracovní stopa projde",
+);
+
+const klicA = vytvoritRadarOtiskKlic({
+  radarVstupId: " region-trebonsko ",
+  datumOd: "2026-08-22",
+  nazev: "  Jazz   na  terase ",
+});
+const klicB = vytvoritRadarOtiskKlic({
+  radarVstupId: "region-trebonsko",
+  datumOd: "2026-08-22",
+  nazev: "Jazz Na Terase",
+});
+const klicCas = vytvoritRadarOtiskKlic({
+  radarVstupId: "region-trebonsko",
+  datumOd: "2026-08-22",
+  nazev: "Jazz na terase",
+});
+assert(klicA === klicB && klicA === klicCas, "2C: fingerprint je stabilní");
+assert(
+  klicA === `region-trebonsko\x002026-08-22\x00jazz na terase`,
+  "2C: fingerprint = vstup + datum + lowercase název, bez času",
+);
+assert(
+  vytvoritRadarOtiskKlic({
+    radarVstupId: "region-trebonsko",
+    datumOd: "2026-08-22",
+    nazev: "Žlutý domeček",
+  }) === `region-trebonsko\x002026-08-22\x00žlutý domeček`,
+  "2C: diakritika se neodstraňuje",
+);
+
+const docPouziti: BranaRadarDokument = {
+  ...vychoziRadarDokument(),
+  pracovni: [stopa],
+  historie: [
+    {
+      id: "hist-rucne",
+      puvod: "RUCNE_NALEZENO",
+      datumOd: "2026-08-21",
+      cas: "",
+      nazev: "Ruční",
+      kde: "",
+      radarVstupId: "",
+      url: "",
+      rozhodnutoAt: "2026-08-20T10:00:00.000Z",
+      nalezenoAt: "2026-08-20T10:00:00.000Z",
+    },
+  ],
+};
+const poPouziti = pouzitRadarStopu(docPouziti, "stopa-1", {
+  tedIso: "2026-08-20T15:00:00.000Z",
+});
+assert(!("chyba" in poPouziti), "2D: Použít uspěje");
+if (!("chyba" in poPouziti)) {
+  const hist = poPouziti.historie[poPouziti.historie.length - 1];
+  assert(poPouziti.pracovni.length === 0, "2D: Použít vyprázdní pracovni");
+  assert(
+    poPouziti.historie.length === 2 &&
+      hist?.puvod === "RADAR_POUZITO" &&
+      hist.datumOd === "2026-08-22" &&
+      hist.cas === "19:00" &&
+      hist.nazev === "Jazz na terase" &&
+      hist.kde === "U Vodníka" &&
+      hist.radarVstupId === "region-trebonsko" &&
+      hist.url === "https://example.test/jazz" &&
+      hist.nalezenoAt === "2026-08-20T12:00:00.000Z" &&
+      hist.rozhodnutoAt === "2026-08-20T15:00:00.000Z",
+    "2D: Použít zapíše RADAR_POUZITO se zachovanými poli",
+  );
+  assert(
+    poPouziti.historie[0]?.puvod === "RUCNE_NALEZENO",
+    "2D: starší ruční historie zůstává",
+  );
+  assert(
+    poPouziti.smazatOtisky.length === 1 &&
+      poPouziti.smazatOtisky[0]?.klic === klicCas &&
+      poPouziti.smazatOtisky[0]?.datumOd === "2026-08-22",
+    "2E: Použít vytvoří fingerprint",
+  );
+}
+
+const docSmazat: BranaRadarDokument = {
+  ...vychoziRadarDokument(),
+  pracovni: [stopa],
+  historie: docPouziti.historie.slice(),
+};
+const historiePredSmazanim = docSmazat.historie.length;
+const poSmazani = smazatRadarStopu(docSmazat, "stopa-1");
+assert(!("chyba" in poSmazani), "2F: Smazat uspěje");
+if (!("chyba" in poSmazani)) {
+  assert(poSmazani.pracovni.length === 0, "2F: Smazat vyprázdní pracovni");
+  assert(
+    poSmazani.historie.length === historiePredSmazanim &&
+      poSmazani.historie.every((h) => h.puvod !== "RADAR_POUZITO"),
+    "2F: Smazat nevytvoří historii",
+  );
+  assert(
+    poSmazani.smazatOtisky.length === 1 &&
+      poSmazani.smazatOtisky[0]?.klic === klicCas &&
+      poSmazani.smazatOtisky[0]?.datumOd === "2026-08-22",
+    "2G: Smazat vytvoří fingerprint",
+  );
+}
+
+const serazene = seraditPracovniStopy([
+  { ...stopa, id: "b", datumOd: "2026-08-23", cas: "10:00" },
+  { ...stopa, id: "a", datumOd: "2026-08-22", cas: "" },
+  { ...stopa, id: "c", datumOd: "2026-08-22", cas: "19:00" },
+]);
+assert(
+  serazene.map((s) => s.id).join(",") === "a,c,b",
+  "2B: řazení nejbližší datum, pak čas",
+);
+
+const docUklid: BranaRadarDokument = {
+  verzeUloziste: 1,
+  pracovni: [
+    { ...stopa, id: "minula", datumOd: "2026-08-19" },
+    { ...stopa, id: "dnes", datumOd: "2026-08-20" },
+    { ...stopa, id: "zitra", datumOd: "2026-08-21" },
+  ],
+  smazatOtisky: [
+    { klic: "stary", datumOd: "2026-08-19" },
+    { klic: "dnesni", datumOd: "2026-08-20" },
+  ],
+  historie: [
+    {
+      id: "stara-hist",
+      puvod: "RADAR_POUZITO",
+      datumOd: "2026-07-01",
+      cas: "",
+      nazev: "Staré Použít",
+      kde: "",
+      radarVstupId: "region-trebonsko",
+      url: "",
+      rozhodnutoAt: "2026-06-01T00:00:00.000Z",
+      nalezenoAt: "2026-06-01T00:00:00.000Z",
+    },
+  ],
+  posledniBehAt: "2026-08-01T00:00:00.000Z",
+};
+const poUklidu = uklidRadarDokument(docUklid, "2026-08-20");
+assert(
+  poUklidu.pracovni.map((s) => s.id).join(",") === "dnes,zitra",
+  "2H: prošlá pracovní stopa se odstraní, dnešek zůstane",
+);
+assert(
+  poUklidu.smazatOtisky.map((o) => o.klic).join(",") === "dnesni",
+  "2I: prošlý otisk se odstraní",
+);
+assert(
+  poUklidu.historie.length === 1 &&
+    poUklidu.historie[0]?.id === "stara-hist" &&
+    poUklidu.posledniBehAt === docUklid.posledniBehAt,
+  "2J: historie se stářím nemaže",
+);
+
+assert(
+  !("chyba" in poPouziti) &&
+    poPouziti.historie.some((h) => h.puvod === "RADAR_POUZITO") &&
+    !radarTs.includes("pridatRucniKonkretniUdalost") &&
+    !radarSeznam.includes("kalendar"),
+  "2K: Použít/Smazat nezapisují do Kalendáře",
+);
+
+const formularText = cist(
+  "src/components/brana/admin/BranaAdminRadarPridat.tsx",
+);
+assert(
+  formularText.includes("Nález uložen pro budoucí analýzu.") &&
+    seznamText.includes("Použít") &&
+    seznamText.includes("Smazat") &&
+    !formularText.includes("Použít"),
+  "2A: + Přidat zůstává oddělené od pracovních akcí",
+);
+
 if (selhalo > 0) {
   console.error(`\nFAIL: ${selhalo} kontrol`);
   process.exit(1);
 }
 
-console.log("\nOK RADAR krok 1");
+console.log("\nOK RADAR krok 1+2");

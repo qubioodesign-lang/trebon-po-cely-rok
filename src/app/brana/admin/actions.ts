@@ -25,7 +25,11 @@ import {
   type BranaSkenovatZdrojVysledek,
 } from "@/lib/brana/admin/skenovat-zdroj";
 import { smazatNezarazenyNalez } from "@/lib/brana/admin/nezarazene-uloziste";
-import { pridatRucniRadarNalez } from "@/lib/brana/admin/radar-uloziste";
+import {
+  pridatRucniRadarNalez,
+  pouzitRadarPracovniStopu,
+  smazatRadarPracovniStopu,
+} from "@/lib/brana/admin/radar-uloziste";
 import { validovatRucniRadarNalezVstup } from "@/lib/brana/admin/radar";
 import type { BranaDlouhodobyIntervalDni, BranaZdroj } from "@/lib/brana/admin/zdroj";
 import {
@@ -637,6 +641,58 @@ export async function pridatRucniRadarNalezAkce(
     return {
       uspech: false,
       chyba: detail ?? "Nález se nepodařilo uložit.",
+    };
+  }
+}
+
+export type BranaRadarStopaAkceVysledek =
+  | { uspech: true }
+  | { uspech: false; chyba: string };
+
+/** Použít pracovní stopu: jen historie RADARU, nic se nepublikuje. */
+export async function pouzitBranaRadarStopuAkce(
+  id: string,
+): Promise<BranaRadarStopaAkceVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  try {
+    await pouzitRadarPracovniStopu(id);
+    revalidatePath("/brana/admin/sprava/radar");
+    return { uspech: true };
+  } catch (error) {
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "Stopu se nepodařilo použít.",
+    };
+  }
+}
+
+/** Smazat pracovní stopu: jen otisk, nic se nepublikuje. */
+export async function smazatBranaRadarStopuAkce(
+  id: string,
+): Promise<BranaRadarStopaAkceVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  try {
+    await smazatRadarPracovniStopu(id);
+    revalidatePath("/brana/admin/sprava/radar");
+    return { uspech: true };
+  } catch (error) {
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "Stopu se nepodařilo smazat.",
     };
   }
 }

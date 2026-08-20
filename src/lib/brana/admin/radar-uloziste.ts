@@ -10,9 +10,16 @@ import {
 import {
   parsovatRadarDokument,
   pridatRucniNalezDoHistorie,
+  pouzitRadarStopu,
+  radarDnesIso,
+  seraditPracovniStopy,
+  smazatRadarStopu,
+  uklidRadarDokument,
   validovatRucniRadarNalezVstup,
   vychoziRadarDokument,
+  jeStejnyRadarDokument,
   type BranaRadarDokument,
+  type BranaRadarPracovniStopa,
 } from "./radar";
 
 /**
@@ -25,7 +32,7 @@ export const BRANA_RADAR_CHYBA_CTENI =
   "RADAR se nepodařilo načíst. Žádná data nebyla změněna.";
 
 export type NacistRadarVysledek =
-  | { ok: true; pracovniPocet: number }
+  | { ok: true; pracovni: BranaRadarPracovniStopa[] }
   | { ok: false };
 
 type BlobCteniTextu =
@@ -90,6 +97,10 @@ async function ulozitDokument(dokument: BranaRadarDokument): Promise<void> {
   });
 }
 
+function ukliditDokument(dokument: BranaRadarDokument): BranaRadarDokument {
+  return uklidRadarDokument(dokument, radarDnesIso());
+}
+
 async function nacistDokumentProZapis(): Promise<BranaRadarDokument> {
   const cteni = await nacistTextZPrivateBlob();
 
@@ -109,7 +120,7 @@ async function nacistDokumentProZapis(): Promise<BranaRadarDokument> {
     throw new Error(BRANA_RADAR_CHYBA_CTENI);
   }
 
-  return dokument;
+  return ukliditDokument(dokument);
 }
 
 async function nacistRadarJadro(): Promise<NacistRadarVysledek> {
@@ -123,7 +134,7 @@ async function nacistRadarJadro(): Promise<NacistRadarVysledek> {
   try {
     const cteni = await nacistTextZPrivateBlob();
     if (cteni.stav === "neexistuje") {
-      return { ok: true, pracovniPocet: 0 };
+      return { ok: true, pracovni: [] };
     }
     let parsed: unknown;
     try {
@@ -137,7 +148,15 @@ async function nacistRadarJadro(): Promise<NacistRadarVysledek> {
       zalogovatChybuCteni("neplatný tvar dokumentu");
       return { ok: false };
     }
-    return { ok: true, pracovniPocet: dokument.pracovni.length };
+    const uklizeny = ukliditDokument(dokument);
+    if (!jeStejnyRadarDokument(dokument, uklizeny)) {
+      try {
+        await ulozitDokument(uklizeny);
+      } catch (error) {
+        zalogovatChybuCteni("úklid se neuložil", error);
+      }
+    }
+    return { ok: true, pracovni: seraditPracovniStopy(uklizeny.pracovni) };
   } catch (error) {
     zalogovatChybuCteni("selhalo čtení", error);
     return { ok: false };
@@ -170,6 +189,10 @@ async function pridatRucniNalezJadro(vstup: unknown): Promise<void> {
     tedIso: new Date().toISOString(),
   });
 
+  if (jeStejnyRadarDokument(pred, po)) {
+    return;
+  }
+
   await ulozitDokument(po);
 }
 
@@ -179,4 +202,52 @@ export async function pridatRucniRadarNalez(vstup: unknown): Promise<void> {
     throw new Error("Nejste přihlášeni.");
   }
   await pridatRucniNalezJadro(vstup);
+}
+
+async function pouzitRadarStopuJadro(id: string): Promise<void> {
+  if (!maBranaAdminBlobKonfiguraci()) {
+    throw new Error(
+      "Nelze uložit RADAR: chybí BLOB_BRANA_ADMIN_STORE_ID nebo BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
+    );
+  }
+
+  const pred = await nacistDokumentProZapis();
+  const po = pouzitRadarStopu(pred, id, {
+    tedIso: new Date().toISOString(),
+  });
+  if ("chyba" in po) {
+    throw new Error(po.chyba);
+  }
+  await ulozitDokument(po);
+}
+
+/** Použít: historie RADAR_POUZITO + otisk. Kalendář nemění. */
+export async function pouzitRadarPracovniStopu(id: string): Promise<void> {
+  if (!(await jeAdminPrihlasen())) {
+    throw new Error("Nejste přihlášeni.");
+  }
+  await pouzitRadarStopuJadro(id);
+}
+
+async function smazatRadarStopuJadro(id: string): Promise<void> {
+  if (!maBranaAdminBlobKonfiguraci()) {
+    throw new Error(
+      "Nelze uložit RADAR: chybí BLOB_BRANA_ADMIN_STORE_ID nebo BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
+    );
+  }
+
+  const pred = await nacistDokumentProZapis();
+  const po = smazatRadarStopu(pred, id);
+  if ("chyba" in po) {
+    throw new Error(po.chyba);
+  }
+  await ulozitDokument(po);
+}
+
+/** Smazat: jen otisk, bez historie. Kalendář nemění. */
+export async function smazatRadarPracovniStopu(id: string): Promise<void> {
+  if (!(await jeAdminPrihlasen())) {
+    throw new Error("Nejste přihlášeni.");
+  }
+  await smazatRadarStopuJadro(id);
 }

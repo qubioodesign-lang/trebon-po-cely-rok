@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { BranaAdminObal } from "@/components/brana/admin/BranaAdminObal";
 import { BranaAdminRadarPridat } from "@/components/brana/admin/BranaAdminRadarPridat";
+import { BranaAdminRadarSeznam } from "@/components/brana/admin/BranaAdminRadarSeznam";
 import {
   BRANA_RADAR_CHYBA_CTENI,
   nacistRadar,
@@ -40,9 +41,7 @@ export default async function StrankaBranaAdminRadar() {
 
         <div role="region" aria-label="Pracovní RADAR">
           {nacist.ok ? (
-            <p className="text-sm text-text-jemny">
-              RADAR zatím nemá žádné pracovní stopy.
-            </p>
+            <BranaAdminRadarSeznam pocatecniPracovni={nacist.pracovni} />
           ) : (
             <p className="text-sm text-text" role="alert">
               {BRANA_RADAR_CHYBA_CTENI}
