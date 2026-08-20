@@ -93,6 +93,12 @@ import {
   nacistItrebonJktKandidatyZMezidokumentu,
 } from "./divadlo-jk-tyla";
 import {
+  jeItrebonGalerieMestaTrebonZdroj,
+  najitGalerieMestaTrebonKotvuId,
+  parsovatItrebonGalerieMestaTrebon,
+  sestavGalerieMestaTrebonZapisPoSparovani,
+} from "./galerie-mesta-trebon";
+import {
   jeTrebon105DivadloZdrojUrl,
   najitDivadlo105KotvuId,
 } from "./divadlo-105";
@@ -694,6 +700,8 @@ async function skenovatZnamyZdrojJadro(
   // Třeboňsko taneční večery: hub lázeňského programu → Aurora + Berta měsíc.
   // iTřeboň JKT: ověřený JSON mezidokument, bez živého HTTP.
   // Větev před GBU — stejná URL by jinak spustila GBU parser.
+  // iTřeboň Galerie města Třeboň: stejný výpis + stránkování jako GBU,
+  // vlastní parser (jen Vernisáž / Komentovaná prohlídka). Před GBU.
   // iTřeboň GBU: výpis /kalendar.html + stránky 2…12.
   // Okolo Třeboně: 1 GET /program/.
   // Ostatní zdroje: 1 fetch = 1 URL.
@@ -738,6 +746,14 @@ async function skenovatZnamyZdrojJadro(
     kandidati = deduplikovatScanKandidaty(
       nacistItrebonJktKandidatyZMezidokumentu(),
     );
+  } else if (jeItrebonGalerieMestaTrebonZdroj(zdroj)) {
+    const urlky = sestavItrebonKalendarUrlky(zdroj.url);
+    const sloucene: BranaScanKandidat[] = [];
+    for (const strankaUrl of urlky) {
+      const { text } = await nacistTeloZdroje(strankaUrl);
+      sloucene.push(...parsovatItrebonGalerieMestaTrebon(text));
+    }
+    kandidati = deduplikovatScanKandidaty(sloucene);
   } else if (jeItrebonGalerieBuddhistickehoUmeniZdrojUrl(zdroj.url)) {
     const urlky = sestavItrebonKalendarUrlky(zdroj.url);
     const sloucene: BranaScanKandidat[] = [];
@@ -865,6 +881,9 @@ async function skenovatZnamyZdrojJadro(
     const vidinyKotva = jeTrebon105VidinyFestivalZdrojUrl(zdroj.url)
       ? najitVidinyKotvuId(redakcni.polozky)
       : null;
+    const galerieMestaTrebonKotva = jeItrebonGalerieMestaTrebonZdroj(zdroj)
+      ? najitGalerieMestaTrebonKotvuId(redakcni.polozky)
+      : null;
     const sparovani =
       jeTrebonskoLazenskyKulturniProgramZdrojUrl(zdroj.url)
         ? tanecniKotva
@@ -983,6 +1002,14 @@ async function skenovatZnamyZdrojJadro(
                 zdroj.hlidaneRedakcniPolozkaIds,
                 BRANA_JKT_REDAKCNI_POLOZKA_ID,
               )
+          : jeItrebonGalerieMestaTrebonZdroj(zdroj)
+            ? galerieMestaTrebonKotva
+              ? sparovatVlastnictvimHlidaneKotvy(
+                  redakcni.polozky,
+                  [galerieMestaTrebonKotva],
+                  galerieMestaTrebonKotva,
+                )
+              : { ok: false as const }
           : hlidaneKotvy &&
               jeItrebonGalerieBuddhistickehoUmeniZdrojUrl(zdroj.url)
             ? sparovatVlastnictvimHlidaneKotvy(
@@ -1073,6 +1100,12 @@ async function skenovatZnamyZdrojJadro(
       if (jeTrebon105VidinyFestivalZdrojUrl(zdroj.url)) {
         continue;
       }
+      // Galerie města Třeboň: neshoda kotvy (chybí právě jedna
+      // živá Položka Galerie města Třeboň) → tiše, bez Nezařazených,
+      // bez GBU / JKT / 105 / muzea.
+      if (jeItrebonGalerieMestaTrebonZdroj(zdroj)) {
+        continue;
+      }
       // Bohatý zdroj: neshody se neposílají do Nezařazených (provozní šum).
       if (
         hlidaneKotvy ||
@@ -1111,6 +1144,11 @@ async function skenovatZnamyZdrojJadro(
               surovyNazev: kandidat.nazev,
               jazyk,
             })
+          : jeItrebonGalerieMestaTrebonZdroj(zdroj)
+            ? sestavGalerieMestaTrebonZapisPoSparovani({
+                surovyNazev: kandidat.nazev,
+                jazyk,
+              })
           : jeBesedaZdrojUrl(zdroj.url)
             ? sestavBesedaZapisPoSparovani({
                 surovyNazev: kandidat.nazev,

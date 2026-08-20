@@ -83,12 +83,17 @@ function overScanVetevBezHttp(): void {
   const jktStart = skenovat.indexOf(
     "} else if (jeItrebonDivadloJkTylaZdroj(zdroj)) {",
   );
+  const gmtStart = skenovat.indexOf(
+    "} else if (jeItrebonGalerieMestaTrebonZdroj(zdroj)) {",
+  );
   const gbuStart = skenovat.indexOf(
     "} else if (jeItrebonGalerieBuddhistickehoUmeniZdrojUrl(zdroj.url)) {",
   );
   assert(jktStart >= 0, "JKT větev existuje");
-  assert(gbuStart > jktStart, "GBU větev je za JKT");
-  const jktVetev = skenovat.slice(jktStart, gbuStart);
+  assert(gmtStart > jktStart, "GMT větev je za JKT");
+  assert(gbuStart > gmtStart, "GBU větev je za GMT");
+  const jktVetev = skenovat.slice(jktStart, gmtStart);
+  const gmtVetev = skenovat.slice(gmtStart, gbuStart);
   const gbuKonec = skenovat.indexOf(
     "} else if (jeDumPrirodyTrebonskaZdrojUrl(zdroj.url)) {",
     gbuStart,
@@ -107,6 +112,19 @@ function overScanVetevBezHttp(): void {
   assert(
     !jktVetev.includes("parsovatItrebonDivadloJkTyla"),
     "B JKT neparsuje živé HTML",
+  );
+  assert(gmtVetev.includes("nacistTeloZdroje"), "GMT fetchuje stejný výpis");
+  assert(
+    gmtVetev.includes("sestavItrebonKalendarUrlky"),
+    "GMT stránkuje jako GBU",
+  );
+  assert(
+    gmtVetev.includes("parsovatItrebonGalerieMestaTrebon"),
+    "GMT má vlastní parser",
+  );
+  assert(
+    !gmtVetev.includes("parsovatUdalostiZeZdroje"),
+    "GMT nepoužívá GBU HTML dispatcher",
   );
   assert(gbuVetev.includes("nacistTeloZdroje"), "G GBU dál fetchuje");
   assert(
