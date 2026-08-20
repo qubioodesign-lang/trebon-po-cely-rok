@@ -61,6 +61,45 @@ export function isoDenPoslednihoDneKontrolnihoBlokuVPraze(): string {
   return kontrolniBlokVPraze().blokDoIso;
 }
 
+function formatujDenMesicCesky(iso: string, sRokem: boolean): string {
+  const den = Number(iso.slice(8, 10));
+  const mesic = Number(iso.slice(5, 7));
+  const rok = iso.slice(0, 4);
+  return sRokem ? `${den}. ${mesic}. ${rok}` : `${den}. ${mesic}.`;
+}
+
+function maRozsahKontrolnihoBlokuRok(
+  blok: Pick<BranaKontrolniBlok, "blokOdIso" | "blokDoIso">,
+): boolean {
+  return blok.blokOdIso.slice(0, 4) !== blok.blokDoIso.slice(0, 4);
+}
+
+/** Lidský rozsah OD–DO ze skutečného kontrolního bloku. Bez druhého výpočtu délky. */
+export function formatujRozsahKontrolnihoBloku(
+  blok: Pick<BranaKontrolniBlok, "blokOdIso" | "blokDoIso">,
+): string {
+  const sRokem = maRozsahKontrolnihoBlokuRok(blok);
+  return `${formatujDenMesicCesky(blok.blokOdIso, sRokem)} – ${formatujDenMesicCesky(blok.blokDoIso, sRokem)}`;
+}
+
+export function textTlacitkaSchvalitKontrolniBlok(
+  blok: Pick<BranaKontrolniBlok, "blokOdIso" | "blokDoIso">,
+): string {
+  return `Schválit kontrolní blok a publikovat ${formatujRozsahKontrolnihoBloku(blok)}`;
+}
+
+export function textHraniceZacatkuKontrolnihoBloku(
+  blok: Pick<BranaKontrolniBlok, "blokOdIso" | "blokDoIso">,
+): string {
+  return `ZAČÁTEK KONTROLNÍHO BLOKU · ${formatujDenMesicCesky(blok.blokOdIso, maRozsahKontrolnihoBlokuRok(blok))}`;
+}
+
+export function textHraniceKonceKontrolnihoBloku(
+  blok: Pick<BranaKontrolniBlok, "blokOdIso" | "blokDoIso">,
+): string {
+  return `KONEC KONTROLNÍHO BLOKU · ${formatujDenMesicCesky(blok.blokDoIso, maRozsahKontrolnihoBlokuRok(blok))}`;
+}
+
 function normalizujRozsahUdalosti(udalost: {
   datumOd: string;
   datumDo?: string | null;

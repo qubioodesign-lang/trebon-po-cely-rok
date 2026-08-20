@@ -193,8 +193,29 @@ assert(
 assert(
   !ui.includes("skenovatRychleZdrojeAutomaticky") &&
     !ui.includes("casovy-plan") &&
-    !ui.includes("projektujSchvaleneDoVerejnehoPohledu"),
-  "9: UI změna nezasahuje scan/cron/projekci",
+    !ui.includes("projektujSchvaleneDoVerejnehoPohledu") &&
+    ui.includes("schvalitKontroluAkce") &&
+    ui.includes("onClick={schvalitKontrolu}") &&
+    ui.includes("textTlacitkaSchvalitKontrolu"),
+  "9: UI změna nezasahuje scan/cron/projekci; stejná akce, jen popisek",
+);
+assert(
+  ui.includes("den.isoDen === isoDenZacatkuKontrolnihoBloku") &&
+    ui.includes("den.isoDen === isoDenPoslednihoDneKontrolnihoBloku") &&
+    ui.includes("textHraniceZacatkuKontrolnihoBloku") &&
+    ui.includes("textHraniceKonceKontrolnihoBloku") &&
+    !ui.includes("KONEC KONTROLY 21 DNÍ"),
+  "10: hranice bloku v Kalendáři podle stejného OD/DO, bez hardcode 21",
+);
+assert(
+  kontrolni.includes("const blok = kontrolniBlokVPraze();") &&
+    kontrolni.includes(
+      "ZAČÁTEK KONTROLNÍHO BLOKU · ${formatujDenMesicCesky(blok.blokOdIso",
+    ) &&
+    kontrolni.includes(
+      "KONEC KONTROLNÍHO BLOKU · ${formatujDenMesicCesky(blok.blokDoIso",
+    ),
+  "10b: dávka i texty hranic ze stejného blokOdIso/blokDoIso",
 );
 
 if (selhalo > 0) {

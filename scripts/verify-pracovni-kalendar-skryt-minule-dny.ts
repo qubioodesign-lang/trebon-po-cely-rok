@@ -145,8 +145,13 @@ assert(
 assert(
   stranka.includes("sestavIdProSchvalitKontrolu(rucniUdalosti") &&
     stranka.includes("spocitejPrazdneDnyKontrolnihoBloku") &&
-    stranka.includes("isoDenPoslednihoDneKontrolnihoBlokuVPraze()"),
-  "8: 21denní blok a Schválit kontrolu beze změny vstupu",
+    stranka.includes("kontrolniBlokVPraze()") &&
+    stranka.includes("textTlacitkaSchvalitKontrolniBlok(kontrolniBlok)") &&
+    stranka.includes("isoDenZacatkuKontrolnihoBloku = kontrolniBlok.blokOdIso") &&
+    stranka.includes("isoDenPoslednihoDneKontrolnihoBloku = kontrolniBlok.blokDoIso") &&
+    stranka.includes("textHraniceZacatkuKontrolnihoBloku(kontrolniBlok)") &&
+    stranka.includes("textHraniceKonceKontrolnihoBloku(kontrolniBlok)"),
+  "8: tlačítko i hranice bloku ze stejného kontrolniBlokVPraze",
 );
 assert(
   stranka.includes("persistovaneIdUdalosti={rucniUdalosti.map((u) => u.id)}"),

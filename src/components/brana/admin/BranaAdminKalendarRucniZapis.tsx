@@ -45,16 +45,21 @@ type Props = {
   rucniZapisPovolen: boolean;
   /** Id událostí skutečně persistovaných v PRIVATE Blobu */
   persistovaneIdUdalosti: readonly string[];
-  /**
-   * Poslední den 21denního kontrolního bloku (YYYY-MM-DD).
-   * Orientační linka se vykreslí jen když je tento den v projekci.
-   */
+  /** První den kontrolního bloku (YYYY-MM-DD) = blokOdIso. */
+  isoDenZacatkuKontrolnihoBloku: string;
+  /** Poslední den kontrolního bloku (YYYY-MM-DD) = blokDoIso. */
   isoDenPoslednihoDneKontrolnihoBloku: string;
   /**
    * Explicitní ID pro Schválit kontrolu (21denní blok ∪ Výhled).
    * Server-rendered ze skutečných PRIVATE CEKA.
    */
   idCekaKeSchvaleniKontroly: readonly string[];
+  /** Popisek tlačítka ze skutečného kontrolního bloku (OD–DO). */
+  textTlacitkaSchvalitKontrolu: string;
+  /** Redakční hranice před prvním dnem bloku. */
+  textHraniceZacatkuKontrolnihoBloku: string;
+  /** Redakční hranice za posledním dnem bloku. */
+  textHraniceKonceKontrolnihoBloku: string;
   /** Hotový text neblokujícího upozornění; null = žádné */
   upozorneniPrazdnychDni: string | null;
 };
@@ -75,13 +80,19 @@ function sestavVolbyPozice(
 function OrientacniLinka({
   popisek,
   ariaLabel,
+  vyznam,
 }: {
   popisek: string;
   ariaLabel: string;
+  vyznam?: "blok";
 }) {
   return (
     <div
-      className="brana-admin-kalendar-orientace"
+      className={
+        vyznam === "blok"
+          ? "brana-admin-kalendar-orientace brana-admin-kalendar-orientace-blok"
+          : "brana-admin-kalendar-orientace"
+      }
       role="separator"
       aria-label={ariaLabel}
     >
@@ -96,7 +107,10 @@ function SeznamDnu({
   dny,
   rucniAkce,
   pending,
+  isoDenZacatkuKontrolnihoBloku,
   isoDenPoslednihoDneKontrolnihoBloku,
+  textHraniceZacatkuKontrolnihoBloku,
+  textHraniceKonceKontrolnihoBloku,
   muzeSchvalitAutomatickou,
   muzeUpravitAutomatickou,
   muzeVyrazitAutomatickou,
@@ -108,7 +122,10 @@ function SeznamDnu({
   dny: BranaKalendarDen[];
   rucniAkce: boolean;
   pending: boolean;
+  isoDenZacatkuKontrolnihoBloku: string;
   isoDenPoslednihoDneKontrolnihoBloku: string;
+  textHraniceZacatkuKontrolnihoBloku: string;
+  textHraniceKonceKontrolnihoBloku: string;
   muzeSchvalitAutomatickou: (udalost: BranaKonkretniUdalost) => boolean;
   muzeUpravitAutomatickou: (udalost: BranaKonkretniUdalost) => boolean;
   muzeVyrazitAutomatickou: (udalost: BranaKonkretniUdalost) => boolean;
@@ -121,6 +138,13 @@ function SeznamDnu({
     <div role="region" aria-label="Pracovní kalendář">
       {dny.map((den, index) => (
         <div key={den.isoDen}>
+          {den.isoDen === isoDenZacatkuKontrolnihoBloku ? (
+            <OrientacniLinka
+              popisek={textHraniceZacatkuKontrolnihoBloku}
+              ariaLabel={textHraniceZacatkuKontrolnihoBloku}
+              vyznam="blok"
+            />
+          ) : null}
           <article
             className={
               den.jePrazdnyKontrolniDen
@@ -287,8 +311,9 @@ function SeznamDnu({
           ) : null}
           {den.isoDen === isoDenPoslednihoDneKontrolnihoBloku ? (
             <OrientacniLinka
-              popisek="KONEC KONTROLY 21 DNÍ"
-              ariaLabel="Konec kontroly 21 dní"
+              popisek={textHraniceKonceKontrolnihoBloku}
+              ariaLabel={textHraniceKonceKontrolnihoBloku}
+              vyznam="blok"
             />
           ) : null}
         </div>
@@ -307,8 +332,12 @@ export function BranaAdminKalendarRucniZapis({
   dny,
   rucniZapisPovolen,
   persistovaneIdUdalosti,
+  isoDenZacatkuKontrolnihoBloku,
   isoDenPoslednihoDneKontrolnihoBloku,
   idCekaKeSchvaleniKontroly: idCekaKeSchvaleniKontrolyVstup,
+  textTlacitkaSchvalitKontrolu,
+  textHraniceZacatkuKontrolnihoBloku,
+  textHraniceKonceKontrolnihoBloku,
   upozorneniPrazdnychDni,
 }: Props) {
   const router = useRouter();
@@ -707,7 +736,7 @@ export function BranaAdminKalendarRucniZapis({
           disabled={pending}
           className="text-sm font-light text-text-jemny underline-offset-2 hover:underline disabled:opacity-50"
         >
-          {pending ? "Ukládám…" : "Schválit kontrolu"}
+          {pending ? "Ukládám…" : textTlacitkaSchvalitKontrolu}
         </button>
       ) : null}
 
@@ -859,9 +888,12 @@ export function BranaAdminKalendarRucniZapis({
         dny={dnyStav}
         rucniAkce={muzeEditovat}
         pending={pending}
+        isoDenZacatkuKontrolnihoBloku={isoDenZacatkuKontrolnihoBloku}
         isoDenPoslednihoDneKontrolnihoBloku={
           isoDenPoslednihoDneKontrolnihoBloku
         }
+        textHraniceZacatkuKontrolnihoBloku={textHraniceZacatkuKontrolnihoBloku}
+        textHraniceKonceKontrolnihoBloku={textHraniceKonceKontrolnihoBloku}
         muzeSchvalitAutomatickou={muzeSchvalitAutomatickou}
         muzeUpravitAutomatickou={muzeUpravitAutomatickou}
         muzeVyrazitAutomatickou={muzeVyrazitAutomatickou}

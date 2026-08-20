@@ -7,10 +7,14 @@ import { dnesVPraze, pridatDny } from "../src/lib/brana/cas";
 import {
   BRANA_KONTROLNI_BLOK_DNI,
   duvodZamitnutiUdalostiProSchvalitKontrolu,
+  formatujRozsahKontrolnihoBloku,
   isoDnyBlizkehoOknaVPraze,
   kontrolniBlokVPraze,
   patriUdalostDoBlizkehoOkna,
   sestavIdProSchvalitKontrolu,
+  textHraniceKonceKontrolnihoBloku,
+  textHraniceZacatkuKontrolnihoBloku,
+  textTlacitkaSchvalitKontrolniBlok,
 } from "../src/lib/brana/admin/kontrolni-blok";
 import type { BranaKonkretniUdalost } from "../src/lib/brana/admin/konkretni-udalost";
 
@@ -210,6 +214,55 @@ assert(
 assert(
   duvodZamitnutiUdalostiProSchvalitKontrolu(staraProServer) === null,
   "R5b: stará CEKA bez snapshotu serverová cesta nezamítá",
+);
+
+assert(
+  formatujRozsahKontrolnihoBloku(blok) ===
+    `${Number(blok.blokOdIso.slice(8, 10))}. ${Number(blok.blokOdIso.slice(5, 7))}. – ${Number(blok.blokDoIso.slice(8, 10))}. ${Number(blok.blokDoIso.slice(5, 7))}.` ||
+    formatujRozsahKontrolnihoBloku(blok).includes(blok.blokOdIso.slice(0, 4)),
+  "T1: rozsah tlačítka bere blokOdIso/blokDoIso téhož kontrolniBlokVPraze",
+);
+assert(
+  textTlacitkaSchvalitKontrolniBlok(blok) ===
+    `Schválit kontrolní blok a publikovat ${formatujRozsahKontrolnihoBloku(blok)}`,
+  "T2: popisek tlačítka je stejný blok + stejný rozsah",
+);
+assert(
+  formatujRozsahKontrolnihoBloku({
+    blokOdIso: "2026-12-24",
+    blokDoIso: "2027-01-13",
+  }) === "24. 12. 2026 – 13. 1. 2027",
+  "T3: přechod roku v rozsahu s rokem",
+);
+
+function ocekavanyDenKontrolnihoBloku(iso: string, sRokem: boolean): string {
+  const den = Number(iso.slice(8, 10));
+  const mesic = Number(iso.slice(5, 7));
+  const rok = iso.slice(0, 4);
+  return sRokem ? `${den}. ${mesic}. ${rok}` : `${den}. ${mesic}.`;
+}
+
+const sRokem = blok.blokOdIso.slice(0, 4) !== blok.blokDoIso.slice(0, 4);
+assert(
+  textHraniceZacatkuKontrolnihoBloku(blok) ===
+    `ZAČÁTEK KONTROLNÍHO BLOKU · ${ocekavanyDenKontrolnihoBloku(blok.blokOdIso, sRokem)}`,
+  "T4: ZAČÁTEK bere přesně blokOdIso téhož kontrolniBlokVPraze",
+);
+assert(
+  textHraniceKonceKontrolnihoBloku(blok) ===
+    `KONEC KONTROLNÍHO BLOKU · ${ocekavanyDenKontrolnihoBloku(blok.blokDoIso, sRokem)}`,
+  "T5: KONEC bere přesně blokDoIso téhož kontrolniBlokVPraze",
+);
+assert(
+  textHraniceZacatkuKontrolnihoBloku({
+    blokOdIso: "2026-12-24",
+    blokDoIso: "2027-01-13",
+  }) === "ZAČÁTEK KONTROLNÍHO BLOKU · 24. 12. 2026" &&
+    textHraniceKonceKontrolnihoBloku({
+      blokOdIso: "2026-12-24",
+      blokDoIso: "2027-01-13",
+    }) === "KONEC KONTROLNÍHO BLOKU · 13. 1. 2027",
+  "T6: změna rozsahu bloku se projeví na hranicích i v tlačítku",
 );
 
 if (selhalo > 0) {

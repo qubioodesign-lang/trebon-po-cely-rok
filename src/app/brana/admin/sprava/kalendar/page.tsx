@@ -15,9 +15,12 @@ import {
 } from "@/lib/brana/admin/konkretni-udalosti-uloziste";
 import {
   doplnPrazdneDnyDoKalendare,
-  isoDenPoslednihoDneKontrolnihoBlokuVPraze,
+  kontrolniBlokVPraze,
   sestavIdProSchvalitKontrolu,
   spocitejPrazdneDnyKontrolnihoBloku,
+  textHraniceKonceKontrolnihoBloku,
+  textHraniceZacatkuKontrolnihoBloku,
+  textTlacitkaSchvalitKontrolniBlok,
   textUpozorneniPrazdnychDni,
 } from "@/lib/brana/admin/kontrolni-blok";
 import { nacistRedakcniPoradi } from "@/lib/brana/admin/redakcni-poradi-uloziste";
@@ -103,8 +106,15 @@ export default async function StrankaBranaAdminKalendar() {
     );
   }
 
-  const isoDenPoslednihoDneKontrolnihoBloku =
-    isoDenPoslednihoDneKontrolnihoBlokuVPraze();
+  const kontrolniBlok = kontrolniBlokVPraze();
+  const isoDenZacatkuKontrolnihoBloku = kontrolniBlok.blokOdIso;
+  const isoDenPoslednihoDneKontrolnihoBloku = kontrolniBlok.blokDoIso;
+  const textTlacitkaSchvalitKontrolu =
+    textTlacitkaSchvalitKontrolniBlok(kontrolniBlok);
+  const textHraniceZacatkuKontrolnihoBlokuText =
+    textHraniceZacatkuKontrolnihoBloku(kontrolniBlok);
+  const textHraniceKonceKontrolnihoBlokuText =
+    textHraniceKonceKontrolnihoBloku(kontrolniBlok);
   const textStariAsistovanych = textStariAsistovanychZdroju();
   const rychlyScanText = textSkupinovehoScanuProKalendar(
     "Rychlý scan",
@@ -161,8 +171,16 @@ export default async function StrankaBranaAdminKalendar() {
           dny={dny}
           rucniZapisPovolen={uloziste.ok}
           persistovaneIdUdalosti={rucniUdalosti.map((u) => u.id)}
+          isoDenZacatkuKontrolnihoBloku={isoDenZacatkuKontrolnihoBloku}
           isoDenPoslednihoDneKontrolnihoBloku={
             isoDenPoslednihoDneKontrolnihoBloku
+          }
+          textTlacitkaSchvalitKontrolu={textTlacitkaSchvalitKontrolu}
+          textHraniceZacatkuKontrolnihoBloku={
+            textHraniceZacatkuKontrolnihoBlokuText
+          }
+          textHraniceKonceKontrolnihoBloku={
+            textHraniceKonceKontrolnihoBlokuText
           }
           idCekaKeSchvaleniKontroly={idCekaKeSchvaleniKontroly}
           upozorneniPrazdnychDni={
