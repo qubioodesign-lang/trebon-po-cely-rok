@@ -5,6 +5,7 @@ import { uklidMinulychKonkretnichUdalostiProScheduler } from "@/lib/brana/admin/
 import { vyhodnotitAOdeslatAsistovaneUpozorneniPredKotvou } from "@/lib/brana/admin/odeslat-asistovane-upozorneni-automaticky";
 import { vyhodnotitAOdeslatPravidelneUpozorneniPoCheckpointu } from "@/lib/brana/admin/odeslat-pravidelne-upozorneni-automaticky";
 import { vyhodnotitAOdeslatRychleUpozorneniPoScanu } from "@/lib/brana/admin/odeslat-rychle-upozorneni-automaticky";
+import { spustitRadarPoProdukcnimCronuFailSoft } from "@/lib/brana/admin/radar-beh";
 import { skenovatDlouhodobeZdrojeAutomaticky } from "@/lib/brana/admin/skenovat-dlouhodobe-zdroje-automaticky";
 import { skenovatRychleZdrojeAutomaticky } from "@/lib/brana/admin/skenovat-rychle-zdroje-automaticky";
 import {
@@ -43,6 +44,7 @@ export const dynamic = "force-dynamic";
  * při jeDlouhodobyTermin sekvenční Dlouhodobý scan + stavový checkpoint (+21) + Pravidelný push;
  * při jeAsistovanyPripravnyTermin pouze push (kotva − 3 dny), bez scanu;
  * při úspěšném souběhu potlačí Rychlý push ve prospěch Pravidelného.
+ * RADAR fail-soft až po dokončení produkčního Rychlého/Dlouhého běhu a razítka.
  */
 
 function jePlatnaCronAutorizace(authHeader: string | null): boolean {
@@ -185,6 +187,10 @@ export async function GET(request: NextRequest) {
           pridanoDoKalendare: rychlyScan?.pridanoDoKalendare ?? 0,
         });
       }
+    }
+
+    if (jeRychlyTermin) {
+      await spustitRadarPoProdukcnimCronuFailSoft();
     }
 
     return NextResponse.json({

@@ -18,8 +18,10 @@ import {
   validovatRucniRadarNalezVstup,
   vychoziRadarDokument,
   jeStejnyRadarDokument,
+  zapsatRadarScanDoDokumentu,
   type BranaRadarDokument,
   type BranaRadarPracovniStopa,
+  type BranaRadarScanKandidatVstup,
 } from "./radar";
 
 /**
@@ -250,4 +252,33 @@ export async function smazatRadarPracovniStopu(id: string): Promise<void> {
     throw new Error("Nejste přihlášeni.");
   }
   await smazatRadarStopuJadro(id);
+}
+
+/**
+ * Scheduler: úklid + zápis kandidátů do data/brana-radar.json.
+ * Bez admin session. Kalendář, Zdroje ani razítko Rychlého scanu nemění.
+ */
+export async function zapsatRadarScanProScheduler(
+  kandidati: readonly BranaRadarScanKandidatVstup[],
+  args: { tedIso: string },
+): Promise<void> {
+  if (!maBranaAdminBlobKonfiguraci()) {
+    throw new Error(
+      "Nelze uložit RADAR: chybí BLOB_BRANA_ADMIN_STORE_ID nebo BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
+    );
+  }
+
+  const pred = await nacistDokumentProZapis();
+  const po = zapsatRadarScanDoDokumentu(pred, kandidati, {
+    tedIso: args.tedIso,
+    noveId: () => `radar-${crypto.randomUUID()}`,
+    dnesIso: radarDnesIso(),
+    behDokoncen: true,
+  });
+
+  if (jeStejnyRadarDokument(pred, po)) {
+    return;
+  }
+
+  await ulozitDokument(po);
 }

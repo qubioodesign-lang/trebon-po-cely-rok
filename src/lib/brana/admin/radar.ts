@@ -517,6 +517,79 @@ export function smazatRadarStopu(
   };
 }
 
+export type BranaRadarScanKandidatVstup = {
+  radarVstupId: string;
+  datumOd: string;
+  cas: string;
+  nazev: string;
+  kde: string;
+  url: string;
+};
+
+/**
+ * Zápis automatického běhu do dokumentu.
+ * Úklid prošlých, otisk i existující pracovni se přesným klíčem nepřidají,
+ * historie se nemění. posledniBehAt jen po dokončeném běhu.
+ */
+export function zapsatRadarScanDoDokumentu(
+  dokument: BranaRadarDokument,
+  kandidati: readonly BranaRadarScanKandidatVstup[],
+  args: {
+    tedIso: string;
+    noveId: () => string;
+    dnesIso: string;
+    behDokoncen: boolean;
+  },
+): BranaRadarDokument {
+  const uklizeny = uklidRadarDokument(dokument, args.dnesIso);
+  const otisky = new Set(uklizeny.smazatOtisky.map((o) => o.klic));
+  const existujici = new Set(
+    uklizeny.pracovni.map((s) => vytvoritRadarOtiskKlic(s)),
+  );
+  const pracovni = uklizeny.pracovni.slice();
+
+  for (const k of kandidati) {
+    const klic = vytvoritRadarOtiskKlic({
+      radarVstupId: k.radarVstupId,
+      datumOd: k.datumOd,
+      nazev: k.nazev,
+    });
+    if (otisky.has(klic) || existujici.has(klic)) {
+      continue;
+    }
+    existujici.add(klic);
+    pracovni.push({
+      id: args.noveId(),
+      radarVstupId: k.radarVstupId.trim(),
+      datumOd: k.datumOd.trim(),
+      cas: k.cas.trim(),
+      nazev: k.nazev.trim(),
+      kde: k.kde.trim(),
+      url: k.url.trim(),
+      nalezenoAt: args.tedIso,
+    });
+  }
+
+  return {
+    verzeUloziste: BRANA_RADAR_VERZE_ULOZISTE,
+    pracovni: seraditPracovniStopy(pracovni),
+    smazatOtisky: uklizeny.smazatOtisky.slice(),
+    historie: uklizeny.historie.slice(),
+    posledniBehAt: args.behDokoncen ? args.tedIso : uklizeny.posledniBehAt,
+  };
+}
+
+/** Vlastní try/catch. Nikdy nepropaguje chybu do produkčního cronu. */
+export async function obalitRadarBehFailSoft(
+  beh: () => Promise<void>,
+): Promise<void> {
+  try {
+    await beh();
+  } catch (error) {
+    console.error("[brana-radar] neočekávané selhání", error);
+  }
+}
+
 export function jeStejnyRadarDokument(
   a: BranaRadarDokument,
   b: BranaRadarDokument,
