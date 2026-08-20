@@ -7,7 +7,7 @@ import {
 
 /**
  * Informace o rytmu kontroly podle typu zdroje.
- * Dlouhodobý interval je pevně 21 dní (ne uživatelské nastavení).
+ * Dlouhodobý interval je pevně 14 dní (ne uživatelské nastavení).
  * Rychlý rytmus je pevný.
  */
 export function BranaAdminZdrojeRytmus() {

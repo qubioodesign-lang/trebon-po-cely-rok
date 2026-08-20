@@ -13,6 +13,7 @@ import {
   upravitRucniKonkretniUdalost,
   vyrazitAutomatickouCekaUdalost,
 } from "@/lib/brana/admin/konkretni-udalosti-uloziste";
+import { sestavPevnyKontrolniBlok } from "@/lib/brana/admin/kontrolni-blok";
 import { ulozitRedakcniPoradi, nacistRedakcniPoradi } from "@/lib/brana/admin/redakcni-poradi-uloziste";
 import { validovatRedakcniPoradiVstup } from "@/lib/brana/admin/redakcni-poradi-validace";
 import type { BranaRedakcniPolozkaStav } from "@/lib/brana/admin/redakcni-kostra";
@@ -34,8 +35,10 @@ import { validovatRucniRadarNalezVstup } from "@/lib/brana/admin/radar";
 import type { BranaDlouhodobyIntervalDni, BranaZdroj } from "@/lib/brana/admin/zdroj";
 import {
   dokumentNaUi,
+  nacistUpozorneniNastaveni,
   ulozitPristiDlouhodobouKontrolu,
   ulozitPushSubscription,
+  ulozitSchvalenoDoIsoPoSchvaleniKontrolnihoBloku,
   validovatPristiDlouhodobouKontroluVstup,
   validovatPushSubscriptionVstup,
   vypnoutPushSubscription,
@@ -248,7 +251,8 @@ export async function schvalitKonkretniUdalostAkce(
 
 /**
  * Hromadně schválí explicitní seznam automatických CEKA (Schválit kontrolu).
- * Fail-closed: neplatné ID → žádný zápis.
+ * Fail-closed: neplatné ID → žádný zápis událostí ani schvalenoDoIso.
+ * schvalenoDoIso se zapisuje až po úspěšném schválení karet.
  */
 export async function schvalitKontroluAkce(
   ids: unknown,
@@ -262,9 +266,29 @@ export async function schvalitKontroluAkce(
   }
 
   try {
+    const upozorneni = await nacistUpozorneniNastaveni();
+    if (!upozorneni.ok) {
+      return {
+        uspech: false,
+        chyba: "Nastavení upozornění se nepodařilo načíst. Nic nebylo uloženo.",
+      };
+    }
+    const blok = sestavPevnyKontrolniBlok({
+      posledniDokoncenaDlouhodobaKontrola:
+        upozorneni.dokument.posledniDokoncenaDlouhodobaKontrola,
+      pristiDlouhodobaKontrola: upozorneni.dokument.pristiDlouhodobaKontrola,
+    });
+    if (!blok) {
+      return {
+        uspech: false,
+        chyba: "Kontrolní blok není k dispozici. Nic nebylo uloženo.",
+      };
+    }
+
     const vysledek = await schvalitKontroluKonkretnichUdalosti(
       ids as string[],
     );
+    await ulozitSchvalenoDoIsoPoSchvaleniKontrolnihoBloku(blok.blokDoIso);
     revalidatePath("/brana/admin/sprava/kalendar");
     revalidatePath("/brana/admin/sprava/vyhled");
     return { uspech: true, pocetSchvalenych: vysledek.pocetSchvalenych };

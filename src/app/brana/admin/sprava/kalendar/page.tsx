@@ -14,11 +14,13 @@ import {
   nacistKonkretniUdalosti,
 } from "@/lib/brana/admin/konkretni-udalosti-uloziste";
 import {
+  doplnDenProHraniciSchvalenoDo,
   doplnPrazdneDnyDoKalendare,
-  kontrolniBlokVPraze,
   sestavIdProSchvalitKontrolu,
+  sestavPevnyKontrolniBlok,
   spocitejPrazdneDnyKontrolnihoBloku,
   textHraniceKonceKontrolnihoBloku,
+  textHraniceSchvalenoDo,
   textHraniceZacatkuKontrolnihoBloku,
   textTlacitkaSchvalitKontrolniBlok,
   textUpozorneniPrazdnychDni,
@@ -72,12 +74,27 @@ export default async function StrankaBranaAdminKalendar() {
     poradiPodleId.get(id),
   );
 
+  const kontrolniBlok = sestavPevnyKontrolniBlok({
+    posledniDokoncenaDlouhodobaKontrola: upozorneni.ok
+      ? upozorneni.dokument.posledniDokoncenaDlouhodobaKontrola
+      : null,
+    pristiDlouhodobaKontrola: upozorneni.ok
+      ? upozorneni.dokument.pristiDlouhodobaKontrola
+      : null,
+  });
+  const schvalenoDoIso = upozorneni.ok
+    ? upozorneni.dokument.schvalenoDoIso
+    : null;
+
   const idCekaKeSchvaleniKontroly = uloziste.ok
-    ? sestavIdProSchvalitKontrolu(rucniUdalosti, (redakcniPolozkaId) =>
-        maUkazkovyVyhledAno(
-          redakcniPolozkaId,
-          vyhledPodleId.get(redakcniPolozkaId),
-        ),
+    ? sestavIdProSchvalitKontrolu(
+        rucniUdalosti,
+        (redakcniPolozkaId) =>
+          maUkazkovyVyhledAno(
+            redakcniPolozkaId,
+            vyhledPodleId.get(redakcniPolozkaId),
+          ),
+        kontrolniBlok,
       )
     : [];
 
@@ -86,14 +103,19 @@ export default async function StrankaBranaAdminKalendar() {
       ? spocitejPrazdneDnyKontrolnihoBloku(
           rucniUdalosti,
           idCekaKeSchvaleniKontroly,
+          kontrolniBlok,
         )
       : { prazdneIsoDny: [] as string[], pocet: 0 };
 
   const dnesIso = dnesIsoVPraze();
   const dny = filtrujDnyPracovnihoKalendareOdDnes(
-    doplnPrazdneDnyDoKalendare(
-      dnyZUdalosti,
-      prazdneIsoDny,
+    doplnDenProHraniciSchvalenoDo(
+      doplnPrazdneDnyDoKalendare(
+        dnyZUdalosti,
+        prazdneIsoDny,
+        formatujDenKalendare,
+      ),
+      schvalenoDoIso,
       formatujDenKalendare,
     ),
     dnesIso,
@@ -106,15 +128,20 @@ export default async function StrankaBranaAdminKalendar() {
     );
   }
 
-  const kontrolniBlok = kontrolniBlokVPraze();
-  const isoDenZacatkuKontrolnihoBloku = kontrolniBlok.blokOdIso;
-  const isoDenPoslednihoDneKontrolnihoBloku = kontrolniBlok.blokDoIso;
-  const textTlacitkaSchvalitKontrolu =
-    textTlacitkaSchvalitKontrolniBlok(kontrolniBlok);
-  const textHraniceZacatkuKontrolnihoBlokuText =
-    textHraniceZacatkuKontrolnihoBloku(kontrolniBlok);
-  const textHraniceKonceKontrolnihoBlokuText =
-    textHraniceKonceKontrolnihoBloku(kontrolniBlok);
+  const isoDenZacatkuKontrolnihoBloku = kontrolniBlok?.blokOdIso ?? "";
+  const isoDenPoslednihoDneKontrolnihoBloku = kontrolniBlok?.blokDoIso ?? "";
+  const textTlacitkaSchvalitKontrolu = kontrolniBlok
+    ? textTlacitkaSchvalitKontrolniBlok(kontrolniBlok)
+    : "";
+  const textHraniceZacatkuKontrolnihoBlokuText = kontrolniBlok
+    ? textHraniceZacatkuKontrolnihoBloku(kontrolniBlok)
+    : "";
+  const textHraniceKonceKontrolnihoBlokuText = kontrolniBlok
+    ? textHraniceKonceKontrolnihoBloku(kontrolniBlok)
+    : "";
+  const textHraniceSchvalenoDoText = schvalenoDoIso
+    ? textHraniceSchvalenoDo(schvalenoDoIso)
+    : null;
   const textStariAsistovanych = textStariAsistovanychZdroju();
   const rychlyScanText = textSkupinovehoScanuProKalendar(
     "Rychlý scan",
@@ -182,6 +209,8 @@ export default async function StrankaBranaAdminKalendar() {
           textHraniceKonceKontrolnihoBloku={
             textHraniceKonceKontrolnihoBlokuText
           }
+          isoDenSchvalenoDo={schvalenoDoIso}
+          textHraniceSchvalenoDo={textHraniceSchvalenoDoText}
           idCekaKeSchvaleniKontroly={idCekaKeSchvaleniKontroly}
           upozorneniPrazdnychDni={
             pocetPrazdnychDniKontrolnihoBloku > 0

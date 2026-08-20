@@ -50,7 +50,7 @@ type Props = {
   /** Poslední den kontrolního bloku (YYYY-MM-DD) = blokDoIso. */
   isoDenPoslednihoDneKontrolnihoBloku: string;
   /**
-   * Explicitní ID pro Schválit kontrolu (21denní blok ∪ Výhled).
+   * Explicitní ID pro Schválit kontrolu (pevný blok ∪ Výhled).
    * Server-rendered ze skutečných PRIVATE CEKA.
    */
   idCekaKeSchvaleniKontroly: readonly string[];
@@ -60,6 +60,10 @@ type Props = {
   textHraniceZacatkuKontrolnihoBloku: string;
   /** Redakční hranice za posledním dnem bloku. */
   textHraniceKonceKontrolnihoBloku: string;
+  /** ISO den červené hranice SCHVÁLENO DO; null = čáru nekreslit. */
+  isoDenSchvalenoDo: string | null;
+  /** Text červené hranice SCHVÁLENO DO; null = čáru nekreslit. */
+  textHraniceSchvalenoDo: string | null;
   /** Hotový text neblokujícího upozornění; null = žádné */
   upozorneniPrazdnychDni: string | null;
 };
@@ -84,15 +88,17 @@ function OrientacniLinka({
 }: {
   popisek: string;
   ariaLabel: string;
-  vyznam?: "blok";
+  vyznam?: "blok" | "schvaleno-do";
 }) {
+  const vyznamTrida =
+    vyznam === "blok"
+      ? " brana-admin-kalendar-orientace-blok"
+      : vyznam === "schvaleno-do"
+        ? " brana-admin-kalendar-orientace-schvaleno-do"
+        : "";
   return (
     <div
-      className={
-        vyznam === "blok"
-          ? "brana-admin-kalendar-orientace brana-admin-kalendar-orientace-blok"
-          : "brana-admin-kalendar-orientace"
-      }
+      className={`brana-admin-kalendar-orientace${vyznamTrida}`}
       role="separator"
       aria-label={ariaLabel}
     >
@@ -111,6 +117,8 @@ function SeznamDnu({
   isoDenPoslednihoDneKontrolnihoBloku,
   textHraniceZacatkuKontrolnihoBloku,
   textHraniceKonceKontrolnihoBloku,
+  isoDenSchvalenoDo,
+  textHraniceSchvalenoDo,
   muzeSchvalitAutomatickou,
   muzeUpravitAutomatickou,
   muzeVyrazitAutomatickou,
@@ -126,6 +134,8 @@ function SeznamDnu({
   isoDenPoslednihoDneKontrolnihoBloku: string;
   textHraniceZacatkuKontrolnihoBloku: string;
   textHraniceKonceKontrolnihoBloku: string;
+  isoDenSchvalenoDo: string | null;
+  textHraniceSchvalenoDo: string | null;
   muzeSchvalitAutomatickou: (udalost: BranaKonkretniUdalost) => boolean;
   muzeUpravitAutomatickou: (udalost: BranaKonkretniUdalost) => boolean;
   muzeVyrazitAutomatickou: (udalost: BranaKonkretniUdalost) => boolean;
@@ -136,9 +146,10 @@ function SeznamDnu({
 }) {
   return (
     <div role="region" aria-label="Pracovní kalendář">
-      {dny.map((den, index) => (
+      {dny.map((den) => (
         <div key={den.isoDen}>
-          {den.isoDen === isoDenZacatkuKontrolnihoBloku ? (
+          {isoDenZacatkuKontrolnihoBloku &&
+          den.isoDen === isoDenZacatkuKontrolnihoBloku ? (
             <OrientacniLinka
               popisek={textHraniceZacatkuKontrolnihoBloku}
               ariaLabel={textHraniceZacatkuKontrolnihoBloku}
@@ -297,19 +308,17 @@ function SeznamDnu({
             </div>
           </article>
 
-          {index === 0 ? (
+          {isoDenSchvalenoDo &&
+          textHraniceSchvalenoDo &&
+          den.isoDen === isoDenSchvalenoDo ? (
             <OrientacniLinka
-              popisek="ZÍTRA SE PUBLIKUJE"
-              ariaLabel="Zítra se publikuje"
+              popisek={textHraniceSchvalenoDo}
+              ariaLabel={textHraniceSchvalenoDo}
+              vyznam="schvaleno-do"
             />
           ) : null}
-          {index === 1 ? (
-            <OrientacniLinka
-              popisek="SCHVÁLENO K PUBLIKACI"
-              ariaLabel="Schváleno k publikaci"
-            />
-          ) : null}
-          {den.isoDen === isoDenPoslednihoDneKontrolnihoBloku ? (
+          {isoDenPoslednihoDneKontrolnihoBloku &&
+          den.isoDen === isoDenPoslednihoDneKontrolnihoBloku ? (
             <OrientacniLinka
               popisek={textHraniceKonceKontrolnihoBloku}
               ariaLabel={textHraniceKonceKontrolnihoBloku}
@@ -338,6 +347,8 @@ export function BranaAdminKalendarRucniZapis({
   textTlacitkaSchvalitKontrolu,
   textHraniceZacatkuKontrolnihoBloku,
   textHraniceKonceKontrolnihoBloku,
+  isoDenSchvalenoDo,
+  textHraniceSchvalenoDo,
   upozorneniPrazdnychDni,
 }: Props) {
   const router = useRouter();
@@ -894,6 +905,8 @@ export function BranaAdminKalendarRucniZapis({
         }
         textHraniceZacatkuKontrolnihoBloku={textHraniceZacatkuKontrolnihoBloku}
         textHraniceKonceKontrolnihoBloku={textHraniceKonceKontrolnihoBloku}
+        isoDenSchvalenoDo={isoDenSchvalenoDo}
+        textHraniceSchvalenoDo={textHraniceSchvalenoDo}
         muzeSchvalitAutomatickou={muzeSchvalitAutomatickou}
         muzeUpravitAutomatickou={muzeUpravitAutomatickou}
         muzeVyrazitAutomatickou={muzeVyrazitAutomatickou}

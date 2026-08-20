@@ -137,21 +137,27 @@ const vercel = readFileSync(join(root, "vercel.json"), "utf8");
 const akce = readFileSync(join(root, "src/app/brana/admin/actions.ts"), "utf8");
 
 assert(
-  /filtrujDnyPracovnihoKalendareOdDnes\(\s*doplnPrazdneDnyDoKalendare\(/.test(
-    stranka,
-  ) && stranka.includes("dnesIsoVPraze()"),
-  "page: filtr až na výsledných dnech po doplnPrazdneDny",
+  stranka.includes("filtrujDnyPracovnihoKalendareOdDnes(") &&
+    stranka.includes("doplnDenProHraniciSchvalenoDo(") &&
+    stranka.includes("doplnPrazdneDnyDoKalendare(") &&
+    stranka.includes("dnesIsoVPraze()"),
+  "page: filtr až na výsledných dnech po doplnění prázdných dnů a SCHVÁLENO DO",
 );
 assert(
-  stranka.includes("sestavIdProSchvalitKontrolu(rucniUdalosti") &&
+  stranka.includes("sestavIdProSchvalitKontrolu(") &&
     stranka.includes("spocitejPrazdneDnyKontrolnihoBloku") &&
-    stranka.includes("kontrolniBlokVPraze()") &&
+    stranka.includes("sestavPevnyKontrolniBlok(") &&
+    !stranka.includes("kontrolniBlokVPraze()") &&
     stranka.includes("textTlacitkaSchvalitKontrolniBlok(kontrolniBlok)") &&
-    stranka.includes("isoDenZacatkuKontrolnihoBloku = kontrolniBlok.blokOdIso") &&
-    stranka.includes("isoDenPoslednihoDneKontrolnihoBloku = kontrolniBlok.blokDoIso") &&
+    stranka.includes("isoDenZacatkuKontrolnihoBloku = kontrolniBlok?.blokOdIso") &&
+    stranka.includes(
+      "isoDenPoslednihoDneKontrolnihoBloku = kontrolniBlok?.blokDoIso",
+    ) &&
     stranka.includes("textHraniceZacatkuKontrolnihoBloku(kontrolniBlok)") &&
-    stranka.includes("textHraniceKonceKontrolnihoBloku(kontrolniBlok)"),
-  "8: tlačítko i hranice bloku ze stejného kontrolniBlokVPraze",
+    stranka.includes("textHraniceKonceKontrolnihoBloku(kontrolniBlok)") &&
+    stranka.includes("isoDenSchvalenoDo={schvalenoDoIso}") &&
+    stranka.includes("doplnDenProHraniciSchvalenoDo"),
+  "8: tlačítko i hranice bloku ze stejného sestavPevnyKontrolniBlok",
 );
 assert(
   stranka.includes("persistovaneIdUdalosti={rucniUdalosti.map((u) => u.id)}"),

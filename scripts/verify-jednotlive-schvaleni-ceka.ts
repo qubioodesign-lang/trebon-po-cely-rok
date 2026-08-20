@@ -5,28 +5,15 @@
 
 import { readFileSync } from "fs";
 import { join } from "path";
-import { dnesVPraze, pridatDny } from "../src/lib/brana/cas";
 import {
   isoDnyBlizkehoOknaVPraze,
-  kontrolniBlokVPraze,
   sestavIdProSchvalitKontrolu,
+  sestavPevnyKontrolniBlok,
 } from "../src/lib/brana/admin/kontrolni-blok";
 import type {
   BranaKonkretniUdalost,
   BranaStavSchvaleni,
 } from "../src/lib/brana/admin/konkretni-udalost";
-
-function isoZ(d: { rok: number; mesic: number; den: number }): string {
-  return `${d.rok}-${String(d.mesic).padStart(2, "0")}-${String(d.den).padStart(2, "0")}`;
-}
-
-function isoNa(iso: string) {
-  return {
-    rok: Number(iso.slice(0, 4)),
-    mesic: Number(iso.slice(5, 7)),
-    den: Number(iso.slice(8, 10)),
-  };
-}
 
 /** Zrcadlo UI predikátu muzeSchvalitAutomatickou. */
 function muzeSchvalitAutomatickou(
@@ -162,28 +149,35 @@ assert(
   "7/8a: sestavId stále blok ∪ Výhled bez blízkého okna",
 );
 
-const blok = kontrolniBlokVPraze();
-const dnesIso = isoZ(dnesVPraze());
-const denZaBlokem = isoZ(pridatDny(isoNa(blok.blokDoIso), 1));
+const blok = sestavPevnyKontrolniBlok({
+  posledniDokoncenaDlouhodobaKontrola: "2026-08-31",
+  pristiDlouhodobaKontrola: "2026-09-14",
+});
+assert(blok !== null, "7a: fixture checkpoint 31. 8. má pevný blok");
+if (!blok) {
+  process.exit(1);
+}
+const denZaBlokem = "2026-09-28";
 const davka = new Set(
   sestavIdProSchvalitKontrolu(
     [
-      udalost("dnes", "CEKA_NA_SCHVALENI", "bez-vyhledu", dnesIso),
+      udalost("dnes", "CEKA_NA_SCHVALENI", "bez-vyhledu", "2026-09-03"),
       udalost(
         "rezerva",
         "CEKA_NA_SCHVALENI",
         "bez-vyhledu",
-        blok.rezervaIsoDny[0],
+        "2026-09-07",
       ),
       udalost("blok", "CEKA_NA_SCHVALENI", "bez-vyhledu", blok.blokOdIso),
       udalost("vyhled", "CEKA_NA_SCHVALENI", "s-vyhledem", denZaBlokem),
     ],
     (id) => id === "s-vyhledem",
+    blok,
   ),
 );
-assert(!davka.has("dnes"), "8b: dnešek mimo Schválit kontrolu");
-assert(!davka.has("rezerva"), "8c: 7denní rezerva mimo Schválit kontrolu");
-assert(davka.has("blok"), "7b: 21denní blok ve Schválit kontrolu");
+assert(!davka.has("dnes"), "8b: den mimo blok mimo Schválit kontrolu");
+assert(!davka.has("rezerva"), "8c: den mimo blok mimo Schválit kontrolu");
+assert(davka.has("blok"), "7b: pevný 14denní blok ve Schválit kontrolu");
 assert(davka.has("vyhled"), "7c: Výhled ve Schválit kontrolu");
 assert(
   isoDnyBlizkehoOknaVPraze().length === 8,
@@ -208,7 +202,7 @@ assert(
   "10: hranice bloku v Kalendáři podle stejného OD/DO, bez hardcode 21",
 );
 assert(
-  kontrolni.includes("const blok = kontrolniBlokVPraze();") &&
+  kontrolni.includes("sestavPevnyKontrolniBlok") &&
     kontrolni.includes(
       "ZAČÁTEK KONTROLNÍHO BLOKU · ${formatujDenMesicCesky(blok.blokOdIso",
     ) &&
@@ -216,6 +210,36 @@ assert(
       "KONEC KONTROLNÍHO BLOKU · ${formatujDenMesicCesky(blok.blokDoIso",
     ),
   "10b: dávka i texty hranic ze stejného blokOdIso/blokDoIso",
+);
+
+const akce = readFileSync(join(root, "src/app/brana/admin/actions.ts"), "utf8");
+const css = readFileSync(
+  join(root, "src/app/brana/admin/brana-admin-kalendar.css"),
+  "utf8",
+);
+assert(
+  !ui.includes("ZÍTRA SE PUBLIKUJE") &&
+    !ui.includes("SCHVÁLENO K PUBLIKACI") &&
+    ui.includes('vyznam="schvaleno-do"') &&
+    css.includes("brana-admin-kalendar-orientace-schvaleno-do"),
+  "J: staré čáry pryč; červená SCHVÁLENO DO v Kalendáři",
+);
+assert(
+  akce.includes("await schvalitKontroluKonkretnichUdalosti") &&
+    akce.includes(
+      "await ulozitSchvalenoDoIsoPoSchvaleniKontrolnihoBloku(blok.blokDoIso)",
+    ) &&
+    akce.indexOf("await schvalitKontroluKonkretnichUdalosti") <
+      akce.indexOf(
+        "await ulozitSchvalenoDoIsoPoSchvaleniKontrolnihoBloku(blok.blokDoIso)",
+      ) &&
+    !akce
+      .slice(
+        akce.indexOf("export async function schvalitKonkretniUdalostAkce"),
+        akce.indexOf("export async function schvalitKontroluAkce"),
+      )
+      .includes("ulozitSchvalenoDoIsoPoSchvaleniKontrolnihoBloku"),
+  "F/G/H: schvalenoDoIso až po úspěšném hromadném schválení; jednotlivé Schválit ho nemění",
 );
 
 if (selhalo > 0) {

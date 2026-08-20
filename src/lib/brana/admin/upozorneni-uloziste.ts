@@ -4,6 +4,7 @@ import { BlobNotFoundError, get, put } from "@vercel/blob";
 import { unstable_noStore as noStore } from "next/cache";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 import { okamzikVPraze, okamzikZPrahy, pridatDny } from "@/lib/brana/cas";
+import { BRANA_DLOUHODOBY_INTERVAL_VYCHOZI } from "@/lib/brana/admin/zdroj";
 import {
   maBranaAdminBlobKonfiguraci,
   ziskatVolbyBranaAdminBlob,
@@ -30,8 +31,9 @@ export const BRANA_UPOZORNENI_CHYBA_CTENI =
 export const BRANA_UPOZORNENI_CAS_HODINA = 9;
 export const BRANA_UPOZORNENI_CAS_MINUTA = 0;
 
-/** Interval dlouhodobého cyklu v kalendářních dnech (kotva + 21). */
-export const BRANA_UPOZORNENI_DLOUHODOBY_INTERVAL_DNI = 21;
+/** Interval dlouhodobého cyklu v kalendářních dnech – stejné číslo jako kontrolní blok. */
+export const BRANA_UPOZORNENI_DLOUHODOBY_INTERVAL_DNI =
+  BRANA_DLOUHODOBY_INTERVAL_VYCHOZI;
 
 const TELEFON_MAX_DELKA = 32;
 
@@ -73,6 +75,12 @@ export type BranaUpozorneniNastaveniDokument = {
    * Individuální Skenovat nesmí toto pole měnit.
    */
   posledniDlouhySkupinovyScan: BranaSkupinovyScanStav | null;
+  /**
+   * ISO YYYY-MM-DD – redaktor vědomě dokončil dlouhodobou přípravu Kalendáře
+   * do tohoto data. Chybí ve starých datech → null.
+   * Nemění ho Rychlý/Dlouhý scan, RADAR, jednotlivé Schválit ani ruční zápis.
+   */
+  schvalenoDoIso: string | null;
 };
 
 /** Veřejný pohled pro admin UI – bez endpoint/keys. */
@@ -103,6 +111,7 @@ export function vychoziUpozorneniNastaveni(): BranaUpozorneniNastaveniDokument {
     posledniUpozorneniAsistovaneKotva: null,
     posledniRychlySkupinovyScan: null,
     posledniDlouhySkupinovyScan: null,
+    schvalenoDoIso: null,
   };
 }
 
@@ -359,6 +368,14 @@ export function validovatUpozorneniDokument(
     return posledniDlouhySkupinovyScan;
   }
 
+  const schvalenoDo = validovatVolitelnyIsoDenPole(
+    raw.schvalenoDoIso,
+    "Schváleno do",
+  );
+  if (!schvalenoDo.ok) {
+    return schvalenoDo;
+  }
+
   return {
     ok: true,
     dokument: {
@@ -372,6 +389,7 @@ export function validovatUpozorneniDokument(
       posledniUpozorneniAsistovaneKotva: posledniAsistovaneKotva.hodnota,
       posledniRychlySkupinovyScan: posledniRychlySkupinovyScan.hodnota,
       posledniDlouhySkupinovyScan: posledniDlouhySkupinovyScan.hodnota,
+      schvalenoDoIso: schvalenoDo.hodnota,
     },
   };
 }
@@ -582,7 +600,51 @@ export async function ulozitPristiDlouhodobouKontrolu(
   return celek.dokument;
 }
 
-/** Uloží / nahradí jedinou PushSubscription a zapne upozornění. */
+/**
+ * Po úspěšném hromadném schválení kontrolního bloku zapíše schvalenoDoIso.
+ * Nemění kotvy, scan razítka ani push pole.
+ * Volat JEN po úspěšném schvalitKontroluKonkretnichUdalosti.
+ */
+export async function ulozitSchvalenoDoIsoPoSchvaleniKontrolnihoBloku(
+  schvalenoDoIso: string,
+): Promise<BranaUpozorneniNastaveniDokument> {
+  if (!(await jeAdminPrihlasen())) {
+    throw new Error("Nejste přihlášeni.");
+  }
+
+  if (!maBranaAdminBlobKonfiguraci()) {
+    throw new Error(
+      "Nelze uložit SCHVÁLENO DO: chybí BLOB_BRANA_ADMIN_STORE_ID nebo BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
+    );
+  }
+
+  const validaceData = validovatVolitelnyIsoDenPole(
+    schvalenoDoIso,
+    "Schváleno do",
+  );
+  if (!validaceData.ok || validaceData.hodnota === null) {
+    throw new Error(
+      validaceData.ok
+        ? "Schváleno do musí být datum ve formátu RRRR-MM-DD."
+        : validaceData.chyba,
+    );
+  }
+
+  const stary = await nacistNeboVychoziDokument();
+  const vyslednyNavrh: BranaUpozorneniNastaveniDokument = {
+    ...stary,
+    schvalenoDoIso: validaceData.hodnota,
+  };
+
+  const celek = validovatUpozorneniDokument(vyslednyNavrh);
+  if (!celek.ok) {
+    throw new Error(celek.chyba);
+  }
+
+  await ulozitDokument(celek.dokument);
+  return celek.dokument;
+}
+
 export async function ulozitPushSubscription(
   subscription: unknown,
 ): Promise<BranaUpozorneniNastaveniDokument> {
@@ -689,8 +751,8 @@ function formatovatIsoDenZBranaDatumu(rok: number, mesic: number, den: number): 
 }
 
 /**
- * Další 21denní kotva = dokončená pondělní kotva + 21 kalendářních dní (stále pondělí).
- * Nepoužívá „dnešek +21“ jako náhradní význam.
+ * Další 14denní kotva = dokončená pondělní kotva + interval (stále pondělí).
+ * Nepoužívá „dnešek + interval“ jako náhradní význam.
  */
 export function vypocitatPristiDlouhodobouKontroluPoDokoncení(
   dokoncenaKotvaIso: string,
@@ -712,7 +774,7 @@ export function vypocitatPristiDlouhodobouKontroluPoDokoncení(
   if (!jePondeliIsoDen(pristi)) {
     return {
       ok: false,
-      chyba: "Výsledné datum po +21 dnech není pondělí.",
+      chyba: "Výsledné datum po posunu intervalu není pondělí.",
     };
   }
 
@@ -720,9 +782,10 @@ export function vypocitatPristiDlouhodobouKontroluPoDokoncení(
 }
 
 /**
- * Jedním PRIVATE read-modify-write: záznam dokončeného 21denního checkpointu
- * a posun pristiDlouhodobaKontrola = dokončená kotva + 21 dní.
+ * Jedním PRIVATE read-modify-write: záznam dokončeného dlouhodobého checkpointu
+ * a posun pristiDlouhodobaKontrola = dokončená kotva + interval.
  * Volat až po úspěšném Dlouhodobém batch. Bez admin session.
+ * Nemění schvalenoDoIso.
  */
 export async function dokoncitDlouhodobouKontroluProScheduler(
   datumVPraze: string,
@@ -854,7 +917,7 @@ export async function ulozitPosledniUpozorneniAsistovaneKotvuProScheduler(
 /**
  * Zápis posledního dokončeného skupinového Rychlého nebo Dlouhého scanu.
  * Volat až po return agregace skupinové funkce. Bez admin session.
- * Přepíše jen příslušný stav; druhý skupinový scan a 21denní kotvu nemění.
+ * Přepíše jen příslušný stav; druhý skupinový scan, 14denní kotvu i schvalenoDoIso nemění.
  * Individuální Skenovat sem nesmí sahat.
  */
 export async function ulozitPosledniSkupinovyScanProScheduler(

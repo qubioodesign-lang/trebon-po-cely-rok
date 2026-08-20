@@ -50,7 +50,7 @@ export type BranaZdrojeRytmusNastaveni = {
 export const BRANA_DLOUHODOBY_INTERVALY_DNI: readonly BranaDlouhodobyIntervalDni[] =
   [14, 21, 30];
 
-export const BRANA_DLOUHODOBY_INTERVAL_VYCHOZI: BranaDlouhodobyIntervalDni = 21;
+export const BRANA_DLOUHODOBY_INTERVAL_VYCHOZI: BranaDlouhodobyIntervalDni = 14;
 
 export const BRANA_RYCHLY_RYTMUS_VYCHOZI: BranaRychlyRytmus = "2X_TYDNE";
 

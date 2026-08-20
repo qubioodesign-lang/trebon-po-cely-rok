@@ -21,9 +21,9 @@ export type BranaPravidelnyPushVysledek = {
 };
 
 /**
- * Po úspěšném stavovém dokončení 21denního checkpointu: max jeden Pravidelný push.
+ * Po úspěšném stavovém dokončení 14denního checkpointu: max jeden Pravidelný push.
  * Nezávislé na pridanoDoKalendare. Dedup: posledniUpozorneniDlouhodobe === datumCheckpointu.
- * Selhání push nemění již dokončený checkpoint / +21.
+ * Selhání push nemění již dokončený checkpoint / +14.
  */
 export async function vyhodnotitAOdeslatPravidelneUpozorneniPoCheckpointu(args: {
   datumCheckpointu: string;

@@ -112,6 +112,23 @@
   color: #171717;
 }
 
+.brana-admin-kalendar-orientace-schvaleno-do {
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+
+.brana-admin-kalendar-orientace-schvaleno-do .brana-admin-kalendar-orientace-linka {
+  height: 3px;
+  background: #dc2626;
+}
+
+.brana-admin-kalendar-orientace-schvaleno-do .brana-admin-kalendar-orientace-popisek {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #dc2626;
+}
+
 /* Položka akce – admin li obaluje náhled + chrome */
 .brana-admin-seznam-akci {
   margin: 0;

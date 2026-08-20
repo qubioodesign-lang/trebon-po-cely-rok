@@ -312,7 +312,7 @@ export type BranaKalendarDen = {
   datumLabel: string;
   udalosti: BranaKonkretniUdalost[];
   /**
-   * Admin: den 21denního kontrolního bloku bez relevantního
+   * Admin: den pevného kontrolního bloku bez relevantního
    * persistovaného pokrytí (vizuální řádek / zvýraznění nuly).
    */
   jePrazdnyKontrolniDen?: boolean;

@@ -1,33 +1,32 @@
 /**
- * Ověření: „Schválit kontrolu“ = 21denní blok ∪ Výhled (bez blízkého okna).
+ * Ověření: „Schválit kontrolu“ = pevný 14denní blok ∪ Výhled (bez blízkého okna).
  * Spuštění: npx tsx scripts/verify-schvalit-kontrolu-bez-blizkeho-okna.ts
  */
 
-import { dnesVPraze, pridatDny } from "../src/lib/brana/cas";
+import { readFileSync } from "fs";
+import { join } from "path";
+import { BRANA_DLOUHODOBY_INTERVAL_VYCHOZI } from "../src/lib/brana/admin/zdroj";
 import {
   BRANA_KONTROLNI_BLOK_DNI,
   duvodZamitnutiUdalostiProSchvalitKontrolu,
   formatujRozsahKontrolnihoBloku,
   isoDnyBlizkehoOknaVPraze,
-  kontrolniBlokVPraze,
-  patriUdalostDoBlizkehoOkna,
+  jeZarovnanyDlouhodobyCheckpoint,
+  pridejKalendarniDnyKIso,
   sestavIdProSchvalitKontrolu,
+  sestavPevnyKontrolniBlok,
   textHraniceKonceKontrolnihoBloku,
+  textHraniceSchvalenoDo,
   textHraniceZacatkuKontrolnihoBloku,
   textTlacitkaSchvalitKontrolniBlok,
 } from "../src/lib/brana/admin/kontrolni-blok";
 import type { BranaKonkretniUdalost } from "../src/lib/brana/admin/konkretni-udalost";
 
-function isoZBranaDatumu(d: { rok: number; mesic: number; den: number }): string {
-  return `${d.rok}-${String(d.mesic).padStart(2, "0")}-${String(d.den).padStart(2, "0")}`;
-}
-
-function isoNaBranaDatum(iso: string): { rok: number; mesic: number; den: number } {
-  return {
-    rok: Number(iso.slice(0, 4)),
-    mesic: Number(iso.slice(5, 7)),
-    den: Number(iso.slice(8, 10)),
-  };
+function jePondeliIso(iso: string): boolean {
+  const rok = Number(iso.slice(0, 4));
+  const mesic = Number(iso.slice(5, 7));
+  const den = Number(iso.slice(8, 10));
+  return new Date(Date.UTC(rok, mesic - 1, den)).getUTCDay() === 1;
 }
 
 function udalost(
@@ -62,56 +61,142 @@ function assert(podminka: boolean, popis: string): void {
   console.error(`FAIL ${popis}`);
 }
 
-const blok = kontrolniBlokVPraze();
-const blizke = isoDnyBlizkehoOknaVPraze();
-const dnesIso = isoZBranaDatumu(dnesVPraze());
-
-assert(blok.rezervaIsoDny.length === 7, "8a: 7denní rezerva má 7 dnů");
-assert(
-  blok.blokIsoDny.length === BRANA_KONTROLNI_BLOK_DNI &&
-    BRANA_KONTROLNI_BLOK_DNI === 21,
-  "8b: 21denní blok má 21 dnů",
+const root = join(__dirname, "..");
+const akce = readFileSync(join(root, "src/app/brana/admin/actions.ts"), "utf8").replace(/\r\n/g, "\n");
+const ui = readFileSync(
+  join(root, "src/components/brana/admin/BranaAdminKalendarRucniZapis.tsx"),
+  "utf8",
+).replace(/\r\n/g, "\n");
+const css = readFileSync(
+  join(root, "src/app/brana/admin/brana-admin-kalendar.css"),
+  "utf8",
+).replace(/\r\n/g, "\n");
+const upozorneni = readFileSync(
+  join(root, "src/lib/brana/admin/upozorneni-uloziste.ts"),
+  "utf8",
+).replace(/\r\n/g, "\n");
+const kontrolniZdroj = readFileSync(
+  join(root, "src/lib/brana/admin/kontrolni-blok.ts"),
+  "utf8",
+).replace(/\r\n/g, "\n");
+const casovyMotor = readFileSync(
+  join(root, "src/lib/brana/admin/casovy-motor.ts"),
+  "utf8",
+);
+const casovyPlan = readFileSync(
+  join(root, "src/app/api/brana/casovy-plan/route.ts"),
+  "utf8",
+);
+const radar = readFileSync(
+  join(root, "src/lib/brana/admin/radar.ts"),
+  "utf8",
+);
+const radarScan = readFileSync(
+  join(root, "src/lib/brana/admin/radar-scan.ts"),
+  "utf8",
 );
 
-const posledniRezerva = blok.rezervaIsoDny[blok.rezervaIsoDny.length - 1];
-const denPoRezerve = isoZBranaDatumu(pridatDny(isoNaBranaDatum(posledniRezerva), 1));
 assert(
-  denPoRezerve === blok.blokOdIso,
-  `8c: 21denní blok navazuje za rezervou bez mezery (${denPoRezerve} === ${blok.blokOdIso})`,
+  BRANA_KONTROLNI_BLOK_DNI === 14 &&
+    BRANA_DLOUHODOBY_INTERVAL_VYCHOZI === 14 &&
+    BRANA_KONTROLNI_BLOK_DNI === BRANA_DLOUHODOBY_INTERVAL_VYCHOZI &&
+    kontrolniZdroj.includes(
+      "export const BRANA_KONTROLNI_BLOK_DNI = BRANA_DLOUHODOBY_INTERVAL_VYCHOZI",
+    ) &&
+    upozorneni.includes(
+      "export const BRANA_UPOZORNENI_DLOUHODOBY_INTERVAL_DNI =\n  BRANA_DLOUHODOBY_INTERVAL_VYCHOZI",
+    ),
+  "jediná zdrojová pravda: 14 dní (blok i checkpoint aliasují VYCHOZI)",
 );
+
+const po31 = pridejKalendarniDnyKIso("2026-08-31", 14);
+const po14 = pridejKalendarniDnyKIso("2026-09-14", 14);
+assert(po31 === "2026-09-14", "A: 31. 8. + 14 = 14. 9.");
+assert(po14 === "2026-09-28", "A: 14. 9. + 14 = 28. 9.");
+assert(jePondeliIso("2026-08-31"), "A: 31. 8. 2026 je pondělí");
+assert(jePondeliIso("2026-09-14"), "A: 14. 9. 2026 je pondělí");
+assert(jePondeliIso("2026-09-28"), "A: 28. 9. 2026 je pondělí");
+
+const kotva31 = {
+  posledniDokoncenaDlouhodobaKontrola: "2026-08-31",
+  pristiDlouhodobaKontrola: "2026-09-14",
+};
+const blok = sestavPevnyKontrolniBlok(kotva31);
+assert(blok !== null, "B: zarovnaný checkpoint 31. 8. má blok");
 assert(
-  blizke.length === 8 && blizke[0] === dnesIso,
+  blok !== null &&
+    blok.blokOdIso === "2026-09-14" &&
+    blok.blokDoIso === "2026-09-27" &&
+    blok.blokIsoDny.length === 14 &&
+    blok.blokIsoDny[0] === "2026-09-14" &&
+    blok.blokIsoDny[13] === "2026-09-27",
+  "B: checkpoint 31. 8. → blok 14. 9. – 27. 9.",
+);
+
+const blok3zari = sestavPevnyKontrolniBlok(kotva31);
+assert(
+  blok3zari !== null &&
+    blok !== null &&
+    blok3zari.blokOdIso === blok.blokOdIso &&
+    blok3zari.blokDoIso === blok.blokDoIso &&
+    !kontrolniZdroj.includes("export function kontrolniBlokVPraze"),
+  "C: stejný checkpoint 3. 9. → stále 14. 9. – 27. 9. (neklouže podle dneška)",
+);
+
+const staraKotva = {
+  posledniDokoncenaDlouhodobaKontrola: "2026-08-10",
+  pristiDlouhodobaKontrola: "2026-08-31",
+};
+assert(
+  !jeZarovnanyDlouhodobyCheckpoint(staraKotva) &&
+    sestavPevnyKontrolniBlok(staraKotva) === null,
+  "D: starý 21denní stav 10. 8. / 31. 8. → žádný blok",
+);
+
+const kotva14 = {
+  posledniDokoncenaDlouhodobaKontrola: "2026-09-14",
+  pristiDlouhodobaKontrola: "2026-09-28",
+};
+const blokPo14 = sestavPevnyKontrolniBlok(kotva14);
+assert(
+  blokPo14 !== null &&
+    blokPo14.blokOdIso === "2026-09-28" &&
+    blokPo14.blokDoIso === "2026-10-11",
+  "E: checkpoint 14. 9. → blok 28. 9. – 11. 10.",
+);
+
+assert(blok !== null && blok.rezervaIsoDny.length === 7, "8a: 7denní rezerva má 7 dnů");
+assert(
+  isoDnyBlizkehoOknaVPraze().length === 8,
   "8d: blízké okno = dnes + 7 dnů rezervy (výpočet nezměněn)",
 );
 
-const denZaBlokem = isoZBranaDatumu(pridatDny(isoNaBranaDatum(blok.blokDoIso), 1));
+if (!blok) {
+  console.error("\nSelhalo: chybí pevný blok pro dávku");
+  process.exit(1);
+}
+
+const denZaBlokem = pridejKalendarniDnyKIso(blok.blokDoIso, 1);
+if (!denZaBlokem) {
+  console.error("\nSelhalo: nelze spočítat den za blokem");
+  process.exit(1);
+}
 
 const polozkaBezVyhledu = "polozka-bez-vyhledu";
 const polozkaSVyhledem = "polozka-s-vyhledem";
 const maVyhledAno = (id: string): boolean => id === polozkaSVyhledem;
 
-const idDnes = "ceka-pouze-dnes";
-const idRezerva = "ceka-pouze-rezerva";
+const idMimoBlok = "ceka-mimo-blok";
 const idBlokPrvni = "ceka-blok-prvni";
 const idBlokPosledni = "ceka-blok-posledni";
 const idVyhled = "ceka-vyhled";
 const idRucni = "rucni-ceka";
 const idSchvaleno = "auto-schvaleno";
+const idVzdaleneSchvaleno = "vzdalene-schvaleno";
 
 const persistovane: BranaKonkretniUdalost[] = [
-  udalost(idDnes, dnesIso, "CEKA_NA_SCHVALENI", polozkaBezVyhledu),
-  udalost(
-    idRezerva,
-    blok.rezervaIsoDny[0],
-    "CEKA_NA_SCHVALENI",
-    polozkaBezVyhledu,
-  ),
-  udalost(
-    idBlokPrvni,
-    blok.blokOdIso,
-    "CEKA_NA_SCHVALENI",
-    polozkaBezVyhledu,
-  ),
+  udalost(idMimoBlok, "2026-09-03", "CEKA_NA_SCHVALENI", polozkaBezVyhledu),
+  udalost(idBlokPrvni, blok.blokOdIso, "CEKA_NA_SCHVALENI", polozkaBezVyhledu),
   udalost(
     idBlokPosledni,
     blok.blokDoIso,
@@ -121,35 +206,38 @@ const persistovane: BranaKonkretniUdalost[] = [
   udalost(idVyhled, denZaBlokem, "CEKA_NA_SCHVALENI", polozkaSVyhledem),
   udalost(idRucni, blok.blokOdIso, "CEKA_NA_SCHVALENI", null),
   udalost(idSchvaleno, blok.blokOdIso, "SCHVALENO", polozkaBezVyhledu),
+  udalost(
+    idVzdaleneSchvaleno,
+    denZaBlokem,
+    "SCHVALENO",
+    polozkaSVyhledem,
+  ),
 ];
 
-assert(
-  patriUdalostDoBlizkehoOkna(persistovane.find((u) => u.id === idDnes)!, blizke),
-  "predpoklad: dnes je v blízkém okně",
-);
-assert(
-  patriUdalostDoBlizkehoOkna(
-    persistovane.find((u) => u.id === idRezerva)!,
-    blizke,
-  ),
-  "predpoklad: rezerva je v blízkém okně",
+const davka = new Set(sestavIdProSchvalitKontrolu(persistovane, maVyhledAno, blok));
+const davkaBezBloku = sestavIdProSchvalitKontrolu(
+  persistovane,
+  maVyhledAno,
+  null,
 );
 
-const davka = new Set(sestavIdProSchvalitKontrolu(persistovane, maVyhledAno));
-
-assert(!davka.has(idDnes), "1: CEKA pouze dnes NENÍ v dávce");
-assert(!davka.has(idRezerva), "2: CEKA pouze v 7denní rezervě NENÍ v dávce");
-assert(davka.has(idBlokPrvni), "3: CEKA první den 21denního bloku JE v dávce");
+assert(davkaBezBloku.length === 0, "D2: bez zarovnaného bloku je dávka prázdná");
+assert(!davka.has(idMimoBlok), "1: CEKA mimo pevný blok NENÍ v dávce");
+assert(davka.has(idBlokPrvni), "3: CEKA první den 14denního bloku JE v dávce");
 assert(
   davka.has(idBlokPosledni),
-  "4: CEKA poslední den 21denního bloku JE v dávce",
+  "4: CEKA poslední den 14denního bloku JE v dávce",
 );
 assert(davka.has(idVyhled), "5: CEKA ve Výhledu JE v dávce");
 assert(!davka.has(idRucni), "6: ruční událost NENÍ v dávce");
 assert(!davka.has(idSchvaleno), "7: SCHVALENO událost NENÍ v dávce");
+assert(
+  !davka.has(idVzdaleneSchvaleno),
+  "I: vzdálená SCHVALENO karta / Výhled NENÍ v dávce a nesestavuje schvalenoDoIso",
+);
 
 const idStaraBlok = "ceka-stara-blok";
-const idRychlaRezerva = "ceka-rychla-rezerva";
+const idRychlaPredLinii = "ceka-rychla-pred-linii";
 const idRychlaBlok = "ceka-rychla-blok";
 const idRychlaVyhled = "ceka-rychla-vyhled";
 
@@ -157,8 +245,8 @@ const rychleAStare: BranaKonkretniUdalost[] = [
   ...persistovane,
   udalost(idStaraBlok, blok.blokOdIso, "CEKA_NA_SCHVALENI", polozkaBezVyhledu),
   udalost(
-    idRychlaRezerva,
-    blok.rezervaIsoDny[0],
+    idRychlaPredLinii,
+    "2026-09-10",
     "CEKA_NA_SCHVALENI",
     polozkaBezVyhledu,
     "RYCHLY",
@@ -180,20 +268,20 @@ const rychleAStare: BranaKonkretniUdalost[] = [
 ];
 
 const davkaRychla = new Set(
-  sestavIdProSchvalitKontrolu(rychleAStare, maVyhledAno),
+  sestavIdProSchvalitKontrolu(rychleAStare, maVyhledAno, blok),
 );
 
 assert(
   davkaRychla.has(idStaraBlok),
-  "R1: stará CEKA bez snapshotu v 21denním bloku JE v dávce",
+  "R1: stará CEKA bez snapshotu v 14denním bloku JE v dávce",
 );
 assert(
-  !davkaRychla.has(idRychlaRezerva),
-  "R2: RYCHLÁ CEKA v 7denní rezervě NENÍ v dávce",
+  !davkaRychla.has(idRychlaPredLinii),
+  "H: RYCHLÁ CEKA před SCHVÁLENO DO NENÍ v hromadné dávce",
 );
 assert(
   !davkaRychla.has(idRychlaBlok),
-  "R3: RYCHLÁ CEKA posunutá do 21denního bloku STÁLE NENÍ v dávce",
+  "R3: RYCHLÁ CEKA v pevném bloku STÁLE NENÍ v dávce",
 );
 assert(
   !davkaRychla.has(idRychlaVyhled),
@@ -217,14 +305,12 @@ assert(
 );
 
 assert(
-  formatujRozsahKontrolnihoBloku(blok) ===
-    `${Number(blok.blokOdIso.slice(8, 10))}. ${Number(blok.blokOdIso.slice(5, 7))}. – ${Number(blok.blokDoIso.slice(8, 10))}. ${Number(blok.blokDoIso.slice(5, 7))}.` ||
-    formatujRozsahKontrolnihoBloku(blok).includes(blok.blokOdIso.slice(0, 4)),
-  "T1: rozsah tlačítka bere blokOdIso/blokDoIso téhož kontrolniBlokVPraze",
+  formatujRozsahKontrolnihoBloku(blok) === "14. 9. – 27. 9.",
+  "T1: rozsah tlačítka bere blokOdIso/blokDoIso téhož sestavPevnyKontrolniBlok",
 );
 assert(
   textTlacitkaSchvalitKontrolniBlok(blok) ===
-    `Schválit kontrolní blok a publikovat ${formatujRozsahKontrolnihoBloku(blok)}`,
+    "Schválit kontrolní blok a publikovat 14. 9. – 27. 9.",
   "T2: popisek tlačítka je stejný blok + stejný rozsah",
 );
 assert(
@@ -235,23 +321,19 @@ assert(
   "T3: přechod roku v rozsahu s rokem",
 );
 
-function ocekavanyDenKontrolnihoBloku(iso: string, sRokem: boolean): string {
-  const den = Number(iso.slice(8, 10));
-  const mesic = Number(iso.slice(5, 7));
-  const rok = iso.slice(0, 4);
-  return sRokem ? `${den}. ${mesic}. ${rok}` : `${den}. ${mesic}.`;
-}
-
-const sRokem = blok.blokOdIso.slice(0, 4) !== blok.blokDoIso.slice(0, 4);
 assert(
   textHraniceZacatkuKontrolnihoBloku(blok) ===
-    `ZAČÁTEK KONTROLNÍHO BLOKU · ${ocekavanyDenKontrolnihoBloku(blok.blokOdIso, sRokem)}`,
-  "T4: ZAČÁTEK bere přesně blokOdIso téhož kontrolniBlokVPraze",
+    "ZAČÁTEK KONTROLNÍHO BLOKU · 14. 9.",
+  "T4: ZAČÁTEK bere přesně blokOdIso téhož sestavPevnyKontrolniBlok",
 );
 assert(
   textHraniceKonceKontrolnihoBloku(blok) ===
-    `KONEC KONTROLNÍHO BLOKU · ${ocekavanyDenKontrolnihoBloku(blok.blokDoIso, sRokem)}`,
-  "T5: KONEC bere přesně blokDoIso téhož kontrolniBlokVPraze",
+    "KONEC KONTROLNÍHO BLOKU · 27. 9.",
+  "T5: KONEC bere přesně blokDoIso téhož sestavPevnyKontrolniBlok",
+);
+assert(
+  textHraniceSchvalenoDo("2026-09-27") === "SCHVÁLENO DO · 27. 9.",
+  "T7: červená linie SCHVÁLENO DO jen z iso dne",
 );
 assert(
   textHraniceZacatkuKontrolnihoBloku({
@@ -263,6 +345,71 @@ assert(
       blokDoIso: "2027-01-13",
     }) === "KONEC KONTROLNÍHO BLOKU · 13. 1. 2027",
   "T6: změna rozsahu bloku se projeví na hranicích i v tlačítku",
+);
+
+const idxSchvaleni = akce.indexOf(
+  "const vysledek = await schvalitKontroluKonkretnichUdalosti",
+);
+const idxSchvalenoDo = akce.indexOf(
+  "await ulozitSchvalenoDoIsoPoSchvaleniKontrolnihoBloku(blok.blokDoIso)",
+);
+const idxJednotlive = akce.indexOf("export async function schvalitKonkretniUdalostAkce");
+const idxHromadne = akce.indexOf("export async function schvalitKontroluAkce");
+const jednotliveFn = akce.slice(idxJednotlive, idxHromadne);
+const hromadneFn = akce.slice(
+  idxHromadne,
+  akce.indexOf("export async function upravitAutomatickouCekaUdalostAkce"),
+);
+
+assert(
+  idxSchvaleni > 0 &&
+    idxSchvalenoDo > idxSchvaleni &&
+    hromadneFn.includes("if (!blok)") &&
+    hromadneFn.includes("Nic nebylo uloženo.") &&
+    hromadneFn.includes("ulozitSchvalenoDoIsoPoSchvaleniKontrolnihoBloku(blok.blokDoIso)"),
+  "F: hromadné schválení nejdřív karty, teprve při úspěchu schvalenoDoIso = blokDoIso",
+);
+assert(
+  hromadneFn.includes("catch (error)") &&
+    idxSchvalenoDo > idxSchvaleni,
+  "G: selhání schválení (throw před zápisem schvalenoDoIso) pole neposune",
+);
+assert(
+  !jednotliveFn.includes("ulozitSchvalenoDoIsoPoSchvaleniKontrolnihoBloku") &&
+    jednotliveFn.includes("await schvalitKonkretniUdalost(id)"),
+  "H2: jednotlivé Schválit schvalenoDoIso nemění",
+);
+assert(
+  (akce.match(/ulozitSchvalenoDoIsoPoSchvaleniKontrolnihoBloku/g) ?? []).length ===
+    2 &&
+    upozorneni.includes("Nemění schvalenoDoIso") &&
+    upozorneni.includes("schvalenoDoIso: schvalenoDo.hodnota") &&
+    upozorneni.includes("schvalenoDoIso: null"),
+  "I2: schvalenoDoIso zapisuje jen hromadné Schválit; scan/checkpoint/default ho nederivují",
+);
+
+assert(
+  !ui.includes("ZÍTRA SE PUBLIKUJE") &&
+    !ui.includes("SCHVÁLENO K PUBLIKACI") &&
+    ui.includes('vyznam="schvaleno-do"') &&
+    css.includes("brana-admin-kalendar-orientace-schvaleno-do"),
+  "J: staré vizuální čáry nejsou vykreslené; červená SCHVÁLENO DO je",
+);
+
+assert(
+  casovyMotor.includes("const jeRychlyTermin = veSlotu9 && (jePondeli || jeCtvrtek)") &&
+    casovyMotor.includes("BRANA_CASOVY_MOTOR_SLOT_HODINA = 9") &&
+    !casovyPlan.includes("schvalenoDoIso") &&
+    !casovyPlan.includes("sestavPevnyKontrolniBlok"),
+  "K: Rychlý scan Po/Čt · 9:00 a casovy-plan beze změny",
+);
+
+assert(
+  !radar.includes("schvalenoDoIso") &&
+    !radar.includes("sestavPevnyKontrolniBlok") &&
+    !radarScan.includes("schvalenoDoIso") &&
+    !radarScan.includes("sestavPevnyKontrolniBlok"),
+  "L: RADAR beze změny",
 );
 
 if (selhalo > 0) {

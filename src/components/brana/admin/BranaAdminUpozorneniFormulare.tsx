@@ -201,7 +201,7 @@ export function BranaAdminUpozorneniFormulare({
         <h3 className="text-sm font-normal text-text-jemny">
           Dlouhodobé zdroje
         </h3>
-        <p className="text-sm text-text">Každých 21 dní · pondělí · 9:00</p>
+        <p className="text-sm text-text">Každých 14 dní · pondělí · 9:00</p>
         <p className="text-sm text-text-jemny">
           Automatická kontrola zdrojů
         </p>

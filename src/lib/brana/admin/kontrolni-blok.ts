@@ -1,10 +1,10 @@
 /**
  * Časová logika pravidelné redakční kontroly:
- * 7denní rezerva (= veřejné „7 dní“) + navazující pevný 21denní kontrolní blok.
- * Europe/Prague přes obdobi7DniVPraze / zitraVPraze.
+ * pevný 14denní kontrolní blok odvozený od dokončeného Dlouhého checkpointu.
+ * Veřejná 7denní rezerva zůstává jen jako blízké okno, ne jako posun bloku.
  */
 
-import { dnesVPraze, pridatDny, zitraVPraze } from "@/lib/brana/cas";
+import { dnesVPraze, pridatDny } from "@/lib/brana/cas";
 import { BRANA_DLOUHODOBY_INTERVAL_VYCHOZI } from "@/lib/brana/admin/zdroj";
 import { isoDnyObdobi7DniVPraze } from "@/lib/brana/admin/obdobi-7-dni";
 import {
@@ -19,46 +19,101 @@ function branaDatumNaIso(rok: number, mesic: number, den: number): string {
   return `${rok}-${String(mesic).padStart(2, "0")}-${String(den).padStart(2, "0")}`;
 }
 
-/** Délka kontrolního bloku – pevných 21 dní z autoritativní konstanty. */
-export const BRANA_KONTROLNI_BLOK_DNI = BRANA_DLOUHODOBY_INTERVAL_VYCHOZI;
-
-export type BranaKontrolniBlok = {
-  /** ISO dny 7denní rezervy (veřejné „7 dní“) */
-  rezervaIsoDny: string[];
-  /** První den 21denního kontrolního bloku (YYYY-MM-DD) */
-  blokOdIso: string;
-  /** Poslední den 21denního kontrolního bloku (YYYY-MM-DD), inclusive */
-  blokDoIso: string;
-  /** Všech 21 ISO dnů bloku */
-  blokIsoDny: string[];
-};
-
-/**
- * 7denní rezerva + navazující 21denní kontrolní blok podle Europe/Prague „nyní“.
- * Rezerva = isoDnyObdobi7DniVPraze(); blok začíná dnem hned za ní.
- */
-export function kontrolniBlokVPraze(): BranaKontrolniBlok {
-  const rezervaIsoDny = isoDnyObdobi7DniVPraze();
-  const zitra = zitraVPraze();
-  const prvniBlok = pridatDny(zitra, rezervaIsoDny.length);
-  const blokIsoDny = Array.from({ length: BRANA_KONTROLNI_BLOK_DNI }, (_, index) => {
-    const den = pridatDny(prvniBlok, index);
-    return branaDatumNaIso(den.rok, den.mesic, den.den);
-  });
-
+function parsujIsoNaBranaDatum(iso: string): {
+  rok: number;
+  mesic: number;
+  den: number;
+} | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    return null;
+  }
   return {
-    rezervaIsoDny,
-    blokOdIso: blokIsoDny[0],
-    blokDoIso: blokIsoDny[blokIsoDny.length - 1],
-    blokIsoDny,
+    rok: Number(iso.slice(0, 4)),
+    mesic: Number(iso.slice(5, 7)),
+    den: Number(iso.slice(8, 10)),
   };
 }
 
+/** Přičte kalendářní dny k ISO YYYY-MM-DD. Neplatné ISO → null. */
+export function pridejKalendarniDnyKIso(
+  iso: string,
+  dny: number,
+): string | null {
+  const datum = parsujIsoNaBranaDatum(iso);
+  if (!datum) {
+    return null;
+  }
+  const vysledek = pridatDny(datum, dny);
+  return branaDatumNaIso(vysledek.rok, vysledek.mesic, vysledek.den);
+}
+
+/** Délka kontrolního bloku – totéž číslo jako dlouhodobý cyklus. */
+export const BRANA_KONTROLNI_BLOK_DNI = BRANA_DLOUHODOBY_INTERVAL_VYCHOZI;
+
+export type BranaKontrolniBlok = {
+  /** ISO dny veřejné 7denní rezervy (informační, neposouvá blok) */
+  rezervaIsoDny: string[];
+  /** První den pevného kontrolního bloku (YYYY-MM-DD) */
+  blokOdIso: string;
+  /** Poslední den pevného kontrolního bloku (YYYY-MM-DD), inclusive */
+  blokDoIso: string;
+  /** Všech ISO dnů bloku */
+  blokIsoDny: string[];
+};
+
+export type BranaKotvaKontrolnihoBloku = {
+  posledniDokoncenaDlouhodobaKontrola: string | null;
+  pristiDlouhodobaKontrola: string | null;
+};
+
 /**
- * Poslední ISO den kontrolního bloku – za tímto dnem patří orientační linka.
+ * Fail-closed: blok existuje jen když dokončená kotva + interval === příští kotva.
+ * Tím se starý 21denní stav (např. 10. 8. / 31. 8.) nepromění ve falešný 14denní blok.
  */
-export function isoDenPoslednihoDneKontrolnihoBlokuVPraze(): string {
-  return kontrolniBlokVPraze().blokDoIso;
+export function jeZarovnanyDlouhodobyCheckpoint(
+  kotva: BranaKotvaKontrolnihoBloku,
+): boolean {
+  const dokoncena = kotva.posledniDokoncenaDlouhodobaKontrola;
+  const pristi = kotva.pristiDlouhodobaKontrola;
+  if (!dokoncena || !pristi) {
+    return false;
+  }
+  return pridejKalendarniDnyKIso(dokoncena, BRANA_KONTROLNI_BLOK_DNI) === pristi;
+}
+
+/**
+ * Pevný kontrolní blok: OD = dokončená kotva + 14 dní, DO = OD + 13 dní.
+ * Nezávisí na dnešku. Bez zarovnání → null.
+ */
+export function sestavPevnyKontrolniBlok(
+  kotva: BranaKotvaKontrolnihoBloku,
+): BranaKontrolniBlok | null {
+  if (!jeZarovnanyDlouhodobyCheckpoint(kotva)) {
+    return null;
+  }
+  const dokoncena = kotva.posledniDokoncenaDlouhodobaKontrola;
+  if (!dokoncena) {
+    return null;
+  }
+  const blokOdIso = pridejKalendarniDnyKIso(dokoncena, BRANA_KONTROLNI_BLOK_DNI);
+  if (!blokOdIso) {
+    return null;
+  }
+  const blokIsoDny = Array.from(
+    { length: BRANA_KONTROLNI_BLOK_DNI },
+    (_, index) => pridejKalendarniDnyKIso(blokOdIso, index),
+  );
+  if (blokIsoDny.some((den) => den === null)) {
+    return null;
+  }
+  const jisteDny = blokIsoDny as string[];
+
+  return {
+    rezervaIsoDny: isoDnyObdobi7DniVPraze(),
+    blokOdIso: jisteDny[0],
+    blokDoIso: jisteDny[jisteDny.length - 1],
+    blokIsoDny: jisteDny,
+  };
 }
 
 function formatujDenMesicCesky(iso: string, sRokem: boolean): string {
@@ -100,6 +155,10 @@ export function textHraniceKonceKontrolnihoBloku(
   return `KONEC KONTROLNÍHO BLOKU · ${formatujDenMesicCesky(blok.blokDoIso, maRozsahKontrolnihoBlokuRok(blok))}`;
 }
 
+export function textHraniceSchvalenoDo(isoDen: string): string {
+  return `SCHVÁLENO DO · ${formatujDenMesicCesky(isoDen, false)}`;
+}
+
 function normalizujRozsahUdalosti(udalost: {
   datumOd: string;
   datumDo?: string | null;
@@ -118,7 +177,7 @@ export function patriUdalostDoKontrolnihoBloku(
     datumOd: string;
     datumDo?: string | null;
   },
-  blok: Pick<BranaKontrolniBlok, "blokOdIso" | "blokDoIso"> = kontrolniBlokVPraze(),
+  blok: Pick<BranaKontrolniBlok, "blokOdIso" | "blokDoIso">,
 ): boolean {
   const { od, do: doDne } = normalizujRozsahUdalosti(udalost);
   return od <= blok.blokDoIso && doDne >= blok.blokOdIso;
@@ -164,7 +223,7 @@ export function patriUdalostDoBlizkehoOkna(
 /**
  * Serverová i výběrová ochrana hromadného „Schválit kontrolu“.
  * RYCHLÁ CEKA (snapshot typZdroje) do dávky nepatří.
- * Význam Výhledu / 21denního bloku se zde neřeší — jen zamítnutí konkrétní karty.
+ * Význam Výhledu / 14denního bloku se zde neřeší — jen zamítnutí konkrétní karty.
  */
 export function duvodZamitnutiUdalostiProSchvalitKontrolu(
   udalost: BranaKonkretniUdalost,
@@ -183,17 +242,20 @@ export function duvodZamitnutiUdalostiProSchvalitKontrolu(
 
 /**
  * Explicitní unikátní ID pro „Schválit kontrolu“:
- * auto CEKA s průnikem 21denního bloku ∪ auto CEKA z Admin Výhledu.
- * Blízké okno (dnes + 7denní rezerva) se tímto tlačítkem neschvaluje.
+ * auto CEKA s průnikem pevného kontrolního bloku ∪ auto CEKA z Admin Výhledu.
+ * Bez zarovnaného bloku je dávka prázdná.
  * RYCHLÁ CEKA (snapshot) se do dávky nezařazuje — ani v bloku, ani ve Výhledu.
  * Vstup musí být jen skutečné PRIVATE (persistované) události – bez ukázek.
  */
 export function sestavIdProSchvalitKontrolu(
   persistovaneUdalosti: readonly BranaKonkretniUdalost[],
   maVyhledAno: (redakcniPolozkaId: string) => boolean,
+  blok: BranaKontrolniBlok | null,
 ): string[] {
+  if (!blok) {
+    return [];
+  }
   const idSet = new Set<string>();
-  const blok = kontrolniBlokVPraze();
 
   for (const udalost of persistovaneUdalosti) {
     if (udalost.redakcniPolozkaId === null) {
@@ -243,7 +305,7 @@ export function udalostPokryvaIsoDen(
 
 /**
  * Počet skutečných persistovaných událostí pokrývajících den
- * pro redakční kontrolu prázdných dnů 21denního bloku.
+ * pro redakční kontrolu prázdných dnů pevného kontrolního bloku.
  * SCHVALENO (vč. ručních) + auto CEKA z aktuální dávky Schválit kontrolu.
  */
 export function pocetRelevantnihoPokrytiDne(
@@ -275,13 +337,16 @@ export function pocetRelevantnihoPokrytiDne(
 }
 
 /**
- * ISO dny pevného 21denního bloku s nulovým relevantním pokrytím.
+ * ISO dny pevného kontrolního bloku s nulovým relevantním pokrytím.
  */
 export function spocitejPrazdneDnyKontrolnihoBloku(
   persistovaneUdalosti: readonly BranaKonkretniUdalost[],
   idDavkySchvalitKontrolu: readonly string[],
+  blok: BranaKontrolniBlok | null,
 ): { prazdneIsoDny: string[]; pocet: number } {
-  const blok = kontrolniBlokVPraze();
+  if (!blok) {
+    return { prazdneIsoDny: [], pocet: 0 };
+  }
   const davka = new Set(idDavkySchvalitKontrolu);
   const prazdneIsoDny: string[] = [];
 
@@ -297,7 +362,7 @@ export function spocitejPrazdneDnyKontrolnihoBloku(
 }
 
 /**
- * Doplní do projekce Kalendáře prázdné dny 21denního bloku (bez událostí)
+ * Doplní do projekce Kalendáře prázdné dny pevného kontrolního bloku (bez událostí)
  * a označí dny s nulovým relevantním pokrytím.
  * Nevytváří persistované události.
  */
@@ -331,6 +396,29 @@ export function doplnPrazdneDnyDoKalendare(
   return [...podleDne.keys()]
     .sort()
     .map((isoDen) => podleDne.get(isoDen)!);
+}
+
+/**
+ * Zajistí den pro červenou hranici SCHVÁLENO DO, pokud v projekci chybí.
+ * Nevytváří persistovanou událost. Nemění prázdné dny kontrolního bloku.
+ */
+export function doplnDenProHraniciSchvalenoDo(
+  dny: readonly BranaKalendarDen[],
+  schvalenoDoIso: string | null,
+  formatujDen: (isoDen: string) => string,
+): BranaKalendarDen[] {
+  if (!schvalenoDoIso || !/^\d{4}-\d{2}-\d{2}$/.test(schvalenoDoIso)) {
+    return [...dny];
+  }
+  if (dny.some((den) => den.isoDen === schvalenoDoIso)) {
+    return [...dny];
+  }
+  return [...dny, {
+    isoDen: schvalenoDoIso,
+    datumLabel: formatujDen(schvalenoDoIso),
+    udalosti: [],
+    jePrazdnyKontrolniDen: false,
+  }].sort((a, b) => a.isoDen.localeCompare(b.isoDen));
 }
 
 /** Text souhrnného neblokujícího upozornění. */
