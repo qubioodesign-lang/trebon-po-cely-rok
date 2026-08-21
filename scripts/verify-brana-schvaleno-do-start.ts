@@ -139,9 +139,28 @@ assert(
   "uloziste má dočasný writer i rollback",
 );
 assert(
-  !kalendarUi.includes("jednorazoveNastavitSchvalenoDoProStartRytmuAkce") &&
-    !upozorneniUi.includes("jednorazoveNastavitSchvalenoDoProStartRytmuAkce"),
-  "žádné trvalé UI tlačítko",
+  !kalendarUi.includes("jednorazoveNastavitSchvalenoDoProStartRytmuAkce"),
+  "Kalendář nemá spouštěč",
+);
+assert(
+  upozorneniUi.includes("jednorazoveNastavitSchvalenoDoProStartRytmuAkce") &&
+    upozorneniUi.includes("Založit SCHVÁLENO DO · 13. 9.") &&
+    upozorneniUi.includes(
+      "Počáteční SCHVÁLENO DO nastaveno na 13. 9. 2026.",
+    ),
+  "tlačítko na Upozornění volá existující startovací action",
+);
+assert(
+  !upozorneniUi.includes("rollbackJednorazovehoSchvalenoDoProStartRytmuAkce") &&
+    !upozorneniUi.includes("ulozitSchvalenoDoIsoPoSchvaleniKontrolnihoBloku") &&
+    !upozorneniUi.includes("jednorazoveNastavitSchvalenoDoProStartRytmu("),
+  "nevznikla druhá zapisovací cesta",
+);
+assert(
+  (upozorneniUi.match(
+    /jednorazoveNastavitSchvalenoDoProStartRytmuAkce\(\)/g,
+  ) ?? []).length === 1,
+  "tlačítko volá startovací action právě jednou",
 );
 assert(
   akce.includes("await ulozitSchvalenoDoIsoPoSchvaleniKontrolnihoBloku(blok.blokDoIso)"),
