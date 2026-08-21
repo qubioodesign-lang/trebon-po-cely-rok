@@ -15,6 +15,12 @@ import {
 } from "@/app/brana/admin/actions";
 import { rozlozAkci } from "@/lib/brana/admin/akce-rozlozeni";
 import {
+  najitUdalostVKalendari,
+  pridatPotvrzenouZmenuKalendare,
+  sladitKalendarDnySProps,
+  type BranaKalendarPotvrzenaZmena,
+} from "@/lib/brana/admin/kalendar-dny-stav";
+import {
   maRychleCekaPodlozeni,
   popisekVolbyPozice,
   type BranaKalendarDen,
@@ -371,7 +377,9 @@ export function BranaAdminKalendarRucniZapis({
   upozorneniPrazdnychDni,
 }: Props) {
   const router = useRouter();
-  const [dnyStav, setDnyStav] = useState(dny);
+  const [potvrzeneZmeny, setPotvrzeneZmeny] = useState<
+    BranaKalendarPotvrzenaZmena[]
+  >([]);
   const [otevreno, setOtevreno] = useState(false);
   const [editovaneId, setEditovaneId] = useState<string | null>(null);
   /** true = úprava automatické CEKA (bez místa v dni) */
@@ -390,8 +398,15 @@ export function BranaAdminKalendarRucniZapis({
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
-    setDnyStav(dny);
+    setPotvrzeneZmeny(
+      (predchozi) => sladitKalendarDnySProps(dny, predchozi).potvrzene,
+    );
   }, [dny]);
+
+  const dnyStav = useMemo(
+    () => sladitKalendarDnySProps(dny, potvrzeneZmeny).dny,
+    [dny, potvrzeneZmeny],
+  );
 
   const persistovaneId = useMemo(
     () => new Set(persistovaneIdUdalosti),
@@ -423,6 +438,14 @@ export function BranaAdminKalendarRucniZapis({
     const automaticke = den ? (automatickePodleDne[den] ?? []) : [];
     return sestavVolbyPozice(automaticke);
   }, [automatickePodleDne, datumOd]);
+
+  function potvrditZmenyKalendare(
+    ...zmeny: BranaKalendarPotvrzenaZmena[]
+  ) {
+    setPotvrzeneZmeny((predchozi) =>
+      zmeny.reduce(pridatPotvrzenouZmenuKalendare, predchozi),
+    );
+  }
 
   const muzeEditovat =
     rucniZapisPovolen && posledniScanDokoncen;
@@ -559,6 +582,7 @@ export function BranaAdminKalendarRucniZapis({
           setChyba(vysledek.chyba);
           return;
         }
+        potvrditZmenyKalendare({ typ: "upsert", udalost: vysledek.udalost });
         setZprava("Událost upravena");
         zavrit();
         router.refresh();
@@ -581,6 +605,7 @@ export function BranaAdminKalendarRucniZapis({
         setChyba(vysledek.chyba);
         return;
       }
+      potvrditZmenyKalendare({ typ: "upsert", udalost: vysledek.udalost });
       setZprava(editovaneId ? "Událost upravena" : "Událost uložena");
       zavrit();
       router.refresh();
@@ -603,6 +628,7 @@ export function BranaAdminKalendarRucniZapis({
         setChyba(vysledek.chyba);
         return;
       }
+      potvrditZmenyKalendare({ typ: "odstranit", id: udalost.id });
       if (editovaneId === udalost.id) {
         zavrit();
       }
@@ -625,23 +651,26 @@ export function BranaAdminKalendarRucniZapis({
     }
     setChyba(null);
     setZprava(null);
+    const davkaId = idCekaKeSchvaleniKontroly;
+    const davkaUpsert: BranaKalendarPotvrzenaZmena[] = davkaId.flatMap((id) => {
+      const karta = najitUdalostVKalendari(dnyStav, id);
+      if (!karta) {
+        return [];
+      }
+      return [
+        {
+          typ: "upsert" as const,
+          udalost: { ...karta, stavSchvaleni: "SCHVALENO" as const },
+        },
+      ];
+    });
     startTransition(async () => {
-      const vysledek = await schvalitKontroluAkce(idCekaKeSchvaleniKontroly);
+      const vysledek = await schvalitKontroluAkce(davkaId);
       if (!vysledek.uspech) {
         setChyba(vysledek.chyba);
         return;
       }
-      const schvalenaId = new Set(idCekaKeSchvaleniKontroly);
-      setDnyStav((predchozi) =>
-        predchozi.map((den) => ({
-          ...den,
-          udalosti: den.udalosti.map((u) =>
-            schvalenaId.has(u.id)
-              ? { ...u, stavSchvaleni: "SCHVALENO" as const }
-              : u,
-          ),
-        })),
-      );
+      potvrditZmenyKalendare(...davkaUpsert);
       setZprava(
         vysledek.pocetSchvalenych === 1
           ? "Kontrola schválena (1 událost)"
@@ -663,19 +692,10 @@ export function BranaAdminKalendarRucniZapis({
         setChyba(vysledek.chyba);
         return;
       }
+      potvrditZmenyKalendare({ typ: "upsert", udalost: vysledek.udalost });
       if (editovaneId === udalost.id) {
         zavrit();
       }
-      setDnyStav((predchozi) =>
-        predchozi.map((den) => ({
-          ...den,
-          udalosti: den.udalosti.map((u) =>
-            u.id === udalost.id
-              ? { ...u, stavSchvaleni: "SCHVALENO" as const }
-              : u,
-          ),
-        })),
-      );
       setZprava("Událost schválena");
       router.refresh();
     });
@@ -699,15 +719,10 @@ export function BranaAdminKalendarRucniZapis({
         setChyba(vysledek.chyba);
         return;
       }
+      potvrditZmenyKalendare({ typ: "odstranit", id: vysledek.udalost.id });
       if (editovaneId === udalost.id) {
         zavrit();
       }
-      setDnyStav((predchozi) =>
-        predchozi.map((den) => ({
-          ...den,
-          udalosti: den.udalosti.filter((u) => u.id !== vysledek.udalost.id),
-        })),
-      );
       setZprava("Událost vyřazena");
       router.refresh();
     });
@@ -731,15 +746,10 @@ export function BranaAdminKalendarRucniZapis({
         setChyba(vysledek.chyba);
         return;
       }
+      potvrditZmenyKalendare({ typ: "odstranit", id: vysledek.udalost.id });
       if (editovaneId === udalost.id) {
         zavrit();
       }
-      setDnyStav((predchozi) =>
-        predchozi.map((den) => ({
-          ...den,
-          udalosti: den.udalosti.filter((u) => u.id !== vysledek.udalost.id),
-        })),
-      );
       setZprava("Událost skryta");
       router.refresh();
     });
