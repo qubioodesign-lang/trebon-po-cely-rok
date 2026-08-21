@@ -131,6 +131,54 @@ export function maRychleCekaPodlozeni(udalost: {
   );
 }
 
+export type SkrytAutomatickouUdalostVysledek =
+  | {
+      ok: true;
+      udalosti: BranaKonkretniUdalost[];
+      skryta: BranaKonkretniUdalost;
+    }
+  | { ok: false; chyba: string };
+
+/**
+ * Jednorázové fyzické odstranění automatické CEKA/SCHVALENO karty podle id.
+ * Fail-closed: ruční, VYRAZENO, chybějící id → žádná změna seznamu.
+ * Nezapisuje VYRAZENO ani jiný otisk. Scan o Skrýt neví.
+ */
+export function skrytAutomatickouKonkretniUdalostZeSeznamu(
+  udalosti: readonly BranaKonkretniUdalost[],
+  id: string,
+): SkrytAutomatickouUdalostVysledek {
+  const idTrim = typeof id === "string" ? id.trim() : "";
+  if (!idTrim) {
+    return { ok: false, chyba: "Chybí id události." };
+  }
+
+  const index = udalosti.findIndex((u) => u.id === idTrim);
+  if (index < 0) {
+    return { ok: false, chyba: "Událost nebyla nalezena." };
+  }
+
+  const existujici = udalosti[index];
+  if (existujici.redakcniPolozkaId === null) {
+    return { ok: false, chyba: "Ruční událost nelze skrýt touto cestou." };
+  }
+  if (
+    existujici.stavSchvaleni !== "CEKA_NA_SCHVALENI" &&
+    existujici.stavSchvaleni !== "SCHVALENO"
+  ) {
+    return {
+      ok: false,
+      chyba: "Skrýt lze pouze čekající nebo schválenou automatickou událost.",
+    };
+  }
+
+  return {
+    ok: true,
+    skryta: existujici,
+    udalosti: udalosti.filter((_, i) => i !== index),
+  };
+}
+
 /**
  * Chybějící / neznámá hodnota → SCHVALENO.
  * VYRAZENO a CEKA_NA_SCHVALENI se zachovají.

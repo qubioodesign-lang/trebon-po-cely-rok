@@ -7,6 +7,7 @@ import {
   pridatRucniKonkretniUdalostAkce,
   schvalitKonkretniUdalostAkce,
   schvalitKontroluAkce,
+  skrytAutomatickouKonkretniUdalostAkce,
   smazatRucniKonkretniUdalostAkce,
   upravitAutomatickouCekaUdalostAkce,
   upravitRucniKonkretniUdalostAkce,
@@ -122,10 +123,12 @@ function SeznamDnu({
   muzeSchvalitAutomatickou,
   muzeUpravitAutomatickou,
   muzeVyrazitAutomatickou,
+  muzeSkrytAutomatickou,
   onSchvalit,
   onUpravit,
   onSmazat,
   onVyrazit,
+  onSkryt,
 }: {
   dny: BranaKalendarDen[];
   rucniAkce: boolean;
@@ -139,10 +142,12 @@ function SeznamDnu({
   muzeSchvalitAutomatickou: (udalost: BranaKonkretniUdalost) => boolean;
   muzeUpravitAutomatickou: (udalost: BranaKonkretniUdalost) => boolean;
   muzeVyrazitAutomatickou: (udalost: BranaKonkretniUdalost) => boolean;
+  muzeSkrytAutomatickou: (udalost: BranaKonkretniUdalost) => boolean;
   onSchvalit: (udalost: BranaKonkretniUdalost) => void;
   onUpravit: (udalost: BranaKonkretniUdalost) => void;
   onSmazat: (udalost: BranaKonkretniUdalost) => void;
   onVyrazit: (udalost: BranaKonkretniUdalost) => void;
+  onSkryt: (udalost: BranaKonkretniUdalost) => void;
 }) {
   return (
     <div role="region" aria-label="Pracovní kalendář">
@@ -195,10 +200,12 @@ function SeznamDnu({
                       muzeSchvalitAutomatickou(udalost);
                     const zobrazitAutoUpravit =
                       muzeUpravitAutomatickou(udalost);
+                    const zobrazitSkryt = muzeSkrytAutomatickou(udalost);
                     const zobrazitVyrazit = muzeVyrazitAutomatickou(udalost);
                     const zobrazitAkce =
                       zobrazitSchvalit ||
                       zobrazitAutoUpravit ||
+                      zobrazitSkryt ||
                       zobrazitVyrazit ||
                       (rucniAkce && jeRucni);
                     return (
@@ -262,6 +269,16 @@ function SeznamDnu({
                                     className="text-xs font-light text-text-jemny underline-offset-2 hover:underline disabled:opacity-50"
                                   >
                                     Upravit
+                                  </button>
+                                ) : null}
+                                {zobrazitSkryt ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => onSkryt(udalost)}
+                                    disabled={pending}
+                                    className="text-xs font-light text-text-jemny underline-offset-2 hover:underline disabled:opacity-50"
+                                  >
+                                    Skrýt
                                   </button>
                                 ) : null}
                                 {zobrazitVyrazit ? (
@@ -437,6 +454,10 @@ export function BranaAdminKalendarRucniZapis({
         udalost.stavSchvaleni === "SCHVALENO") &&
       persistovaneId.has(udalost.id)
     );
+  }
+
+  function muzeSkrytAutomatickou(udalost: BranaKonkretniUdalost): boolean {
+    return muzeVyrazitAutomatickou(udalost);
   }
 
   /** Jednotlivé Schválit: automatická persistovaná CEKA (bez ohledu na typ zdroje). */
@@ -665,7 +686,7 @@ export function BranaAdminKalendarRucniZapis({
       return;
     }
     const potvrzeno = window.confirm(
-      `Vyřadit automatickou událost „${udalost.nazev.trim() || udalost.mistoNeboTyp.trim()}“?`,
+      "Vyřadit tuto událost? Další scan ji znovu nenabídne.",
     );
     if (!potvrzeno) {
       return;
@@ -688,6 +709,38 @@ export function BranaAdminKalendarRucniZapis({
         })),
       );
       setZprava("Událost vyřazena");
+      router.refresh();
+    });
+  }
+
+  function skryt(udalost: BranaKonkretniUdalost) {
+    if (!muzeSkrytAutomatickou(udalost)) {
+      return;
+    }
+    const potvrzeno = window.confirm(
+      "Skrýt tuto událost? Při dalším scanu se může objevit znovu.",
+    );
+    if (!potvrzeno) {
+      return;
+    }
+    setChyba(null);
+    setZprava(null);
+    startTransition(async () => {
+      const vysledek = await skrytAutomatickouKonkretniUdalostAkce(udalost.id);
+      if (!vysledek.uspech) {
+        setChyba(vysledek.chyba);
+        return;
+      }
+      if (editovaneId === udalost.id) {
+        zavrit();
+      }
+      setDnyStav((predchozi) =>
+        predchozi.map((den) => ({
+          ...den,
+          udalosti: den.udalosti.filter((u) => u.id !== vysledek.udalost.id),
+        })),
+      );
+      setZprava("Událost skryta");
       router.refresh();
     });
   }
@@ -910,10 +963,12 @@ export function BranaAdminKalendarRucniZapis({
         muzeSchvalitAutomatickou={muzeSchvalitAutomatickou}
         muzeUpravitAutomatickou={muzeUpravitAutomatickou}
         muzeVyrazitAutomatickou={muzeVyrazitAutomatickou}
+        muzeSkrytAutomatickou={muzeSkrytAutomatickou}
         onSchvalit={schvalitJednu}
         onUpravit={otevritUpravu}
         onSmazat={smazat}
         onVyrazit={vyrazit}
+        onSkryt={skryt}
       />
     </div>
   );

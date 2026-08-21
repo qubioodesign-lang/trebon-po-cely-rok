@@ -13,6 +13,7 @@ import {
   normalizovatVerejnaJazykovaPoleZBlobu,
   dnesIsoVPraze,
   jeUdalostCelaMinula,
+  skrytAutomatickouKonkretniUdalostZeSeznamu,
   type BranaKonkretniUdalost,
 } from "./konkretni-udalost";
 import { duvodZamitnutiUdalostiProSchvalitKontrolu } from "./kontrolni-blok";
@@ -795,6 +796,43 @@ export async function vyrazitAutomatickouCekaUdalost(
 
   await ulozitDokument(overeni);
   return vyrazena;
+}
+
+/**
+ * Jednorázově fyzicky odstraní automatickou CEKA/SCHVALENO událost podle id.
+ * Nezůstane VYRAZENO ani jiný otisk. Nemění schvalenoDoIso ani scan razítka.
+ */
+export async function skrytAutomatickouKonkretniUdalost(
+  id: string,
+): Promise<BranaKonkretniUdalost> {
+  if (!(await jeAdminPrihlasen())) {
+    throw new Error("Nejste přihlášeni.");
+  }
+
+  if (!maBranaAdminBlobKonfiguraci()) {
+    throw new Error(
+      "Nelze skrýt událost: chybí BLOB_BRANA_ADMIN_STORE_ID nebo BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
+    );
+  }
+
+  const dokument = await nacistDokumentProZapis();
+  const vysledek = skrytAutomatickouKonkretniUdalostZeSeznamu(
+    dokument.udalosti,
+    id,
+  );
+  if (!vysledek.ok) {
+    throw new Error(vysledek.chyba);
+  }
+
+  dokument.udalosti = vysledek.udalosti;
+
+  const overeni = parsovatDokument(dokument);
+  if (!overeni) {
+    throw new Error("Výsledný dokument neprošel validací. Nic nebylo uloženo.");
+  }
+
+  await ulozitDokument(overeni);
+  return vysledek.skryta;
 }
 
 /**

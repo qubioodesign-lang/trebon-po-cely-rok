@@ -8,6 +8,7 @@ import {
   pridatRucniKonkretniUdalost,
   schvalitKonkretniUdalost,
   schvalitKontroluKonkretnichUdalosti,
+  skrytAutomatickouKonkretniUdalost,
   smazatRucniKonkretniUdalost,
   upravitAutomatickouCekaUdalost,
   upravitRucniKonkretniUdalost,
@@ -331,6 +332,31 @@ export async function upravitAutomatickouCekaUdalostAkce(
     return {
       uspech: false,
       chyba: detail ?? "Událost se neuložila.",
+    };
+  }
+}
+
+/** Jednorázově skryje automatickou CEKA/SCHVALENO: fyzicky odstraní záznam. */
+export async function skrytAutomatickouKonkretniUdalostAkce(
+  id: string,
+): Promise<BranaRucniUdalostVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  try {
+    const udalost = await skrytAutomatickouKonkretniUdalost(id);
+    revalidatePath("/brana/admin/sprava/kalendar");
+    revalidatePath("/brana/admin/sprava/vyhled");
+    return { uspech: true, udalost };
+  } catch (error) {
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "Událost se nepodařilo skrýt.",
     };
   }
 }
