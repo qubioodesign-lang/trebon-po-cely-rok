@@ -15,6 +15,12 @@ import {
   type BranaSkupinovyScanStav,
   type BranaSkupinovyScanTyp,
 } from "./skupinovy-scan-stav";
+import {
+  BRANA_START_SCHVALENO_DO_ISO,
+  navrhnoutDokumentSeSchvalenoDo,
+  rozhodnoutRollbackSchvalenoDoStartu,
+  rozhodnoutZapisSchvalenoDoStartu,
+} from "./schvaleno-do-start";
 
 /**
  * Objekt v PRIVATE Blob store administrace BRÁNY.
@@ -643,6 +649,140 @@ export async function ulozitSchvalenoDoIsoPoSchvaleniKontrolnihoBloku(
 
   await ulozitDokument(celek.dokument);
   return celek.dokument;
+}
+
+export type BranaStartSchvalenoDoUlozeniVysledek =
+  | {
+      uspech: true;
+      stav: "zapsano" | "uz-nastaveno";
+      puvodniSchvalenoDoIso: string | null;
+      schvalenoDoIso: string;
+    }
+  | { uspech: false; chyba: string };
+
+export type BranaStartSchvalenoDoRollbackVysledek =
+  | {
+      uspech: true;
+      stav: "vraceno" | "beze-zmeny";
+      puvodniSchvalenoDoIso: string | null;
+      schvalenoDoIso: string | null;
+    }
+  | { uspech: false; chyba: string };
+
+async function zapsatPouzeSchvalenoDoIso(
+  stary: BranaUpozorneniNastaveniDokument,
+  schvalenoDoIso: string | null,
+): Promise<BranaUpozorneniNastaveniDokument> {
+  const navrh = navrhnoutDokumentSeSchvalenoDo(stary, schvalenoDoIso);
+  const celek = validovatUpozorneniDokument(navrh);
+  if (!celek.ok) {
+    throw new Error(celek.chyba);
+  }
+  await ulozitDokument(celek.dokument);
+  return celek.dokument;
+}
+
+/**
+ * Dočasný jednorázový start 14denního rytmu: jen schvalenoDoIso.
+ * Fail-closed kotva 2026-08-31. Nemění ostatní pole. Bez UI.
+ */
+export async function jednorazoveNastavitSchvalenoDoProStartRytmu(): Promise<BranaStartSchvalenoDoUlozeniVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+  if (!maBranaAdminBlobKonfiguraci()) {
+    return {
+      uspech: false,
+      chyba:
+        "Nelze uložit SCHVÁLENO DO: chybí BLOB_BRANA_ADMIN_STORE_ID nebo BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
+    };
+  }
+
+  const nacist = await nacistUpozorneniNastaveniDokument();
+  if (!nacist.ok) {
+    return {
+      uspech: false,
+      chyba: BRANA_UPOZORNENI_CHYBA_CTENI,
+    };
+  }
+
+  const rozhodnuti = rozhodnoutZapisSchvalenoDoStartu(nacist.dokument);
+  if (rozhodnuti.typ === "stop") {
+    return { uspech: false, chyba: rozhodnuti.duvod };
+  }
+  if (rozhodnuti.typ === "uz-nastaveno") {
+    return {
+      uspech: true,
+      stav: "uz-nastaveno",
+      puvodniSchvalenoDoIso: rozhodnuti.puvodniSchvalenoDoIso,
+      schvalenoDoIso: rozhodnuti.cilSchvalenoDoIso,
+    };
+  }
+
+  await zapsatPouzeSchvalenoDoIso(
+    nacist.dokument,
+    BRANA_START_SCHVALENO_DO_ISO,
+  );
+  return {
+    uspech: true,
+    stav: "zapsano",
+    puvodniSchvalenoDoIso: rozhodnuti.puvodniSchvalenoDoIso,
+    schvalenoDoIso: BRANA_START_SCHVALENO_DO_ISO,
+  };
+}
+
+/**
+ * Dočasný rollback jednorázového startu: jen schvalenoDoIso na ověřený vstup.
+ * Znovu čte dokument. Umí i null. Bez UI.
+ */
+export async function rollbackJednorazovehoSchvalenoDoProStartRytmu(
+  puvodniSchvalenoDoIso: unknown,
+): Promise<BranaStartSchvalenoDoRollbackVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+  if (!maBranaAdminBlobKonfiguraci()) {
+    return {
+      uspech: false,
+      chyba:
+        "Nelze vrátit SCHVÁLENO DO: chybí BLOB_BRANA_ADMIN_STORE_ID nebo BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
+    };
+  }
+
+  const nacist = await nacistUpozorneniNastaveniDokument();
+  if (!nacist.ok) {
+    return {
+      uspech: false,
+      chyba: BRANA_UPOZORNENI_CHYBA_CTENI,
+    };
+  }
+
+  const rozhodnuti = rozhodnoutRollbackSchvalenoDoStartu(
+    nacist.dokument,
+    puvodniSchvalenoDoIso,
+  );
+  if (rozhodnuti.typ === "stop") {
+    return { uspech: false, chyba: rozhodnuti.duvod };
+  }
+  if (rozhodnuti.typ === "beze-zmeny") {
+    return {
+      uspech: true,
+      stav: "beze-zmeny",
+      puvodniSchvalenoDoIso: rozhodnuti.cilSchvalenoDoIso,
+      schvalenoDoIso: rozhodnuti.aktualniSchvalenoDoIso,
+    };
+  }
+
+  await zapsatPouzeSchvalenoDoIso(
+    nacist.dokument,
+    rozhodnuti.cilSchvalenoDoIso,
+  );
+  return {
+    uspech: true,
+    stav: "vraceno",
+    puvodniSchvalenoDoIso: rozhodnuti.cilSchvalenoDoIso,
+    schvalenoDoIso: rozhodnuti.cilSchvalenoDoIso,
+  };
 }
 
 export async function ulozitPushSubscription(
