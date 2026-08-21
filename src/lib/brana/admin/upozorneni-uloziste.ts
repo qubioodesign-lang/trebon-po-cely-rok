@@ -1,6 +1,12 @@
 import "server-only";
 
-import { BlobNotFoundError, get, put } from "@vercel/blob";
+import {
+  BlobNotFoundError,
+  BlobPreconditionFailedError,
+  get,
+  head,
+  put,
+} from "@vercel/blob";
 import { unstable_noStore as noStore } from "next/cache";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 import { okamzikVPraze, okamzikZPrahy, pridatDny } from "@/lib/brana/cas";
@@ -15,6 +21,10 @@ import {
   type BranaSkupinovyScanStav,
   type BranaSkupinovyScanTyp,
 } from "./skupinovy-scan-stav";
+import {
+  zmenitUpozorneniDokumentAtomickySIo,
+  type BranaUpozorneniDokumentMutace,
+} from "./upozorneni-cas";
 
 /**
  * Objekt v PRIVATE Blob store administrace BRÁNY.
@@ -97,6 +107,10 @@ export type NacistUpozorneniNastaveniVysledek =
 type BlobCteniTextu =
   | { stav: "neexistuje" }
   | { stav: "ok"; text: string };
+
+type BlobCteniProZapis =
+  | { stav: "neexistuje" }
+  | { stav: "ok"; dokument: BranaUpozorneniNastaveniDokument; etag: string };
 
 /** Výchozí bezpečný stav – žádný Blob se nevytváří. */
 export function vychoziUpozorneniNastaveni(): BranaUpozorneniNastaveniDokument {
@@ -455,8 +469,66 @@ async function nacistTextZPrivateBlob(): Promise<BlobCteniTextu> {
   }
 }
 
-async function ulozitDokument(
+async function nacistDokumentSEtagProZapis(): Promise<BlobCteniProZapis> {
+  const volby = ziskatVolbyBranaAdminBlob();
+
+  if (!volby.token) {
+    throw new Error("Chybí BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.");
+  }
+
+  let etag: string;
+  try {
+    const meta = await head(BRANA_UPOZORNENI_NASTAVENI_BLOB_CESTA, volby);
+    if (typeof meta.etag !== "string" || meta.etag.length === 0) {
+      throw new Error(
+        "Nelze bezpečně uložit: Blob HEAD nevrátil etag. Nic nebylo změněno.",
+      );
+    }
+    etag = meta.etag;
+  } catch (error) {
+    if (error instanceof BlobNotFoundError) {
+      return { stav: "neexistuje" };
+    }
+    throw error;
+  }
+
+  try {
+    const vysledek = await get(BRANA_UPOZORNENI_NASTAVENI_BLOB_CESTA, {
+      access: "private",
+      useCache: false,
+      ...volby,
+    });
+
+    if (vysledek === null || !vysledek.stream) {
+      throw new Error("Blob zmizel mezi HEAD a GET. Nic nebylo uloženo.");
+    }
+
+    const text = await new Response(vysledek.stream).text();
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text) as unknown;
+    } catch {
+      throw new Error(BRANA_UPOZORNENI_CHYBA_CTENI);
+    }
+
+    const dokument = parsovatDokument(parsed);
+    if (!dokument) {
+      throw new Error(BRANA_UPOZORNENI_CHYBA_CTENI);
+    }
+
+    return { stav: "ok", dokument, etag };
+  } catch (error) {
+    if (error instanceof BlobNotFoundError) {
+      throw new Error("Blob zmizel mezi HEAD a GET. Nic nebylo uloženo.");
+    }
+    throw error;
+  }
+}
+
+async function ulozitDokumentSIfMatch(
   dokument: BranaUpozorneniNastaveniDokument,
+  etag: string | null,
 ): Promise<void> {
   const volby = ziskatVolbyBranaAdminBlob();
 
@@ -476,28 +548,30 @@ async function ulozitDokument(
       allowOverwrite: true,
       contentType: "application/json",
       cacheControlMaxAge: 0,
+      ...(etag !== null ? { ifMatch: etag } : {}),
     },
   );
 }
 
-async function nacistNeboVychoziDokument(): Promise<BranaUpozorneniNastaveniDokument> {
-  const cteni = await nacistTextZPrivateBlob();
-  if (cteni.stav === "neexistuje") {
-    return vychoziUpozorneniNastaveni();
-  }
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(cteni.text) as unknown;
-  } catch {
-    throw new Error(BRANA_UPOZORNENI_CHYBA_CTENI);
-  }
-
-  const stary = parsovatDokument(parsed);
-  if (!stary) {
-    throw new Error(BRANA_UPOZORNENI_CHYBA_CTENI);
-  }
-  return stary;
+async function zmenitUpozorneniDokumentAtomicky<T>(
+  mutator: (
+    dokument: BranaUpozorneniNastaveniDokument,
+  ) => BranaUpozorneniDokumentMutace<BranaUpozorneniNastaveniDokument, T>,
+): Promise<T> {
+  return zmenitUpozorneniDokumentAtomickySIo(
+    {
+      nacist: nacistDokumentSEtagProZapis,
+      vychoziDokument: vychoziUpozorneniNastaveni,
+      validovat: (dokument) => {
+        const celek = validovatUpozorneniDokument(dokument);
+        return celek.ok ? celek.dokument : null;
+      },
+      ulozit: ulozitDokumentSIfMatch,
+      jePreconditionChyba: (error) =>
+        error instanceof BlobPreconditionFailedError,
+    },
+    mutator,
+  );
 }
 
 /**
@@ -585,19 +659,13 @@ export async function ulozitPristiDlouhodobouKontrolu(
     throw new Error(pristi.chyba);
   }
 
-  const stary = await nacistNeboVychoziDokument();
-  const vyslednyNavrh: BranaUpozorneniNastaveniDokument = {
-    ...stary,
-    pristiDlouhodobaKontrola: pristi.pristiDlouhodobaKontrola,
-  };
-
-  const celek = validovatUpozorneniDokument(vyslednyNavrh);
-  if (!celek.ok) {
-    throw new Error(celek.chyba);
-  }
-
-  await ulozitDokument(celek.dokument);
-  return celek.dokument;
+  return zmenitUpozorneniDokumentAtomicky((dokument) => {
+    const vyslednyNavrh: BranaUpozorneniNastaveniDokument = {
+      ...dokument,
+      pristiDlouhodobaKontrola: pristi.pristiDlouhodobaKontrola,
+    };
+    return { typ: "zapsat", dokument: vyslednyNavrh, vysledek: vyslednyNavrh };
+  });
 }
 
 /**
@@ -630,19 +698,13 @@ export async function ulozitSchvalenoDoIsoPoSchvaleniKontrolnihoBloku(
     );
   }
 
-  const stary = await nacistNeboVychoziDokument();
-  const vyslednyNavrh: BranaUpozorneniNastaveniDokument = {
-    ...stary,
-    schvalenoDoIso: validaceData.hodnota,
-  };
-
-  const celek = validovatUpozorneniDokument(vyslednyNavrh);
-  if (!celek.ok) {
-    throw new Error(celek.chyba);
-  }
-
-  await ulozitDokument(celek.dokument);
-  return celek.dokument;
+  return zmenitUpozorneniDokumentAtomicky((dokument) => {
+    const vyslednyNavrh: BranaUpozorneniNastaveniDokument = {
+      ...dokument,
+      schvalenoDoIso: validaceData.hodnota,
+    };
+    return { typ: "zapsat", dokument: vyslednyNavrh, vysledek: vyslednyNavrh };
+  });
 }
 
 export async function ulozitPushSubscription(
@@ -663,20 +725,14 @@ export async function ulozitPushSubscription(
     throw new Error(sub.chyba);
   }
 
-  const stary = await nacistNeboVychoziDokument();
-  const vyslednyNavrh: BranaUpozorneniNastaveniDokument = {
-    ...stary,
-    pushSubscription: sub.pushSubscription,
-    upozorneniAktivni: true,
-  };
-
-  const celek = validovatUpozorneniDokument(vyslednyNavrh);
-  if (!celek.ok) {
-    throw new Error(celek.chyba);
-  }
-
-  await ulozitDokument(celek.dokument);
-  return celek.dokument;
+  return zmenitUpozorneniDokumentAtomicky((dokument) => {
+    const vyslednyNavrh: BranaUpozorneniNastaveniDokument = {
+      ...dokument,
+      pushSubscription: sub.pushSubscription,
+      upozorneniAktivni: true,
+    };
+    return { typ: "zapsat", dokument: vyslednyNavrh, vysledek: vyslednyNavrh };
+  });
 }
 
 /** Odstraní PushSubscription a vypne upozornění. */
@@ -691,20 +747,14 @@ export async function vypnoutPushSubscription(): Promise<BranaUpozorneniNastaven
     );
   }
 
-  const stary = await nacistNeboVychoziDokument();
-  const vyslednyNavrh: BranaUpozorneniNastaveniDokument = {
-    ...stary,
-    pushSubscription: null,
-    upozorneniAktivni: false,
-  };
-
-  const celek = validovatUpozorneniDokument(vyslednyNavrh);
-  if (!celek.ok) {
-    throw new Error(celek.chyba);
-  }
-
-  await ulozitDokument(celek.dokument);
-  return celek.dokument;
+  return zmenitUpozorneniDokumentAtomicky((dokument) => {
+    const vyslednyNavrh: BranaUpozorneniNastaveniDokument = {
+      ...dokument,
+      pushSubscription: null,
+      upozorneniAktivni: false,
+    };
+    return { typ: "zapsat", dokument: vyslednyNavrh, vysledek: vyslednyNavrh };
+  });
 }
 
 /**
@@ -731,19 +781,13 @@ export async function ulozitPosledniUpozorneniRychleProScheduler(
     );
   }
 
-  const stary = await nacistNeboVychoziDokument();
-  const vyslednyNavrh: BranaUpozorneniNastaveniDokument = {
-    ...stary,
-    posledniUpozorneniRychle: den.hodnota,
-  };
-
-  const celek = validovatUpozorneniDokument(vyslednyNavrh);
-  if (!celek.ok) {
-    throw new Error(celek.chyba);
-  }
-
-  await ulozitDokument(celek.dokument);
-  return celek.dokument;
+  return zmenitUpozorneniDokumentAtomicky((dokument) => {
+    const vyslednyNavrh: BranaUpozorneniNastaveniDokument = {
+      ...dokument,
+      posledniUpozorneniRychle: den.hodnota,
+    };
+    return { typ: "zapsat", dokument: vyslednyNavrh, vysledek: vyslednyNavrh };
+  });
 }
 
 function formatovatIsoDenZBranaDatumu(rok: number, mesic: number, den: number): string {
@@ -803,37 +847,34 @@ export async function dokoncitDlouhodobouKontroluProScheduler(
     throw new Error("Datum checkpointu musí být ve formátu RRRR-MM-DD.");
   }
 
-  const stary = await nacistNeboVychoziDokument();
+  return zmenitUpozorneniDokumentAtomicky((dokument) => {
+    if (dokument.pristiDlouhodobaKontrola !== datumVPraze) {
+      throw new Error(
+        "Kotva pristiDlouhodobaKontrola neodpovídá datu právě dokončeného checkpointu.",
+      );
+    }
 
-  if (stary.pristiDlouhodobaKontrola !== datumVPraze) {
-    throw new Error(
-      "Kotva pristiDlouhodobaKontrola neodpovídá datu právě dokončeného checkpointu.",
+    const dalsi = vypocitatPristiDlouhodobouKontroluPoDokoncení(
+      dokument.pristiDlouhodobaKontrola,
     );
-  }
+    if (!dalsi.ok) {
+      throw new Error(dalsi.chyba);
+    }
 
-  const dalsi = vypocitatPristiDlouhodobouKontroluPoDokoncení(
-    stary.pristiDlouhodobaKontrola,
-  );
-  if (!dalsi.ok) {
-    throw new Error(dalsi.chyba);
-  }
-
-  const vyslednyNavrh: BranaUpozorneniNastaveniDokument = {
-    ...stary,
-    posledniDokoncenaDlouhodobaKontrola: datumVPraze,
-    pristiDlouhodobaKontrola: dalsi.pristi,
-  };
-
-  const celek = validovatUpozorneniDokument(vyslednyNavrh);
-  if (!celek.ok) {
-    throw new Error(celek.chyba);
-  }
-
-  await ulozitDokument(celek.dokument);
-  return {
-    dokument: celek.dokument,
-    pristiDlouhodobaKontrola: dalsi.pristi,
-  };
+    const vyslednyNavrh: BranaUpozorneniNastaveniDokument = {
+      ...dokument,
+      posledniDokoncenaDlouhodobaKontrola: datumVPraze,
+      pristiDlouhodobaKontrola: dalsi.pristi,
+    };
+    return {
+      typ: "zapsat",
+      dokument: vyslednyNavrh,
+      vysledek: {
+        dokument: vyslednyNavrh,
+        pristiDlouhodobaKontrola: dalsi.pristi,
+      },
+    };
+  });
 }
 
 /**
@@ -860,19 +901,13 @@ export async function ulozitPosledniUpozorneniDlouhodobeProScheduler(
     );
   }
 
-  const stary = await nacistNeboVychoziDokument();
-  const vyslednyNavrh: BranaUpozorneniNastaveniDokument = {
-    ...stary,
-    posledniUpozorneniDlouhodobe: den.hodnota,
-  };
-
-  const celek = validovatUpozorneniDokument(vyslednyNavrh);
-  if (!celek.ok) {
-    throw new Error(celek.chyba);
-  }
-
-  await ulozitDokument(celek.dokument);
-  return celek.dokument;
+  return zmenitUpozorneniDokumentAtomicky((dokument) => {
+    const vyslednyNavrh: BranaUpozorneniNastaveniDokument = {
+      ...dokument,
+      posledniUpozorneniDlouhodobe: den.hodnota,
+    };
+    return { typ: "zapsat", dokument: vyslednyNavrh, vysledek: vyslednyNavrh };
+  });
 }
 
 /**
@@ -899,19 +934,13 @@ export async function ulozitPosledniUpozorneniAsistovaneKotvuProScheduler(
     );
   }
 
-  const stary = await nacistNeboVychoziDokument();
-  const vyslednyNavrh: BranaUpozorneniNastaveniDokument = {
-    ...stary,
-    posledniUpozorneniAsistovaneKotva: den.hodnota,
-  };
-
-  const celek = validovatUpozorneniDokument(vyslednyNavrh);
-  if (!celek.ok) {
-    throw new Error(celek.chyba);
-  }
-
-  await ulozitDokument(celek.dokument);
-  return celek.dokument;
+  return zmenitUpozorneniDokumentAtomicky((dokument) => {
+    const vyslednyNavrh: BranaUpozorneniNastaveniDokument = {
+      ...dokument,
+      posledniUpozorneniAsistovaneKotva: den.hodnota,
+    };
+    return { typ: "zapsat", dokument: vyslednyNavrh, vysledek: vyslednyNavrh };
+  });
 }
 
 /**
@@ -942,19 +971,14 @@ export async function ulozitPosledniSkupinovyScanProScheduler(
     );
   }
 
-  const stary = await nacistNeboVychoziDokument();
-  const vyslednyNavrh = nahraditSkupinovyScanStav(
-    stary,
-    typ,
-    overeni.hodnota,
-  );
-
-  const celek = validovatUpozorneniDokument(vyslednyNavrh);
-  if (!celek.ok) {
-    throw new Error(celek.chyba);
-  }
-
-  await ulozitDokument(celek.dokument);
-  return celek.dokument;
+  const stavKZapisu = overeni.hodnota;
+  return zmenitUpozorneniDokumentAtomicky((dokument) => {
+    const vyslednyNavrh = nahraditSkupinovyScanStav(
+      dokument,
+      typ,
+      stavKZapisu,
+    );
+    return { typ: "zapsat", dokument: vyslednyNavrh, vysledek: vyslednyNavrh };
+  });
 }
 
