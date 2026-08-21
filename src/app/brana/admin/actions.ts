@@ -39,14 +39,10 @@ import {
   nacistUpozorneniNastaveni,
   ulozitPristiDlouhodobouKontrolu,
   ulozitPushSubscription,
-  jednorazoveNastavitSchvalenoDoProStartRytmu,
-  rollbackJednorazovehoSchvalenoDoProStartRytmu,
   ulozitSchvalenoDoIsoPoSchvaleniKontrolnihoBloku,
   validovatPristiDlouhodobouKontroluVstup,
   validovatPushSubscriptionVstup,
   vypnoutPushSubscription,
-  type BranaStartSchvalenoDoRollbackVysledek,
-  type BranaStartSchvalenoDoUlozeniVysledek,
   type BranaUpozorneniNastaveniProUi,
 } from "@/lib/brana/admin/upozorneni-uloziste";
 import { odeslatBranaTestovaciPush } from "@/lib/brana/admin/odeslat-testovaci-push";
@@ -305,66 +301,6 @@ export async function schvalitKontroluAkce(
     return {
       uspech: false,
       chyba: detail ?? "Kontrolu se nepodařilo schválit.",
-    };
-  }
-}
-
-/**
- * Dočasná jednorázová action startu 14denního rytmu.
- * Bez UI. Nespouštět, dokud k tomu nebude výslovný pokyn.
- */
-export async function jednorazoveNastavitSchvalenoDoProStartRytmuAkce(): Promise<BranaStartSchvalenoDoUlozeniVysledek> {
-  if (!(await jeAdminPrihlasen())) {
-    return { uspech: false, chyba: "Nejste přihlášeni." };
-  }
-
-  try {
-    const vysledek = await jednorazoveNastavitSchvalenoDoProStartRytmu();
-    if (vysledek.uspech && vysledek.stav === "zapsano") {
-      revalidatePath("/brana/admin/sprava/kalendar");
-      revalidatePath("/brana/admin/sprava/upozorneni");
-    }
-    return vysledek;
-  } catch (error) {
-    const detail =
-      error instanceof Error && error.message.trim()
-        ? error.message.trim()
-        : null;
-    return {
-      uspech: false,
-      chyba: detail ?? "SCHVÁLENO DO se nepodařilo nastavit.",
-    };
-  }
-}
-
-/**
- * Dočasný rollback jednorázového startu SCHVÁLENO DO.
- * Vstup = původní hodnota z úspěšného zápisu (i null). Bez UI.
- */
-export async function rollbackJednorazovehoSchvalenoDoProStartRytmuAkce(
-  puvodniSchvalenoDoIso: unknown,
-): Promise<BranaStartSchvalenoDoRollbackVysledek> {
-  if (!(await jeAdminPrihlasen())) {
-    return { uspech: false, chyba: "Nejste přihlášeni." };
-  }
-
-  try {
-    const vysledek = await rollbackJednorazovehoSchvalenoDoProStartRytmu(
-      puvodniSchvalenoDoIso,
-    );
-    if (vysledek.uspech && vysledek.stav === "vraceno") {
-      revalidatePath("/brana/admin/sprava/kalendar");
-      revalidatePath("/brana/admin/sprava/upozorneni");
-    }
-    return vysledek;
-  } catch (error) {
-    const detail =
-      error instanceof Error && error.message.trim()
-        ? error.message.trim()
-        : null;
-    return {
-      uspech: false,
-      chyba: detail ?? "SCHVÁLENO DO se nepodařilo vrátit.",
     };
   }
 }

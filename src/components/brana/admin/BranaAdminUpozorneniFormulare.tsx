@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from "react";
 import {
-  jednorazoveNastavitSchvalenoDoProStartRytmuAkce,
   odeslatBranaTestovaciPushAkce,
   ulozitBranaPushSubscriptionAkce,
   ulozitBranaUpozorneniPristiKontroluAkce,
@@ -43,8 +42,6 @@ export function BranaAdminUpozorneniFormulare({
   const [chyba, setChyba] = useState<string | null>(chybaCteni);
   const [ulozeno, setUlozeno] = useState(false);
   const [testOdeslan, setTestOdeslan] = useState(false);
-  const [startSchvalenoDoNastaven, setStartSchvalenoDoNastaven] =
-    useState(false);
   const [pending, startTransition] = useTransition();
 
   const muzePoslatTest =
@@ -63,7 +60,6 @@ export function BranaAdminUpozorneniFormulare({
     setChyba(null);
     setUlozeno(false);
     setTestOdeslan(false);
-    setStartSchvalenoDoNastaven(false);
 
     startTransition(async () => {
       try {
@@ -92,7 +88,6 @@ export function BranaAdminUpozorneniFormulare({
     setChyba(null);
     setUlozeno(false);
     setTestOdeslan(false);
-    setStartSchvalenoDoNastaven(false);
 
     startTransition(async () => {
       await odhlasitBranaPushSubscriptionVProhlizeci();
@@ -113,7 +108,6 @@ export function BranaAdminUpozorneniFormulare({
     setChyba(null);
     setUlozeno(false);
     setTestOdeslan(false);
-    setStartSchvalenoDoNastaven(false);
 
     startTransition(async () => {
       const vysledek = await odeslatBranaTestovaciPushAkce();
@@ -132,7 +126,6 @@ export function BranaAdminUpozorneniFormulare({
     setChyba(null);
     setUlozeno(false);
     setTestOdeslan(false);
-    setStartSchvalenoDoNastaven(false);
 
     startTransition(async () => {
       const vysledek = await ulozitBranaUpozorneniPristiKontroluAkce(
@@ -144,29 +137,6 @@ export function BranaAdminUpozorneniFormulare({
       }
       aplikujUi(vysledek.ui);
       setUlozeno(true);
-    });
-  }
-
-  function zalozitSchvalenoDoStart() {
-    if (!uloziteniPovoleno || pending) {
-      return;
-    }
-    setChyba(null);
-    setUlozeno(false);
-    setTestOdeslan(false);
-    setStartSchvalenoDoNastaven(false);
-
-    startTransition(async () => {
-      const vysledek = await jednorazoveNastavitSchvalenoDoProStartRytmuAkce();
-      if (!vysledek.uspech) {
-        setChyba(vysledek.chyba);
-        return;
-      }
-      if (vysledek.stav === "uz-nastaveno") {
-        setChyba("SCHVÁLENO DO už je 13. 9. 2026. Nic nebylo uloženo.");
-        return;
-      }
-      setStartSchvalenoDoNastaven(true);
     });
   }
 
@@ -267,22 +237,6 @@ export function BranaAdminUpozorneniFormulare({
         {ulozeno ? (
           <p className="text-sm text-text-jemny" role="status">
             Uloženo.
-          </p>
-        ) : null}
-      </div>
-
-      <div className="space-y-1.5">
-        <button
-          type="button"
-          className="border border-text-velmiJemny/40 px-3 py-1.5 text-sm text-text disabled:opacity-50"
-          disabled={!uloziteniPovoleno || pending}
-          onClick={zalozitSchvalenoDoStart}
-        >
-          {pending ? "Ukládám…" : "Založit SCHVÁLENO DO · 13. 9."}
-        </button>
-        {startSchvalenoDoNastaven ? (
-          <p className="text-sm text-text-jemny" role="status">
-            Počáteční SCHVÁLENO DO nastaveno na 13. 9. 2026.
           </p>
         ) : null}
       </div>
