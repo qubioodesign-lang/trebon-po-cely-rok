@@ -1,6 +1,12 @@
 import "server-only";
 
-import { BlobNotFoundError, get, put } from "@vercel/blob";
+import {
+  BlobNotFoundError,
+  BlobPreconditionFailedError,
+  get,
+  head,
+  put,
+} from "@vercel/blob";
 import { unstable_noStore as noStore } from "next/cache";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 import {
@@ -17,6 +23,10 @@ import {
   type BranaNezarazenyNalez,
   type BranaNezarazenyScanKandidat,
 } from "./nezarazene";
+import {
+  zmenitNezarazeneDokumentAtomickySIo,
+  type BranaNezarazeneDokumentMutace,
+} from "./nezarazene-cas";
 
 /**
  * Samostatný PRIVATE Blob objekt – inbox nespárovaných scan nálezů.
@@ -34,6 +44,10 @@ export type NacistNezarazeneVysledek =
 type BlobCteniTextu =
   | { stav: "neexistuje" }
   | { stav: "ok"; text: string };
+
+type BlobCteniProZapis =
+  | { stav: "neexistuje" }
+  | { stav: "ok"; dokument: BranaNezarazeneDokument; etag: string };
 
 function zalogovatChybuCteni(duvod: string, error?: unknown): void {
   if (error === undefined) {
@@ -142,7 +156,67 @@ async function nacistTextZPrivateBlob(): Promise<BlobCteniTextu> {
   }
 }
 
-async function ulozitDokument(dokument: BranaNezarazeneDokument): Promise<void> {
+async function nacistDokumentSEtagProZapis(): Promise<BlobCteniProZapis> {
+  const volby = ziskatVolbyBranaAdminBlob();
+
+  if (!volby.token) {
+    throw new Error("Chybí BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.");
+  }
+
+  let etag: string;
+  try {
+    const meta = await head(BRANA_NEZARAZENE_BLOB_CESTA, volby);
+    if (typeof meta.etag !== "string" || meta.etag.length === 0) {
+      throw new Error(
+        "Nelze bezpečně uložit: Blob HEAD nevrátil etag. Nic nebylo změněno.",
+      );
+    }
+    etag = meta.etag;
+  } catch (error) {
+    if (error instanceof BlobNotFoundError) {
+      return { stav: "neexistuje" };
+    }
+    throw error;
+  }
+
+  try {
+    const vysledek = await get(BRANA_NEZARAZENE_BLOB_CESTA, {
+      access: "private",
+      useCache: false,
+      ...volby,
+    });
+
+    if (vysledek === null || !vysledek.stream) {
+      throw new Error("Blob zmizel mezi HEAD a GET. Nic nebylo uloženo.");
+    }
+
+    const text = await new Response(vysledek.stream).text();
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text) as unknown;
+    } catch {
+      throw new Error(BRANA_NEZARAZENE_CHYBA_CTENI);
+    }
+
+    const dokument = parsovatDokument(parsed);
+    if (!dokument) {
+      throw new Error(BRANA_NEZARAZENE_CHYBA_CTENI);
+    }
+
+    return { stav: "ok", dokument, etag };
+  } catch (error) {
+    if (error instanceof BlobNotFoundError) {
+      throw new Error("Blob zmizel mezi HEAD a GET. Nic nebylo uloženo.");
+    }
+    throw error;
+  }
+}
+
+async function ulozitDokumentSIfMatch(
+  dokument: BranaNezarazeneDokument,
+  etag: string | null,
+): Promise<void> {
   const volby = ziskatVolbyBranaAdminBlob();
 
   if (!volby.token) {
@@ -158,29 +232,26 @@ async function ulozitDokument(dokument: BranaNezarazeneDokument): Promise<void> 
     allowOverwrite: true,
     contentType: "application/json",
     cacheControlMaxAge: 0,
+    ...(etag !== null ? { ifMatch: etag } : {}),
   });
 }
 
-async function nacistDokumentProZapis(): Promise<BranaNezarazeneDokument> {
-  const cteni = await nacistTextZPrivateBlob();
-
-  if (cteni.stav === "neexistuje") {
-    return vychoziNezarazeneDokument();
-  }
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(cteni.text) as unknown;
-  } catch {
-    throw new Error(BRANA_NEZARAZENE_CHYBA_CTENI);
-  }
-
-  const dokument = parsovatDokument(parsed);
-  if (!dokument) {
-    throw new Error(BRANA_NEZARAZENE_CHYBA_CTENI);
-  }
-
-  return dokument;
+async function zmenitNezarazeneDokumentAtomicky<T>(
+  mutator: (
+    dokument: BranaNezarazeneDokument,
+  ) => BranaNezarazeneDokumentMutace<BranaNezarazeneDokument, T>,
+): Promise<T> {
+  return zmenitNezarazeneDokumentAtomickySIo(
+    {
+      nacist: nacistDokumentSEtagProZapis,
+      vychoziDokument: vychoziNezarazeneDokument,
+      validovat: (dokument) => parsovatDokument(dokument),
+      ulozit: ulozitDokumentSIfMatch,
+      jePreconditionChyba: (error) =>
+        error instanceof BlobPreconditionFailedError,
+    },
+    mutator,
+  );
 }
 
 async function nacistNezarazeneJadro(): Promise<NacistNezarazeneVysledek> {
@@ -247,17 +318,16 @@ async function ulozitNesparovaneJadro(args: {
     );
   }
 
-  const pred = await nacistDokumentProZapis();
-  const po = pridatNesparovaneDoNezarazenych(pred, {
-    ...args,
-    noveId: () => `nez-${crypto.randomUUID()}`,
+  await zmenitNezarazeneDokumentAtomicky((dokument) => {
+    const po = pridatNesparovaneDoNezarazenych(dokument, {
+      ...args,
+      noveId: () => `nez-${crypto.randomUUID()}`,
+    });
+    if (jeStejnyDokument(dokument, po)) {
+      return { typ: "bezZmeny", vysledek: undefined };
+    }
+    return { typ: "zapsat", dokument: po, vysledek: undefined };
   });
-
-  if (jeStejnyDokument(pred, po)) {
-    return;
-  }
-
-  await ulozitDokument(po);
 }
 
 async function vyresitPoMatchiJadro(
@@ -273,17 +343,16 @@ async function vyresitPoMatchiJadro(
     );
   }
 
-  const pred = await nacistDokumentProZapis();
-  const po = vyresitOtevreneNezarazenePodleKlicu(
-    pred,
-    uspesneZpracovaneKlice,
-  );
-
-  if (jeStejnyDokument(pred, po)) {
-    return;
-  }
-
-  await ulozitDokument(po);
+  await zmenitNezarazeneDokumentAtomicky((dokument) => {
+    const po = vyresitOtevreneNezarazenePodleKlicu(
+      dokument,
+      uspesneZpracovaneKlice,
+    );
+    if (jeStejnyDokument(dokument, po)) {
+      return { typ: "bezZmeny", vysledek: undefined };
+    }
+    return { typ: "zapsat", dokument: po, vysledek: undefined };
+  });
 }
 
 /**
@@ -337,12 +406,13 @@ async function smazatNezarazenyNalezJadro(id: string): Promise<void> {
     );
   }
 
-  const pred = await nacistDokumentProZapis();
-  const vysledek = smazatNezarazenyNalezVDokumentu(pred, id);
-  if ("chyba" in vysledek) {
-    throw new Error(vysledek.chyba);
-  }
-  await ulozitDokument(vysledek);
+  await zmenitNezarazeneDokumentAtomicky((dokument) => {
+    const vysledek = smazatNezarazenyNalezVDokumentu(dokument, id);
+    if ("chyba" in vysledek) {
+      throw new Error(vysledek.chyba);
+    }
+    return { typ: "zapsat", dokument: vysledek, vysledek: undefined };
+  });
 }
 
 /** Smazat z otevřených + paměť klíče (neblokuje budoucí MATCH→CEKA). */
