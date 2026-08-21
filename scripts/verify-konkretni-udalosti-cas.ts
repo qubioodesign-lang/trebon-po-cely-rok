@@ -216,33 +216,51 @@ function mutaceSchvalitKontrolu(
 
 class FalesnyBlob {
   dokument: Dokument;
-  etag: string;
+  /** Blob API metadata ETag — jediný povolený ifMatch. */
+  apiEtag: string;
+  /** Storage HTTP ETag z GET — nesmí se použít pro ifMatch. */
+  storageEtag: string;
+  heads = 0;
   gets = 0;
   puts = 0;
+  putIfMatch: Array<string | null> = [];
   vzdyPrecondition = false;
   putChyby: unknown[] = [];
 
-  constructor(dokument: Dokument, etag = "e1") {
+  constructor(dokument: Dokument, revize = 1) {
     this.dokument = klon(dokument);
-    this.etag = etag;
+    this.apiEtag = `"api-${revize}"`;
+    this.storageEtag = `W/"storage-${revize}"`;
+  }
+
+  get etag(): string {
+    return this.apiEtag;
   }
 
   resetCitace(): void {
+    this.heads = 0;
     this.gets = 0;
     this.puts = 0;
+    this.putIfMatch = [];
   }
 
   async nacist() {
+    this.heads += 1;
+    const apiEtag = this.apiEtag;
     this.gets += 1;
     return {
       stav: "ok" as const,
       dokument: klon(this.dokument),
-      etag: this.etag,
+      etag: apiEtag,
     };
   }
 
   async ulozit(dokument: Dokument, etag: string | null): Promise<void> {
     this.puts += 1;
+    this.putIfMatch.push(etag);
+    if (etag === this.storageEtag) {
+      throw new BlobPreconditionFailedError();
+    }
     if (this.vzdyPrecondition) {
       throw new BlobPreconditionFailedError();
     }
@@ -250,12 +268,14 @@ class FalesnyBlob {
     if (dalsi !== undefined) {
       throw dalsi;
     }
-    if (etag !== null && etag !== this.etag) {
+    if (etag !== null && etag !== this.apiEtag) {
       throw new BlobPreconditionFailedError();
     }
     this.dokument = klon(dokument);
-    const cislo = Number.parseInt(this.etag.slice(1), 10);
-    this.etag = `e${cislo + 1}`;
+    const cislo = Number.parseInt(this.apiEtag.replace(/\D/g, ""), 10) || 1;
+    const dalsiRevize = cislo + 1;
+    this.apiEtag = `"api-${dalsiRevize}"`;
+    this.storageEtag = `W/"storage-${dalsiRevize}"`;
   }
 
   io(): BranaCasIo<Dokument> {
@@ -287,6 +307,7 @@ async function zapsatSeStalymPrvnimCtenim(
     nacist: async () => {
       if (prvni) {
         prvni = false;
+        blob.heads += 1;
         blob.gets += 1;
         return {
           stav: "ok",
@@ -325,6 +346,21 @@ async function hlavni(): Promise<void> {
 
   {
     const blob = new FalesnyBlob(pocatek);
+    await zapsat(blob, mutaceSchvalit("id-a"));
+    assert(
+      blob.heads === 1 &&
+        blob.gets === 1 &&
+        blob.puts === 1 &&
+        blob.putIfMatch[0] === '"api-1"' &&
+        blob.putIfMatch[0] !== blob.storageEtag &&
+        blob.dokument.udalosti.find((u) => u.id === "id-a")?.stavSchvaleni ===
+          "SCHVALENO",
+      "A: běžný zápis = HEAD + GET + PUT(ifMatch z HEAD)",
+    );
+  }
+
+  {
+    const blob = new FalesnyBlob(pocatek);
     const revize = { dokument: klon(blob.dokument), etag: blob.etag };
     await zapsat(blob, mutaceSchvalit("id-a"));
     blob.resetCitace();
@@ -336,23 +372,12 @@ async function hlavni(): Promise<void> {
       stavy["id-a"] === "SCHVALENO" &&
         stavy["id-b"] === "SCHVALENO" &&
         stavy["id-c"] === "CEKA_NA_SCHVALENI" &&
+        blob.heads === 2 &&
         blob.gets === 2 &&
-        blob.puts === 2,
-      "A: stejná revize → první CAS uspěje, druhý 412, retry zachová obě změny",
-    );
-  }
-
-  {
-    const blob = new FalesnyBlob(pocatek);
-    await zapsat(blob, mutaceSchvalit("id-a"));
-    const poA = { dokument: klon(blob.dokument), etag: blob.etag };
-    const predB = { dokument: klon(pocatek), etag: "e1" };
-    await zapsatSeStalymPrvnimCtenim(blob, predB, mutaceSchvalit("id-b"));
-    await zapsatSeStalymPrvnimCtenim(blob, poA, mutaceSchvalit("id-c"));
-    const stavy = blob.dokument.udalosti.map((u) => u.stavSchvaleni);
-    assert(
-      stavy.every((s) => s === "SCHVALENO") && blob.dokument.udalosti.length === 3,
-      "B: tři rychlá Schválit různých id → žádná ztráta",
+        blob.puts === 2 &&
+        blob.putIfMatch[0] === '"api-1"' &&
+        blob.putIfMatch[1] === '"api-2"',
+      "B: HEAD e1, PUT e1 → 412, nový HEAD e2, PUT e2 → obě změny",
     );
   }
 
@@ -371,21 +396,21 @@ async function hlavni(): Promise<void> {
       filmA?.stavSchvaleni === "SCHVALENO" &&
         filmB?.nazev === "Film B upraven" &&
         filmB.stavSchvaleni === "CEKA_NA_SCHVALENI",
-      "C: Schválit + Upravit různého id → obě změny zůstanou",
+      "C: dvě souběžné různé změny → po retry obě zachovány",
     );
   }
 
   {
     const blob = new FalesnyBlob(pocatek);
-    const revize = { dokument: klon(blob.dokument), etag: blob.etag };
     await zapsat(blob, mutaceSchvalit("id-a"));
-    await zapsatSeStalymPrvnimCtenim(blob, revize, mutaceSkryt("id-b"));
+    const poA = { dokument: klon(blob.dokument), etag: blob.etag };
+    const predB = { dokument: klon(pocatek), etag: '"api-1"' };
+    await zapsatSeStalymPrvnimCtenim(blob, predB, mutaceSchvalit("id-b"));
+    await zapsatSeStalymPrvnimCtenim(blob, poA, mutaceSchvalit("id-c"));
+    const stavy = blob.dokument.udalosti.map((u) => u.stavSchvaleni);
     assert(
-      blob.dokument.udalosti.find((u) => u.id === "id-a")?.stavSchvaleni ===
-        "SCHVALENO" &&
-        !blob.dokument.udalosti.some((u) => u.id === "id-b") &&
-        blob.dokument.udalosti.some((u) => u.id === "id-c"),
-      "D: Schválit + Skrýt různého id → obě změny zůstanou",
+      stavy.every((s) => s === "SCHVALENO") && blob.dokument.udalosti.length === 3,
+      "D: 3× Schválit různých id → žádný lost update",
     );
   }
 
@@ -409,18 +434,7 @@ async function hlavni(): Promise<void> {
         blob.dokument.udalosti.some(
           (u) => u.nazev === "Nový ze scanu" && u.stavSchvaleni === "CEKA_NA_SCHVALENI",
         ),
-      "E: scan zápis + Admin zápis → žádný lost update",
-    );
-  }
-
-  {
-    const blob = new FalesnyBlob(pocatek);
-    const revize = { dokument: klon(blob.dokument), etag: blob.etag };
-    await zapsat(blob, mutaceSchvalitKontrolu(["id-a", "id-b"]));
-    await zapsatSeStalymPrvnimCtenim(blob, revize, mutaceSchvalit("id-c"));
-    assert(
-      blob.dokument.udalosti.every((u) => u.stavSchvaleni === "SCHVALENO"),
-      "F: Schválit kontrolu + jiný writer → žádný lost update",
+      "E: scan zápis + Admin writer → obě změny zachovány",
     );
   }
 
@@ -435,11 +449,12 @@ async function hlavni(): Promise<void> {
     }
     assert(
       chyba instanceof BranaCasKonfliktLimitError &&
+        blob.heads === BRANA_KONKRETNI_UDALOSTI_CAS_MAX_POKUSU &&
         blob.gets === BRANA_KONKRETNI_UDALOSTI_CAS_MAX_POKUSU &&
         blob.puts === BRANA_KONKRETNI_UDALOSTI_CAS_MAX_POKUSU &&
         blob.dokument.udalosti.find((u) => u.id === "id-a")?.stavSchvaleni ===
           "CEKA_NA_SCHVALENI",
-      "G: retry limit → fail-closed, dokument beze změny",
+      "F: 8 skutečných konfliktů → fail-closed",
     );
   }
 
@@ -456,23 +471,52 @@ async function hlavni(): Promise<void> {
       chyba instanceof Error &&
         chyba.message === "síťová chyba" &&
         !(chyba instanceof BranaCasKonfliktLimitError) &&
+        blob.heads === 1 &&
         blob.gets === 1 &&
         blob.puts === 1 &&
         blob.dokument.udalosti.find((u) => u.id === "id-a")?.stavSchvaleni ===
           "CEKA_NA_SCHVALENI",
-      "H: non-precondition chyba se nere-tryuje a failuje",
+      "G: jiná chyba se nere-tryuje a failuje",
     );
   }
 
   {
     const blob = new FalesnyBlob(pocatek);
     await zapsat(blob, mutaceSchvalit("id-a"));
+    const storageEtagPouzity = blob.putIfMatch.some(
+      (hodnota) => hodnota === `W/"storage-1"` || hodnota === blob.storageEtag,
+    );
     assert(
-      blob.gets === 1 &&
-        blob.puts === 1 &&
-        blob.dokument.udalosti.find((u) => u.id === "id-a")?.stavSchvaleni ===
-          "SCHVALENO",
-      "I: běžný zápis bez konfliktu = jeden GET + jeden PUT",
+      !storageEtagPouzity &&
+        blob.putIfMatch.every(
+          (hodnota) => typeof hodnota === "string" && hodnota.startsWith('"api-'),
+        ),
+      "H: ifMatch používá HEAD/API etag, ne storage GET etag",
+    );
+  }
+
+  {
+    const blob = new FalesnyBlob(pocatek);
+    const revize = { dokument: klon(blob.dokument), etag: blob.etag };
+    await zapsat(blob, mutaceSchvalit("id-a"));
+    await zapsatSeStalymPrvnimCtenim(blob, revize, mutaceSkryt("id-b"));
+    assert(
+      blob.dokument.udalosti.find((u) => u.id === "id-a")?.stavSchvaleni ===
+        "SCHVALENO" &&
+        !blob.dokument.udalosti.some((u) => u.id === "id-b") &&
+        blob.dokument.udalosti.some((u) => u.id === "id-c"),
+      "I: Schválit + Skrýt různého id → obě změny zůstanou",
+    );
+  }
+
+  {
+    const blob = new FalesnyBlob(pocatek);
+    const revize = { dokument: klon(blob.dokument), etag: blob.etag };
+    await zapsat(blob, mutaceSchvalitKontrolu(["id-a", "id-b"]));
+    await zapsatSeStalymPrvnimCtenim(blob, revize, mutaceSchvalit("id-c"));
+    assert(
+      blob.dokument.udalosti.every((u) => u.stavSchvaleni === "SCHVALENO"),
+      "I: Schválit kontrolu + jiný writer → žádný lost update",
     );
   }
 
@@ -501,9 +545,24 @@ async function hlavni(): Promise<void> {
       uloziste.includes("useCache: false") &&
       uloziste.includes("allowOverwrite: true") &&
       uloziste.includes("cacheControlMaxAge: 0") &&
+      uloziste.includes("await head(") &&
+      !uloziste.includes("etagZBlobCteni") &&
+      !uloziste.includes("blob.etag") &&
+      !uloziste.includes("vysledek.blob") &&
       !uloziste.includes("nacistDokumentProZapis") &&
       !uloziste.includes("await ulozitDokument("),
-    "zdroj: uloziste používá ifMatch / etag / čerstvý GET",
+    "zdroj: ifMatch z head().etag, GET jen tělo",
+  );
+
+  const teloNacist = teloFunkce(
+    uloziste,
+    "async function nacistDokumentSEtagProZapis",
+  );
+  const indexHead = teloNacist.indexOf("await head(");
+  const indexGet = teloNacist.indexOf("await get(");
+  assert(
+    indexHead >= 0 && indexGet > indexHead,
+    "zdroj: pořadí jednoho pokusu je HEAD → GET",
   );
 
   const writery = [

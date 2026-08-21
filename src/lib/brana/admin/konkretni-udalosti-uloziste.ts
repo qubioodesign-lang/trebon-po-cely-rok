@@ -4,6 +4,7 @@ import {
   BlobNotFoundError,
   BlobPreconditionFailedError,
   get,
+  head,
   put,
 } from "@vercel/blob";
 import { unstable_noStore as noStore } from "next/cache";
@@ -278,23 +279,27 @@ async function nacistTextZPrivateBlob(): Promise<BlobCteniTextu> {
   }
 }
 
-function etagZBlobCteni(vysledek: {
-  blob?: { etag?: string };
-}): string {
-  const etag = vysledek.blob?.etag;
-  if (typeof etag === "string" && etag.length > 0) {
-    return etag;
-  }
-  throw new Error(
-    "Nelze bezpečně uložit: Blob nevrátil etag. Nic nebylo změněno.",
-  );
-}
-
 async function nacistDokumentSEtagProZapis(): Promise<BlobCteniProZapis> {
   const volby = ziskatVolbyBranaAdminBlob();
 
   if (!volby.token) {
     throw new Error("Chybí BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.");
+  }
+
+  let etag: string;
+  try {
+    const meta = await head(BRANA_KONKRETNI_UDALOSTI_BLOB_CESTA, volby);
+    if (typeof meta.etag !== "string" || meta.etag.length === 0) {
+      throw new Error(
+        "Nelze bezpečně uložit: Blob HEAD nevrátil etag. Nic nebylo změněno.",
+      );
+    }
+    etag = meta.etag;
+  } catch (error) {
+    if (error instanceof BlobNotFoundError) {
+      return { stav: "neexistuje" };
+    }
+    throw error;
   }
 
   try {
@@ -304,15 +309,10 @@ async function nacistDokumentSEtagProZapis(): Promise<BlobCteniProZapis> {
       ...volby,
     });
 
-    if (vysledek === null) {
-      return { stav: "neexistuje" };
+    if (vysledek === null || !vysledek.stream) {
+      throw new Error("Blob zmizel mezi HEAD a GET. Nic nebylo uloženo.");
     }
 
-    if (!vysledek.stream) {
-      throw new Error("Blob get vrátil odpověď bez použitelného streamu.");
-    }
-
-    const etag = etagZBlobCteni(vysledek);
     const text = await new Response(vysledek.stream).text();
 
     let parsed: unknown;
@@ -331,7 +331,7 @@ async function nacistDokumentSEtagProZapis(): Promise<BlobCteniProZapis> {
     return { stav: "ok", dokument, etag };
   } catch (error) {
     if (error instanceof BlobNotFoundError) {
-      return { stav: "neexistuje" };
+      throw new Error("Blob zmizel mezi HEAD a GET. Nic nebylo uloženo.");
     }
     throw error;
   }

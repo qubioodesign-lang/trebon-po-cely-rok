@@ -36,8 +36,8 @@ function klonovatJson<T>(hodnota: T): T {
 }
 
 /**
- * 1. čerstvé čtení  2. mutator na kopii  3. validace
- * 4. PUT s ifMatch  5. BlobPreconditionFailed → znovu od kroku 1
+ * 1. čerstvé čtení (HEAD etag + GET tělo)  2. mutator na kopii  3. validace
+ * 4. PUT s ifMatch z HEAD  5. BlobPreconditionFailed → znovu od HEAD
  * Jiná chyba → okamžitě fail. Limit pokusů → fail-closed.
  */
 export async function zmenitDokumentAtomickySIo<TDokument, TVysledek>(
