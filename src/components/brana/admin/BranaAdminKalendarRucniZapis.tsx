@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  nacistSkutecnyStavObdobiAkce,
   oznacitPosledniScanDokoncenAkce,
   pridatRucniKonkretniUdalostAkce,
   schvalitKonkretniUdalostAkce,
@@ -27,6 +28,7 @@ import {
   type BranaKonkretniUdalost,
 } from "@/lib/brana/admin/konkretni-udalost";
 import { jeStrukturovanyVerejnyZapis } from "@/lib/brana/admin/redakcni-override";
+import type { BranaSkutecnyStavVysledek } from "@/lib/brana/admin/skutecny-stav-obdobi";
 
 const VSTUP =
   "w-full border border-text-velmiJemny/25 bg-transparent px-1.5 py-1 text-sm text-text outline-none focus:border-text-jemny/50";
@@ -395,6 +397,8 @@ export function BranaAdminKalendarRucniZapis({
   const [rucniPoziceVDni, setRucniPoziceVDni] = useState(0);
   const [chyba, setChyba] = useState<string | null>(null);
   const [zprava, setZprava] = useState<string | null>(null);
+  const [skutecnyStav, setSkutecnyStav] =
+    useState<BranaSkutecnyStavVysledek | null>(null);
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -755,6 +759,19 @@ export function BranaAdminKalendarRucniZapis({
     });
   }
 
+  function zobrazitSkutecnyStavObdobi() {
+    setChyba(null);
+    setZprava(null);
+    startTransition(async () => {
+      const vysledek = await nacistSkutecnyStavObdobiAkce();
+      if (!vysledek.uspech) {
+        setChyba(vysledek.chyba);
+        return;
+      }
+      setSkutecnyStav(vysledek.stav);
+    });
+  }
+
   function oznacitScan() {
     setChyba(null);
     setZprava(null);
@@ -771,6 +788,58 @@ export function BranaAdminKalendarRucniZapis({
 
   return (
     <div className="space-y-3">
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={zobrazitSkutecnyStavObdobi}
+          disabled={pending}
+          className="text-sm font-light text-text-jemny underline-offset-2 hover:underline disabled:opacity-50"
+        >
+          {pending ? "Načítám…" : "Zobrazit skutečný stav 21.–28. 8."}
+        </button>
+        {skutecnyStav ? (
+          <div
+            className="space-y-2 border border-text-velmiJemny/15 p-2 text-sm text-text"
+            role="status"
+          >
+            <p>
+              SCHVALENO: {skutecnyStav.souhrn.SCHVALENO} · CEKA:{" "}
+              {skutecnyStav.souhrn.CEKA} · VYRAZENO:{" "}
+              {skutecnyStav.souhrn.VYRAZENO} · JINE: {skutecnyStav.souhrn.JINE}
+            </p>
+            <ul className="space-y-1">
+              {skutecnyStav.polozky.map((polozka) => (
+                <li key={polozka.id}>
+                  {polozka.datumOd}
+                  {polozka.datumDo !== polozka.datumOd
+                    ? `–${polozka.datumDo}`
+                    : ""}{" "}
+                  {polozka.cas} · {polozka.nazev} · {polozka.stavSchvaleni} ·{" "}
+                  {polozka.id}
+                  {polozka.redakcniPolozkaId
+                    ? ` · ${polozka.redakcniPolozkaId}`
+                    : ""}
+                  {polozka.typZdroje ? ` · ${polozka.typZdroje}` : ""}
+                </li>
+              ))}
+            </ul>
+            <p>CEKA položky:</p>
+            {skutecnyStav.ceka.length === 0 ? (
+              <p>žádné</p>
+            ) : (
+              <ul className="space-y-1">
+                {skutecnyStav.ceka.map((polozka) => (
+                  <li key={`ceka-${polozka.id}`}>
+                    {polozka.datumOd} {polozka.cas} · {polozka.nazev} ·{" "}
+                    {polozka.id} · {polozka.stavSchvaleni}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : null}
+      </div>
+
       {rucniZapisPovolen && !posledniScanDokoncen ? (
         <div className="space-y-2">
           <p className="text-sm text-text-jemny">

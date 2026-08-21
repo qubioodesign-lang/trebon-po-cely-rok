@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 import type { BranaKonkretniUdalost } from "@/lib/brana/admin/konkretni-udalost";
 import {
+  BRANA_KONKRETNI_UDALOSTI_CHYBA_CTENI,
+  nacistKonkretniUdalosti,
   nastavitPosledniScanDokoncen,
   pridatRucniKonkretniUdalost,
   schvalitKonkretniUdalost,
@@ -14,6 +16,10 @@ import {
   upravitRucniKonkretniUdalost,
   vyrazitAutomatickouCekaUdalost,
 } from "@/lib/brana/admin/konkretni-udalosti-uloziste";
+import {
+  sestavSkutecnyStavObdobi,
+  type BranaSkutecnyStavVysledek,
+} from "@/lib/brana/admin/skutecny-stav-obdobi";
 import { sestavPevnyKontrolniBlok } from "@/lib/brana/admin/kontrolni-blok";
 import { ulozitRedakcniPoradi, nacistRedakcniPoradi } from "@/lib/brana/admin/redakcni-poradi-uloziste";
 import { validovatRedakcniPoradiVstup } from "@/lib/brana/admin/redakcni-poradi-validace";
@@ -70,6 +76,10 @@ export type BranaScanStavVysledek =
 
 export type BranaSchvalitKontroluVysledek =
   | { uspech: true; pocetSchvalenych: number }
+  | { uspech: false; chyba: string };
+
+export type BranaSkutecnyStavObdobiAkceVysledek =
+  | { uspech: true; stav: BranaSkutecnyStavVysledek }
   | { uspech: false; chyba: string };
 
 export type BranaZdrojeIntervalVysledek =
@@ -224,6 +234,23 @@ export async function smazatRucniKonkretniUdalostAkce(
       chyba: detail ?? "Událost se nepodařilo smazat.",
     };
   }
+}
+
+/** Dočasný READ-ONLY výpis skutečného stavu 21.–28. 8. Žádný zápis, žádná revalidace. */
+export async function nacistSkutecnyStavObdobiAkce(): Promise<BranaSkutecnyStavObdobiAkceVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  const cteni = await nacistKonkretniUdalosti();
+  if (!cteni.ok) {
+    return { uspech: false, chyba: BRANA_KONKRETNI_UDALOSTI_CHYBA_CTENI };
+  }
+
+  return {
+    uspech: true,
+    stav: sestavSkutecnyStavObdobi(cteni.udalosti),
+  };
 }
 
 /** Schválí persistovanou událost: CEKA_NA_SCHVALENI → SCHVALENO */
