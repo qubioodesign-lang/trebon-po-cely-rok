@@ -1,6 +1,12 @@
 import "server-only";
 
-import { BlobNotFoundError, get, put } from "@vercel/blob";
+import {
+  BlobNotFoundError,
+  BlobPreconditionFailedError,
+  get,
+  head,
+  put,
+} from "@vercel/blob";
 import { unstable_noStore as noStore } from "next/cache";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 import {
@@ -23,6 +29,10 @@ import {
   type BranaRadarPracovniStopa,
   type BranaRadarScanKandidatVstup,
 } from "./radar";
+import {
+  zmenitRadarDokumentAtomickySIo,
+  type BranaRadarDokumentMutace,
+} from "./radar-cas";
 
 /**
  * Samostatný PRIVATE Blob objekt výzkumného RADARU.
@@ -40,6 +50,10 @@ export type NacistRadarVysledek =
 type BlobCteniTextu =
   | { stav: "neexistuje" }
   | { stav: "ok"; text: string };
+
+type BlobCteniProZapis =
+  | { stav: "neexistuje" }
+  | { stav: "ok"; dokument: BranaRadarDokument; etag: string };
 
 function zalogovatChybuCteni(duvod: string, error?: unknown): void {
   if (error === undefined) {
@@ -80,7 +94,67 @@ async function nacistTextZPrivateBlob(): Promise<BlobCteniTextu> {
   }
 }
 
-async function ulozitDokument(dokument: BranaRadarDokument): Promise<void> {
+async function nacistDokumentSEtagProZapis(): Promise<BlobCteniProZapis> {
+  const volby = ziskatVolbyBranaAdminBlob();
+
+  if (!volby.token) {
+    throw new Error("Chybí BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.");
+  }
+
+  let etag: string;
+  try {
+    const meta = await head(BRANA_RADAR_BLOB_CESTA, volby);
+    if (typeof meta.etag !== "string" || meta.etag.length === 0) {
+      throw new Error(
+        "Nelze bezpečně uložit: Blob HEAD nevrátil etag. Nic nebylo změněno.",
+      );
+    }
+    etag = meta.etag;
+  } catch (error) {
+    if (error instanceof BlobNotFoundError) {
+      return { stav: "neexistuje" };
+    }
+    throw error;
+  }
+
+  try {
+    const vysledek = await get(BRANA_RADAR_BLOB_CESTA, {
+      access: "private",
+      useCache: false,
+      ...volby,
+    });
+
+    if (vysledek === null || !vysledek.stream) {
+      throw new Error("Blob zmizel mezi HEAD a GET. Nic nebylo uloženo.");
+    }
+
+    const text = await new Response(vysledek.stream).text();
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text) as unknown;
+    } catch {
+      throw new Error(BRANA_RADAR_CHYBA_CTENI);
+    }
+
+    const dokument = parsovatRadarDokument(parsed);
+    if (!dokument) {
+      throw new Error(BRANA_RADAR_CHYBA_CTENI);
+    }
+
+    return { stav: "ok", dokument, etag };
+  } catch (error) {
+    if (error instanceof BlobNotFoundError) {
+      throw new Error("Blob zmizel mezi HEAD a GET. Nic nebylo uloženo.");
+    }
+    throw error;
+  }
+}
+
+async function ulozitDokumentSIfMatch(
+  dokument: BranaRadarDokument,
+  etag: string | null,
+): Promise<void> {
   const volby = ziskatVolbyBranaAdminBlob();
 
   if (!volby.token) {
@@ -96,33 +170,51 @@ async function ulozitDokument(dokument: BranaRadarDokument): Promise<void> {
     allowOverwrite: true,
     contentType: "application/json",
     cacheControlMaxAge: 0,
+    ...(etag !== null ? { ifMatch: etag } : {}),
   });
+}
+
+async function zmenitRadarDokumentAtomicky<T>(
+  mutator: (
+    dokument: BranaRadarDokument,
+  ) => BranaRadarDokumentMutace<BranaRadarDokument, T>,
+): Promise<T> {
+  return zmenitRadarDokumentAtomickySIo(
+    {
+      nacist: nacistDokumentSEtagProZapis,
+      vychoziDokument: vychoziRadarDokument,
+      validovat: (dokument) => parsovatRadarDokument(dokument),
+      ulozit: ulozitDokumentSIfMatch,
+      jePreconditionChyba: (error) =>
+        error instanceof BlobPreconditionFailedError,
+    },
+    mutator,
+  );
 }
 
 function ukliditDokument(dokument: BranaRadarDokument): BranaRadarDokument {
   return uklidRadarDokument(dokument, radarDnesIso());
 }
 
-async function nacistDokumentProZapis(): Promise<BranaRadarDokument> {
+async function nacistRadarJenCteniUklidene(): Promise<NacistRadarVysledek> {
   const cteni = await nacistTextZPrivateBlob();
-
   if (cteni.stav === "neexistuje") {
-    return vychoziRadarDokument();
+    return { ok: true, pracovni: [] };
   }
-
   let parsed: unknown;
   try {
     parsed = JSON.parse(cteni.text) as unknown;
-  } catch {
-    throw new Error(BRANA_RADAR_CHYBA_CTENI);
+  } catch (error) {
+    zalogovatChybuCteni("neplatný JSON", error);
+    return { ok: false };
   }
-
   const dokument = parsovatRadarDokument(parsed);
   if (!dokument) {
-    throw new Error(BRANA_RADAR_CHYBA_CTENI);
+    zalogovatChybuCteni("neplatný tvar dokumentu");
+    return { ok: false };
   }
-
-  return ukliditDokument(dokument);
+  const uklizeny = ukliditDokument(dokument);
+  return { ok: true, pracovni: seraditPracovniStopy(uklizeny.pracovni) };
 }
 
 async function nacistRadarJadro(): Promise<NacistRadarVysledek> {
@@ -134,34 +226,22 @@ async function nacistRadarJadro(): Promise<NacistRadarVysledek> {
   }
 
   try {
-    const cteni = await nacistTextZPrivateBlob();
-    if (cteni.stav === "neexistuje") {
-      return { ok: true, pracovni: [] };
-    }
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(cteni.text) as unknown;
-    } catch (error) {
-      zalogovatChybuCteni("neplatný JSON", error);
-      return { ok: false };
-    }
-    const dokument = parsovatRadarDokument(parsed);
-    if (!dokument) {
-      zalogovatChybuCteni("neplatný tvar dokumentu");
-      return { ok: false };
-    }
-    const uklizeny = ukliditDokument(dokument);
-    if (!jeStejnyRadarDokument(dokument, uklizeny)) {
-      try {
-        await ulozitDokument(uklizeny);
-      } catch (error) {
-        zalogovatChybuCteni("úklid se neuložil", error);
+    const dokument = await zmenitRadarDokumentAtomicky((surovy) => {
+      const uklizeny = ukliditDokument(surovy);
+      if (jeStejnyRadarDokument(surovy, uklizeny)) {
+        return { typ: "bezZmeny", vysledek: uklizeny };
       }
-    }
-    return { ok: true, pracovni: seraditPracovniStopy(uklizeny.pracovni) };
+      return { typ: "zapsat", dokument: uklizeny, vysledek: uklizeny };
+    });
+    return { ok: true, pracovni: seraditPracovniStopy(dokument.pracovni) };
   } catch (error) {
-    zalogovatChybuCteni("selhalo čtení", error);
-    return { ok: false };
+    zalogovatChybuCteni("úklid se neuložil", error);
+    try {
+      return await nacistRadarJenCteniUklidene();
+    } catch (cteniError) {
+      zalogovatChybuCteni("selhalo čtení", cteniError);
+      return { ok: false };
+    }
   }
 }
 
@@ -185,17 +265,17 @@ async function pridatRucniNalezJadro(vstup: unknown): Promise<void> {
     );
   }
 
-  const pred = await nacistDokumentProZapis();
-  const po = pridatRucniNalezDoHistorie(pred, validace.nalez, {
-    noveId: () => `radar-${crypto.randomUUID()}`,
-    tedIso: new Date().toISOString(),
+  await zmenitRadarDokumentAtomicky((surovy) => {
+    const uklizeny = ukliditDokument(surovy);
+    const po = pridatRucniNalezDoHistorie(uklizeny, validace.nalez, {
+      noveId: () => `radar-${crypto.randomUUID()}`,
+      tedIso: new Date().toISOString(),
+    });
+    if (jeStejnyRadarDokument(surovy, po)) {
+      return { typ: "bezZmeny", vysledek: undefined };
+    }
+    return { typ: "zapsat", dokument: po, vysledek: undefined };
   });
-
-  if (jeStejnyRadarDokument(pred, po)) {
-    return;
-  }
-
-  await ulozitDokument(po);
 }
 
 /** Uloží ruční nález pouze do historie RADARU. Kalendář nemění. */
@@ -213,14 +293,16 @@ async function pouzitRadarStopuJadro(id: string): Promise<void> {
     );
   }
 
-  const pred = await nacistDokumentProZapis();
-  const po = pouzitRadarStopu(pred, id, {
-    tedIso: new Date().toISOString(),
+  await zmenitRadarDokumentAtomicky((surovy) => {
+    const uklizeny = ukliditDokument(surovy);
+    const po = pouzitRadarStopu(uklizeny, id, {
+      tedIso: new Date().toISOString(),
+    });
+    if ("chyba" in po) {
+      throw new Error(po.chyba);
+    }
+    return { typ: "zapsat", dokument: po, vysledek: undefined };
   });
-  if ("chyba" in po) {
-    throw new Error(po.chyba);
-  }
-  await ulozitDokument(po);
 }
 
 /** Použít: historie RADAR_POUZITO + otisk. Kalendář nemění. */
@@ -238,12 +320,14 @@ async function smazatRadarStopuJadro(id: string): Promise<void> {
     );
   }
 
-  const pred = await nacistDokumentProZapis();
-  const po = smazatRadarStopu(pred, id);
-  if ("chyba" in po) {
-    throw new Error(po.chyba);
-  }
-  await ulozitDokument(po);
+  await zmenitRadarDokumentAtomicky((surovy) => {
+    const uklizeny = ukliditDokument(surovy);
+    const po = smazatRadarStopu(uklizeny, id);
+    if ("chyba" in po) {
+      throw new Error(po.chyba);
+    }
+    return { typ: "zapsat", dokument: po, vysledek: undefined };
+  });
 }
 
 /** Smazat: jen otisk, bez historie. Kalendář nemění. */
@@ -268,17 +352,17 @@ export async function zapsatRadarScanProScheduler(
     );
   }
 
-  const pred = await nacistDokumentProZapis();
-  const po = zapsatRadarScanDoDokumentu(pred, kandidati, {
-    tedIso: args.tedIso,
-    noveId: () => `radar-${crypto.randomUUID()}`,
-    dnesIso: radarDnesIso(),
-    behDokoncen: true,
+  await zmenitRadarDokumentAtomicky((surovy) => {
+    const uklizeny = ukliditDokument(surovy);
+    const po = zapsatRadarScanDoDokumentu(uklizeny, kandidati, {
+      tedIso: args.tedIso,
+      noveId: () => `radar-${crypto.randomUUID()}`,
+      dnesIso: radarDnesIso(),
+      behDokoncen: true,
+    });
+    if (jeStejnyRadarDokument(surovy, po)) {
+      return { typ: "bezZmeny", vysledek: undefined };
+    }
+    return { typ: "zapsat", dokument: po, vysledek: undefined };
   });
-
-  if (jeStejnyRadarDokument(pred, po)) {
-    return;
-  }
-
-  await ulozitDokument(po);
 }
