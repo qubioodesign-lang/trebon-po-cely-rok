@@ -1,12 +1,21 @@
 import "server-only";
 
-import { BlobNotFoundError, get, put } from "@vercel/blob";
+import {
+  BlobNotFoundError,
+  BlobPreconditionFailedError,
+  get,
+  put,
+} from "@vercel/blob";
 import { unstable_noStore as noStore } from "next/cache";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 import {
   maBranaAdminBlobKonfiguraci,
   ziskatVolbyBranaAdminBlob,
 } from "./env-blob-brana-admin";
+import {
+  zmenitDokumentAtomickySIo,
+  type BranaDokumentMutace,
+} from "./konkretni-udalosti-cas";
 import {
   jeBranaStavSchvaleni,
   normalizovatStavSchvaleni,
@@ -65,6 +74,10 @@ export type NacistKonkretniUdalostiVysledek =
 type BlobCteniTextu =
   | { stav: "neexistuje" }
   | { stav: "ok"; text: string };
+
+type BlobCteniProZapis =
+  | { stav: "neexistuje" }
+  | { stav: "ok"; dokument: BranaKonkretniUdalostiDokument; etag: string };
 
 function zalogovatChybuCteni(duvod: string, error?: unknown): void {
   if (error === undefined) {
@@ -265,8 +278,68 @@ async function nacistTextZPrivateBlob(): Promise<BlobCteniTextu> {
   }
 }
 
-async function ulozitDokument(
+function etagZBlobCteni(vysledek: {
+  blob?: { etag?: string };
+}): string {
+  const etag = vysledek.blob?.etag;
+  if (typeof etag === "string" && etag.length > 0) {
+    return etag;
+  }
+  throw new Error(
+    "Nelze bezpečně uložit: Blob nevrátil etag. Nic nebylo změněno.",
+  );
+}
+
+async function nacistDokumentSEtagProZapis(): Promise<BlobCteniProZapis> {
+  const volby = ziskatVolbyBranaAdminBlob();
+
+  if (!volby.token) {
+    throw new Error("Chybí BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.");
+  }
+
+  try {
+    const vysledek = await get(BRANA_KONKRETNI_UDALOSTI_BLOB_CESTA, {
+      access: "private",
+      useCache: false,
+      ...volby,
+    });
+
+    if (vysledek === null) {
+      return { stav: "neexistuje" };
+    }
+
+    if (!vysledek.stream) {
+      throw new Error("Blob get vrátil odpověď bez použitelného streamu.");
+    }
+
+    const etag = etagZBlobCteni(vysledek);
+    const text = await new Response(vysledek.stream).text();
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text) as unknown;
+    } catch (error) {
+      zalogovatChybuCteni("neplatný JSON při zápisu", error);
+      throw new Error(BRANA_KONKRETNI_UDALOSTI_CHYBA_CTENI);
+    }
+
+    const dokument = parsovatDokument(parsed);
+    if (!dokument) {
+      throw new Error(BRANA_KONKRETNI_UDALOSTI_CHYBA_CTENI);
+    }
+
+    return { stav: "ok", dokument, etag };
+  } catch (error) {
+    if (error instanceof BlobNotFoundError) {
+      return { stav: "neexistuje" };
+    }
+    throw error;
+  }
+}
+
+async function ulozitDokumentSIfMatch(
   dokument: BranaKonkretniUdalostiDokument,
+  etag: string | null,
 ): Promise<void> {
   const volby = ziskatVolbyBranaAdminBlob();
 
@@ -286,7 +359,26 @@ async function ulozitDokument(
       allowOverwrite: true,
       contentType: "application/json",
       cacheControlMaxAge: 0,
+      ...(etag !== null ? { ifMatch: etag } : {}),
     },
+  );
+}
+
+async function zmenitDokumentAtomicky<T>(
+  mutator: (
+    dokument: BranaKonkretniUdalostiDokument,
+  ) => BranaDokumentMutace<BranaKonkretniUdalostiDokument, T>,
+): Promise<T> {
+  return zmenitDokumentAtomickySIo(
+    {
+      nacist: nacistDokumentSEtagProZapis,
+      vychoziDokument,
+      validovat: (dokument) => parsovatDokument(dokument),
+      ulozit: ulozitDokumentSIfMatch,
+      jePreconditionChyba: (error) =>
+        error instanceof BlobPreconditionFailedError,
+    },
+    mutator,
   );
 }
 
@@ -346,27 +438,6 @@ export async function nacistKonkretniUdalosti(): Promise<NacistKonkretniUdalosti
   }
 }
 
-async function nacistDokumentProZapis(): Promise<BranaKonkretniUdalostiDokument> {
-  const cteni = await nacistTextZPrivateBlob();
-  if (cteni.stav === "neexistuje") {
-    return vychoziDokument();
-  }
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(cteni.text) as unknown;
-  } catch (error) {
-    zalogovatChybuCteni("neplatný JSON při zápisu", error);
-    throw new Error(BRANA_KONKRETNI_UDALOSTI_CHYBA_CTENI);
-  }
-
-  const dokument = parsovatDokument(parsed);
-  if (!dokument) {
-    throw new Error(BRANA_KONKRETNI_UDALOSTI_CHYBA_CTENI);
-  }
-  return dokument;
-}
-
 /** Nastaví stav „poslední scan dokončen“ – bez falešného scanu Zdrojů. */
 export async function nastavitPosledniScanDokoncen(
   dokoncen: boolean,
@@ -381,9 +452,10 @@ export async function nastavitPosledniScanDokoncen(
     );
   }
 
-  const dokument = await nacistDokumentProZapis();
-  dokument.posledniScanDokoncen = dokoncen;
-  await ulozitDokument(dokument);
+  await zmenitDokumentAtomicky((dokument) => {
+    dokument.posledniScanDokoncen = dokoncen;
+    return { typ: "zapsat", dokument, vysledek: undefined };
+  });
 }
 
 /** Přidá jednu ruční konkrétní událost. Ukázková data se nezapisují. */
@@ -405,22 +477,21 @@ export async function pridatRucniKonkretniUdalost(
     throw new Error(validace.chyba);
   }
 
-  const dokument = await nacistDokumentProZapis();
+  return zmenitDokumentAtomicky((dokument) => {
+    if (!dokument.posledniScanDokoncen) {
+      throw new Error(
+        "Ruční zápis je dostupný až po dokončení posledního scanu.",
+      );
+    }
 
-  if (!dokument.posledniScanDokoncen) {
-    throw new Error(
-      "Ruční zápis je dostupný až po dokončení posledního scanu.",
-    );
-  }
+    const nova: BranaKonkretniUdalost = {
+      id: `rucni-${crypto.randomUUID()}`,
+      ...validace.udalost,
+    };
 
-  const nova: BranaKonkretniUdalost = {
-    id: `rucni-${crypto.randomUUID()}`,
-    ...validace.udalost,
-  };
-
-  dokument.udalosti = [...dokument.udalosti, nova];
-  await ulozitDokument(dokument);
-  return nova;
+    dokument.udalosti = [...dokument.udalosti, nova];
+    return { typ: "zapsat", dokument, vysledek: nova };
+  });
 }
 
 /**
@@ -451,35 +522,29 @@ export async function upravitRucniKonkretniUdalost(
     throw new Error(validace.chyba);
   }
 
-  const dokument = await nacistDokumentProZapis();
+  return zmenitDokumentAtomicky((dokument) => {
+    if (!dokument.posledniScanDokoncen) {
+      throw new Error(
+        "Ruční zápis je dostupný až po dokončení posledního scanu.",
+      );
+    }
 
-  if (!dokument.posledniScanDokoncen) {
-    throw new Error(
-      "Ruční zápis je dostupný až po dokončení posledního scanu.",
-    );
-  }
+    const index = dokument.udalosti.findIndex((u) => u.id === idTrim);
+    if (index < 0) {
+      throw new Error("Ruční událost nebyla nalezena.");
+    }
 
-  const index = dokument.udalosti.findIndex((u) => u.id === idTrim);
-  if (index < 0) {
-    throw new Error("Ruční událost nebyla nalezena.");
-  }
+    const aktualizovana: BranaKonkretniUdalost = {
+      id: idTrim,
+      ...validace.udalost,
+    };
 
-  const aktualizovana: BranaKonkretniUdalost = {
-    id: idTrim,
-    ...validace.udalost,
-  };
+    const noveUdalosti = dokument.udalosti.slice();
+    noveUdalosti[index] = aktualizovana;
+    dokument.udalosti = noveUdalosti;
 
-  const noveUdalosti = dokument.udalosti.slice();
-  noveUdalosti[index] = aktualizovana;
-  dokument.udalosti = noveUdalosti;
-
-  const overeni = parsovatDokument(dokument);
-  if (!overeni) {
-    throw new Error("Výsledný dokument neprošel validací. Nic nebylo uloženo.");
-  }
-
-  await ulozitDokument(overeni);
-  return aktualizovana;
+    return { typ: "zapsat", dokument, vysledek: aktualizovana };
+  });
 }
 
 /**
@@ -502,28 +567,22 @@ export async function smazatRucniKonkretniUdalost(id: string): Promise<void> {
     throw new Error("Chybí id události.");
   }
 
-  const dokument = await nacistDokumentProZapis();
+  await zmenitDokumentAtomicky((dokument) => {
+    if (!dokument.posledniScanDokoncen) {
+      throw new Error(
+        "Ruční zápis je dostupný až po dokončení posledního scanu.",
+      );
+    }
 
-  if (!dokument.posledniScanDokoncen) {
-    throw new Error(
-      "Ruční zápis je dostupný až po dokončení posledního scanu.",
-    );
-  }
+    const pred = dokument.udalosti.length;
+    const noveUdalosti = dokument.udalosti.filter((u) => u.id !== idTrim);
+    if (noveUdalosti.length === pred) {
+      throw new Error("Ruční událost nebyla nalezena.");
+    }
 
-  const pred = dokument.udalosti.length;
-  const noveUdalosti = dokument.udalosti.filter((u) => u.id !== idTrim);
-  if (noveUdalosti.length === pred) {
-    throw new Error("Ruční událost nebyla nalezena.");
-  }
-
-  dokument.udalosti = noveUdalosti;
-
-  const overeni = parsovatDokument(dokument);
-  if (!overeni) {
-    throw new Error("Výsledný dokument neprošel validací. Nic nebylo uloženo.");
-  }
-
-  await ulozitDokument(overeni);
+    dokument.udalosti = noveUdalosti;
+    return { typ: "zapsat", dokument, vysledek: undefined };
+  });
 }
 
 /**
@@ -550,36 +609,31 @@ export async function schvalitKonkretniUdalost(
     throw new Error("Chybí id události.");
   }
 
-  const dokument = await nacistDokumentProZapis();
-  const index = dokument.udalosti.findIndex((u) => u.id === idTrim);
-  if (index < 0) {
-    throw new Error("Událost nebyla nalezena.");
-  }
+  return zmenitDokumentAtomicky((dokument) => {
+    const index = dokument.udalosti.findIndex((u) => u.id === idTrim);
+    if (index < 0) {
+      throw new Error("Událost nebyla nalezena.");
+    }
 
-  const existujici = dokument.udalosti[index];
-  if (existujici.stavSchvaleni === "SCHVALENO") {
-    return existujici;
-  }
-  if (existujici.stavSchvaleni !== "CEKA_NA_SCHVALENI") {
-    throw new Error("Událost nelze schválit.");
-  }
+    const existujici = dokument.udalosti[index];
+    if (existujici.stavSchvaleni === "SCHVALENO") {
+      return { typ: "bezZmeny", vysledek: existujici };
+    }
+    if (existujici.stavSchvaleni !== "CEKA_NA_SCHVALENI") {
+      throw new Error("Událost nelze schválit.");
+    }
 
-  const schvalena: BranaKonkretniUdalost = {
-    ...existujici,
-    stavSchvaleni: "SCHVALENO",
-  };
+    const schvalena: BranaKonkretniUdalost = {
+      ...existujici,
+      stavSchvaleni: "SCHVALENO",
+    };
 
-  const noveUdalosti = dokument.udalosti.slice();
-  noveUdalosti[index] = schvalena;
-  dokument.udalosti = noveUdalosti;
+    const noveUdalosti = dokument.udalosti.slice();
+    noveUdalosti[index] = schvalena;
+    dokument.udalosti = noveUdalosti;
 
-  const overeni = parsovatDokument(dokument);
-  if (!overeni) {
-    throw new Error("Výsledný dokument neprošel validací. Nic nebylo uloženo.");
-  }
-
-  await ulozitDokument(overeni);
-  return schvalena;
+    return { typ: "zapsat", dokument, vysledek: schvalena };
+  });
 }
 
 /**
@@ -621,46 +675,45 @@ export async function schvalitKontroluKonkretnichUdalosti(
     throw new Error("Chybí id událostí ke schválení.");
   }
 
-  const dokument = await nacistDokumentProZapis();
-  const podleId = new Map(dokument.udalosti.map((u) => [u.id, u] as const));
-  const indexyKeSchvaleni: number[] = [];
+  return zmenitDokumentAtomicky((dokument) => {
+    const podleId = new Map(dokument.udalosti.map((u) => [u.id, u] as const));
+    const indexyKeSchvaleni: number[] = [];
 
-  for (const id of unikani) {
-    const existujici = podleId.get(id);
-    if (!existujici) {
-      throw new Error(
-        "Kontrolu nelze schválit: některá událost nebyla nalezena. Nic nebylo uloženo.",
-      );
+    for (const id of unikani) {
+      const existujici = podleId.get(id);
+      if (!existujici) {
+        throw new Error(
+          "Kontrolu nelze schválit: některá událost nebyla nalezena. Nic nebylo uloženo.",
+        );
+      }
+      const duvod = duvodZamitnutiUdalostiProSchvalitKontrolu(existujici);
+      if (duvod) {
+        throw new Error(duvod);
+      }
+      const index = dokument.udalosti.findIndex((u) => u.id === id);
+      if (index < 0) {
+        throw new Error(
+          "Kontrolu nelze schválit: některá událost nebyla nalezena. Nic nebylo uloženo.",
+        );
+      }
+      indexyKeSchvaleni.push(index);
     }
-    const duvod = duvodZamitnutiUdalostiProSchvalitKontrolu(existujici);
-    if (duvod) {
-      throw new Error(duvod);
-    }
-    const index = dokument.udalosti.findIndex((u) => u.id === id);
-    if (index < 0) {
-      throw new Error(
-        "Kontrolu nelze schválit: některá událost nebyla nalezena. Nic nebylo uloženo.",
-      );
-    }
-    indexyKeSchvaleni.push(index);
-  }
 
-  const noveUdalosti = dokument.udalosti.slice();
-  for (const index of indexyKeSchvaleni) {
-    noveUdalosti[index] = {
-      ...noveUdalosti[index],
-      stavSchvaleni: "SCHVALENO",
+    const noveUdalosti = dokument.udalosti.slice();
+    for (const index of indexyKeSchvaleni) {
+      noveUdalosti[index] = {
+        ...noveUdalosti[index],
+        stavSchvaleni: "SCHVALENO",
+      };
+    }
+    dokument.udalosti = noveUdalosti;
+
+    return {
+      typ: "zapsat",
+      dokument,
+      vysledek: { pocetSchvalenych: indexyKeSchvaleni.length },
     };
-  }
-  dokument.udalosti = noveUdalosti;
-
-  const overeni = parsovatDokument(dokument);
-  if (!overeni) {
-    throw new Error("Výsledný dokument neprošel validací. Nic nebylo uloženo.");
-  }
-
-  await ulozitDokument(overeni);
-  return { pocetSchvalenych: indexyKeSchvaleni.length };
+  });
 }
 
 /**
@@ -692,49 +745,44 @@ export async function upravitAutomatickouCekaUdalost(
     throw new Error(validace.chyba);
   }
 
-  const dokument = await nacistDokumentProZapis();
-  const index = dokument.udalosti.findIndex((u) => u.id === idTrim);
-  if (index < 0) {
-    throw new Error("Událost nebyla nalezena.");
-  }
+  return zmenitDokumentAtomicky((dokument) => {
+    const index = dokument.udalosti.findIndex((u) => u.id === idTrim);
+    if (index < 0) {
+      throw new Error("Událost nebyla nalezena.");
+    }
 
-  const existujici = dokument.udalosti[index];
-  if (existujici.redakcniPolozkaId === null) {
-    throw new Error("Ruční událost nelze upravit touto cestou.");
-  }
-  if (
-    existujici.stavSchvaleni !== "CEKA_NA_SCHVALENI" &&
-    existujici.stavSchvaleni !== "SCHVALENO"
-  ) {
-    throw new Error(
-      "Upravit lze pouze čekající nebo schválenou automatickou událost.",
+    const existujici = dokument.udalosti[index];
+    if (existujici.redakcniPolozkaId === null) {
+      throw new Error("Ruční událost nelze upravit touto cestou.");
+    }
+    if (
+      existujici.stavSchvaleni !== "CEKA_NA_SCHVALENI" &&
+      existujici.stavSchvaleni !== "SCHVALENO"
+    ) {
+      throw new Error(
+        "Upravit lze pouze čekající nebo schválenou automatickou událost.",
+      );
+    }
+    if (
+      typeof existujici.scanKlic !== "string" ||
+      existujici.scanKlic.length === 0
+    ) {
+      throw new Error(
+        "Tuto starší automatickou událost nelze bezpečně upravit (chybí scanKlic).",
+      );
+    }
+
+    const upravena = aplikovatUpravuAutomatickeUdalosti(
+      existujici,
+      validace.uprava,
     );
-  }
-  if (
-    typeof existujici.scanKlic !== "string" ||
-    existujici.scanKlic.length === 0
-  ) {
-    throw new Error(
-      "Tuto starší automatickou událost nelze bezpečně upravit (chybí scanKlic).",
-    );
-  }
 
-  const upravena = aplikovatUpravuAutomatickeUdalosti(
-    existujici,
-    validace.uprava,
-  );
+    const noveUdalosti = dokument.udalosti.slice();
+    noveUdalosti[index] = upravena;
+    dokument.udalosti = noveUdalosti;
 
-  const noveUdalosti = dokument.udalosti.slice();
-  noveUdalosti[index] = upravena;
-  dokument.udalosti = noveUdalosti;
-
-  const overeni = parsovatDokument(dokument);
-  if (!overeni) {
-    throw new Error("Výsledný dokument neprošel validací. Nic nebylo uloženo.");
-  }
-
-  await ulozitDokument(overeni);
-  return upravena;
+    return { typ: "zapsat", dokument, vysledek: upravena };
+  });
 }
 
 /**
@@ -760,42 +808,37 @@ export async function vyrazitAutomatickouCekaUdalost(
     throw new Error("Chybí id události.");
   }
 
-  const dokument = await nacistDokumentProZapis();
-  const index = dokument.udalosti.findIndex((u) => u.id === idTrim);
-  if (index < 0) {
-    throw new Error("Událost nebyla nalezena.");
-  }
+  return zmenitDokumentAtomicky((dokument) => {
+    const index = dokument.udalosti.findIndex((u) => u.id === idTrim);
+    if (index < 0) {
+      throw new Error("Událost nebyla nalezena.");
+    }
 
-  const existujici = dokument.udalosti[index];
-  if (existujici.redakcniPolozkaId === null) {
-    throw new Error("Ruční událost nelze vyřadit touto cestou.");
-  }
-  if (
-    existujici.stavSchvaleni !== "CEKA_NA_SCHVALENI" &&
-    existujici.stavSchvaleni !== "SCHVALENO"
-  ) {
-    throw new Error(
-      "Vyřadit lze pouze čekající nebo schválenou automatickou událost.",
-    );
-  }
+    const existujici = dokument.udalosti[index];
+    if (existujici.redakcniPolozkaId === null) {
+      throw new Error("Ruční událost nelze vyřadit touto cestou.");
+    }
+    if (
+      existujici.stavSchvaleni !== "CEKA_NA_SCHVALENI" &&
+      existujici.stavSchvaleni !== "SCHVALENO"
+    ) {
+      throw new Error(
+        "Vyřadit lze pouze čekající nebo schválenou automatickou událost.",
+      );
+    }
 
-  const vyrazena: BranaKonkretniUdalost = {
-    ...existujici,
-    rucniPoziceVDni: null,
-    stavSchvaleni: "VYRAZENO",
-  };
+    const vyrazena: BranaKonkretniUdalost = {
+      ...existujici,
+      rucniPoziceVDni: null,
+      stavSchvaleni: "VYRAZENO",
+    };
 
-  const noveUdalosti = dokument.udalosti.slice();
-  noveUdalosti[index] = vyrazena;
-  dokument.udalosti = noveUdalosti;
+    const noveUdalosti = dokument.udalosti.slice();
+    noveUdalosti[index] = vyrazena;
+    dokument.udalosti = noveUdalosti;
 
-  const overeni = parsovatDokument(dokument);
-  if (!overeni) {
-    throw new Error("Výsledný dokument neprošel validací. Nic nebylo uloženo.");
-  }
-
-  await ulozitDokument(overeni);
-  return vyrazena;
+    return { typ: "zapsat", dokument, vysledek: vyrazena };
+  });
 }
 
 /**
@@ -815,24 +858,18 @@ export async function skrytAutomatickouKonkretniUdalost(
     );
   }
 
-  const dokument = await nacistDokumentProZapis();
-  const vysledek = skrytAutomatickouKonkretniUdalostZeSeznamu(
-    dokument.udalosti,
-    id,
-  );
-  if (!vysledek.ok) {
-    throw new Error(vysledek.chyba);
-  }
+  return zmenitDokumentAtomicky((dokument) => {
+    const vysledek = skrytAutomatickouKonkretniUdalostZeSeznamu(
+      dokument.udalosti,
+      id,
+    );
+    if (!vysledek.ok) {
+      throw new Error(vysledek.chyba);
+    }
 
-  dokument.udalosti = vysledek.udalosti;
-
-  const overeni = parsovatDokument(dokument);
-  if (!overeni) {
-    throw new Error("Výsledný dokument neprošel validací. Nic nebylo uloženo.");
-  }
-
-  await ulozitDokument(overeni);
-  return vysledek.skryta;
+    dokument.udalosti = vysledek.udalosti;
+    return { typ: "zapsat", dokument, vysledek: vysledek.skryta };
+  });
 }
 
 /**
@@ -850,28 +887,22 @@ async function pridatCekajiciAutomatickeUdalostiZeScanuJadro(
     );
   }
 
-  const dokument = await nacistDokumentProZapis();
-  const dnesIso = dnesIsoVPraze();
-  const { udalosti, vysledek, zmena } = aplikovatScanKandidatyNaUdalosti(
-    dokument.udalosti,
-    kandidati,
-    dnesIso,
-    jeUdalostCelaMinula,
-  );
+  return zmenitDokumentAtomicky((dokument) => {
+    const dnesIso = dnesIsoVPraze();
+    const { udalosti, vysledek, zmena } = aplikovatScanKandidatyNaUdalosti(
+      dokument.udalosti,
+      kandidati,
+      dnesIso,
+      jeUdalostCelaMinula,
+    );
 
-  if (!zmena) {
-    return vysledek;
-  }
+    if (!zmena) {
+      return { typ: "bezZmeny", vysledek };
+    }
 
-  dokument.udalosti = udalosti;
-
-  const overeni = parsovatDokument(dokument);
-  if (!overeni) {
-    throw new Error("Výsledný dokument neprošel validací. Nic nebylo uloženo.");
-  }
-
-  await ulozitDokument(overeni);
-  return vysledek;
+    dokument.udalosti = udalosti;
+    return { typ: "zapsat", dokument, vysledek };
+  });
 }
 
 /**
@@ -920,25 +951,28 @@ export async function uklidMinulychKonkretnichUdalostiProScheduler(
   }
 
   const dnesIso = dnesIsoVPraze(okamzik);
-  const dokument = await nacistDokumentProZapis();
-  const pred = dokument.udalosti.length;
-  const zachovane = dokument.udalosti.filter(
-    (u) => !jeUdalostCelaMinula(u, dnesIso),
-  );
 
-  if (zachovane.length === pred) {
-    return { odstraneno: 0, zustalo: pred };
-  }
+  return zmenitDokumentAtomicky((dokument) => {
+    const pred = dokument.udalosti.length;
+    const zachovane = dokument.udalosti.filter(
+      (u) => !jeUdalostCelaMinula(u, dnesIso),
+    );
 
-  dokument.udalosti = zachovane;
-  const overeni = parsovatDokument(dokument);
-  if (!overeni) {
-    throw new Error("Výsledný dokument neprošel validací. Nic nebylo uloženo.");
-  }
+    if (zachovane.length === pred) {
+      return {
+        typ: "bezZmeny",
+        vysledek: { odstraneno: 0, zustalo: pred },
+      };
+    }
 
-  await ulozitDokument(overeni);
-  return {
-    odstraneno: pred - zachovane.length,
-    zustalo: zachovane.length,
-  };
+    dokument.udalosti = zachovane;
+    return {
+      typ: "zapsat",
+      dokument,
+      vysledek: {
+        odstraneno: pred - zachovane.length,
+        zustalo: zachovane.length,
+      },
+    };
+  });
 }
