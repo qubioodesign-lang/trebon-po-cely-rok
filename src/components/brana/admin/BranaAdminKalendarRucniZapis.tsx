@@ -212,11 +212,13 @@ function SeznamDnu({
                       <li
                         key={`${udalost.id}-${den.isoDen}`}
                         className={
-                          cekaNaSchvaleni
-                            ? maRychleCekaPodlozeni(udalost)
-                              ? "brana-admin-akce-ceka-na-schvaleni brana-admin-akce-ceka-rychla"
-                              : "brana-admin-akce-ceka-na-schvaleni"
-                            : undefined
+                          jeRucni
+                            ? "brana-admin-akce-rucni"
+                            : cekaNaSchvaleni
+                              ? maRychleCekaPodlozeni(udalost)
+                                ? "brana-admin-akce-ceka-na-schvaleni brana-admin-akce-ceka-rychla"
+                                : "brana-admin-akce-ceka-na-schvaleni"
+                              : undefined
                         }
                       >
                         <div className="brana-admin-akce-nahled">
@@ -307,7 +309,7 @@ function SeznamDnu({
                                       disabled={pending}
                                       className="text-xs font-light text-text-jemny underline-offset-2 hover:underline disabled:opacity-50"
                                     >
-                                      Smazat
+                                      Skrýt
                                     </button>
                                   </>
                                 ) : null}
@@ -589,9 +591,7 @@ export function BranaAdminKalendarRucniZapis({
     if (udalost.redakcniPolozkaId !== null) {
       return;
     }
-    const potvrzeno = window.confirm(
-      `Smazat ruční událost „${udalost.nazev.trim() || udalost.mistoNeboTyp.trim()}“?`,
-    );
+    const potvrzeno = window.confirm("Skrýt tuto událost?");
     if (!potvrzeno) {
       return;
     }

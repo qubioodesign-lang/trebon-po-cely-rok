@@ -201,6 +201,13 @@
   background: rgb(207 145 104 / 0.18);
 }
 
+/* Ruční událost – velmi jemné světle modré podbarvení celé karty */
+.brana-admin-seznam-akci > li.brana-admin-akce-rucni {
+  background: rgb(140 175 210 / 0.10);
+  padding-top: 0.2rem;
+  padding-bottom: 0.2rem;
+}
+
 .brana-admin-akce-ceka-stitok {
   display: block;
   margin-top: 0.125rem;
