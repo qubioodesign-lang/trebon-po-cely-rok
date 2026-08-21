@@ -69,6 +69,20 @@ function jeVKalendari(dny: readonly BranaKalendarDen[], id: string): boolean {
   return najitUdalostVKalendari(dny, id) !== null;
 }
 
+function idsDne(dny: readonly BranaKalendarDen[], isoDen: string): string[] {
+  return (
+    dny.find((den) => den.isoDen === isoDen)?.udalosti.map((u) => u.id) ?? []
+  );
+}
+
+function indexVDni(
+  dny: readonly BranaKalendarDen[],
+  isoDen: string,
+  id: string,
+): number {
+  return idsDne(dny, isoDen).indexOf(id);
+}
+
 /** Zrcadlo klientské smyčky: action přidá potvrzení, props se sladí. */
 function seskupeni() {
   let potvrzene: BranaKalendarPotvrzenaZmena[] = [];
@@ -265,6 +279,140 @@ assert(
     ui.includes("smazatRucniKonkretniUdalostAkce") &&
     ui.includes("router.refresh()"),
   "UI: Skrýt / Vyřadit / Smazat odstraňují; refresh zůstává",
+);
+
+const pred = udalost({
+  id: "pred-1",
+  stav: "SCHVALENO",
+  nazev: "Před",
+});
+const kinoStred = udalost({
+  id: "kino-stred",
+  stav: "CEKA_NA_SCHVALENI",
+  nazev: "Dovolená v Českém ráji",
+});
+const divadlo = udalost({
+  id: "divadlo-1",
+  stav: "CEKA_NA_SCHVALENI",
+  nazev: "Komentovaná prohlídka",
+});
+const denTriKaret = den("2026-08-25", [pred, kinoStred, divadlo]);
+const pozice = seskupeni();
+pozice.nastavProps([denTriKaret]);
+const poSchvalitStred = pozice.poAction({
+  typ: "upsert",
+  udalost: { ...kinoStred, stavSchvaleni: "SCHVALENO" },
+});
+assert(
+  stav(poSchvalitStred, "kino-stred") === "SCHVALENO" &&
+    indexVDni(poSchvalitStred, "2026-08-25", "kino-stred") === 1 &&
+    idsDne(poSchvalitStred, "2026-08-25").join() ===
+      "pred-1,kino-stred,divadlo-1",
+  "A: Schválit uprostřed dne — SCHVALENO na stejném indexu",
+);
+
+const textUprostred = udalost({
+  id: "uprava-stred",
+  stav: "CEKA_NA_SCHVALENI",
+  nazev: "Původní",
+});
+const denUpravy = den("2026-08-25", [pred, textUprostred, divadlo]);
+const upravaTextu = seskupeni();
+upravaTextu.nastavProps([denUpravy]);
+const poUpraveTextu = upravaTextu.poAction({
+  typ: "upsert",
+  udalost: { ...textUprostred, nazev: "Nový text" },
+});
+assert(
+  nazev(poUpraveTextu, "uprava-stred") === "Nový text" &&
+    indexVDni(poUpraveTextu, "2026-08-25", "uprava-stred") === 1 &&
+    idsDne(poUpraveTextu, "2026-08-25").join() ===
+      "pred-1,uprava-stred,divadlo-1",
+  "B: Upravit text bez změny data — stejný index",
+);
+
+const presun = udalost({
+  id: "presun-data",
+  stav: "CEKA_NA_SCHVALENI",
+  nazev: "Přesun",
+  datumOd: "2026-08-25",
+});
+const sousedNovehoDne = udalost({
+  id: "soused-26",
+  stav: "SCHVALENO",
+  nazev: "Soused 26.",
+  datumOd: "2026-08-26",
+});
+const zaPresunem = udalost({
+  id: "za-presunem",
+  stav: "CEKA_NA_SCHVALENI",
+  nazev: "Za přesunem",
+});
+const presunData = seskupeni();
+presunData.nastavProps([
+  den("2026-08-25", [pred, presun, zaPresunem]),
+  den("2026-08-26", [sousedNovehoDne]),
+]);
+const poPresunuData = presunData.poAction({
+  typ: "upsert",
+  udalost: { ...presun, datumOd: "2026-08-26", datumDo: "2026-08-26" },
+});
+assert(
+  idsDne(poPresunuData, "2026-08-25").join() === "pred-1,za-presunem" &&
+    idsDne(poPresunuData, "2026-08-26").join() === "soused-26,presun-data" &&
+    nazev(poPresunuData, "presun-data") === "Přesun",
+  "C: Upravit datum — pryč ze starého dne, v novém bez rozbití ostatních",
+);
+
+const hromadnaDavka = [
+  udalost({ id: "h-1", stav: "SCHVALENO", nazev: "1" }),
+  udalost({ id: "h-2", stav: "CEKA_NA_SCHVALENI", nazev: "2" }),
+  udalost({ id: "h-3", stav: "CEKA_NA_SCHVALENI", nazev: "3" }),
+  udalost({ id: "h-4", stav: "CEKA_NA_SCHVALENI", nazev: "4" }),
+];
+const hromadnePozice = seskupeni();
+hromadnePozice.nastavProps([den("2026-08-25", hromadnaDavka)]);
+const poHromadnemPoradi = hromadnePozice.poAction(
+  {
+    typ: "upsert",
+    udalost: { ...hromadnaDavka[1], stavSchvaleni: "SCHVALENO" },
+  },
+  {
+    typ: "upsert",
+    udalost: { ...hromadnaDavka[3], stavSchvaleni: "SCHVALENO" },
+  },
+);
+assert(
+  idsDne(poHromadnemPoradi, "2026-08-25").join() === "h-1,h-2,h-3,h-4" &&
+    stav(poHromadnemPoradi, "h-2") === "SCHVALENO" &&
+    stav(poHromadnemPoradi, "h-4") === "SCHVALENO" &&
+    stav(poHromadnemPoradi, "h-3") === "CEKA_NA_SCHVALENI",
+  "D: hromadné Schválit — každá karta na původní pozici",
+);
+
+const stalePozice = pozice.nastavProps([denTriKaret]);
+assert(
+  stav(stalePozice, "kino-stred") === "SCHVALENO" &&
+    indexVDni(stalePozice, "2026-08-25", "kino-stred") === 1,
+  "E: starší props nesmí vrátit potvrzený stav zpět",
+);
+
+const smazatSousedy = seskupeni();
+smazatSousedy.nastavProps([den("2026-08-25", [pred, kinoStred, divadlo])]);
+const poSmazani = smazatSousedy.poAction({
+  typ: "odstranit",
+  id: "kino-stred",
+});
+assert(
+  !jeVKalendari(poSmazani, "kino-stred") &&
+    idsDne(poSmazani, "2026-08-25").join() === "pred-1,divadlo-1",
+  "F: Skrýt / Vyřadit / Smazat pouze odstraní kartu",
+);
+assert(
+  !jeVKalendari(poSkryt, "skryt-1") &&
+    !jeVKalendari(poVyrazit, "vyrazit-1") &&
+    idsDne(poSkryt, "2026-08-25").join() === "kino-1",
+  "F2: existující Skrýt / Vyřadit dál jen odstraňují",
 );
 
 if (selhalo > 0) {

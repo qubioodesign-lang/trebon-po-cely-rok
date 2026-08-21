@@ -65,19 +65,37 @@ function odstranitIdZDnu(
   }));
 }
 
-function vlozitUdalostDoDnu(
+/**
+ * Stejné id v dni → náhrada na stejném indexu.
+ * Do dne už nepatří → pryč.
+ * Do dne nově patří a ještě tam není → na konec (nová karta / posun data).
+ */
+function nahraditNeboVlozitUdalostDoDnu(
   dny: BranaKalendarDen[],
   udalost: BranaKonkretniUdalost,
 ): BranaKalendarDen[] {
   const cile = new Set(dnyTrvaniUdalosti(udalost));
   return dny.map((den) => {
-    if (!cile.has(den.isoDen)) {
-      return den;
+    const index = den.udalosti.findIndex((karta) => karta.id === udalost.id);
+    const patriDoDne = cile.has(den.isoDen);
+    if (index >= 0 && patriDoDne) {
+      const dalsi = [...den.udalosti];
+      dalsi[index] = udalost;
+      return { ...den, udalosti: dalsi };
     }
-    return {
-      ...den,
-      udalosti: [...den.udalosti, udalost],
-    };
+    if (index >= 0) {
+      return {
+        ...den,
+        udalosti: den.udalosti.filter((karta) => karta.id !== udalost.id),
+      };
+    }
+    if (patriDoDne) {
+      return {
+        ...den,
+        udalosti: [...den.udalosti, udalost],
+      };
+    }
+    return den;
   });
 }
 
@@ -137,7 +155,7 @@ export function sloucitKalendarDnySPotvrzenymi(
       dny = odstranitIdZDnu(dny, zmena.id);
       continue;
     }
-    dny = vlozitUdalostDoDnu(odstranitIdZDnu(dny, zmena.udalost.id), zmena.udalost);
+    dny = nahraditNeboVlozitUdalostDoDnu(dny, zmena.udalost);
   }
   return dny;
 }
