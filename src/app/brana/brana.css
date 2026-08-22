@@ -200,6 +200,7 @@
 
   .brana-akce-radek {
     @apply min-w-0;
+    font-weight: 500;
   }
 
   .brana-akce-typ {
