@@ -60,6 +60,11 @@ import {
   smazatZdroj,
   upravitZdroj,
 } from "@/lib/brana/admin/zdroje-uloziste";
+import {
+  seznamBranaZaloh,
+  vytvoritBranaZalohu,
+  type BranaZalohaInfo,
+} from "@/lib/brana/admin/zaloha";
 
 export type BranaRedakcniUlozitVysledek =
   | { uspech: true; polozky: BranaRedakcniPolozkaStav[] }
@@ -95,6 +100,14 @@ export type BranaZdrojSmazatVysledek =
 
 export type BranaRadarRucniNalezVysledek =
   | { uspech: true }
+  | { uspech: false; chyba: string };
+
+export type BranaZalohaAkceVysledek =
+  | { uspech: true; zaloha: BranaZalohaInfo }
+  | { uspech: false; chyba: string };
+
+export type BranaSeznamZalohAkceVysledek =
+  | { uspech: true; zalohy: BranaZalohaInfo[] }
   | { uspech: false; chyba: string };
 
 /** Uloží jen změněná pole Redakčního pořadí – pouze pro přihlášeného admina */
@@ -757,6 +770,48 @@ export async function smazatBranaRadarStopuAkce(
     return {
       uspech: false,
       chyba: detail ?? "Stopu se nepodařilo smazat.",
+    };
+  }
+}
+
+/** Ruční záloha pěti JSON dokumentů BRÁNY do PRIVATE store. */
+export async function vytvoritBranaZalohuAkce(): Promise<BranaZalohaAkceVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  try {
+    const zaloha = await vytvoritBranaZalohu("manual");
+    revalidatePath("/brana/admin/sprava/zaloha");
+    return { uspech: true, zaloha };
+  } catch (error) {
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "Zálohu se nepodařilo vytvořit.",
+    };
+  }
+}
+
+export async function nacistSeznamBranaZalohAkce(): Promise<BranaSeznamZalohAkceVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  try {
+    const zalohy = await seznamBranaZaloh();
+    return { uspech: true, zalohy };
+  } catch (error) {
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "Seznam záloh se nepodařilo načíst.",
     };
   }
 }
