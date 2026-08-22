@@ -3,13 +3,15 @@
  * Typografie položky převzata z veřejných definic .brana-akce-* / .brana-seznam-akci
  * (velikost 0.9375rem, leading-snug, mřížka, oranžová #cf9168), bez úpravy veřejného CSS.
  *
- * Schvalovací náhled události: šířka = veřejná obsahová geometrie (max-w-md − px-6 = 25rem).
+ * Výchozí šířka náhledu (Výhled, Nezařazené): strop veřejné geometrie
+ * max-w-md − px-6 = 25rem.
+ * Pracovní Kalendář přepisuje na referenční Honor 70 (viz níže).
  * Admin chrome (datum, CEKA, akce) je mimo tento box a šířku náhledu nekrátí.
  */
 
 .brana-admin-kalendar {
   --brana-admin-akce-accent: #cf9168;
-  /* Veřejná BRÁNA: max-w-md (28rem) − px-6 (3rem) = 25rem */
+  /* Veřejná BRÁNA strop: max-w-md (28rem) − px-6 (3rem) = 25rem */
   --brana-admin-nahled-sirka: 25rem;
   --brana-admin-datum-sirka: 9rem;
   --brana-admin-den-mezera: 0.5rem;
@@ -20,6 +22,16 @@
     var(--brana-admin-datum-sirka) + var(--brana-admin-den-mezera) +
       var(--brana-admin-nahled-sirka)
   );
+}
+
+/*
+ * Jen Admin → Kalendář (má denní řádky). Výhled / Nezařazené se nemění.
+ * Veřejná BRÁNA: w-full max-w-md + .brana-prostor-obsah px-6.
+ * Honor 70: 1080×2400 / DPR 3 = 360px CSS (< 28rem, strop max-w-md neplatí).
+ * Dostupná šířka karty: 360px − 2×1.5rem = 312px = 19.5rem.
+ */
+.brana-admin-kalendar:has(.brana-admin-kalendar-den) {
+  --brana-admin-nahled-sirka: 19.5rem;
 }
 
 .brana-admin-kalendar-den {
@@ -39,7 +51,7 @@
 }
 
 /*
- * Mobil: datum nad náhledem – admin chrome nesmí stát vedle 25rem boxu
+ * Mobil: datum nad náhledem – admin chrome nesmí stát vedle náhledu
  * a zúžit publikovanou geometrii (bez horizontálního scrollu).
  */
 @media (max-width: 40rem) {
@@ -145,8 +157,9 @@
 }
 
 /*
- * 1:1 schvalovací náhled = veřejná položka (grid text | čas, 25rem).
- * max-width: 100% – na užším viewportu stejná efektivní šířka jako veřejná BRÁNA.
+ * Schvalovací náhled = veřejná položka (grid text | čas).
+ * Šířka z --brana-admin-nahled-sirka (Kalendář: Honor 70 / 19.5rem).
+ * max-width: 100% – na užším viewportu se náhled zúží.
  */
 .brana-admin-akce-nahled {
   width: var(--brana-admin-nahled-sirka);
