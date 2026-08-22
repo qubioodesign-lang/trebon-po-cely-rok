@@ -37,6 +37,7 @@ import {
 } from "@/lib/brana/admin/konkretni-udalosti-uloziste";
 import { nacistRedakcniPoradiProScheduler } from "@/lib/brana/admin/redakcni-poradi-uloziste";
 import type { BranaRedakcniPolozkaStav } from "@/lib/brana/admin/redakcni-kostra";
+import { maDatumOdPatritDoVyhledu } from "@/lib/brana/admin/obdobi-7-dni";
 import { maUkazkovyVyhledAno } from "@/lib/brana/admin/ukazkove-udalosti";
 
 const VERZE_ULOZISTE = 1;
@@ -403,10 +404,12 @@ export function projektujSchvaleneDoVerejnehoPohledu(args: {
     if (u.redakcniPolozkaId === null) {
       return false;
     }
-    if (u.datumOd < okna.dnesIso) {
-      return false;
-    }
-    if (okna.sedmDniIso.includes(u.datumOd)) {
+    if (
+      !maDatumOdPatritDoVyhledu(u.datumOd, {
+        dnesIso: okna.dnesIso,
+        sedmDniIso: okna.sedmDniIso,
+      })
+    ) {
       return false;
     }
     return maVyhledAno(u.redakcniPolozkaId);
