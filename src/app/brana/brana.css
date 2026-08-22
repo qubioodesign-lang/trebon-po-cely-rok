@@ -212,6 +212,7 @@
 
   .brana-akce-nazev {
     @apply block;
+    font-weight: 300;
   }
 
   .brana-pata {
