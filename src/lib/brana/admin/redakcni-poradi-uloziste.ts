@@ -1,6 +1,12 @@
 import "server-only";
 
-import { BlobNotFoundError, get, put } from "@vercel/blob";
+import {
+  BlobNotFoundError,
+  BlobPreconditionFailedError,
+  get,
+  head,
+  put,
+} from "@vercel/blob";
 import { unstable_noStore as noStore } from "next/cache";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 import {
@@ -13,8 +19,14 @@ import {
   vytvoritVychoziRedakcniPoradi,
 } from "./redakcni-kostra";
 import {
+  zmenitRedakcniPoradiDokumentAtomickySIo,
+} from "./redakcni-poradi-cas";
+import {
+  aplikovatRedakcniPoradiPatcheNaPolozky,
   sloucitUlozeneSKostrou,
+  validovatRedakcniPoradiDokument,
   validovatRedakcniPoradiVstup,
+  type BranaRedakcniPatchZmena,
 } from "./redakcni-poradi-validace";
 
 /**
@@ -206,23 +218,114 @@ export async function nacistRedakcniPoradiProScheduler(): Promise<NacistRedakcni
   return nacistRedakcniPoradiDokument();
 }
 
-/**
- * Uloží validovanou sadu do PRIVATE Blob store (přepis celého dokumentu).
- * Bez tokenu zápis odmítne – žádný veřejný store ani lokální filesystem.
- */
-export async function ulozitRedakcniPoradi(
-  polozky: BranaRedakcniPolozkaStav[],
+function vychoziRedakcniPoradiDokument(): BranaRedakcniPoradiDokument {
+  return {
+    verzeUloziste: BRANA_REDAKCNI_VERZE_ULOZISTE,
+    polozky: vytvoritVychoziRedakcniPoradi(),
+  };
+}
+
+function polozkyZNactenehoBlobu(parsed: unknown): BranaRedakcniPolozkaStav[] {
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error(BRANA_REDAKCNI_CHYBA_CTENI);
+  }
+
+  const root = parsed as { verzeUloziste?: unknown; polozky?: unknown };
+  const validace = validovatRedakcniPoradiVstup(root.polozky, {
+    legacyVyhled: true,
+  });
+  if (!validace.ok) {
+    if (
+      Array.isArray(root.polozky) &&
+      root.polozky.length < BRANA_REDAKCNI_VSECHNY_VYCHOZI.length
+    ) {
+      const slouceni = sloucitUlozeneSKostrou(root);
+      const poSlouceni = validovatRedakcniPoradiVstup(slouceni, {
+        legacyVyhled: true,
+      });
+      if (poSlouceni.ok) {
+        if (!dokumentMaPrioritniSeznam(root.verzeUloziste)) {
+          return vytvoritVychoziRedakcniPoradi();
+        }
+        return poSlouceni.polozky;
+      }
+    }
+    throw new Error(BRANA_REDAKCNI_CHYBA_CTENI);
+  }
+
+  if (!dokumentMaPrioritniSeznam(root.verzeUloziste)) {
+    return vytvoritVychoziRedakcniPoradi();
+  }
+
+  return validace.polozky;
+}
+
+type BlobCteniProZapis =
+  | { stav: "neexistuje" }
+  | { stav: "ok"; dokument: BranaRedakcniPoradiDokument; etag: string };
+
+async function nacistDokumentSEtagProZapis(): Promise<BlobCteniProZapis> {
+  const volby = ziskatVolbyBranaAdminBlob();
+
+  if (!volby.token) {
+    throw new Error("Chybí BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.");
+  }
+
+  let etag: string;
+  try {
+    const meta = await head(BRANA_REDAKCNI_PORADI_BLOB_CESTA, volby);
+    if (typeof meta.etag !== "string" || meta.etag.length === 0) {
+      throw new Error(
+        "Nelze bezpečně uložit: Blob HEAD nevrátil etag. Nic nebylo změněno.",
+      );
+    }
+    etag = meta.etag;
+  } catch (error) {
+    if (error instanceof BlobNotFoundError) {
+      return { stav: "neexistuje" };
+    }
+    throw error;
+  }
+
+  try {
+    const vysledek = await get(BRANA_REDAKCNI_PORADI_BLOB_CESTA, {
+      access: "private",
+      useCache: false,
+      ...volby,
+    });
+
+    if (vysledek === null || !vysledek.stream) {
+      throw new Error("Blob zmizel mezi HEAD a GET. Nic nebylo uloženo.");
+    }
+
+    const text = await new Response(vysledek.stream).text();
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text) as unknown;
+    } catch {
+      throw new Error(BRANA_REDAKCNI_CHYBA_CTENI);
+    }
+
+    return {
+      stav: "ok",
+      dokument: {
+        verzeUloziste: BRANA_REDAKCNI_VERZE_ULOZISTE,
+        polozky: polozkyZNactenehoBlobu(parsed),
+      },
+      etag,
+    };
+  } catch (error) {
+    if (error instanceof BlobNotFoundError) {
+      throw new Error("Blob zmizel mezi HEAD a GET. Nic nebylo uloženo.");
+    }
+    throw error;
+  }
+}
+
+async function ulozitDokumentSIfMatch(
+  dokument: BranaRedakcniPoradiDokument,
+  etag: string | null,
 ): Promise<void> {
-  if (!(await jeAdminPrihlasen())) {
-    throw new Error("Nejste přihlášeni.");
-  }
-
-  if (!maBranaAdminBlobKonfiguraci()) {
-    throw new Error(
-      "Nelze uložit redakční pořadí: chybí BLOB_BRANA_ADMIN_STORE_ID nebo BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
-    );
-  }
-
   const volby = ziskatVolbyBranaAdminBlob();
 
   if (!volby.token) {
@@ -230,11 +333,6 @@ export async function ulozitRedakcniPoradi(
       "Nelze uložit redakční pořadí: chybí BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
     );
   }
-
-  const dokument: BranaRedakcniPoradiDokument = {
-    verzeUloziste: BRANA_REDAKCNI_VERZE_ULOZISTE,
-    polozky,
-  };
 
   await put(
     BRANA_REDAKCNI_PORADI_BLOB_CESTA,
@@ -246,6 +344,59 @@ export async function ulozitRedakcniPoradi(
       allowOverwrite: true,
       contentType: "application/json",
       cacheControlMaxAge: 0,
+      ...(etag !== null ? { ifMatch: etag } : {}),
+    },
+  );
+}
+
+/**
+ * Aplikuje patch balík na čerstvý dokument (field-level compare-and-set + CAS).
+ * Vrací čerstvý sloučený seznam. Prázdný balík → žádný PUT.
+ */
+export async function ulozitRedakcniPoradiPatche(
+  patche: readonly BranaRedakcniPatchZmena[],
+): Promise<BranaRedakcniPolozkaStav[]> {
+  if (!(await jeAdminPrihlasen())) {
+    throw new Error("Nejste přihlášeni.");
+  }
+
+  if (!maBranaAdminBlobKonfiguraci()) {
+    throw new Error(
+      "Nelze uložit redakční pořadí: chybí BLOB_BRANA_ADMIN_STORE_ID nebo BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
+    );
+  }
+
+  return zmenitRedakcniPoradiDokumentAtomickySIo(
+    {
+      nacist: nacistDokumentSEtagProZapis,
+      vychoziDokument: vychoziRedakcniPoradiDokument,
+      validovat: validovatRedakcniPoradiDokument,
+      ulozit: ulozitDokumentSIfMatch,
+      jePreconditionChyba: (error) =>
+        error instanceof BlobPreconditionFailedError,
+    },
+    (dokument) => {
+      if (patche.length === 0) {
+        return { typ: "bezZmeny", vysledek: dokument.polozky };
+      }
+      const po = aplikovatRedakcniPoradiPatcheNaPolozky(
+        dokument.polozky,
+        patche,
+      );
+      const overeny = validovatRedakcniPoradiDokument({
+        verzeUloziste: BRANA_REDAKCNI_VERZE_ULOZISTE,
+        polozky: po,
+      });
+      if (!overeny) {
+        throw new Error(
+          "Výsledný dokument neprošel validací. Nic nebylo uloženo.",
+        );
+      }
+      return {
+        typ: "zapsat",
+        dokument: overeny,
+        vysledek: overeny.polozky,
+      };
     },
   );
 }

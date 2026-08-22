@@ -455,3 +455,195 @@ export function sloucitUlozeneSKostrou(
     };
   });
 }
+
+export const BRANA_REDAKCNI_PATCH_POLE = [
+  "polozka",
+  "pouzivat",
+  "priorita",
+  "subpriorita",
+  "vyhled",
+  "vyhledSerie",
+  "poznamka",
+  "jazykVerejny",
+] as const;
+
+export type BranaRedakcniPatchPole = (typeof BRANA_REDAKCNI_PATCH_POLE)[number];
+
+export type BranaRedakcniPatchZmena = {
+  id: string;
+  pole: BranaRedakcniPatchPole;
+  expectedOld: unknown;
+  newValue: unknown;
+};
+
+export const BRANA_REDAKCNI_CHYBA_FIELD_KONFLIKT =
+  "se mezitím změnila. Načtěte stránku znovu a teprve potom uložte.";
+
+export class BranaRedakcniFieldKonfliktError extends Error {
+  readonly id: string;
+  readonly pole: string;
+
+  constructor(id: string, pole: string) {
+    super(`Položka „${id}“, pole „${pole}“ ${BRANA_REDAKCNI_CHYBA_FIELD_KONFLIKT}`);
+    this.name = "BranaRedakcniFieldKonfliktError";
+    this.id = id;
+    this.pole = pole;
+  }
+}
+
+export class BranaRedakcniPatchNeplatnyError extends Error {
+  constructor(chyba: string) {
+    super(chyba);
+    this.name = "BranaRedakcniPatchNeplatnyError";
+  }
+}
+
+function jePovolenePatchPole(hodnota: unknown): hodnota is BranaRedakcniPatchPole {
+  return (
+    typeof hodnota === "string" &&
+    (BRANA_REDAKCNI_PATCH_POLE as readonly string[]).includes(hodnota)
+  );
+}
+
+function seraditKlicProSrovnani(hodnota: unknown): unknown {
+  if (hodnota === null || typeof hodnota !== "object") {
+    return hodnota;
+  }
+  if (Array.isArray(hodnota)) {
+    return hodnota.map(seraditKlicProSrovnani);
+  }
+  const zaznam = hodnota as Record<string, unknown>;
+  return Object.fromEntries(
+    Object.keys(zaznam)
+      .sort()
+      .map((klic) => [klic, seraditKlicProSrovnani(zaznam[klic])]),
+  );
+}
+
+export function jsouStejneRedakcniPole(
+  pole: BranaRedakcniPatchPole,
+  a: unknown,
+  b: unknown,
+): boolean {
+  if (pole === "jazykVerejny") {
+    return (
+      JSON.stringify(seraditKlicProSrovnani(a)) ===
+      JSON.stringify(seraditKlicProSrovnani(b))
+    );
+  }
+  return a === b;
+}
+
+export function parsovatRedakcniPoradiPatche(
+  vstup: unknown,
+): { ok: true; patche: BranaRedakcniPatchZmena[] } | { ok: false; chyba: string } {
+  if (!Array.isArray(vstup)) {
+    return { ok: false, chyba: "Neplatný formát změn." };
+  }
+
+  const patche: BranaRedakcniPatchZmena[] = [];
+  for (const radek of vstup) {
+    if (!radek || typeof radek !== "object") {
+      return { ok: false, chyba: "Neplatný formát změn." };
+    }
+    const data = radek as Record<string, unknown>;
+    if (typeof data.id !== "string" || data.id.trim() === "") {
+      return { ok: false, chyba: "Chybí identifikátor položky." };
+    }
+    if (!jePovolenePatchPole(data.pole)) {
+      return { ok: false, chyba: "Neplatné pole. Změny se neuložily." };
+    }
+    if (!("expectedOld" in data) || !("newValue" in data)) {
+      return { ok: false, chyba: "Neplatný formát změn." };
+    }
+    patche.push({
+      id: data.id,
+      pole: data.pole,
+      expectedOld: data.expectedOld,
+      newValue: data.newValue,
+    });
+  }
+
+  return { ok: true, patche };
+}
+
+export function sestavitRedakcniPoradiPatche(
+  zaklad: readonly BranaRedakcniPolozkaStav[],
+  aktualni: readonly BranaRedakcniPolozkaStav[],
+): BranaRedakcniPatchZmena[] {
+  const podleId = new Map(zaklad.map((radek) => [radek.id, radek]));
+  const patche: BranaRedakcniPatchZmena[] = [];
+
+  for (const radek of aktualni) {
+    const puvodni = podleId.get(radek.id);
+    if (!puvodni) {
+      continue;
+    }
+    for (const pole of BRANA_REDAKCNI_PATCH_POLE) {
+      const expectedOld = puvodni[pole];
+      const newValue = radek[pole];
+      if (!jsouStejneRedakcniPole(pole, expectedOld, newValue)) {
+        patche.push({
+          id: radek.id,
+          pole,
+          expectedOld,
+          newValue,
+        });
+      }
+    }
+  }
+
+  return patche;
+}
+
+function klonovatPolozky(
+  polozky: readonly BranaRedakcniPolozkaStav[],
+): BranaRedakcniPolozkaStav[] {
+  return JSON.parse(JSON.stringify(polozky)) as BranaRedakcniPolozkaStav[];
+}
+
+export function aplikovatRedakcniPoradiPatcheNaPolozky(
+  polozky: readonly BranaRedakcniPolozkaStav[],
+  patche: readonly BranaRedakcniPatchZmena[],
+): BranaRedakcniPolozkaStav[] {
+  const vysledek = klonovatPolozky(polozky);
+  const podleId = new Map(vysledek.map((radek) => [radek.id, radek]));
+
+  for (const zmena of patche) {
+    if (!jePovolenePatchPole(zmena.pole)) {
+      throw new BranaRedakcniPatchNeplatnyError(
+        "Neplatné pole. Změny se neuložily.",
+      );
+    }
+    const radek = podleId.get(zmena.id);
+    if (!radek) {
+      throw new BranaRedakcniPatchNeplatnyError(
+        "Neznámá položka. Změny se neuložily.",
+      );
+    }
+    const freshValue = radek[zmena.pole];
+    if (!jsouStejneRedakcniPole(zmena.pole, freshValue, zmena.expectedOld)) {
+      throw new BranaRedakcniFieldKonfliktError(zmena.id, zmena.pole);
+    }
+    (radek as unknown as Record<string, unknown>)[zmena.pole] = zmena.newValue;
+  }
+
+  return vysledek;
+}
+
+export function validovatRedakcniPoradiDokument(dokument: {
+  verzeUloziste: number;
+  polozky: BranaRedakcniPolozkaStav[];
+}): { verzeUloziste: number; polozky: BranaRedakcniPolozkaStav[] } | null {
+  if (dokument.verzeUloziste !== 2) {
+    return null;
+  }
+  const validace = validovatRedakcniPoradiVstup(dokument.polozky);
+  if (!validace.ok) {
+    return null;
+  }
+  return {
+    verzeUloziste: 2,
+    polozky: validace.polozky,
+  };
+}

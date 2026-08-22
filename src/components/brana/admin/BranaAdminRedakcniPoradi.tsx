@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { ulozitBranaRedakcniPoradiAkce } from "@/app/brana/admin/actions";
+import { sestavitRedakcniPoradiPatche } from "@/lib/brana/admin/redakcni-poradi-validace";
 import {
   BRANA_REDAKCNI_JAZYK_CO_MAX,
   BRANA_REDAKCNI_JAZYK_ROZLISENI_MAX,
@@ -85,6 +86,8 @@ function zmenSlotRezim(
 export function BranaAdminRedakcniPoradi({ pocatecniPolozky }: Props) {
   const [polozky, setPolozky] =
     useState<BranaRedakcniPolozkaStav[]>(pocatecniPolozky);
+  const [zaklad, setZaklad] =
+    useState<BranaRedakcniPolozkaStav[]>(pocatecniPolozky);
   const [zprava, setZprava] = useState<string | null>(null);
   const [chyba, setChyba] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -113,12 +116,14 @@ export function BranaAdminRedakcniPoradi({ pocatecniPolozky }: Props) {
     setZprava(null);
     setChyba(null);
     startTransition(async () => {
-      const vysledek = await ulozitBranaRedakcniPoradiAkce(polozky);
+      const patche = sestavitRedakcniPoradiPatche(zaklad, polozky);
+      const vysledek = await ulozitBranaRedakcniPoradiAkce(patche);
       if (!vysledek.uspech) {
         setChyba(vysledek.chyba);
         return;
       }
       setPolozky(vysledek.polozky);
+      setZaklad(vysledek.polozky);
       setZprava("Uloženo");
     });
   }

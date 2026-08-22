@@ -21,8 +21,13 @@ import {
   type BranaSkutecnyStavVysledek,
 } from "@/lib/brana/admin/skutecny-stav-obdobi";
 import { sestavPevnyKontrolniBlok } from "@/lib/brana/admin/kontrolni-blok";
-import { ulozitRedakcniPoradi, nacistRedakcniPoradi } from "@/lib/brana/admin/redakcni-poradi-uloziste";
-import { validovatRedakcniPoradiVstup } from "@/lib/brana/admin/redakcni-poradi-validace";
+import { ulozitRedakcniPoradiPatche, nacistRedakcniPoradi } from "@/lib/brana/admin/redakcni-poradi-uloziste";
+import {
+  BranaRedakcniFieldKonfliktError,
+  BranaRedakcniPatchNeplatnyError,
+  parsovatRedakcniPoradiPatche,
+} from "@/lib/brana/admin/redakcni-poradi-validace";
+import { BranaRedakcniCasKonfliktLimitError } from "@/lib/brana/admin/redakcni-poradi-cas";
 import type { BranaRedakcniPolozkaStav } from "@/lib/brana/admin/redakcni-kostra";
 import {
   validovatAutomatickouCekaUpravuVstup,
@@ -102,24 +107,33 @@ export type BranaRadarRucniNalezVysledek =
   | { uspech: true }
   | { uspech: false; chyba: string };
 
-/** Uloží celé redakční pořadí – pouze pro přihlášeného admina */
+/** Uloží jen změněná pole Redakčního pořadí – pouze pro přihlášeného admina */
 export async function ulozitBranaRedakcniPoradiAkce(
-  polozky: unknown,
+  vstup: unknown,
 ): Promise<BranaRedakcniUlozitVysledek> {
   if (!(await jeAdminPrihlasen())) {
     return { uspech: false, chyba: "Nejste přihlášeni." };
   }
 
-  const validace = validovatRedakcniPoradiVstup(polozky);
+  const validace = parsovatRedakcniPoradiPatche(vstup);
   if (!validace.ok) {
     return { uspech: false, chyba: validace.chyba };
   }
 
   try {
-    await ulozitRedakcniPoradi(validace.polozky);
+    const polozky = await ulozitRedakcniPoradiPatche(validace.patche);
     revalidatePath("/brana/admin/sprava/redakcni-poradi");
-    return { uspech: true, polozky: validace.polozky };
+    return { uspech: true, polozky };
   } catch (error) {
+    if (error instanceof BranaRedakcniFieldKonfliktError) {
+      return { uspech: false, chyba: error.message };
+    }
+    if (
+      error instanceof BranaRedakcniPatchNeplatnyError ||
+      error instanceof BranaRedakcniCasKonfliktLimitError
+    ) {
+      return { uspech: false, chyba: error.message };
+    }
     const detail =
       error instanceof Error && error.message.trim()
         ? error.message.trim()
