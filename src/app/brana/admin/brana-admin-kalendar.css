@@ -36,6 +36,25 @@
   --brana-admin-nahled-sirka: 19.5rem;
 }
 
+/*
+ * Veřejná hierarchie CO 700 / KDE 500 / název 300.
+ * Jen Kalendář a Výhled; Nezařazené zůstává na 400.
+ */
+.brana-admin-kalendar:has(.brana-admin-kalendar-den) .brana-admin-akce-typ,
+.brana-admin-kalendar:has(#brana-admin-vyhled-nadpis) .brana-admin-akce-typ {
+  font-weight: 700;
+}
+
+.brana-admin-kalendar:has(.brana-admin-kalendar-den) .brana-admin-akce-radek,
+.brana-admin-kalendar:has(#brana-admin-vyhled-nadpis) .brana-admin-akce-radek {
+  font-weight: 500;
+}
+
+.brana-admin-kalendar:has(.brana-admin-kalendar-den) .brana-admin-akce-nazev,
+.brana-admin-kalendar:has(#brana-admin-vyhled-nadpis) .brana-admin-akce-nazev {
+  font-weight: 300;
+}
+
 .brana-admin-kalendar-den {
   display: grid;
   grid-template-columns: minmax(7.5rem, var(--brana-admin-datum-sirka))
