@@ -130,6 +130,7 @@ export function BranaObrazovka({
   const vzkazHref = useBranaVerejnaCesta("vzkaz");
   const trebonHref = useBranaOdkazNaTrebon();
   const kotvaScroll = kotvaScrollProStranku(pohled);
+  const pataJednodenni = pohled === "dnes" || pohled === "zitra";
   const pocetBloku = data.bloky
     ? data.bloky.length
     : pohled === "vyhled"
@@ -200,7 +201,11 @@ export function BranaObrazovka({
   );
 
   const pata = (
-    <footer className="brana-pata">
+    <footer
+      className={
+        pataJednodenni ? "brana-pata brana-pata--dnes-zitra" : "brana-pata"
+      }
+    >
       <div className="brana-pata-stred">
         <Link href={trebonHref} className="brana-pata-odkaz">
           <span className="brana-pata-odkaz-text">Třeboň po celý rok</span>{" "}

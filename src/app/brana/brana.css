@@ -266,6 +266,26 @@
     padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
   }
 
+  /* Dnes + Zítra: volný prostor nad odkazem, ne mezi odkazem a aktualizací */
+  .brana-pata--dnes-zitra::before {
+    content: "";
+    display: block;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .brana-pata--dnes-zitra .brana-pata-stred {
+    flex: 0 0 auto;
+    min-height: calc(
+      8rem + 7mm - (0.875rem * 0.68 * 1.375 + 0.5rem + env(safe-area-inset-bottom, 0px))
+    );
+  }
+
+  .brana-pata--dnes-zitra .brana-pata-aktualizace {
+    flex: 0 0 auto;
+    margin-top: 0;
+  }
+
   .brana-vyzva-plocha-obal {
     @apply pointer-events-none fixed z-20 mx-auto w-full max-w-md px-6;
     top: 15.5rem;
