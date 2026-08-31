@@ -288,6 +288,9 @@ export function BranaObrazovka({
         pata={pata}
       >
         {seznamAkci}
+        {kotvaScroll ? (
+          <div className="brana-scroll-rezerva" aria-hidden />
+        ) : null}
       </BranaSwipeObsah>
       </div>
     </BranaKotvaScrollProvider>

@@ -139,6 +139,18 @@
     @apply w-full shrink-0;
   }
 
+  /**
+   * Spodní scrollovací rezerva jen u Víkend / 7 dní / Výhled.
+   * Poslední předěl se aktivuje až nad horním okrajem .brana-prostor-obsah.
+   * I při 1 položce za předělem + patičce musí jít sekce vytáhnout k této hranici.
+   * 100dvh − 12rem ≥ výška scrollportu (horní celek je vyšší než 12rem).
+   */
+  .brana-scroll-rezerva {
+    flex-shrink: 0;
+    min-height: calc(100dvh - 12rem);
+    pointer-events: none;
+  }
+
   .brana-listovani-viewport {
     @apply relative w-full shrink-0 overflow-hidden;
   }
