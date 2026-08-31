@@ -3429,12 +3429,38 @@ function jeTrebonskoKinoMesicProgramHtml(html: string): boolean {
   return maSvetozor && maAuroru && /<table\b/i.test(html);
 }
 
+function rokMesicZJednohoTextu(
+  text: string,
+): { rok: number; mesic: number } | null {
+  const mesic = mesicNominativZTextu(text);
+  const rok = rokZTextu(text);
+  if (mesic == null || rok == null) {
+    return null;
+  }
+  return { rok, mesic };
+}
+
 function rokMesicZTrebonskoKinoMesicHtml(
   html: string,
 ): { rok: number; mesic: number } | null {
   const title = vycistitHtmlTextKino(
     html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "",
   );
+  const zTitle = rokMesicZJednohoTextu(title);
+  if (zTitle) {
+    return zTitle;
+  }
+
+  const h1Texty = [...html.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/gi)].map((m) =>
+    vycistitHtmlTextKino(m[1] ?? ""),
+  );
+  for (const h1 of h1Texty) {
+    const zH1 = rokMesicZJednohoTextu(h1);
+    if (zH1) {
+      return zH1;
+    }
+  }
+
   const h3Texty = [...html.matchAll(/<h3\b[^>]*>([\s\S]*?)<\/h3>/gi)].map((m) =>
     vycistitHtmlTextKino(m[1] ?? ""),
   );
@@ -3447,12 +3473,7 @@ function rokMesicZTrebonskoKinoMesicHtml(
         /program/i.test(t),
     ),
   ].join(" | ");
-  const mesic = mesicNominativZTextu(relevantni);
-  const rok = rokZTextu(relevantni);
-  if (mesic == null || rok == null) {
-    return null;
-  }
-  return { rok, mesic };
+  return rokMesicZJednohoTextu(relevantni);
 }
 
 function jeHlavickaRadkuKinoTabulky(cells: readonly string[]): boolean {

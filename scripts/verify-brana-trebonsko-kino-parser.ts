@@ -83,6 +83,25 @@ function fixtureMesicHtml(): string {
 </body></html>`;
 }
 
+/** Titulek říjen, rozporný h3 září — měsíc článku musí zůstat říjen. */
+function fixtureTitulekPrednostiPredH3(): string {
+  return `<!DOCTYPE html><html><head>
+<link rel="canonical" href="https://www.trebonsko.cz/kino-trebon-program-rijen-2026"/>
+<title>Kino Třeboň - program říjen 2026 | Třeboňsko.cz</title>
+<span>trebonsko.cz</span>
+</head><body>
+<h1>Kino Třeboň - program říjen 2026</h1>
+<h3>Pozvánka do třeboňského kina Světozor - ŘÍJEN 2026</h3>
+<table border="0"><tbody>
+<tr><td>čt</td><td>1</td><td>17:00</td><td>Toy Story 5: Příběh hraček</td><td>ani</td><td>USA</td></tr>
+</tbody></table>
+<h3>Kino Aurora - ZÁŘÍ 2026</h3>
+<table border="0"><tbody>
+<tr><td>čt</td><td>1</td><td>19:30</td><td>Aurora Film</td><td>komedie</td><td>ČR</td></tr>
+</tbody></table>
+</body></html>`;
+}
+
 /** Minimální kinotrebon fixture — musí zůstat BEZ zdrojIdentita. */
 function fixtureKinotrebonBezeZmeny(): string {
   return `<!DOCTYPE html><html><body>
@@ -331,6 +350,27 @@ function overLongOnlyCeka(): void {
   console.log("OK LONG-ONLY CEKA (prázdný vstup / opakovaný / název / ochrany)");
 }
 
+function overTitulekMaPrednostPredH3(): void {
+  const mesic = parsovatUdalostiZeZdroje(
+    fixtureTitulekPrednostiPredH3(),
+    "text/html",
+  );
+  assert(mesic.length === 2, `titulek vs h3: ${mesic.length}`);
+  const sv = mesic.find((k) => k.mistoNeboTyp === "Kino Světozor");
+  const au = mesic.find((k) => k.mistoNeboTyp === "Kino Aurora");
+  assert(sv?.datumOd === "2026-10-01", `Světozor měsíc=${sv?.datumOd}`);
+  assert(au?.datumOd === "2026-10-01", `Aurora měsíc=${au?.datumOd}`);
+  assert(
+    sv?.zdrojIdentita === "kino|svetozor|2026-10-01|17:00",
+    `id=${sv?.zdrojIdentita}`,
+  );
+  assert(
+    mesic.every((k) => k.datumOd.startsWith("2026-10")),
+    "žádné datum z rozporného h3",
+  );
+  console.log("OK titulek má přednost před rozporným h3");
+}
+
 function overRegreseOstatniTrebonsko(): void {
   assert(
     jeTrebonskoRemeslneTrhyZdrojUrl(
@@ -365,7 +405,38 @@ async function predscanZivyLongOnly(): Promise<void> {
   const sloucene: BranaScanKandidat[] = [];
   for (const m of mesice) {
     const html = await get(m.url);
-    sloucene.push(...parsovatUdalostiZeZdroje(html, "text/html"));
+    const zClanku = parsovatUdalostiZeZdroje(html, "text/html");
+    const ym = `${m.rok}-${String(m.mesic).padStart(2, "0")}`;
+    const svCl = zClanku.filter((k) => k.mistoNeboTyp === "Kino Světozor");
+    const auCl = zClanku.filter((k) => k.mistoNeboTyp === "Kino Aurora");
+    const mimoMesic = zClanku.filter((k) => !k.datumOd.startsWith(ym));
+    console.log(
+      `  článek ${ym}: Světozor ${svCl.length}, Aurora ${auCl.length}` +
+        (mimoMesic.length ? `, mimo měsíc ${mimoMesic.length}` : ""),
+    );
+    assert(zClanku.length > 0, `${ym}: nenulový parse`);
+    assert(svCl.length > 0 && auCl.length > 0, `${ym}: obě kina`);
+    assert(
+      mimoMesic.length === 0,
+      `${ym}: datumy musí odpovídat titulku, ne h3`,
+    );
+    if (m.rok === 2026 && m.mesic === 9) {
+      const toy = svCl.find(
+        (k) => k.datumOd === "2026-09-01" && k.cas === "17:00",
+      );
+      console.log(
+        `  první Světozor září: ${toy?.datumOd ?? "—"} ${toy?.cas ?? ""} ${toy?.nazev ?? ""}`,
+      );
+      assert(
+        toy != null && /Toy Story 5/i.test(toy.nazev),
+        "1. 9. 17:00 Toy Story 5",
+      );
+      assert(
+        toy.zdrojIdentita === "kino|svetozor|2026-09-01|17:00",
+        `id=${toy.zdrojIdentita}`,
+      );
+    }
+    sloucene.push(...zClanku);
   }
   const dlouhy = deduplikovatScanKandidaty(sloucene).filter(
     (k) => !jeUdalostCelaMinula(k, dnes),
@@ -441,6 +512,7 @@ async function main(): Promise<void> {
   overDiscoveryHelpers();
   overKinotrebonBezeZmeny();
   overLongOnlyCeka();
+  overTitulekMaPrednostPredH3();
   overRegreseOstatniTrebonsko();
   await predscanZivyLongOnly();
   console.log("\nALL PASS");
