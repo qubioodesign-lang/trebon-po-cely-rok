@@ -787,32 +787,34 @@ export function BranaAdminKalendarRucniZapis({
         </div>
       ) : null}
 
-      {muzeEditovat && !otevreno ? (
-        <button
-          type="button"
-          onClick={otevritPridani}
-          className="text-sm font-light text-text-jemny underline-offset-2 hover:underline"
-        >
-          Přidat událost
-        </button>
-      ) : null}
+      <div className="flex flex-col gap-6">
+        {muzeEditovat && !otevreno ? (
+          <button
+            type="button"
+            onClick={otevritPridani}
+            className="text-sm font-light text-text-jemny underline-offset-2 hover:underline"
+          >
+            Přidat událost
+          </button>
+        ) : null}
 
-      {rucniZapisPovolen && upozorneniPrazdnychDni ? (
-        <p className="text-sm text-text" role="status">
-          {upozorneniPrazdnychDni}
-        </p>
-      ) : null}
+        {rucniZapisPovolen && upozorneniPrazdnychDni ? (
+          <p className="text-sm text-text" role="status">
+            {upozorneniPrazdnychDni}
+          </p>
+        ) : null}
 
-      {rucniZapisPovolen && idCekaKeSchvaleniKontroly.length > 0 ? (
-        <button
-          type="button"
-          onClick={schvalitKontrolu}
-          disabled={pending}
-          className="text-sm font-light text-text-jemny underline-offset-2 hover:underline disabled:opacity-50"
-        >
-          {pending ? "Ukládám…" : textTlacitkaSchvalitKontrolu}
-        </button>
-      ) : null}
+        {rucniZapisPovolen && idCekaKeSchvaleniKontroly.length > 0 ? (
+          <button
+            type="button"
+            onClick={schvalitKontrolu}
+            disabled={pending}
+            className="text-sm font-light text-text-jemny underline-offset-2 hover:underline disabled:opacity-50"
+          >
+            {pending ? "Ukládám…" : textTlacitkaSchvalitKontrolu}
+          </button>
+        ) : null}
+      </div>
 
       {formularOtevren ? (
         <div className="space-y-3 border-b border-text-velmiJemny/15 pb-4">
