@@ -147,7 +147,7 @@
    */
   .brana-scroll-rezerva {
     flex-shrink: 0;
-    min-height: calc(100dvh - 12rem - 21dvh);
+    min-height: calc(100dvh - 12rem - 26dvh);
     pointer-events: none;
   }
 
