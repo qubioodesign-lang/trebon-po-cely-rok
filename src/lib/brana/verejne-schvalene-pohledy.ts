@@ -29,6 +29,8 @@ import {
   normalizovatVerejnaJazykovaPoleZBlobu,
   rokUdalosti,
   seradUdalostiDne,
+  seskupVyhledUdalostiRokuNaSouhrny,
+  type BranaAdminVyhledSouhrn,
   type BranaKonkretniUdalost,
   type BranaRedakcniPoradiProKalendar,
 } from "@/lib/brana/admin/konkretni-udalost";
@@ -286,6 +288,22 @@ function doVerejneAkce(udalost: BranaKonkretniUdalost): BranaReferencniAkce {
   };
 }
 
+function doVerejneAkceZeSouhrnu(
+  souhrn: BranaAdminVyhledSouhrn,
+): BranaReferencniAkce {
+  return {
+    mistoNeboTyp: souhrn.mistoNeboTyp,
+    nazev: souhrn.nazev,
+    cas: "",
+    ...(souhrn.verejneCo !== undefined
+      ? {
+          verejneCo: souhrn.verejneCo,
+          verejneRozliseni: souhrn.verejneRozliseni ?? null,
+        }
+      : {}),
+  };
+}
+
 function prazdnaDataProStranku(
   stranka: BranaVerejnaStranka,
 ): BranaSdilenaPohledovaData {
@@ -305,7 +323,8 @@ function prazdnaDataProStranku(
 
 /**
  * Čistá projekce SCHVALENO → veřejná pohledová data (bez I/O).
- * Pro denní pohledy respektuje dnyTrvaniUdalosti; Výhled = projektujVyhledPodleRoku.
+ * Denní pohledy: dnyTrvaniUdalosti. Výhled: stejné seskupení série jako Admin
+ * (seskupVyhledUdalostiRokuNaSouhrny), jen ze SCHVALENO karet.
  */
 export function projektujSchvaleneDoVerejnehoPohledu(args: {
   stranka: BranaVerejnaStranka;
@@ -331,6 +350,9 @@ export function projektujSchvaleneDoVerejnehoPohledu(args: {
       redakcniPolozkaId,
       polozkyPodleId.get(redakcniPolozkaId)?.vyhled,
     );
+
+  const maVyhledSerii = (redakcniPolozkaId: string): boolean =>
+    polozkyPodleId.get(redakcniPolozkaId)?.vyhledSerie !== false;
 
   const poradiRedakcni = (
     redakcniPolozkaId: string,
@@ -423,23 +445,22 @@ export function projektujSchvaleneDoVerejnehoPohledu(args: {
     podleRoku.set(rok, seznam);
   }
 
-  const seradVyhled = (seznam: BranaKonkretniUdalost[]) =>
-    seznam.slice().sort((a, b) => {
-      const cmp = a.datumOd.localeCompare(b.datumOd);
-      return cmp !== 0 ? cmp : a.id.localeCompare(b.id);
-    });
+  const souhrnyRoku = (rok: number): BranaAdminVyhledSouhrn[] =>
+    seskupVyhledUdalostiRokuNaSouhrny(
+      rok,
+      podleRoku.get(rok) ?? [],
+      maVyhledSerii,
+    );
 
-  const letosni = seradVyhled(podleRoku.get(okna.aktualniRok) ?? []);
-  const pozdejsi = seradVyhled(
-    [...podleRoku.entries()]
-      .filter(([rok]) => rok > okna.aktualniRok)
-      .sort(([a], [b]) => a - b)
-      .flatMap(([, seznam]) => seznam),
-  );
+  const letosni = souhrnyRoku(okna.aktualniRok);
+  const pozdejsi = [...podleRoku.keys()]
+    .filter((rok) => rok > okna.aktualniRok)
+    .sort((a, b) => a - b)
+    .flatMap((rok) => souhrnyRoku(rok));
 
-  const blok0Akce = letosni.map(doVerejneAkce);
+  const blok0Akce = letosni.map(doVerejneAkceZeSouhrnu);
   const blok0Datumy = letosni.map(formatujDatumVyhled);
-  const blok1Akce = pozdejsi.map(doVerejneAkce);
+  const blok1Akce = pozdejsi.map(doVerejneAkceZeSouhrnu);
   const blok1Datumy = pozdejsi.map(formatujDatumVyhled);
 
   return {

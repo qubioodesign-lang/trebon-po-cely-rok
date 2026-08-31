@@ -3,7 +3,6 @@
  * Spuštění: npx tsx scripts/verify-brana-admin-vyhled-serie.ts
  */
 
-import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { rozlozAkci } from "../src/lib/brana/admin/akce-rozlozeni";
@@ -13,11 +12,16 @@ import {
   projektujAdminVyhledSouhrnyPodleRoku,
   projektujKalendarDny,
   projektujVyhledPodleRoku,
+  rokUdalosti,
+  seskupVyhledUdalostiRokuNaSouhrny,
+  type BranaAdminVyhledSouhrn,
 } from "../src/lib/brana/admin/konkretni-udalost";
+import { maDatumOdPatritDoVyhledu } from "../src/lib/brana/admin/obdobi-7-dni";
 import {
   vychoziVyhledSerieProId,
   vytvoritVychoziRedakcniPoradi,
 } from "../src/lib/brana/admin/redakcni-kostra";
+import { maUkazkovyVyhledAno } from "../src/lib/brana/admin/ukazkove-udalosti";
 import {
   sloucitUlozeneSKostrou,
   validovatRedakcniPoradiVstup,
@@ -150,8 +154,8 @@ const NOCTURNA_2027: BranaKonkretniUdalost[] = [
 
 /** Současných 7 produkčních CEKA Trhů (projekční fixture, ne Blob). */
 const TRHY_7_CEKA: BranaKonkretniUdalost[] = [
-  trh({ id: "t1", rozliseni: "Letní tečka", datumOd: "2026-08-29" }),
-  trh({ id: "t2", rozliseni: "Vinobraní", datumOd: "2026-09-05" }),
+  trh({ id: "t1", rozliseni: "Letní tečka", datumOd: "2026-09-12" }),
+  trh({ id: "t2", rozliseni: "Vinobraní", datumOd: "2026-09-19" }),
   trh({
     id: "t3",
     rozliseni: "Svatováclavské slavnosti",
@@ -389,8 +393,8 @@ function overTrhySedmSamostatnych(): void {
   assert(souhrny[0].souhrny.length === 7, "7 samostatných řádků");
 
   const ocekavane = [
-    "Trh · Letní tečka — 29.8.",
-    "Trh · Vinobraní — 5.9.",
+    "Trh · Letní tečka — 12.9.",
+    "Trh · Vinobraní — 19.9.",
     "Trh · Svatováclavské slavnosti — 26.9.",
     "Trh · Svatomartinské slavnosti — 7.11.",
     "Trh · Třeboň plná andělů — 28.11.",
@@ -423,7 +427,7 @@ function overTrhyStaryBlobStaleSerie(): void {
   );
   assert(souhrny[0].souhrny.length === 1, "bez pole / Série → 1 souhrn");
   assert(
-    souhrny[0].souhrny[0].datumOd === "2026-08-29" &&
+    souhrny[0].souhrny[0].datumOd === "2026-09-12" &&
       souhrny[0].souhrny[0].datumDo === "2026-12-19",
     "agregovaný rozsah Trhů",
   );
@@ -501,22 +505,326 @@ function overKalendarNeseskupuje(): void {
   console.log("OK kalendář + projektujVyhledPodleRoku = jednotlivé události");
 }
 
-function sha256Souboru(rel: string): string {
-  const buf = readFileSync(resolve(process.cwd(), rel));
-  return createHash("sha256").update(buf).digest("hex");
+/** Stejná datumová hranice jako veřejný Výhled k 31. 8. 2026. */
+const VEREJNA_HRANICE = {
+  dnesIso: "2026-08-31",
+  sedmDniIso: [
+    "2026-09-01",
+    "2026-09-02",
+    "2026-09-03",
+    "2026-09-04",
+    "2026-09-05",
+    "2026-09-06",
+    "2026-09-07",
+  ],
+} as const;
+const VEREJNY_AKTUALNI_ROK = 2026;
+
+function nocturnaVerejna(
+  partial: Pick<BranaKonkretniUdalost, "id" | "datumOd" | "nazev"> &
+    Partial<Pick<BranaKonkretniUdalost, "stavSchvaleni" | "datumDo">>,
+): BranaKonkretniUdalost {
+  return udalost({
+    ...partial,
+    redakcniPolozkaId: NOCTURNA_ID,
+    datumDo: partial.datumDo ?? partial.datumOd,
+    mistoNeboTyp: "Divadlo J. K. Tyla",
+    verejneCo: "Třeboňská nocturna",
+    verejneRozliseni: "Divadlo J. K. Tyla",
+  });
 }
 
-/** Veřejná projekce musí zůstat bez agregace sérií. */
-const CHRANENE_SOUBORY = [
-  "src/lib/brana/verejne-schvalene-pohledy.ts",
-] as const;
+/**
+ * Veřejný Výhled: SCHVALENO + Používat + Výhled=ANO + datumová hranice,
+ * pak stejné seskupení jako Admin (`seskupVyhledUdalostiRokuNaSouhrny`).
+ */
+function projektujVerejnyVyhledSouhrny(
+  udalosti: readonly BranaKonkretniUdalost[],
+): { letosni: BranaAdminVyhledSouhrn[]; pozdejsi: BranaAdminVyhledSouhrn[] } {
+  const polozky = vytvoritVychoziRedakcniPoradi();
+  const polozkyPodleId = new Map(polozky.map((p) => [p.id, p] as const));
+  const maPouzivatAno = (redakcniPolozkaId: string | null): boolean => {
+    if (redakcniPolozkaId === null) {
+      return true;
+    }
+    return polozkyPodleId.get(redakcniPolozkaId)?.pouzivat === "ANO";
+  };
+  const maVyhledAno = (redakcniPolozkaId: string): boolean =>
+    maUkazkovyVyhledAno(
+      redakcniPolozkaId,
+      polozkyPodleId.get(redakcniPolozkaId)?.vyhled,
+    );
+  const maVyhledSerii = (redakcniPolozkaId: string): boolean =>
+    polozkyPodleId.get(redakcniPolozkaId)?.vyhledSerie !== false;
 
-function overVerejnaBranaNedotcena(): void {
-  for (const rel of CHRANENE_SOUBORY) {
-    const hash = sha256Souboru(rel);
-    assert(hash.length === 64, `${rel}: hash`);
-    console.log(`OK chráněný soubor čitelný: ${rel}`);
+  const kandidati = udalosti.filter(
+    (u) =>
+      u.stavSchvaleni === "SCHVALENO" &&
+      !u.id.startsWith("ukazka-") &&
+      maPouzivatAno(u.redakcniPolozkaId),
+  );
+  const vyhledUdalosti = kandidati.filter((u) => {
+    if (u.redakcniPolozkaId === null) {
+      return false;
+    }
+    if (!maDatumOdPatritDoVyhledu(u.datumOd, VEREJNA_HRANICE)) {
+      return false;
+    }
+    return maVyhledAno(u.redakcniPolozkaId);
+  });
+
+  const podleRoku = new Map<number, BranaKonkretniUdalost[]>();
+  for (const udalostRoku of vyhledUdalosti) {
+    const rok = rokUdalosti(udalostRoku);
+    const seznam = podleRoku.get(rok) ?? [];
+    seznam.push(udalostRoku);
+    podleRoku.set(rok, seznam);
   }
+
+  const souhrnyRoku = (rok: number): BranaAdminVyhledSouhrn[] =>
+    seskupVyhledUdalostiRokuNaSouhrny(
+      rok,
+      podleRoku.get(rok) ?? [],
+      maVyhledSerii,
+    );
+
+  return {
+    letosni: souhrnyRoku(VEREJNY_AKTUALNI_ROK),
+    pozdejsi: [...podleRoku.keys()]
+      .filter((rok) => rok > VEREJNY_AKTUALNI_ROK)
+      .sort((a, b) => a - b)
+      .flatMap((rok) => souhrnyRoku(rok)),
+  };
+}
+
+function overVerejnyVyhledSdiliSerii(): void {
+  const zdroj = readFileSync(
+    resolve(process.cwd(), "src/lib/brana/verejne-schvalene-pohledy.ts"),
+    "utf8",
+  );
+  assert(
+    zdroj.includes("seskupVyhledUdalostiRokuNaSouhrny") &&
+      zdroj.includes("vyhledSerie !== false") &&
+      zdroj.includes('u.stavSchvaleni === "SCHVALENO"') &&
+      zdroj.includes("doVerejneAkceZeSouhrnu"),
+    "veřejný Výhled musí sdílet seskupení série a zůstat u SCHVALENO",
+  );
+  console.log("OK veřejný zdroj sdílí seskupVyhledUdalostiRokuNaSouhrny");
+}
+
+function overVerejnaNocturnaJednaPolozka(): void {
+  const karty = [
+    nocturnaVerejna({
+      id: "n1",
+      datumOd: "2026-10-15",
+      nazev: "Koncert A",
+    }),
+    nocturnaVerejna({
+      id: "n2",
+      datumOd: "2026-10-29",
+      nazev: "Koncert B",
+    }),
+    nocturnaVerejna({
+      id: "n3",
+      datumOd: "2026-11-12",
+      nazev: "Koncert C",
+    }),
+    nocturnaVerejna({
+      id: "n4",
+      datumOd: "2026-11-26",
+      nazev: "Koncert D",
+    }),
+    nocturnaVerejna({
+      id: "n5",
+      datumOd: "2026-12-03",
+      nazev: "Koncert E",
+    }),
+    nocturnaVerejna({
+      id: "n6",
+      datumOd: "2026-12-17",
+      nazev: "Koncert F",
+    }),
+  ];
+  const { letosni, pozdejsi } = projektujVerejnyVyhledSouhrny(karty);
+  assert(pozdejsi.length === 0, "2026: žádný pozdější rok");
+  assert(letosni.length === 1, `6× SCHVALENO → 1 položka, je ${letosni.length}`);
+  const s = letosni[0];
+  assert(s.nazev === "", "souhrn bez názvu koncertu");
+  assert(
+    formatujDatumVyhled(s) === "15.10.–17.12.",
+    `rozsah, je ${formatujDatumVyhled(s)}`,
+  );
+  assert(s.verejneCo === "Třeboňská nocturna", "CO série");
+  assert(s.verejneRozliseni === "Divadlo J. K. Tyla", "KDE série");
+  const radek = radekVyhledu(s);
+  assert(!radek.includes("Koncert"), `názvy koncertů unikly: ${radek}`);
+  console.log("OK veřejný Výhled: 6× nocturna 2026 → 15.10.–17.12.");
+}
+
+function overVerejnaRokyNeslucuj(): void {
+  const karty = [
+    nocturnaVerejna({
+      id: "n1",
+      datumOd: "2026-10-15",
+      nazev: "Koncert A",
+    }),
+    nocturnaVerejna({
+      id: "n6",
+      datumOd: "2026-12-17",
+      nazev: "Koncert F",
+    }),
+    nocturnaVerejna({
+      id: "n7",
+      datumOd: "2027-01-21",
+      nazev: "Koncert G",
+    }),
+    nocturnaVerejna({
+      id: "n8",
+      datumOd: "2027-03-18",
+      nazev: "Koncert H",
+    }),
+  ];
+  const { letosni, pozdejsi } = projektujVerejnyVyhledSouhrny(karty);
+  assert(letosni.length === 1, "2026: 1 souhrn");
+  assert(pozdejsi.length === 1, "2027: 1 souhrn, nesloučeno");
+  assert(formatujDatumVyhled(letosni[0]) === "15.10.–17.12.", "2026 rozsah");
+  assert(formatujDatumVyhled(pozdejsi[0]) === "21.1.–18.3.", "2027 rozsah");
+  console.log("OK veřejný Výhled: 2026 a 2027 zvlášť");
+}
+
+function overVerejneJednotliveNeslucuj(): void {
+  const trhySchvaleno = TRHY_7_CEKA.map((t) => ({
+    ...t,
+    stavSchvaleni: "SCHVALENO" as const,
+  }));
+  const zahajeniA = udalost({
+    id: "z1",
+    redakcniPolozkaId: "zahajeni-lazenske-sezony",
+    datumOd: "2026-10-01",
+    datumDo: "2026-10-01",
+    nazev: "Zahájení A",
+    mistoNeboTyp: "Trh Zahájení lázeňské sezóny",
+    verejneCo: "Trh",
+    verejneRozliseni: "Zahájení lázeňské sezóny",
+  });
+  const zahajeniB = udalost({
+    id: "z2",
+    redakcniPolozkaId: "zahajeni-lazenske-sezony",
+    datumOd: "2026-10-08",
+    datumDo: "2026-10-08",
+    nazev: "Zahájení B",
+    mistoNeboTyp: "Trh Zahájení lázeňské sezóny",
+    verejneCo: "Trh",
+    verejneRozliseni: "Zahájení lázeňské sezóny",
+  });
+  const mint = trh({
+    id: "mint-bud",
+    rozliseni: "MINT Market",
+    datumOd: "2026-09-27",
+    datumDo: "2026-09-28",
+  });
+  mint.stavSchvaleni = "SCHVALENO";
+
+  const { letosni } = projektujVerejnyVyhledSouhrny([
+    ...trhySchvaleno,
+    zahajeniA,
+    zahajeniB,
+    mint,
+  ]);
+
+  const trhyLetos = letosni.filter((s) => s.redakcniPolozkaId === TRHY_ID);
+  assert(trhyLetos.length === 8, `7 trhů + MINT jednotlivě, je ${trhyLetos.length}`);
+  const adventni = trhyLetos.filter((s) => s.verejneRozliseni === "Adventní");
+  assert(
+    adventni.length === 2,
+    `Adventní zůstanou 2, je ${adventni.length}`,
+  );
+  assert(
+    adventni[0].datumOd === "2026-12-12" &&
+      adventni[1].datumOd === "2026-12-19",
+    "Adventní nesloučeny",
+  );
+  const mintRadek = letosni.find((s) => s.verejneRozliseni === "MINT Market");
+  assert(mintRadek !== undefined, "MINT ve Výhledu");
+  assert(
+    formatujDatumVyhled(mintRadek) === "27.9.–28.9.",
+    `vícedenní jedna položka, je ${formatujDatumVyhled(mintRadek)}`,
+  );
+  assert(
+    trhyLetos.filter((s) => s.verejneRozliseni === "Letní tečka").length === 1,
+    "Letní tečka (12.9.) ve Výhledu jednotlivě",
+  );
+  assert(
+    trhyLetos.filter((s) => s.verejneRozliseni === "Vinobraní").length === 1,
+    "Vinobraní (19.9.) ve Výhledu jednotlivě",
+  );
+  const svatovaclavske = trhyLetos.filter(
+    (s) => s.verejneRozliseni === "Svatováclavské slavnosti",
+  );
+  assert(svatovaclavske.length === 1, "Svatováclavské = 1 řádek");
+  const zahajeniLetos = letosni.filter(
+    (s) => s.redakcniPolozkaId === "zahajeni-lazenske-sezony",
+  );
+  assert(zahajeniLetos.length === 2, "zahájení = 2 jednotlivé, nesloučeny");
+  assert(
+    zahajeniLetos[0].datumOd === "2026-10-01" &&
+      zahajeniLetos[1].datumOd === "2026-10-08",
+    "zahájení pořadí datumů",
+  );
+  assert(zahajeniLetos[0].nazev === "Zahájení A", "jednotlivé drží název");
+  console.log("OK veřejný Výhled: trhy/adventní/MINT/zahájení jednotlivě");
+}
+
+function overVerejneCekaAVyrazenoMimo(): void {
+  const schvalene = [
+    nocturnaVerejna({
+      id: "n1",
+      datumOd: "2026-10-15",
+      nazev: "Koncert A",
+    }),
+    nocturnaVerejna({
+      id: "n6",
+      datumOd: "2026-12-17",
+      nazev: "Koncert F",
+    }),
+  ];
+  const ceka = nocturnaVerejna({
+    id: "n-ceka",
+    datumOd: "2026-12-20",
+    nazev: "Koncert CEKA",
+    stavSchvaleni: "CEKA_NA_SCHVALENI",
+  });
+  const vyrazeno = nocturnaVerejna({
+    id: "n-vyraz",
+    datumOd: "2026-12-24",
+    nazev: "Koncert VYRAZENO",
+    stavSchvaleni: "VYRAZENO",
+  });
+  const trhCeka = trh({
+    id: "t-ceka",
+    rozliseni: "Tajný trh",
+    datumOd: "2026-10-10",
+  });
+
+  const { letosni, pozdejsi } = projektujVerejnyVyhledSouhrny([
+    ...schvalene,
+    ceka,
+    vyrazeno,
+    trhCeka,
+  ]);
+  assert(pozdejsi.length === 0, "jen 2026");
+  assert(letosni.length === 1, "CEKA/VYRAZENO nenačtou další řádek");
+  assert(
+    formatujDatumVyhled(letosni[0]) === "15.10.–17.12.",
+    `CEKA/VYRAZENO nesmí prodloužit rozsah, je ${formatujDatumVyhled(letosni[0])}`,
+  );
+  assert(
+    !letosni.some((s) => s.verejneRozliseni === "Tajný trh"),
+    "CEKA trh veřejně není",
+  );
+  const text = letosni.map(radekVyhledu).join(" | ");
+  assert(!text.includes("CEKA") && !text.includes("VYRAZENO"), text);
+  console.log("OK veřejný Výhled: CEKA i VYRAZENO mimo");
 }
 
 overSeedAStaryBlob();
@@ -530,5 +838,9 @@ overTrhyStaryBlobStaleSerie();
 overMintVicedenniJedenZaznam();
 overVylovRozmberkBezeZmeny();
 overKalendarNeseskupuje();
-overVerejnaBranaNedotcena();
-console.log("VŠE OK — admin Výhled série z Redakčního pořadí");
+overVerejnyVyhledSdiliSerii();
+overVerejnaNocturnaJednaPolozka();
+overVerejnaRokyNeslucuj();
+overVerejneJednotliveNeslucuj();
+overVerejneCekaAVyrazenoMimo();
+console.log("VŠE OK — admin i veřejný Výhled série z Redakčního pořadí");

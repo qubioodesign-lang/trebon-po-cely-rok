@@ -538,10 +538,88 @@ export function projektujVyhledPodleRoku(
 }
 
 /**
+ * Seskupení už zařazených událostí jednoho roku podle redakcniPolozkaId + vyhledSerie.
+ * Stejné pravidlo pro Admin i veřejný Výhled. Filtr data / stavu sem nepatří.
+ */
+export function seskupVyhledUdalostiRokuNaSouhrny(
+  rok: number,
+  udalostiRoku: readonly BranaKonkretniUdalost[],
+  maVyhledSerii: (redakcniPolozkaId: string) => boolean,
+): BranaAdminVyhledSouhrn[] {
+  const podlePolozky = new Map<string, BranaKonkretniUdalost[]>();
+  for (const udalost of udalostiRoku) {
+    const id = udalost.redakcniPolozkaId as string;
+    const seznam = podlePolozky.get(id) ?? [];
+    seznam.push(udalost);
+    podlePolozky.set(id, seznam);
+  }
+
+  const souhrny: BranaAdminVyhledSouhrn[] = [];
+  for (const [redakcniPolozkaId, clenove] of podlePolozky) {
+    const serazene = clenove.slice().sort((a, b) => {
+      const cmp = a.datumOd.localeCompare(b.datumOd);
+      return cmp !== 0 ? cmp : a.id.localeCompare(b.id);
+    });
+
+    if (!maVyhledSerii(redakcniPolozkaId)) {
+      for (const clen of serazene) {
+        souhrny.push({
+          klic: `${rok}:${redakcniPolozkaId}:${clen.id}`,
+          redakcniPolozkaId,
+          datumOd: clen.datumOd,
+          datumDo: posledniPlatnyDenUdalosti(clen),
+          mistoNeboTyp: clen.mistoNeboTyp,
+          nazev: clen.nazev,
+          ...(clen.verejneCo !== undefined
+            ? {
+                verejneCo: clen.verejneCo,
+                verejneRozliseni: clen.verejneRozliseni ?? null,
+              }
+            : {}),
+        });
+      }
+      continue;
+    }
+
+    const reprezentant = serazene[0];
+    let datumDo = posledniPlatnyDenUdalosti(reprezentant);
+    for (const clen of serazene) {
+      const konec = posledniPlatnyDenUdalosti(clen);
+      if (konec > datumDo) {
+        datumDo = konec;
+      }
+    }
+    const jeSerie = serazene.length > 1;
+    souhrny.push({
+      klic: `${rok}:${redakcniPolozkaId}`,
+      redakcniPolozkaId,
+      datumOd: reprezentant.datumOd,
+      datumDo,
+      mistoNeboTyp: reprezentant.mistoNeboTyp,
+      // Série: bez názvu jednotlivého koncertu – CO/KDE z jazyka položky.
+      nazev: jeSerie ? "" : reprezentant.nazev,
+      ...(reprezentant.verejneCo !== undefined
+        ? {
+            verejneCo: reprezentant.verejneCo,
+            verejneRozliseni: reprezentant.verejneRozliseni ?? null,
+          }
+        : {}),
+    });
+  }
+
+  souhrny.sort((a, b) => {
+    const cmp = a.datumOd.localeCompare(b.datumOd);
+    return cmp !== 0 ? cmp : a.klic.localeCompare(b.klic);
+  });
+
+  return souhrny;
+}
+
+/**
  * Admin Výhled: stejný filtr jako projektujVyhledPodleRoku.
  * `maVyhledSerii` čte uložené Redakční pořadí (chybí-li → true = série).
  * false → jedna konkrétní událost = jeden řádek.
- * Kalendář / Blob / veřejná projekce se nemění.
+ * Kalendář / Blob se nemění.
  */
 export function projektujAdminVyhledSouhrnyPodleRoku(
   udalosti: readonly BranaKonkretniUdalost[],
@@ -549,75 +627,14 @@ export function projektujAdminVyhledSouhrnyPodleRoku(
   maVyhledSerii: (redakcniPolozkaId: string) => boolean = () => true,
 ): BranaAdminVyhledRokSkupina[] {
   return projektujVyhledPodleRoku(udalosti, maVyhledAno).map(
-    ({ rok, udalosti: udalostiRoku }) => {
-      const podlePolozky = new Map<string, BranaKonkretniUdalost[]>();
-      for (const udalost of udalostiRoku) {
-        const id = udalost.redakcniPolozkaId as string;
-        const seznam = podlePolozky.get(id) ?? [];
-        seznam.push(udalost);
-        podlePolozky.set(id, seznam);
-      }
-
-      const souhrny: BranaAdminVyhledSouhrn[] = [];
-      for (const [redakcniPolozkaId, clenove] of podlePolozky) {
-        const serazene = clenove.slice().sort((a, b) => {
-          const cmp = a.datumOd.localeCompare(b.datumOd);
-          return cmp !== 0 ? cmp : a.id.localeCompare(b.id);
-        });
-
-        if (!maVyhledSerii(redakcniPolozkaId)) {
-          for (const clen of serazene) {
-            souhrny.push({
-              klic: `${rok}:${redakcniPolozkaId}:${clen.id}`,
-              redakcniPolozkaId,
-              datumOd: clen.datumOd,
-              datumDo: posledniPlatnyDenUdalosti(clen),
-              mistoNeboTyp: clen.mistoNeboTyp,
-              nazev: clen.nazev,
-              ...(clen.verejneCo !== undefined
-                ? {
-                    verejneCo: clen.verejneCo,
-                    verejneRozliseni: clen.verejneRozliseni ?? null,
-                  }
-                : {}),
-            });
-          }
-          continue;
-        }
-
-        const reprezentant = serazene[0];
-        let datumDo = posledniPlatnyDenUdalosti(reprezentant);
-        for (const clen of serazene) {
-          const konec = posledniPlatnyDenUdalosti(clen);
-          if (konec > datumDo) {
-            datumDo = konec;
-          }
-        }
-        const jeSerie = serazene.length > 1;
-        souhrny.push({
-          klic: `${rok}:${redakcniPolozkaId}`,
-          redakcniPolozkaId,
-          datumOd: reprezentant.datumOd,
-          datumDo,
-          mistoNeboTyp: reprezentant.mistoNeboTyp,
-          // Série: bez názvu jednotlivého koncertu – CO/KDE z jazyka položky.
-          nazev: jeSerie ? "" : reprezentant.nazev,
-          ...(reprezentant.verejneCo !== undefined
-            ? {
-                verejneCo: reprezentant.verejneCo,
-                verejneRozliseni: reprezentant.verejneRozliseni ?? null,
-              }
-            : {}),
-        });
-      }
-
-      souhrny.sort((a, b) => {
-        const cmp = a.datumOd.localeCompare(b.datumOd);
-        return cmp !== 0 ? cmp : a.klic.localeCompare(b.klic);
-      });
-
-      return { rok, souhrny };
-    },
+    ({ rok, udalosti: udalostiRoku }) => ({
+      rok,
+      souhrny: seskupVyhledUdalostiRokuNaSouhrny(
+        rok,
+        udalostiRoku,
+        maVyhledSerii,
+      ),
+    }),
   );
 }
 
