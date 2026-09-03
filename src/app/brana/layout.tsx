@@ -7,7 +7,6 @@ import {
   BRANA_IKONA_LAUNCHER_URL,
   BRANA_NAZEV,
   BRANA_POPIS,
-  BRANA_PWA_DEN_BARVA,
 } from "@/lib/brana";
 import "./brana.css";
 
@@ -64,7 +63,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: BRANA_PWA_DEN_BARVA,
+  themeColor: "#FAF8F5",
 };
 
 export default async function BranaLayout({

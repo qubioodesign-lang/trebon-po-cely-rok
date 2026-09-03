@@ -5,10 +5,6 @@ import {
   dalsiZmenaDenniDobyVPraze,
   jeNocniRezimVPraze,
 } from "@/lib/brana/cas";
-import {
-  BRANA_PWA_DEN_BARVA,
-  BRANA_PWA_NOC_BARVA,
-} from "@/lib/brana/konstanty";
 import type { BranaPozadiVarianta } from "@/lib/brana/pozadi-varianty";
 import type { BranaVerejnaStranka } from "@/lib/brana/navigace-stranky";
 import { opakovaniSeznamuAkci } from "@/lib/brana/navigace-stranky";
@@ -23,6 +19,9 @@ import { BranaIosInstalacniVrstva } from "./BranaIosInstalacniVrstva";
 import { BranaRegistracePWA } from "./BranaRegistracePWA";
 import { BranaVyzvaPlocha } from "./BranaVyzvaPlocha";
 
+/** Dokumentový theme-color = krémový PWA status bar (tmavé systémové ikony). */
+const BRANA_STATUS_BAR_THEME = "#FAF8F5";
+
 type BranaDenniDobaObalProps = {
   vychoziNocRezim: boolean;
   variantaPozadi?: BranaPozadiVarianta;
@@ -33,12 +32,11 @@ type BranaDenniDobaObalProps = {
   desktopPanel?: ReactNode;
 };
 
-function nastavThemeColor(nocRezim: boolean) {
-  const barva = nocRezim ? BRANA_PWA_NOC_BARVA : BRANA_PWA_DEN_BARVA;
+function nastavThemeColor() {
   const meta = document.querySelector('meta[name="theme-color"]');
 
   if (meta) {
-    meta.setAttribute("content", barva);
+    meta.setAttribute("content", BRANA_STATUS_BAR_THEME);
   }
 }
 
@@ -55,8 +53,8 @@ export function BranaDenniDobaObal({
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    nastavThemeColor(nocRezim);
-  }, [nocRezim]);
+    nastavThemeColor();
+  }, []);
 
   useEffect(() => {
     setNocRezim(jeNocniRezimVPraze());
