@@ -15,7 +15,6 @@ import {
 } from "./env-blob-brana-admin";
 import {
   parsovatRadarDokument,
-  pridatRucniNalezDoHistorie,
   pouzitRadarStopu,
   radarDnesIso,
   seraditPracovniStopy,
@@ -269,33 +268,17 @@ async function pridatRucniNalezJadro(
     throw new Error(validace.chyba);
   }
 
-  if (!maBranaAdminBlobKonfiguraci()) {
-    throw new Error(
-      "Nelze uložit RADAR: chybí BLOB_BRANA_ADMIN_STORE_ID nebo BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
-    );
-  }
-
-  return zmenitRadarDokumentAtomicky((surovy) => {
-    const uklizeny = ukliditDokument(surovy);
-    const po = pridatRucniNalezDoHistorie(uklizeny, validace.nalez, {
-      noveId: () => `radar-${crypto.randomUUID()}`,
-      tedIso: new Date().toISOString(),
-    });
-    const snapshot: BranaRadarUceniSnapshot = {
-      datumOd: validace.nalez.datumOd,
-      cas: validace.nalez.cas,
-      nazev: validace.nalez.nazev,
-      kde: validace.nalez.kde,
-      url: validace.nalez.url,
-    };
-    if (jeStejnyRadarDokument(surovy, po)) {
-      return { typ: "bezZmeny", vysledek: snapshot };
-    }
-    return { typ: "zapsat", dokument: po, vysledek: snapshot };
-  });
+  // + Přidat už nezapisuje do brana-radar.json; cílem je Učení.
+  return {
+    datumOd: validace.nalez.datumOd,
+    cas: validace.nalez.cas,
+    nazev: validace.nalez.nazev,
+    kde: validace.nalez.kde,
+    url: validace.nalez.url,
+  };
 }
 
-/** Uloží ruční nález pouze do historie RADARU. Kalendář nemění. */
+/** Validuje ruční nález pro Učení. RADAR historii ani inbox nemění. */
 export async function pridatRucniRadarNalez(
   vstup: unknown,
 ): Promise<BranaRadarUceniSnapshot> {
@@ -338,7 +321,7 @@ async function pouzitRadarStopuJadro(
   });
 }
 
-/** Použít: historie RADAR_POUZITO + otisk. Kalendář nemění. */
+/** Použít: pryč z pracovních + otisk. Historii nepřidává. Kalendář nemění. */
 export async function pouzitRadarPracovniStopu(
   id: string,
 ): Promise<BranaRadarUceniSnapshot> {

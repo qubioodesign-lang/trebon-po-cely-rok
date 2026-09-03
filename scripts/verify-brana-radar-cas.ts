@@ -340,19 +340,17 @@ async function hlavni(): Promise<void> {
     const revize = { dokument: klon(blob.dokument), etag: blob.apiEtag };
     await zapsat(blob, mutacePouzit("id-a"));
     await zapsatSeStalymPrvnimCtenim(blob, revize, mutaceSmazat("id-b"));
-    const historieA = blob.dokument.historie.filter(
-      (h) => h.id === "id-a" && h.puvod === BRANA_RADAR_PUVOD_POUZITO,
-    );
     const otiskA = vytvoritRadarOtiskKlic(a);
     const otiskB = vytvoritRadarOtiskKlic(b);
     assert(
       !blob.dokument.pracovni.some((s) => s.id === "id-a") &&
         !blob.dokument.pracovni.some((s) => s.id === "id-b") &&
-        historieA.length === 1 &&
+        !blob.dokument.historie.some(
+          (h) => h.puvod === BRANA_RADAR_PUVOD_POUZITO,
+        ) &&
         blob.dokument.smazatOtisky.some((o) => o.klic === otiskA) &&
-        blob.dokument.smazatOtisky.some((o) => o.klic === otiskB) &&
-        !blob.dokument.historie.some((h) => h.id === "id-b"),
-      "D: Použít A × Smazat B → historie jen A, otisky A i B",
+        blob.dokument.smazatOtisky.some((o) => o.klic === otiskB),
+      "D: Použít A × Smazat B → bez nové historie, otisky A i B",
     );
   }
 
@@ -383,11 +381,14 @@ async function hlavni(): Promise<void> {
     assert(
       blob.dokument.pracovni.some((s) => s.nazev === "Stopa nová") &&
         !blob.dokument.pracovni.some((s) => s.id === "id-a") &&
-        blob.dokument.historie.some(
+        !blob.dokument.historie.some(
           (h) => h.id === "id-a" && h.puvod === BRANA_RADAR_PUVOD_POUZITO,
         ) &&
+        blob.dokument.smazatOtisky.some(
+          (o) => o.klic === vytvoritRadarOtiskKlic(a),
+        ) &&
         blob.dokument.posledniBehAt === TED,
-      "F: scan × Použít jiné id → obě operace zachovány",
+      "F: scan × Použít jiné id → obě operace zachovány, bez historie",
     );
   }
 
@@ -535,9 +536,11 @@ async function hlavni(): Promise<void> {
   );
   assert(
     teloNacistJadro.includes("zmenitRadarDokumentAtomicky(") &&
-      teloRucni.includes("zmenitRadarDokumentAtomicky(") &&
-      teloRucni.includes("noveId: () => `radar-${crypto.randomUUID()}`") &&
+      !teloRucni.includes("zmenitRadarDokumentAtomicky(") &&
+      !teloRucni.includes("pridatRucniNalezDoHistorie") &&
+      teloRucni.includes("validovatRucniRadarNalezVstup") &&
       teloPouzit.includes("zmenitRadarDokumentAtomicky(") &&
+      teloPouzit.includes("pouzitRadarStopu(") &&
       teloSmazat.includes("zmenitRadarDokumentAtomicky(") &&
       teloScan.includes("zmenitRadarDokumentAtomicky(") &&
       teloScan.includes("noveId: () => `radar-${crypto.randomUUID()}`") &&
@@ -555,7 +558,7 @@ async function hlavni(): Promise<void> {
       teloFunkce(uloziste, "export async function nacistRadar").includes(
         "nacistRadarJadro()",
       ),
-    "K: všech 5 zápisových cest používá CAS helper",
+    "K: Použít/Smazat/scan/úklid CAS; + Přidat bez RADAR zápisu",
   );
 
   const putVyskytu = (uloziste.match(/await put\(/g) ?? []).length;

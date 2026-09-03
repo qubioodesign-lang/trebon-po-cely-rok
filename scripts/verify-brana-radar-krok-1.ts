@@ -357,8 +357,16 @@ assert(
     !akceRadarCast.includes("kalendar") &&
     !akceRadarCast.includes("pridatRucniKonkretniUdalost") &&
     akceRadarCast.includes("pouzitBranaRadarStopuAkce") &&
-    akceRadarCast.includes("smazatBranaRadarStopuAkce"),
-  "F: RADAR akce neinvaliduje Kalendář a nevolá ruční zápis",
+    akceRadarCast.includes("smazatBranaRadarStopuAkce") &&
+    akceRadarCast.includes("pridatPolozkuDoUceni(") &&
+    akceRadarCast.includes("pridatPolozkuDoUceniBestEffort"),
+  "F: RADAR akce neinvaliduje Kalendář; + Přidat primární Učení, Použít best-effort",
+);
+assert(
+  !radarUloziste.includes("pridatRucniNalezDoHistorie") &&
+    radarTs.includes("historie: dokument.historie.slice()") &&
+    radarTs.includes("pridatRucniNalezDoHistorie"),
+  "F: provozní + Přidat/Použít neappendují historii; schema historie zůstává",
 );
 assert(
   radarUloziste.includes('BRANA_RADAR_BLOB_CESTA = "data/brana-radar.json"') &&
@@ -488,24 +496,13 @@ const poPouziti = pouzitRadarStopu(docPouziti, "stopa-1", {
 });
 assert(!("chyba" in poPouziti), "2D: Použít uspěje");
 if (!("chyba" in poPouziti)) {
-  const hist = poPouziti.historie[poPouziti.historie.length - 1];
   assert(poPouziti.pracovni.length === 0, "2D: Použít vyprázdní pracovni");
   assert(
-    poPouziti.historie.length === 2 &&
-      hist?.puvod === "RADAR_POUZITO" &&
-      hist.datumOd === "2026-08-22" &&
-      hist.cas === "19:00" &&
-      hist.nazev === "Jazz na terase" &&
-      hist.kde === "U Vodníka" &&
-      hist.radarVstupId === "region-trebonsko" &&
-      hist.url === "https://example.test/jazz" &&
-      hist.nalezenoAt === "2026-08-20T12:00:00.000Z" &&
-      hist.rozhodnutoAt === "2026-08-20T15:00:00.000Z",
-    "2D: Použít zapíše RADAR_POUZITO se zachovanými poli",
-  );
-  assert(
-    poPouziti.historie[0]?.puvod === "RUCNE_NALEZENO",
-    "2D: starší ruční historie zůstává",
+    poPouziti.historie.length === 1 &&
+      poPouziti.historie[0]?.puvod === "RUCNE_NALEZENO" &&
+      poPouziti.historie[0]?.id === "hist-rucne" &&
+      !poPouziti.historie.some((h) => h.puvod === "RADAR_POUZITO"),
+    "2D: Použít nepřidává historii, starší historie zůstává",
   );
   assert(
     poPouziti.smazatOtisky.length === 1 &&
@@ -593,10 +590,11 @@ assert(
 
 assert(
   !("chyba" in poPouziti) &&
-    poPouziti.historie.some((h) => h.puvod === "RADAR_POUZITO") &&
+    poPouziti.smazatOtisky.length === 1 &&
+    !poPouziti.historie.some((h) => h.puvod === "RADAR_POUZITO") &&
     !radarTs.includes("pridatRucniKonkretniUdalost") &&
     !radarSeznam.includes("kalendar"),
-  "2K: Použít/Smazat nezapisují do Kalendáře",
+  "2K: Použít/Smazat nezapisují do Kalendáře; Použít jen otisk",
 );
 
 const formularText = cist(
@@ -942,9 +940,12 @@ assert(
   poPridaniPoScanu.pracovni.length === 1 &&
     poPridaniPoScanu.historie.some((h) => h.puvod === "RUCNE_NALEZENO") &&
     poPridaniPoScanu.smazatOtisky.length === 0 &&
-    poPouzitiOtisku.historie.some((h) => h.puvod === "RADAR_POUZITO") &&
+    !("chyba" in poPouzitiOtisku) &&
+    poPouzitiOtisku.smazatOtisky.length === 1 &&
+    !poPouzitiOtisku.historie.some((h) => h.puvod === "RADAR_POUZITO") &&
+    poPouzitiOtisku.historie[0]?.id === "radar-hist-pred" &&
     poSmazaniOtisku.historie.length === 0,
-  "4J: stávající + Přidat / Použít / Smazat dál fungují",
+  "4J: legacy helper historie / Použít otisk bez historie / Smazat dál fungují",
 );
 
 const htmlMapa: Record<string, string> = {

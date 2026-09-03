@@ -39,6 +39,7 @@ import {
 } from "@/lib/brana/admin/radar-uloziste";
 import { validovatRucniRadarNalezVstup } from "@/lib/brana/admin/radar";
 import {
+  pridatPolozkuDoUceni,
   pridatPolozkuDoUceniBestEffort,
   vyprazdnitUceniArchiv,
 } from "@/lib/brana/admin/uceni-uloziste";
@@ -704,7 +705,7 @@ export async function smazatBranaZdrojAkce(
   }
 }
 
-/** Uloží ruční nález pouze do historie RADARU. Nic nepublikuje. */
+/** Uloží ruční nález do Učení. RADAR historii nepřidává. Nic nepublikuje. */
 export async function pridatRucniRadarNalezAkce(
   vstup: unknown,
 ): Promise<BranaRadarRucniNalezVysledek> {
@@ -719,7 +720,7 @@ export async function pridatRucniRadarNalezAkce(
 
   try {
     const snapshot = await pridatRucniRadarNalez(validace.nalez);
-    await pridatPolozkuDoUceniBestEffort({
+    await pridatPolozkuDoUceni({
       datumOd: snapshot.datumOd,
       cas: snapshot.cas,
       nazev: snapshot.nazev,
@@ -745,7 +746,7 @@ export type BranaRadarStopaAkceVysledek =
   | { uspech: true }
   | { uspech: false; chyba: string };
 
-/** Použít pracovní stopu: jen historie RADARU, nic se nepublikuje. */
+/** Použít pracovní stopu: otisk + best-effort Učení. Historii nepřidává. */
 export async function pouzitBranaRadarStopuAkce(
   id: string,
 ): Promise<BranaRadarStopaAkceVysledek> {

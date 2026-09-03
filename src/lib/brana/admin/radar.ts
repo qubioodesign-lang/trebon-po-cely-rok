@@ -322,8 +322,10 @@ export function parsovatRadarDokument(
 }
 
 /**
- * Ruční nález jde jen do historie. Pracovní inbox, otisky Smazat
- * a posledniBehAt se nemění. Kalendář se nevolá.
+ * Legacy helper: zápis do historie RUCNE_NALEZENO.
+ * Provozní cesta + Přidat už historii nepoužívá (cílem je Učení).
+ * Funkce zůstává kvůli schématu / fixture / čitelnosti starých dat.
+ * Pracovní inbox, otisky Smazat a posledniBehAt se nemění. Kalendář se nevolá.
  */
 export function pridatRucniNalezDoHistorie(
   dokument: BranaRadarDokument,
@@ -452,13 +454,14 @@ function pridatOtiskPokudChybi(
 }
 
 /**
- * Použít: pryč z pracovních, do historie RADAR_POUZITO, otisk proti opětovnému nabídnutí.
- * Kalendář se nevolá.
+ * Použít: pryč z pracovních, otisk proti opětovnému nabídnutí.
+ * Nové záznamy do historie nepřidává (archiv příkladů je Učení).
+ * Existující historii ponechá beze změny. Kalendář se nevolá.
  */
 export function pouzitRadarStopu(
   dokument: BranaRadarDokument,
   id: string,
-  args: { tedIso: string },
+  _args?: { tedIso: string },
 ): BranaRadarDokument | { chyba: string } {
   const idTrim = id.trim();
   if (!idTrim) {
@@ -469,25 +472,11 @@ export function pouzitRadarStopu(
     return { chyba: "Stopa už není v pracovním RADARU." };
   }
 
-  const tedIso = args.tedIso.trim();
-  const zaznam: BranaRadarHistorieZaznam = {
-    id: stopa.id,
-    puvod: BRANA_RADAR_PUVOD_POUZITO,
-    datumOd: stopa.datumOd,
-    cas: stopa.cas,
-    nazev: stopa.nazev,
-    kde: stopa.kde,
-    radarVstupId: stopa.radarVstupId,
-    url: stopa.url,
-    rozhodnutoAt: tedIso,
-    nalezenoAt: stopa.nalezenoAt,
-  };
-
   return {
     verzeUloziste: BRANA_RADAR_VERZE_ULOZISTE,
     pracovni: dokument.pracovni.filter((s) => s.id !== idTrim),
     smazatOtisky: pridatOtiskPokudChybi(dokument.smazatOtisky, stopa),
-    historie: [...dokument.historie, zaznam],
+    historie: dokument.historie.slice(),
     posledniBehAt: dokument.posledniBehAt,
   };
 }

@@ -206,6 +206,39 @@ export async function nacistUceni(): Promise<NacistUceniVysledek> {
   }
 }
 
+/** Interní CAS append. Při chybě vyhazuje. */
+async function appendUceniPolozku(vstup: BranaUceniPolozkaVstup): Promise<void> {
+  if (!maBranaAdminBlobKonfiguraci()) {
+    throw new Error(
+      "Nelze uložit Učení: chybí BLOB_BRANA_ADMIN_STORE_ID nebo BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
+    );
+  }
+
+  await zmenitUceniDokumentAtomicky((dokument) => {
+    const po = pridatUceniPolozkuDoDokumentu(dokument, vstup, {
+      noveId: () => `uceni-${crypto.randomUUID()}`,
+      tedIso: new Date().toISOString(),
+    });
+    if ("chyba" in po) {
+      throw new Error(po.chyba);
+    }
+    return { typ: "zapsat", dokument: po, vysledek: undefined };
+  });
+}
+
+/**
+ * Primární zápis do Učení (např. RADAR + Přidat).
+ * Při selhání vyhodí chybu — volající nesmí hlásit úspěch.
+ */
+export async function pridatPolozkuDoUceni(
+  vstup: BranaUceniPolozkaVstup,
+): Promise<void> {
+  if (!(await jeAdminPrihlasen())) {
+    throw new Error("Nejste přihlášeni.");
+  }
+  await appendUceniPolozku(vstup);
+}
+
 /**
  * Best-effort append do Učení.
  * Nikdy neházej ven — volající primární operace musí zůstat úspěšná.
@@ -218,17 +251,7 @@ export async function pridatPolozkuDoUceniBestEffort(
       zalogovatChybuUceni("přeskočeno – chybí BLOB_BRANA_ADMIN konfigurace");
       return;
     }
-
-    await zmenitUceniDokumentAtomicky((dokument) => {
-      const po = pridatUceniPolozkuDoDokumentu(dokument, vstup, {
-        noveId: () => `uceni-${crypto.randomUUID()}`,
-        tedIso: new Date().toISOString(),
-      });
-      if ("chyba" in po) {
-        throw new Error(po.chyba);
-      }
-      return { typ: "zapsat", dokument: po, vysledek: undefined };
-    });
+    await appendUceniPolozku(vstup);
   } catch (error) {
     zalogovatChybuUceni("best-effort zápis selhal", error);
   }
