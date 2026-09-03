@@ -1,31 +1,7 @@
 {
-  "vytvoreno": "2026-08-18T09:44:40.265Z",
+  "vytvoreno": "2026-08-31T07:12:07.682Z",
   "zdrojUrl": "https://www.itrebon.cz/kalendar.html",
   "kandidati": [
-    {
-      "nazev": "Komentovaná prohlídka Divadla J. K. Tyla",
-      "datumOd": "2026-08-18",
-      "datumDo": "2026-08-18",
-      "cas": "13:30",
-      "mistoNeboTyp": "Divadlo J. K. Tyla",
-      "zdrojIdentita": "itrebon|20465"
-    },
-    {
-      "nazev": "Komentovaná prohlídka Divadla J. K. Tyla",
-      "datumOd": "2026-08-25",
-      "datumDo": "2026-08-25",
-      "cas": "13:30",
-      "mistoNeboTyp": "Divadlo J. K. Tyla",
-      "zdrojIdentita": "itrebon|20466"
-    },
-    {
-      "nazev": "Pohádka: Ať žijí strašidla",
-      "datumOd": "2026-08-29",
-      "datumDo": "2026-08-29",
-      "cas": "17:00",
-      "mistoNeboTyp": "Divadlo J. K. Tyla",
-      "zdrojIdentita": "itrebon|20334"
-    },
     {
       "nazev": "Rockové balady při svíčkách",
       "datumOd": "2026-09-17",
@@ -91,6 +67,14 @@
       "zdrojIdentita": "itrebon|20352"
     },
     {
+      "nazev": "R.U.R. - činohra divadelního spolku Milečín",
+      "datumOd": "2026-10-23",
+      "datumDo": "2026-10-23",
+      "cas": "19:30",
+      "mistoNeboTyp": "Divadlo J. K. Tyla",
+      "zdrojIdentita": "itrebon|20584"
+    },
+    {
       "nazev": "Aladin a kouzelná lampa - rodinný muzikál",
       "datumOd": "2026-10-31",
       "datumDo": "2026-10-31",
@@ -153,6 +137,14 @@
       "cas": "19:30",
       "mistoNeboTyp": "Divadlo J. K. Tyla",
       "zdrojIdentita": "itrebon|20355"
+    },
+    {
+      "nazev": "Šplouch - předsilvestr v Divadle :)",
+      "datumOd": "2026-12-30",
+      "datumDo": "2026-12-30",
+      "cas": "19:30",
+      "mistoNeboTyp": "Divadlo J. K. Tyla",
+      "zdrojIdentita": "itrebon|20570"
     },
     {
       "nazev": "Chaos - činohra",
