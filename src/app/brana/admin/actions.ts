@@ -38,6 +38,10 @@ import {
   smazatRadarPracovniStopu,
 } from "@/lib/brana/admin/radar-uloziste";
 import { validovatRucniRadarNalezVstup } from "@/lib/brana/admin/radar";
+import {
+  pridatPolozkuDoUceniBestEffort,
+  vyprazdnitUceniArchiv,
+} from "@/lib/brana/admin/uceni-uloziste";
 import type { BranaDlouhodobyIntervalDni, BranaZdroj } from "@/lib/brana/admin/zdroj";
 import {
   dokumentNaUi,
@@ -185,7 +189,14 @@ export async function pridatRucniKonkretniUdalostAkce(
 
   try {
     const udalost = await pridatRucniKonkretniUdalost(validace.udalost);
+    await pridatPolozkuDoUceniBestEffort({
+      datumOd: udalost.datumOd,
+      cas: udalost.cas,
+      nazev: udalost.nazev,
+      kde: udalost.mistoNeboTyp,
+    });
     revalidatePath("/brana/admin/sprava/kalendar");
+    revalidatePath("/brana/admin/sprava/uceni");
     return { uspech: true, udalost };
   } catch (error) {
     const detail =
@@ -707,8 +718,16 @@ export async function pridatRucniRadarNalezAkce(
   }
 
   try {
-    await pridatRucniRadarNalez(validace.nalez);
+    const snapshot = await pridatRucniRadarNalez(validace.nalez);
+    await pridatPolozkuDoUceniBestEffort({
+      datumOd: snapshot.datumOd,
+      cas: snapshot.cas,
+      nazev: snapshot.nazev,
+      kde: snapshot.kde,
+      url: snapshot.url,
+    });
     revalidatePath("/brana/admin/sprava/radar");
+    revalidatePath("/brana/admin/sprava/uceni");
     return { uspech: true };
   } catch (error) {
     const detail =
@@ -735,8 +754,16 @@ export async function pouzitBranaRadarStopuAkce(
   }
 
   try {
-    await pouzitRadarPracovniStopu(id);
+    const snapshot = await pouzitRadarPracovniStopu(id);
+    await pridatPolozkuDoUceniBestEffort({
+      datumOd: snapshot.datumOd,
+      cas: snapshot.cas,
+      nazev: snapshot.nazev,
+      kde: snapshot.kde,
+      url: snapshot.url,
+    });
     revalidatePath("/brana/admin/sprava/radar");
+    revalidatePath("/brana/admin/sprava/uceni");
     return { uspech: true };
   } catch (error) {
     const detail =
@@ -812,6 +839,32 @@ export async function nacistSeznamBranaZalohAkce(): Promise<BranaSeznamZalohAkce
     return {
       uspech: false,
       chyba: detail ?? "Seznam záloh se nepodařilo načíst.",
+    };
+  }
+}
+
+export type BranaUceniArchivAkceVysledek =
+  | { uspech: true }
+  | { uspech: false; chyba: string };
+
+/** Vyprázdní pouze data/brana-uceni.json (CAS → prázdný dokument). */
+export async function vyprazdnitBranaUceniArchivAkce(): Promise<BranaUceniArchivAkceVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  try {
+    await vyprazdnitUceniArchiv();
+    revalidatePath("/brana/admin/sprava/uceni");
+    return { uspech: true };
+  } catch (error) {
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "Archiv Učení se nepodařilo vyprázdnit.",
     };
   }
 }

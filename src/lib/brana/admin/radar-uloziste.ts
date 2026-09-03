@@ -253,7 +253,17 @@ export async function nacistRadar(): Promise<NacistRadarVysledek> {
   return nacistRadarJadro();
 }
 
-async function pridatRucniNalezJadro(vstup: unknown): Promise<void> {
+export type BranaRadarUceniSnapshot = {
+  datumOd: string;
+  cas: string;
+  nazev: string;
+  kde: string;
+  url: string;
+};
+
+async function pridatRucniNalezJadro(
+  vstup: unknown,
+): Promise<BranaRadarUceniSnapshot> {
   const validace = validovatRucniRadarNalezVstup(vstup);
   if (!validace.ok) {
     throw new Error(validace.chyba);
@@ -265,52 +275,77 @@ async function pridatRucniNalezJadro(vstup: unknown): Promise<void> {
     );
   }
 
-  await zmenitRadarDokumentAtomicky((surovy) => {
+  return zmenitRadarDokumentAtomicky((surovy) => {
     const uklizeny = ukliditDokument(surovy);
     const po = pridatRucniNalezDoHistorie(uklizeny, validace.nalez, {
       noveId: () => `radar-${crypto.randomUUID()}`,
       tedIso: new Date().toISOString(),
     });
+    const snapshot: BranaRadarUceniSnapshot = {
+      datumOd: validace.nalez.datumOd,
+      cas: validace.nalez.cas,
+      nazev: validace.nalez.nazev,
+      kde: validace.nalez.kde,
+      url: validace.nalez.url,
+    };
     if (jeStejnyRadarDokument(surovy, po)) {
-      return { typ: "bezZmeny", vysledek: undefined };
+      return { typ: "bezZmeny", vysledek: snapshot };
     }
-    return { typ: "zapsat", dokument: po, vysledek: undefined };
+    return { typ: "zapsat", dokument: po, vysledek: snapshot };
   });
 }
 
 /** Uloží ruční nález pouze do historie RADARU. Kalendář nemění. */
-export async function pridatRucniRadarNalez(vstup: unknown): Promise<void> {
+export async function pridatRucniRadarNalez(
+  vstup: unknown,
+): Promise<BranaRadarUceniSnapshot> {
   if (!(await jeAdminPrihlasen())) {
     throw new Error("Nejste přihlášeni.");
   }
-  await pridatRucniNalezJadro(vstup);
+  return pridatRucniNalezJadro(vstup);
 }
 
-async function pouzitRadarStopuJadro(id: string): Promise<void> {
+async function pouzitRadarStopuJadro(
+  id: string,
+): Promise<BranaRadarUceniSnapshot> {
   if (!maBranaAdminBlobKonfiguraci()) {
     throw new Error(
       "Nelze uložit RADAR: chybí BLOB_BRANA_ADMIN_STORE_ID nebo BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
     );
   }
 
-  await zmenitRadarDokumentAtomicky((surovy) => {
+  return zmenitRadarDokumentAtomicky((surovy) => {
     const uklizeny = ukliditDokument(surovy);
+    const idTrim = id.trim();
+    const stopa = uklizeny.pracovni.find((s) => s.id === idTrim);
+    if (!stopa) {
+      throw new Error("Stopa už není v pracovním RADARU.");
+    }
+    const snapshot: BranaRadarUceniSnapshot = {
+      datumOd: stopa.datumOd,
+      cas: stopa.cas,
+      nazev: stopa.nazev,
+      kde: stopa.kde,
+      url: stopa.url,
+    };
     const po = pouzitRadarStopu(uklizeny, id, {
       tedIso: new Date().toISOString(),
     });
     if ("chyba" in po) {
       throw new Error(po.chyba);
     }
-    return { typ: "zapsat", dokument: po, vysledek: undefined };
+    return { typ: "zapsat", dokument: po, vysledek: snapshot };
   });
 }
 
 /** Použít: historie RADAR_POUZITO + otisk. Kalendář nemění. */
-export async function pouzitRadarPracovniStopu(id: string): Promise<void> {
+export async function pouzitRadarPracovniStopu(
+  id: string,
+): Promise<BranaRadarUceniSnapshot> {
   if (!(await jeAdminPrihlasen())) {
     throw new Error("Nejste přihlášeni.");
   }
-  await pouzitRadarStopuJadro(id);
+  return pouzitRadarStopuJadro(id);
 }
 
 async function smazatRadarStopuJadro(id: string): Promise<void> {
