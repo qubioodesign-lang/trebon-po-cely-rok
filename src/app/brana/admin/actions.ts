@@ -43,6 +43,17 @@ import {
   pridatPolozkuDoUceniBestEffort,
   vyprazdnitUceniArchiv,
 } from "@/lib/brana/admin/uceni-uloziste";
+import {
+  nastavitAtmosferaRucniText,
+  zrusitAtmosferaRucniText,
+} from "@/lib/brana/admin/atmosfera-uloziste";
+import {
+  BranaAtmosferaCasKonfliktLimitError,
+} from "@/lib/brana/admin/atmosfera-cas";
+import {
+  normalizovatRucniTextAtmosfery,
+  type BranaAtmosferaDokument,
+} from "@/lib/brana/atmosfera";
 import type { BranaDlouhodobyIntervalDni, BranaZdroj } from "@/lib/brana/admin/zdroj";
 import {
   dokumentNaUi,
@@ -866,6 +877,69 @@ export async function vyprazdnitBranaUceniArchivAkce(): Promise<BranaUceniArchiv
     return {
       uspech: false,
       chyba: detail ?? "Archiv Učení se nepodařilo vyprázdnit.",
+    };
+  }
+}
+
+export type BranaAtmosferaRucniAkceVysledek =
+  | { uspech: true; dokument: BranaAtmosferaDokument }
+  | { uspech: false; chyba: string };
+
+/** Nastaví ruční větu Atmosféry (dočasný override). Bez AI. */
+export async function nastavitBranaAtmosferaRucniTextAkce(
+  text: unknown,
+): Promise<BranaAtmosferaRucniAkceVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  const validace = normalizovatRucniTextAtmosfery(text);
+  if (!validace.ok) {
+    return { uspech: false, chyba: validace.chyba };
+  }
+
+  try {
+    const dokument = await nastavitAtmosferaRucniText(validace.text);
+    revalidatePath("/brana/admin/sprava/atmosfera");
+    revalidatePath("/brana");
+    return { uspech: true, dokument };
+  } catch (error) {
+    if (error instanceof BranaAtmosferaCasKonfliktLimitError) {
+      return { uspech: false, chyba: error.message };
+    }
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "Ruční text Atmosféry se nepodařilo uložit.",
+    };
+  }
+}
+
+/** Zruší ruční override Atmosféry. Bez AI. */
+export async function zrusitBranaAtmosferaRucniTextAkce(): Promise<BranaAtmosferaRucniAkceVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  try {
+    const dokument = await zrusitAtmosferaRucniText();
+    revalidatePath("/brana/admin/sprava/atmosfera");
+    revalidatePath("/brana");
+    return { uspech: true, dokument };
+  } catch (error) {
+    if (error instanceof BranaAtmosferaCasKonfliktLimitError) {
+      return { uspech: false, chyba: error.message };
+    }
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "Ruční text Atmosféry se nepodařilo zrušit.",
     };
   }
 }

@@ -58,7 +58,14 @@ export type BranaAtmosferaDokument = {
   predchoziSnimekAt: string | null;
   model: string | null;
   duvodStavu: BranaAtmosferaDuvodStavu;
+  /** Aktivní ruční override; null = veřejně platí automatický stav. */
+  rucniText: string | null;
+  /** ISO nastavení ručního textu (admin info); neovlivní cron dedup. */
+  rucniTextAt: string | null;
 };
+
+/** Max. délka ruční věty po trimu (mobilní řádek s věží). */
+export const BRANA_ATMOSFERA_RUCNI_TEXT_MAX = 90;
 
 export const BRANA_ATMOSFERA_VERZE = 1 as const;
 
@@ -83,6 +90,39 @@ export function verejnaVetaAtmosfery(
   stav: BranaAtmosferaStav,
 ): string | null {
   return MAPOVANI_VETY[stav];
+}
+
+/** Veřejná věta: ruční override má přednost před automatickým mapováním. */
+export function verejnaVetaZDokumentuAtmosfery(
+  dokument: BranaAtmosferaDokument,
+): string | null {
+  const rucni = dokument.rucniText?.trim() ?? "";
+  if (rucni) {
+    return rucni;
+  }
+  return verejnaVetaAtmosfery(dokument.stav);
+}
+
+export function normalizovatRucniTextAtmosfery(
+  vstup: unknown,
+): { ok: true; text: string } | { ok: false; chyba: string } {
+  if (typeof vstup !== "string") {
+    return { ok: false, chyba: "Text musí být řetězec." };
+  }
+  const text = vstup.trim();
+  if (!text) {
+    return { ok: false, chyba: "Text nesmí být prázdný." };
+  }
+  if (text.length > BRANA_ATMOSFERA_RUCNI_TEXT_MAX) {
+    return {
+      ok: false,
+      chyba: `Text smí mít nejvýše ${BRANA_ATMOSFERA_RUCNI_TEXT_MAX} znaků.`,
+    };
+  }
+  if (/[<>]/.test(text)) {
+    return { ok: false, chyba: "Text nesmí obsahovat HTML značky." };
+  }
+  return { ok: true, text };
 }
 
 export function jeAtmosferaStav(hodnota: unknown): hodnota is BranaAtmosferaStav {
@@ -123,6 +163,8 @@ export function vychoziAtmosferaDokument(
     predchoziSnimekAt: null,
     model: null,
     duvodStavu: "NIC",
+    rucniText: null,
+    rucniTextAt: null,
   };
 }
 
@@ -200,6 +242,35 @@ export function parsovatAtmosferaDokument(
         : null;
   if (root.model != null && model === null) return null;
 
+  // Zpětná kompatibilita: chybějící ruční pole → null.
+  let rucniText: string | null;
+  if (root.rucniText === null || root.rucniText === undefined) {
+    rucniText = null;
+  } else if (typeof root.rucniText === "string") {
+    const trim = root.rucniText.trim();
+    if (!trim) {
+      rucniText = null;
+    } else if (
+      trim.length > BRANA_ATMOSFERA_RUCNI_TEXT_MAX ||
+      /[<>]/.test(trim)
+    ) {
+      return null;
+    } else {
+      rucniText = trim;
+    }
+  } else {
+    return null;
+  }
+
+  const rucniTextAt =
+    root.rucniTextAt === null || root.rucniTextAt === undefined
+      ? null
+      : jeIso(root.rucniTextAt)
+        ? root.rucniTextAt
+        : null;
+  if (root.rucniTextAt != null && rucniTextAt === null) return null;
+  if (rucniText === null && rucniTextAt !== null) return null;
+
   return {
     verze: 1,
     stav: root.stav,
@@ -210,5 +281,7 @@ export function parsovatAtmosferaDokument(
     predchoziSnimekAt,
     model,
     duvodStavu: duvod,
+    rucniText,
+    rucniTextAt,
   };
 }

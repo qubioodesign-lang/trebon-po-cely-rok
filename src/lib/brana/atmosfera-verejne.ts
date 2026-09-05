@@ -9,12 +9,12 @@ import {
 import {
   BRANA_ATMOSFERA_BLOB_CESTA,
   parsovatAtmosferaDokument,
-  verejnaVetaAtmosfery,
+  verejnaVetaZDokumentuAtmosfery,
 } from "@/lib/brana/atmosfera";
 
 /**
  * Fail-soft veřejná věta Atmosféry pro DNES.
- * Při chybě / NIC / neplatném dokumentu vrací null — nic nerenderovat.
+ * Preferuje rucniText; jinak pevné mapování stavu (NIC → null).
  * Nikdy nespouští motor ani nezapisuje do Blob.
  */
 export async function nactiVerejnouVetuAtmosfery(): Promise<string | null> {
@@ -49,7 +49,7 @@ export async function nactiVerejnouVetuAtmosfery(): Promise<string | null> {
       return null;
     }
 
-    return verejnaVetaAtmosfery(dokument.stav);
+    return verejnaVetaZDokumentuAtmosfery(dokument);
   } catch (error) {
     if (error instanceof BlobNotFoundError) {
       return null;

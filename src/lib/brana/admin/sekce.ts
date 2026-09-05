@@ -14,6 +14,7 @@ export type BranaAdminSpravaSekce =
   | "uceni"
   | "zdroje"
   | "upozorneni"
+  | "atmosfera"
   | "zaloha";
 
 export type BranaAdminNavPolozka<T extends string> = {
@@ -48,6 +49,7 @@ export const BRANA_ADMIN_SPRAVA_SEKCE = [
   { id: "uceni", label: "Učení", segment: "uceni" },
   { id: "zdroje", label: "Zdroje", segment: "zdroje" },
   { id: "upozorneni", label: "Upozornění", segment: "upozorneni" },
+  { id: "atmosfera", label: "Atmosféra", segment: "atmosfera" },
   { id: "zaloha", label: "Záloha", segment: "zaloha" },
 ] as const satisfies ReadonlyArray<BranaAdminNavPolozka<BranaAdminSpravaSekce>>;
 

@@ -58,6 +58,8 @@ async function zapsatNicPoChybe(
     predchoziSnimekAt: null,
     model: null,
     duvodStavu: "CHYBA",
+    rucniText: null,
+    rucniTextAt: null,
   };
   await ulozitAtmosferaDokument(dokument);
   return {
@@ -172,6 +174,8 @@ export async function spustitAtmosferaKontrolu(): Promise<BranaAtmosferaKontrola
     predchoziSnimekAt: predchoziProAi ? predchoziSnimekAt : null,
     model: ai.model,
     duvodStavu,
+    rucniText: null,
+    rucniTextAt: null,
   };
 
   try {

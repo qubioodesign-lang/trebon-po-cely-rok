@@ -247,6 +247,57 @@ export async function ulozitAtmosferaDokument(
   }));
 }
 
+/**
+ * Nastaví ruční override. Nemění automatická pole ani zkontrolovanoAt.
+ */
+export async function nastavitAtmosferaRucniText(
+  text: string,
+): Promise<BranaAtmosferaDokument> {
+  if (!maBranaAdminBlobKonfiguraci()) {
+    throw new Error(
+      "Nelze uložit Atmosféru: chybí BLOB_BRANA_ADMIN konfigurace.",
+    );
+  }
+
+  const tedIso = new Date().toISOString();
+  return zmenitAtmosferaDokumentAtomicky((dokument) => ({
+    typ: "zapsat",
+    dokument: {
+      ...dokument,
+      rucniText: text,
+      rucniTextAt: tedIso,
+    },
+    vysledek: {
+      ...dokument,
+      rucniText: text,
+      rucniTextAt: tedIso,
+    },
+  }));
+}
+
+/**
+ * Zruší ruční override. Nemění automatický stav; bez AI.
+ */
+export async function zrusitAtmosferaRucniText(): Promise<BranaAtmosferaDokument> {
+  if (!maBranaAdminBlobKonfiguraci()) {
+    throw new Error(
+      "Nelze uložit Atmosféru: chybí BLOB_BRANA_ADMIN konfigurace.",
+    );
+  }
+
+  return zmenitAtmosferaDokumentAtomicky((dokument) => {
+    if (dokument.rucniText === null && dokument.rucniTextAt === null) {
+      return { typ: "bezZmeny", vysledek: dokument };
+    }
+    const dalsi = {
+      ...dokument,
+      rucniText: null,
+      rucniTextAt: null,
+    };
+    return { typ: "zapsat", dokument: dalsi, vysledek: dalsi };
+  });
+}
+
 /** Přepíše jediný pracovní JPEG. Žádný archiv. */
 export async function ulozitPredchoziPracovniJpeg(
   bajty: Buffer,
