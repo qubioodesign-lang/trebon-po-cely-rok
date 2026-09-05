@@ -153,6 +153,27 @@ export async function nacistAtmosferaDokument(): Promise<BranaAtmosferaDokument 
 }
 
 /**
+ * Read-only pro cron dedup: neexistující Blob / chyba → null
+ * (nesmí se tvářit jako právě dokončená kontrola).
+ */
+export async function nacistAtmosferaDokumentPokudExistuje(): Promise<BranaAtmosferaDokument | null> {
+  noStore();
+  if (!maBranaAdminBlobKonfiguraci()) {
+    return null;
+  }
+  try {
+    const cteni = await nacistDokumentSEtagProZapis();
+    if (cteni.stav === "neexistuje") {
+      return null;
+    }
+    return cteni.dokument;
+  } catch (error) {
+    zalogovatChybuAtmosfery("načtení stavu pro dedup selhalo", error);
+    return null;
+  }
+}
+
+/**
  * Pracovní JPEG jen když metadata existují a SHA-256 bajtů sedí.
  * Při neshodě hashe vrátí null (previous se nepoužije) — Atmosféru nepoškodí.
  */
