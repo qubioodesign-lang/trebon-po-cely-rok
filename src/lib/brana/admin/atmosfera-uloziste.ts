@@ -13,6 +13,8 @@ import {
   ziskatVolbyBranaAdminBlob,
 } from "./env-blob-brana-admin";
 import {
+  BRANA_ATMOSFERA_BLOB_CESTA,
+  BRANA_ATMOSFERA_PREDCHOZI_JPEG_CESTA,
   otiskJpegSha256,
   parsovatAtmosferaDokument,
   vychoziAtmosferaDokument,
@@ -23,9 +25,7 @@ import {
   type BranaAtmosferaDokumentMutace,
 } from "./atmosfera-cas";
 
-export const BRANA_ATMOSFERA_BLOB_CESTA = "data/brana-atmosfera.json";
-export const BRANA_ATMOSFERA_PREDCHOZI_JPEG_CESTA =
-  "data/brana-atmosfera-predchozi.jpg";
+export { BRANA_ATMOSFERA_BLOB_CESTA, BRANA_ATMOSFERA_PREDCHOZI_JPEG_CESTA };
 
 type BlobCteniProZapis =
   | { stav: "neexistuje" }

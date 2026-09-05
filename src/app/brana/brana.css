@@ -130,6 +130,21 @@
     color: var(--brand-accent);
   }
 
+  /**
+   * Atmosféra — pouze DNES, mimo Kalendář.
+   * Typografie věty = stejná jako .brana-akce-typ (CO).
+   * Wrapper se vyrenderuje jen při platné větě (žádná prázdná mezera).
+   */
+  .brana-atmosfera {
+    @apply mb-3 flex items-center gap-2 text-[0.9375rem] leading-snug;
+  }
+
+  .brana-atmosfera-vez {
+    @apply shrink-0 text-white;
+    width: 1.05em;
+    height: 1.4em;
+  }
+
   .brana-prostor-obsah {
     @apply flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pt-2;
     overflow-x: hidden;

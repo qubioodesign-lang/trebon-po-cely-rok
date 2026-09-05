@@ -13,6 +13,8 @@ type BranaHlavniProps = {
   konfiguracePohledu: BranaKonfiguracePohledu[];
   variantaPozadi?: BranaPozadiVarianta;
   vychoziNocRezim: boolean;
+  /** Veřejná věta Atmosféry jen pro DNES; null = nerenderovat. */
+  atmosferaVeta?: string | null;
 };
 
 /** Vstupní obrazovka projektu Brána – /brana */
@@ -22,6 +24,7 @@ export function BranaHlavni({
   konfiguracePohledu,
   variantaPozadi,
   vychoziNocRezim,
+  atmosferaVeta = null,
 }: BranaHlavniProps) {
   return (
     <BranaDenniDobaObal
@@ -30,6 +33,7 @@ export function BranaHlavni({
       konfiguracePohledu={konfiguracePohledu}
       variantaPozadi={variantaPozadi}
       vychoziNocRezim={vychoziNocRezim}
+      atmosferaVeta={atmosferaVeta}
       desktopPanel={<BranaDesktopInformacniPanel />}
     />
   );

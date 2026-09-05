@@ -16,6 +16,7 @@ import {
   useBranaOdkazNaTrebon,
   useBranaVerejnaCesta,
 } from "@/lib/brana/use-brana-cesty";
+import { BranaAtmosferaDnes } from "./BranaAtmosferaDnes";
 import { BranaDenniPredel } from "./BranaDenniPredel";
 import {
   BranaCasovaKotvaScrollovana,
@@ -42,6 +43,8 @@ type BranaObrazovkaProps = {
   opakovaniSeznamu?: number;
   data?: BranaSdilenaPohledovaData;
   konfiguracePohledu?: BranaKonfiguracePohledu[];
+  /** Hotová věta Atmosféry; jen DNES. null/undefined = nerenderovat. */
+  atmosferaVeta?: string | null;
 };
 
 function kotvaScrollProStranku(
@@ -120,6 +123,7 @@ export function BranaObrazovka({
   opakovaniSeznamu = 1,
   data: dataProp,
   konfiguracePohledu,
+  atmosferaVeta = null,
 }: BranaObrazovkaProps) {
   const pohled = aktivniStranka;
   const data = dataProp ?? nactiBranaSdilenaPohledovaData();
@@ -136,6 +140,7 @@ export function BranaObrazovka({
     : pohled === "vyhled"
       ? 2
       : opakovani;
+  const zobrazitAtmosferu = pohled === "dnes" && Boolean(atmosferaVeta);
 
   const onNavClick = (cil: BranaVerejnaStranka) => {
     if (cil === pohled) {
@@ -292,6 +297,9 @@ export function BranaObrazovka({
         scrollovat={!!kotvaScroll}
         pata={pata}
       >
+        {zobrazitAtmosferu && atmosferaVeta ? (
+          <BranaAtmosferaDnes veta={atmosferaVeta} />
+        ) : null}
         {seznamAkci}
         {kotvaScroll ? (
           <div className="brana-scroll-rezerva" aria-hidden />

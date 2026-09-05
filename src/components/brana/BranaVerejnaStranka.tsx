@@ -4,6 +4,7 @@ import { jeNocniRezimVPraze } from "@/lib/brana/cas";
 import type { BranaVerejnaStranka } from "@/lib/brana/navigace-stranky";
 import { branaKonfiguraceVsechPohledu } from "@/lib/brana/pohledy-data";
 import { parseBranaPozadiVarianta } from "@/lib/brana/pozadi-varianty";
+import { nactiVerejnouVetuAtmosfery } from "@/lib/brana/atmosfera-verejne";
 import {
   nactiVerejneSchvalenePohledovaData,
   prazdnaVerejnaPohledovaDataPriChybe,
@@ -38,6 +39,9 @@ export async function BranaVerejnaStranka({
     ? schvalene.data
     : prazdnaVerejnaPohledovaDataPriChybe(stranka);
   const konfiguracePohledu = branaKonfiguraceVsechPohledu();
+  // Atmosféra jen DNES; fail-soft null = vůbec nerenderovat.
+  const atmosferaVeta =
+    stranka === "dnes" ? await nactiVerejnouVetuAtmosfery() : null;
 
   return (
     <BranaHlavni
@@ -46,6 +50,7 @@ export async function BranaVerejnaStranka({
       konfiguracePohledu={konfiguracePohledu}
       variantaPozadi={parseBranaPozadiVarianta(pozadi)}
       vychoziNocRezim={vychoziNocRezim}
+      atmosferaVeta={atmosferaVeta}
     />
   );
 }
