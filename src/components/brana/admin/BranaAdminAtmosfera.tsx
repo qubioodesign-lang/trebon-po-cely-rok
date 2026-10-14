@@ -3,11 +3,18 @@
 import { useState, useTransition } from "react";
 import {
   nastavitBranaAtmosferaRucniTextAkce,
+  ulozitBranaAtmosferaDovetekAkce,
+  zrusitBranaAtmosferaDovetekAkce,
   zrusitBranaAtmosferaRucniTextAkce,
 } from "@/app/brana/admin/actions";
+import { BranaAtmosferaDnes } from "@/components/brana/BranaAtmosferaDnes";
 import {
+  BRANA_ATMOSFERA_DOVETEK_MAX,
   BRANA_ATMOSFERA_RUCNI_TEXT_MAX,
+  normalizovatDovetekAtmosfery,
+  slozitTextDovetkuAtmosfery,
   verejnaVetaAtmosfery,
+  verejnaVetaZDokumentuAtmosfery,
   type BranaAtmosferaDokument,
 } from "@/lib/brana/atmosfera";
 
@@ -41,6 +48,7 @@ export function BranaAdminAtmosfera({
 }: Props) {
   const [dokument, setDokument] = useState(pocatecni);
   const [text, setText] = useState("");
+  const [dovetek, setDovetek] = useState("");
   const [hlaska, setHlaska] = useState<string | null>(null);
   const [chyba, setChyba] = useState<string | null>(chybaCteni);
   const [probiha, startTransition] = useTransition();
@@ -49,6 +57,16 @@ export function BranaAdminAtmosfera({
     ? verejnaVetaAtmosfery(dokument.stav)
     : null;
   const rucniAktivni = Boolean(dokument?.rucniText?.trim());
+  const slozenyDovetek = slozitTextDovetkuAtmosfery(dovetek);
+  const validaceDovetku = normalizovatDovetekAtmosfery(dovetek);
+  const nahledVeta =
+    automatickaVeta && slozenyDovetek
+      ? `${automatickaVeta} ${slozenyDovetek}`
+      : automatickaVeta;
+  const zverejneno = dokument
+    ? verejnaVetaZDokumentuAtmosfery(dokument)
+    : null;
+  const dovetekUlozeny = Boolean(dokument?.dovetekText);
 
   const zobrazitRucne = () => {
     setHlaska(null);
@@ -76,6 +94,44 @@ export function BranaAdminAtmosfera({
       }
       setDokument(vysledek.dokument);
       setHlaska("Ruční text zrušen. Platí znovu automatický stav.");
+    });
+  };
+
+  const ulozitDovetek = () => {
+    if (!dokument) return;
+    setHlaska(null);
+    setChyba(null);
+    const stavPriUlozeni = dokument.stav;
+    startTransition(async () => {
+      const vysledek = await ulozitBranaAtmosferaDovetekAkce(
+        dovetek,
+        stavPriUlozeni,
+      );
+      if (vysledek.dokument) {
+        setDokument(vysledek.dokument);
+      }
+      if (!vysledek.uspech) {
+        setChyba(vysledek.chyba);
+        return;
+      }
+      setDovetek("");
+      setHlaska("Dovětek je uložený.");
+    });
+  };
+
+  const odstranitDovetek = () => {
+    setHlaska(null);
+    setChyba(null);
+    startTransition(async () => {
+      const vysledek = await zrusitBranaAtmosferaDovetekAkce();
+      if (vysledek.dokument) {
+        setDokument(vysledek.dokument);
+      }
+      if (!vysledek.uspech) {
+        setChyba(vysledek.chyba);
+        return;
+      }
+      setHlaska("Dovětek je odstraněný.");
     });
   };
 
@@ -155,6 +211,91 @@ export function BranaAdminAtmosfera({
           </button>
         </div>
       ) : null}
+
+      <div className="space-y-3 border-t border-text-velmiJemny/15 pt-4">
+        <label className="block space-y-1.5">
+          <span className="text-sm font-medium text-text">
+            Dovětek k automatickému textu
+          </span>
+          <textarea
+            className={VSTUP}
+            rows={2}
+            maxLength={BRANA_ATMOSFERA_DOVETEK_MAX}
+            value={dovetek}
+            disabled={!uloziteniPovoleno || probiha || !automatickaVeta}
+            onChange={(e) => setDovetek(e.target.value)}
+            placeholder="Např. Podloubím se nese hudba."
+          />
+          <span className="block text-xs text-text-jemny">
+            {slozenyDovetek.length}/{BRANA_ATMOSFERA_DOVETEK_MAX}
+          </span>
+        </label>
+        <button
+          type="button"
+          className={TLACITKO}
+          disabled={
+            !uloziteniPovoleno ||
+            probiha ||
+            !dokument ||
+            !automatickaVeta ||
+            !validaceDovetku.ok
+          }
+          onClick={ulozitDovetek}
+        >
+          Uložit dovětek
+        </button>
+
+        <div className="max-w-md bg-[#0a1420] px-6 py-4">
+          <p className="mb-2 text-xs leading-snug text-white/70">
+            Živý náhled — zatím nezveřejněno
+          </p>
+          {nahledVeta ? (
+            <BranaAtmosferaDnes veta={nahledVeta} />
+          ) : (
+            <p className="text-sm leading-snug text-white/80">
+              Automatická věta teď není k dispozici. Dovětek nelze uložit.
+            </p>
+          )}
+        </div>
+
+        {rucniAktivni ? (
+          <p className="text-sm text-text">
+            Úplný ruční text má veřejně přednost. Dovětek se na BRÁNĚ
+            nezobrazuje, dokud ruční text platí.
+          </p>
+        ) : null}
+
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-text">Zveřejněno na DNES</p>
+          {zverejneno ? (
+            <div className="max-w-md bg-[#0a1420] px-6 py-4">
+              <BranaAtmosferaDnes veta={zverejneno} />
+            </div>
+          ) : (
+            <p className="text-sm text-text">
+              Atmosféra se veřejně nezobrazuje.
+            </p>
+          )}
+        </div>
+
+        {dovetekUlozeny ? (
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-text">Uložený dovětek</p>
+            <p className="text-sm text-text">{dokument?.dovetekText}</p>
+            <p className="text-sm text-text-jemny">
+              Uložen: {formatCas(dokument?.dovetekAt ?? null)}
+            </p>
+            <button
+              type="button"
+              className={TLACITKO}
+              disabled={!uloziteniPovoleno || probiha}
+              onClick={odstranitDovetek}
+            >
+              Odstranit dovětek
+            </button>
+          </div>
+        ) : null}
+      </div>
     </section>
   );
 }

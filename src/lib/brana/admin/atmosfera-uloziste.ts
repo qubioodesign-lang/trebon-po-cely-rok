@@ -12,11 +12,15 @@ import {
   maBranaAdminBlobKonfiguraci,
   ziskatVolbyBranaAdminBlob,
 } from "./env-blob-brana-admin";
+import { dovetekPoKontrole } from "../atmosfera";
 import {
   BRANA_ATMOSFERA_BLOB_CESTA,
   parsovatAtmosferaDokument,
+  verejnaVetaAtmosfery,
   vychoziAtmosferaDokument,
   type BranaAtmosferaDokument,
+  type BranaAtmosferaDuvodStavu,
+  type BranaAtmosferaStav,
 } from "./atmosfera";
 import {
   zmenitAtmosferaDokumentAtomickySIo,
@@ -171,20 +175,42 @@ export async function nacistAtmosferaDokumentPokudExistuje(): Promise<BranaAtmos
   }
 }
 
-export async function ulozitAtmosferaDokument(
-  dokument: BranaAtmosferaDokument,
-): Promise<void> {
+export type BranaAtmosferaVysledekKontroly = {
+  stav: BranaAtmosferaStav;
+  zkontrolovanoAt: string;
+  snimekAt: string | null;
+  pracovniJpegAt: string | null;
+  pracovniJpegSha256: string | null;
+  predchoziSnimekAt: string | null;
+  model: string | null;
+  duvodStavu: BranaAtmosferaDuvodStavu;
+};
+
+/**
+ * Zapíše výsledek skutečného scanu.
+ * Dovětek bere z dokumentu načteného v tomto CAS zápisu, ne ze starší kopie.
+ * Ruční text scan vždy smaže.
+ */
+export async function ulozitVysledekAtmosferaKontroly(
+  vysledek: BranaAtmosferaVysledekKontroly,
+): Promise<BranaAtmosferaDokument> {
   if (!maBranaAdminBlobKonfiguraci()) {
     throw new Error(
       "Nelze uložit Atmosféru: chybí BLOB_BRANA_ADMIN konfigurace.",
     );
   }
 
-  await zmenitAtmosferaDokumentAtomicky(() => ({
-    typ: "zapsat",
-    dokument,
-    vysledek: undefined,
-  }));
+  const ted = new Date(vysledek.zkontrolovanoAt);
+  return zmenitAtmosferaDokumentAtomicky((aktualni) => {
+    const dokument: BranaAtmosferaDokument = {
+      verze: 1,
+      ...vysledek,
+      rucniText: null,
+      rucniTextAt: null,
+      ...dovetekPoKontrole(aktualni, vysledek.stav, ted),
+    };
+    return { typ: "zapsat", dokument, vysledek: dokument };
+  });
 }
 
 /**
@@ -233,6 +259,87 @@ export async function zrusitAtmosferaRucniText(): Promise<BranaAtmosferaDokument
       ...dokument,
       rucniText: null,
       rucniTextAt: null,
+    };
+    return { typ: "zapsat", dokument: dalsi, vysledek: dalsi };
+  });
+}
+
+export type BranaAtmosferaDovetekZapis =
+  | { uspech: true; dokument: BranaAtmosferaDokument }
+  | { uspech: false; chyba: string; dokument: BranaAtmosferaDokument };
+
+/**
+ * Uloží dovětek jen ke stavu, který administrace právě viděla.
+ * Nemění automatický stav ani zkontrolovanoAt.
+ */
+export async function nastavitAtmosferaDovetek(
+  text: string,
+  ocekavanyStav: BranaAtmosferaStav,
+): Promise<BranaAtmosferaDovetekZapis> {
+  if (!maBranaAdminBlobKonfiguraci()) {
+    throw new Error(
+      "Nelze uložit Atmosféru: chybí BLOB_BRANA_ADMIN konfigurace.",
+    );
+  }
+
+  const tedIso = new Date().toISOString();
+  return zmenitAtmosferaDokumentAtomicky(
+    (
+      dokument,
+    ): BranaAtmosferaDokumentMutace<
+      BranaAtmosferaDokument,
+      BranaAtmosferaDovetekZapis
+    > => {
+      if (
+        dokument.stav !== ocekavanyStav ||
+        !verejnaVetaAtmosfery(dokument.stav)
+      ) {
+        return {
+          typ: "bezZmeny",
+          vysledek: {
+            uspech: false,
+            chyba:
+              "Automatický stav se mezitím změnil. Dovětek se neuložil.",
+            dokument,
+          },
+        };
+      }
+      const dalsi: BranaAtmosferaDokument = {
+        ...dokument,
+        dovetekText: text,
+        dovetekAt: tedIso,
+        dovetekStav: dokument.stav,
+      };
+      return {
+        typ: "zapsat",
+        dokument: dalsi,
+        vysledek: { uspech: true, dokument: dalsi },
+      };
+    },
+  );
+}
+
+/** Smaže jen dovětek. Nemění automatický stav ani zkontrolovanoAt. */
+export async function zrusitAtmosferaDovetek(): Promise<BranaAtmosferaDokument> {
+  if (!maBranaAdminBlobKonfiguraci()) {
+    throw new Error(
+      "Nelze uložit Atmosféru: chybí BLOB_BRANA_ADMIN konfigurace.",
+    );
+  }
+
+  return zmenitAtmosferaDokumentAtomicky((dokument) => {
+    if (
+      dokument.dovetekText === null &&
+      dokument.dovetekAt === null &&
+      dokument.dovetekStav === null
+    ) {
+      return { typ: "bezZmeny", vysledek: dokument };
+    }
+    const dalsi: BranaAtmosferaDokument = {
+      ...dokument,
+      dovetekText: null,
+      dovetekAt: null,
+      dovetekStav: null,
     };
     return { typ: "zapsat", dokument: dalsi, vysledek: dalsi };
   });

@@ -1,7 +1,7 @@
 import "server-only";
 
 import {
-  verejnaVetaAtmosfery,
+  verejnaVetaZDokumentuAtmosfery,
   type BranaAtmosferaDokument,
   type BranaAtmosferaDuvodStavu,
 } from "./atmosfera";
@@ -15,7 +15,7 @@ import {
 } from "./atmosfera-kamera";
 import {
   nacistAtmosferaDokument,
-  ulozitAtmosferaDokument,
+  ulozitVysledekAtmosferaKontroly,
 } from "./atmosfera-uloziste";
 
 export type BranaAtmosferaKontrolaVysledek = {
@@ -32,8 +32,7 @@ export type BranaAtmosferaKontrolaVysledek = {
 async function zapsatNicPoChybe(
   predchoziStav: BranaAtmosferaDokument | null,
 ): Promise<BranaAtmosferaKontrolaVysledek> {
-  const dokument: BranaAtmosferaDokument = {
-    verze: 1,
+  const dokument = await ulozitVysledekAtmosferaKontroly({
     stav: "NIC",
     zkontrolovanoAt: new Date().toISOString(),
     snimekAt: null,
@@ -42,10 +41,7 @@ async function zapsatNicPoChybe(
     predchoziSnimekAt: null,
     model: null,
     duvodStavu: "CHYBA",
-    rucniText: null,
-    rucniTextAt: null,
-  };
-  await ulozitAtmosferaDokument(dokument);
+  });
   return {
     dokument,
     verejnaVeta: null,
@@ -99,8 +95,7 @@ export async function spustitAtmosferaKontrolu(): Promise<BranaAtmosferaKontrola
   const duvodStavu: BranaAtmosferaDuvodStavu =
     ai.stav === "NIC" ? "NIC" : "STATICKY";
 
-  const dokument: BranaAtmosferaDokument = {
-    verze: 1,
+  const dokument = await ulozitVysledekAtmosferaKontroly({
     stav: ai.stav,
     zkontrolovanoAt: new Date().toISOString(),
     snimekAt: aktualni.snimekAtIso,
@@ -109,15 +104,11 @@ export async function spustitAtmosferaKontrolu(): Promise<BranaAtmosferaKontrola
     predchoziSnimekAt: null,
     model: ai.model,
     duvodStavu,
-    rucniText: null,
-    rucniTextAt: null,
-  };
-
-  await ulozitAtmosferaDokument(dokument);
+  });
 
   return {
     dokument,
-    verejnaVeta: verejnaVetaAtmosfery(dokument.stav),
+    verejnaVeta: verejnaVetaZDokumentuAtmosfery(dokument),
     pouzitPredchozi: false,
   };
 }

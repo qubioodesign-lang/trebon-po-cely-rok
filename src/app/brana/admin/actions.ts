@@ -44,13 +44,17 @@ import {
   vyprazdnitUceniArchiv,
 } from "@/lib/brana/admin/uceni-uloziste";
 import {
+  nastavitAtmosferaDovetek,
   nastavitAtmosferaRucniText,
+  zrusitAtmosferaDovetek,
   zrusitAtmosferaRucniText,
 } from "@/lib/brana/admin/atmosfera-uloziste";
 import {
   BranaAtmosferaCasKonfliktLimitError,
 } from "@/lib/brana/admin/atmosfera-cas";
 import {
+  jeAtmosferaStav,
+  normalizovatDovetekAtmosfery,
   normalizovatRucniTextAtmosfery,
   type BranaAtmosferaDokument,
 } from "@/lib/brana/atmosfera";
@@ -940,6 +944,89 @@ export async function zrusitBranaAtmosferaRucniTextAkce(): Promise<BranaAtmosfer
     return {
       uspech: false,
       chyba: detail ?? "Ruční text Atmosféry se nepodařilo zrušit.",
+    };
+  }
+}
+
+export type BranaAtmosferaDovetekAkceVysledek =
+  | { uspech: true; dokument: BranaAtmosferaDokument }
+  | {
+      uspech: false;
+      chyba: string;
+      dokument: BranaAtmosferaDokument | null;
+    };
+
+/** Uloží dovětek ke stavu, který administrace právě ukazuje. Bez AI. */
+export async function ulozitBranaAtmosferaDovetekAkce(
+  text: unknown,
+  ocekavanyStav: unknown,
+): Promise<BranaAtmosferaDovetekAkceVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni.", dokument: null };
+  }
+  if (!jeAtmosferaStav(ocekavanyStav)) {
+    return { uspech: false, chyba: "Neplatný automatický stav.", dokument: null };
+  }
+
+  const validace = normalizovatDovetekAtmosfery(text);
+  if (!validace.ok) {
+    return { uspech: false, chyba: validace.chyba, dokument: null };
+  }
+
+  try {
+    const vysledek = await nastavitAtmosferaDovetek(
+      validace.text,
+      ocekavanyStav,
+    );
+    revalidatePath("/brana/admin/sprava/atmosfera");
+    revalidatePath("/brana");
+    if (!vysledek.uspech) {
+      return {
+        uspech: false,
+        chyba: vysledek.chyba,
+        dokument: vysledek.dokument,
+      };
+    }
+    return { uspech: true, dokument: vysledek.dokument };
+  } catch (error) {
+    if (error instanceof BranaAtmosferaCasKonfliktLimitError) {
+      return { uspech: false, chyba: error.message, dokument: null };
+    }
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "Dovětek Atmosféry se nepodařilo uložit.",
+      dokument: null,
+    };
+  }
+}
+
+/** Odstraní jen dovětek. Bez AI. */
+export async function zrusitBranaAtmosferaDovetekAkce(): Promise<BranaAtmosferaDovetekAkceVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni.", dokument: null };
+  }
+
+  try {
+    const dokument = await zrusitAtmosferaDovetek();
+    revalidatePath("/brana/admin/sprava/atmosfera");
+    revalidatePath("/brana");
+    return { uspech: true, dokument };
+  } catch (error) {
+    if (error instanceof BranaAtmosferaCasKonfliktLimitError) {
+      return { uspech: false, chyba: error.message, dokument: null };
+    }
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "Dovětek Atmosféry se nepodařilo odstranit.",
+      dokument: null,
     };
   }
 }

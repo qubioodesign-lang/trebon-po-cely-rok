@@ -68,10 +68,22 @@ export type BranaAtmosferaDokument = {
   rucniText: string | null;
   /** ISO nastavení ručního textu (admin info); neovlivní cron dedup. */
   rucniTextAt: string | null;
+  /** Krátký text za automatickou větou; null = bez dovětku. */
+  dovetekText: string | null;
+  /** ISO uložení dovětku. Při ponechání se neposouvá. */
+  dovetekAt: string | null;
+  /** Automatický stav, ke kterému dovětek patří. */
+  dovetekStav: BranaAtmosferaStav | null;
 };
 
 /** Max. délka ruční věty po trimu (mobilní řádek s věží). */
 export const BRANA_ATMOSFERA_RUCNI_TEXT_MAX = 90;
+
+/** Max. délka dovětku po normalizaci. */
+export const BRANA_ATMOSFERA_DOVETEK_MAX = 90;
+
+/** Dovětek starší než toto se při dalším scanu stejného stavu odstraní. */
+export const BRANA_ATMOSFERA_DOVETEK_MAX_MS = 3 * 60 * 60 * 1000;
 
 export const BRANA_ATMOSFERA_VERZE = 1 as const;
 
@@ -102,7 +114,7 @@ export function verejnaVetaAtmosfery(
   return MAPOVANI_VETY[stav];
 }
 
-/** Veřejná věta: ruční override má přednost před automatickým mapováním. */
+/** Veřejná věta: ruční override má přednost před automatickou větou a dovětkem. */
 export function verejnaVetaZDokumentuAtmosfery(
   dokument: BranaAtmosferaDokument,
 ): string | null {
@@ -110,7 +122,106 @@ export function verejnaVetaZDokumentuAtmosfery(
   if (rucni) {
     return rucni;
   }
-  return verejnaVetaAtmosfery(dokument.stav);
+  const veta = verejnaVetaAtmosfery(dokument.stav);
+  if (!veta) {
+    return null;
+  }
+  const dovetek = platnyDovetekAtmosfery(dokument);
+  if (!dovetek) {
+    return veta;
+  }
+  return `${veta} ${dovetek}`;
+}
+
+/** Jedna mezera, bez zalomení. Prázdný výsledek je prázdný řetězec. */
+export function slozitTextDovetkuAtmosfery(vstup: string): string {
+  return vstup.replace(/[\r\n\t]+/g, " ").replace(/ {2,}/g, " ").trim();
+}
+
+export function normalizovatDovetekAtmosfery(
+  vstup: unknown,
+): { ok: true; text: string } | { ok: false; chyba: string } {
+  if (typeof vstup !== "string") {
+    return { ok: false, chyba: "Text musí být řetězec." };
+  }
+  const text = slozitTextDovetkuAtmosfery(vstup);
+  if (!text) {
+    return { ok: false, chyba: "Text nesmí být prázdný." };
+  }
+  if (text.length > BRANA_ATMOSFERA_DOVETEK_MAX) {
+    return {
+      ok: false,
+      chyba: `Text smí mít nejvýše ${BRANA_ATMOSFERA_DOVETEK_MAX} znaků.`,
+    };
+  }
+  if (/[<>]/.test(text)) {
+    return { ok: false, chyba: "Text nesmí obsahovat HTML značky." };
+  }
+  return { ok: true, text };
+}
+
+export type BranaAtmosferaDovetekPole = {
+  dovetekText: string | null;
+  dovetekAt: string | null;
+  dovetekStav: BranaAtmosferaStav | null;
+};
+
+const PRAZDNY_DOVETEK: BranaAtmosferaDovetekPole = {
+  dovetekText: null,
+  dovetekAt: null,
+  dovetekStav: null,
+};
+
+/** Dovětek se připojí jen ke stejnému stavu, který má veřejnou větu. */
+export function platnyDovetekAtmosfery(
+  dokument: Pick<
+    BranaAtmosferaDokument,
+    "stav" | "dovetekText" | "dovetekAt" | "dovetekStav"
+  >,
+): string | null {
+  if (!dokument.dovetekText || !dokument.dovetekAt || !dokument.dovetekStav) {
+    return null;
+  }
+  if (dokument.dovetekStav !== dokument.stav) {
+    return null;
+  }
+  if (!verejnaVetaAtmosfery(dokument.stav)) {
+    return null;
+  }
+  return dokument.dovetekText;
+}
+
+/**
+ * Rozhodnutí při skutečném scanu. Čas vložení se při ponechání nemění.
+ * NIC a stavy bez veřejné věty dovětek mažou.
+ */
+export function dovetekPoKontrole(
+  aktualni: BranaAtmosferaDokument,
+  novyStav: BranaAtmosferaStav,
+  ted: Date,
+): BranaAtmosferaDovetekPole {
+  if (!verejnaVetaAtmosfery(novyStav)) {
+    return PRAZDNY_DOVETEK;
+  }
+  if (
+    !aktualni.dovetekText ||
+    !aktualni.dovetekAt ||
+    aktualni.dovetekStav !== novyStav
+  ) {
+    return PRAZDNY_DOVETEK;
+  }
+  const vlozeno = Date.parse(aktualni.dovetekAt);
+  if (!Number.isFinite(vlozeno)) {
+    return PRAZDNY_DOVETEK;
+  }
+  if (ted.getTime() - vlozeno >= BRANA_ATMOSFERA_DOVETEK_MAX_MS) {
+    return PRAZDNY_DOVETEK;
+  }
+  return {
+    dovetekText: aktualni.dovetekText,
+    dovetekAt: aktualni.dovetekAt,
+    dovetekStav: aktualni.dovetekStav,
+  };
 }
 
 export function normalizovatRucniTextAtmosfery(
@@ -185,6 +296,9 @@ export function vychoziAtmosferaDokument(
     duvodStavu: "NIC",
     rucniText: null,
     rucniTextAt: null,
+    dovetekText: null,
+    dovetekAt: null,
+    dovetekStav: null,
   };
 }
 
@@ -303,5 +417,36 @@ export function parsovatAtmosferaDokument(
     duvodStavu: duvod,
     rucniText,
     rucniTextAt,
+    ...precistDovetek(root),
+  };
+}
+
+/** Neúplný nebo neplatný dovětek se ignoruje. Dokument tím nepadá. */
+function precistDovetek(
+  root: Record<string, unknown>,
+): BranaAtmosferaDovetekPole {
+  const textChybi = root.dovetekText === null || root.dovetekText === undefined;
+  const atChybi = root.dovetekAt === null || root.dovetekAt === undefined;
+  const stavChybi = root.dovetekStav === null || root.dovetekStav === undefined;
+  if (textChybi && atChybi && stavChybi) {
+    return PRAZDNY_DOVETEK;
+  }
+
+  const text =
+    typeof root.dovetekText === "string"
+      ? normalizovatDovetekAtmosfery(root.dovetekText)
+      : null;
+  const at = jeIso(root.dovetekAt) ? root.dovetekAt : null;
+  const stav =
+    jeAtmosferaStav(root.dovetekStav) && verejnaVetaAtmosfery(root.dovetekStav)
+      ? root.dovetekStav
+      : null;
+  if (!text?.ok || !at || !stav) {
+    return PRAZDNY_DOVETEK;
+  }
+  return {
+    dovetekText: text.text,
+    dovetekAt: at,
+    dovetekStav: stav,
   };
 }
