@@ -1,13 +1,9 @@
 import "server-only";
 
 import {
-  BRANA_ATMOSFERA_MAX_STARI_PREDCHOZIHO_MS,
-  jeAtmosferaDynamickyStav,
-  otiskJpegSha256,
   verejnaVetaAtmosfery,
   type BranaAtmosferaDokument,
   type BranaAtmosferaDuvodStavu,
-  type BranaAtmosferaStav,
 } from "./atmosfera";
 import {
   BranaAtmosferaAiChyba,
@@ -19,27 +15,15 @@ import {
 } from "./atmosfera-kamera";
 import {
   nacistAtmosferaDokument,
-  nacistPredchoziPracovniJpeg,
   ulozitAtmosferaDokument,
-  ulozitPredchoziPracovniJpeg,
 } from "./atmosfera-uloziste";
 
 export type BranaAtmosferaKontrolaVysledek = {
   dokument: BranaAtmosferaDokument;
   verejnaVeta: string | null;
+  /** Vždy false. Pole zůstává, aby cron a admin route nemusely měnit tvar odpovědi. */
   pouzitPredchozi: boolean;
 };
-
-function jePredchoziPouzitelnýVuciCasu(
-  predchoziAtIso: string,
-  aktualniAtIso: string,
-): boolean {
-  const pred = Date.parse(predchoziAtIso);
-  const akt = Date.parse(aktualniAtIso);
-  if (!Number.isFinite(pred) || !Number.isFinite(akt)) return false;
-  const diff = akt - pred;
-  return diff >= 0 && diff <= BRANA_ATMOSFERA_MAX_STARI_PREDCHOZIHO_MS;
-}
 
 /**
  * Chyba aktuální kontroly: NIC + snimekAt=null.
@@ -70,7 +54,7 @@ async function zapsatNicPoChybe(
 }
 
 /**
- * Jedna kontrola Atmosféry.
+ * Jedna kontrola Atmosféry z aktuálního snímku.
  * Nevolá Kalendář/RADAR/Učení. Nevykresluje veřejnou BRÁNU.
  */
 export async function spustitAtmosferaKontrolu(): Promise<BranaAtmosferaKontrolaVysledek> {
@@ -93,26 +77,10 @@ export async function spustitAtmosferaKontrolu(): Promise<BranaAtmosferaKontrola
     }
   }
 
-  const predchoziJpeg = await nacistPredchoziPracovniJpeg();
-  let predchoziProAi: Buffer | null = null;
-  let predchoziSnimekAt: string | null = null;
-
-  if (
-    predchoziJpeg &&
-    jePredchoziPouzitelnýVuciCasu(
-      predchoziJpeg.snimekAtIso,
-      aktualni.snimekAtIso,
-    )
-  ) {
-    predchoziProAi = predchoziJpeg.bajty;
-    predchoziSnimekAt = predchoziJpeg.snimekAtIso;
-  }
-
   let ai: Awaited<ReturnType<typeof klasifikovatAtmosferuObrazy>>;
   try {
     ai = await klasifikovatAtmosferuObrazy({
       aktualniJpeg: aktualni.bajty,
-      predchoziJpeg: predchoziProAi,
     });
   } catch (error) {
     if (!(error instanceof BranaAtmosferaAiChyba)) {
@@ -128,69 +96,28 @@ export async function spustitAtmosferaKontrolu(): Promise<BranaAtmosferaKontrola
     }
   }
 
-  if (jeAtmosferaDynamickyStav(ai.stav) && !predchoziProAi) {
-    try {
-      return await zapsatNicPoChybe(predchoziStav);
-    } catch (zapisError) {
-      console.error(
-        "[brana-atmosfera] zápis NIC po neplatné dynamice",
-        zapisError,
-      );
-      throw zapisError;
-    }
-  }
-
   const duvodStavu: BranaAtmosferaDuvodStavu =
-    ai.stav === "NIC"
-      ? "NIC"
-      : jeAtmosferaDynamickyStav(ai.stav)
-        ? "DYNAMICKY"
-        : "STATICKY";
-
-  const sha256 = otiskJpegSha256(aktualni.bajty);
-
-  try {
-    await ulozitPredchoziPracovniJpeg(aktualni.bajty);
-  } catch (error) {
-    console.error("[brana-atmosfera] zápis pracovního JPEG selhal", error);
-    try {
-      return await zapsatNicPoChybe(predchoziStav);
-    } catch (zapisError) {
-      console.error(
-        "[brana-atmosfera] zápis NIC po chybě JPEG",
-        zapisError,
-      );
-      throw zapisError;
-    }
-  }
+    ai.stav === "NIC" ? "NIC" : "STATICKY";
 
   const dokument: BranaAtmosferaDokument = {
     verze: 1,
     stav: ai.stav,
     zkontrolovanoAt: new Date().toISOString(),
     snimekAt: aktualni.snimekAtIso,
-    pracovniJpegAt: aktualni.snimekAtIso,
-    pracovniJpegSha256: sha256,
-    predchoziSnimekAt: predchoziProAi ? predchoziSnimekAt : null,
+    pracovniJpegAt: null,
+    pracovniJpegSha256: null,
+    predchoziSnimekAt: null,
     model: ai.model,
     duvodStavu,
     rucniText: null,
     rucniTextAt: null,
   };
 
-  try {
-    await ulozitAtmosferaDokument(dokument);
-  } catch (error) {
-    console.error(
-      "[brana-atmosfera] JSON po úspěšném JPEG selhal — previous příště odmítne hash",
-      error,
-    );
-    throw error;
-  }
+  await ulozitAtmosferaDokument(dokument);
 
   return {
     dokument,
     verejnaVeta: verejnaVetaAtmosfery(dokument.stav),
-    pouzitPredchozi: Boolean(predchoziProAi),
+    pouzitPredchozi: false,
   };
 }

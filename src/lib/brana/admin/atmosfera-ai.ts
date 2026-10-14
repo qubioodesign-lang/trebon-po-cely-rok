@@ -1,11 +1,11 @@
 import "server-only";
 
+import { jeNocniRezimVPraze } from "@/lib/brana/cas";
 import {
-  jeAtmosferaDynamickyStav,
-  jeAtmosferaStatickyStav,
   jeAtmosferaStav,
+  povoleneStavyKlasifikace,
   type BranaAtmosferaStav,
-} from "./atmosfera";
+} from "../atmosfera";
 
 export const BRANA_ATMOSFERA_OPENAI_URL =
   "https://api.openai.com/v1/responses";
@@ -29,45 +29,26 @@ Pravidla:
 - žádné spekulace o příčině,
 - počasí samo o sobě není stav,
 - množství stánků samo o sobě neznamená RUSNE,
-- CHYSTA_SE má přednost při skutečně viditelné přípravě/logistice/změně uspořádání,
-- denní doba sama o sobě není důkaz změny,
 - při nejistotě NIC.`;
 
-function systemPrompt(maPredchozi: boolean): string {
-  if (!maPredchozi) {
-    return `${SYSTEM_PROMPT_ZAKLAD}
+const DOPLNENI_ZTICHLE = `ZTICHLE znamená, že náměstí podle aktuálního obrazu působí téměř opuštěně, s minimem viditelné lidské aktivity.
+Samotná tma ani denní doba nejsou důkazem stavu ZTICHLE.
+KLIDNE zůstává běžný poklidný stav náměstí.`;
 
-Dostáváš POUZE aktuální snímek.
-Povolené stavy: KLIDNE, ZIVO, RUSNE, CHYSTA_SE, NIC.
-Dynamické stavy OZIVA/ZKLIDNUJE/ZTICHLO NEPOUŽÍVEJ.
-
-Vrať JSON: {"stav":"KLIDNE"|"ZIVO"|"RUSNE"|"CHYSTA_SE"|"NIC"}`;
-  }
+export function systemPromptKlasifikace(nocniRezim: boolean): string {
+  const povolene = povoleneStavyKlasifikace(nocniRezim);
+  const seznam = povolene.join(", ");
+  const json = povolene.map((stav) => `"${stav}"`).join("|");
+  const doplneni = nocniRezim ? `\n${DOPLNENI_ZTICHLE}\n` : "\n";
 
   return `${SYSTEM_PROMPT_ZAKLAD}
 
-Dostáváš aktuální snímek a předchozí pracovní snímek.
-Statické stavy: KLIDNE, ZIVO, RUSNE, CHYSTA_SE, NIC.
-Dynamické stavy OZIVA, ZKLIDNUJE, ZTICHLO smíš použít JEN při průkazné změně mezi snímky.
-Pokud změna není dost jasná, použij statický stav aktuálního snímku nebo NIC.
-
-Vrať JSON: {"stav":"KLIDNE"|"ZIVO"|"RUSNE"|"CHYSTA_SE"|"OZIVA"|"ZKLIDNUJE"|"ZTICHLO"|"NIC"}`;
+Dostáváš POUZE aktuální snímek.
+Povolené stavy: ${seznam}.${doplneni}
+Vrať JSON: {"stav":${json}}`;
 }
 
-function schema(maPredchozi: boolean) {
-  const enumStavy = maPredchozi
-    ? [
-        "KLIDNE",
-        "ZIVO",
-        "RUSNE",
-        "CHYSTA_SE",
-        "OZIVA",
-        "ZKLIDNUJE",
-        "ZTICHLO",
-        "NIC",
-      ]
-    : ["KLIDNE", "ZIVO", "RUSNE", "CHYSTA_SE", "NIC"];
-
+function schema(nocniRezim: boolean) {
   return {
     type: "json_schema" as const,
     name: "brana_atmosfera",
@@ -75,7 +56,10 @@ function schema(maPredchozi: boolean) {
     schema: {
       type: "object",
       properties: {
-        stav: { type: "string", enum: enumStavy },
+        stav: {
+          type: "string",
+          enum: [...povoleneStavyKlasifikace(nocniRezim)],
+        },
       },
       required: ["stav"],
       additionalProperties: false,
@@ -107,13 +91,12 @@ function vytahnoutText(data: unknown): string | null {
 
 function parsovatStavZTextu(
   text: string,
-  maPredchozi: boolean,
+  nocniRezim: boolean,
 ): BranaAtmosferaStav | null {
   try {
     const json = JSON.parse(text) as { stav?: unknown };
     if (!jeAtmosferaStav(json.stav)) return null;
-    if (!maPredchozi && jeAtmosferaDynamickyStav(json.stav)) return null;
-    if (!maPredchozi && !jeAtmosferaStatickyStav(json.stav)) return null;
+    if (!povoleneStavyKlasifikace(nocniRezim).includes(json.stav)) return null;
     return json.stav;
   } catch {
     return null;
@@ -127,20 +110,17 @@ export type BranaAtmosferaAiVysledek = {
 
 export async function klasifikovatAtmosferuObrazy(args: {
   aktualniJpeg: Buffer;
-  predchoziJpeg: Buffer | null;
 }): Promise<BranaAtmosferaAiVysledek> {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) {
     throw new BranaAtmosferaAiChyba("Chybí OPENAI_API_KEY");
   }
 
-  const maPredchozi = args.predchoziJpeg !== null;
+  const nocniRezim = jeNocniRezimVPraze();
   const content: Array<Record<string, unknown>> = [
     {
       type: "input_text",
-      text: maPredchozi
-        ? "První obrázek = aktuální snímek. Druhý = předchozí pracovní. Vrať jen JSON {\"stav\":\"...\"}."
-        : "Jediný obrázek = aktuální snímek. Vrať jen JSON {\"stav\":\"...\"}.",
+      text: "Jediný obrázek = aktuální snímek. Vrať jen JSON {\"stav\":\"...\"}.",
     },
     {
       type: "input_image",
@@ -148,14 +128,6 @@ export async function klasifikovatAtmosferuObrazy(args: {
       detail: "low",
     },
   ];
-
-  if (args.predchoziJpeg) {
-    content.push({
-      type: "input_image",
-      image_url: `data:image/jpeg;base64,${args.predchoziJpeg.toString("base64")}`,
-      detail: "low",
-    });
-  }
 
   const odpoved = await fetch(BRANA_ATMOSFERA_OPENAI_URL, {
     method: "POST",
@@ -168,11 +140,13 @@ export async function klasifikovatAtmosferuObrazy(args: {
       input: [
         {
           role: "system",
-          content: [{ type: "input_text", text: systemPrompt(maPredchozi) }],
+          content: [
+            { type: "input_text", text: systemPromptKlasifikace(nocniRezim) },
+          ],
         },
         { role: "user", content },
       ],
-      text: { format: schema(maPredchozi) },
+      text: { format: schema(nocniRezim) },
     }),
   });
 
@@ -201,7 +175,7 @@ export async function klasifikovatAtmosferuObrazy(args: {
     throw new BranaAtmosferaAiChyba("OpenAI nevrátilo textový výstup");
   }
 
-  const stav = parsovatStavZTextu(text, maPredchozi);
+  const stav = parsovatStavZTextu(text, nocniRezim);
   if (!stav) {
     throw new BranaAtmosferaAiChyba("Neplatný AI výstup stavu");
   }

@@ -14,8 +14,6 @@ import {
 } from "./env-blob-brana-admin";
 import {
   BRANA_ATMOSFERA_BLOB_CESTA,
-  BRANA_ATMOSFERA_PREDCHOZI_JPEG_CESTA,
-  otiskJpegSha256,
   parsovatAtmosferaDokument,
   vychoziAtmosferaDokument,
   type BranaAtmosferaDokument,
@@ -25,7 +23,7 @@ import {
   type BranaAtmosferaDokumentMutace,
 } from "./atmosfera-cas";
 
-export { BRANA_ATMOSFERA_BLOB_CESTA, BRANA_ATMOSFERA_PREDCHOZI_JPEG_CESTA };
+export { BRANA_ATMOSFERA_BLOB_CESTA };
 
 type BlobCteniProZapis =
   | { stav: "neexistuje" }
@@ -173,64 +171,6 @@ export async function nacistAtmosferaDokumentPokudExistuje(): Promise<BranaAtmos
   }
 }
 
-/**
- * Pracovní JPEG jen když metadata existují a SHA-256 bajtů sedí.
- * Při neshodě hashe vrátí null (previous se nepoužije) — Atmosféru nepoškodí.
- */
-export async function nacistPredchoziPracovniJpeg(): Promise<{
-  bajty: Buffer;
-  snimekAtIso: string;
-  sha256: string;
-} | null> {
-  noStore();
-  if (!maBranaAdminBlobKonfiguraci()) {
-    return null;
-  }
-
-  const dokument = await nacistAtmosferaDokument();
-  if (!dokument?.pracovniJpegAt || !dokument.pracovniJpegSha256) {
-    return null;
-  }
-
-  const volby = ziskatVolbyBranaAdminBlob();
-  try {
-    const vysledek = await get(BRANA_ATMOSFERA_PREDCHOZI_JPEG_CESTA, {
-      access: "private",
-      useCache: false,
-      ...volby,
-    });
-    if (vysledek === null || !vysledek.stream) {
-      return null;
-    }
-    const bajty = Buffer.from(
-      await new Response(vysledek.stream).arrayBuffer(),
-    );
-    if (bajty.length < 100 || bajty[0] !== 0xff || bajty[1] !== 0xd8) {
-      return null;
-    }
-
-    const sha256 = otiskJpegSha256(bajty);
-    if (sha256 !== dokument.pracovniJpegSha256.toLowerCase()) {
-      zalogovatChybuAtmosfery(
-        "pracovní JPEG neodpovídá pracovniJpegSha256 — previous odmítnut",
-      );
-      return null;
-    }
-
-    return {
-      bajty,
-      snimekAtIso: dokument.pracovniJpegAt,
-      sha256,
-    };
-  } catch (error) {
-    if (error instanceof BlobNotFoundError) {
-      return null;
-    }
-    zalogovatChybuAtmosfery("načtení předchozího JPEG selhalo", error);
-    return null;
-  }
-}
-
 export async function ulozitAtmosferaDokument(
   dokument: BranaAtmosferaDokument,
 ): Promise<void> {
@@ -295,31 +235,5 @@ export async function zrusitAtmosferaRucniText(): Promise<BranaAtmosferaDokument
       rucniTextAt: null,
     };
     return { typ: "zapsat", dokument: dalsi, vysledek: dalsi };
-  });
-}
-
-/** Přepíše jediný pracovní JPEG. Žádný archiv. */
-export async function ulozitPredchoziPracovniJpeg(
-  bajty: Buffer,
-): Promise<void> {
-  if (!maBranaAdminBlobKonfiguraci()) {
-    throw new Error(
-      "Nelze uložit JPEG Atmosféry: chybí BLOB_BRANA_ADMIN konfigurace.",
-    );
-  }
-  const volby = ziskatVolbyBranaAdminBlob();
-  if (!volby.token) {
-    throw new Error(
-      "Nelze uložit JPEG Atmosféry: chybí BLOB_BRANA_ADMIN_READ_WRITE_TOKEN.",
-    );
-  }
-
-  await put(BRANA_ATMOSFERA_PREDCHOZI_JPEG_CESTA, bajty, {
-    ...volby,
-    access: "private",
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    contentType: "image/jpeg",
-    cacheControlMaxAge: 0,
   });
 }

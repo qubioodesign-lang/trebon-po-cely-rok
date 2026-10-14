@@ -4,31 +4,37 @@ export const BRANA_ATMOSFERA_BLOB_CESTA = "data/brana-atmosfera.json";
 export const BRANA_ATMOSFERA_PREDCHOZI_JPEG_CESTA =
   "data/brana-atmosfera-predchozi.jpg";
 
-/** Interní stavy Atmosféry — AI nesmí tvořit veřejnou větu. */
+/**
+ * Interní stavy Atmosféry — AI nesmí tvořit veřejnou větu.
+ * CHYSTA_SE, OZIVA, ZKLIDNUJE a ZTICHLO jsou jen dřívější hodnoty z Blobu.
+ */
 export const BRANA_ATMOSFERA_STAVY = [
   "KLIDNE",
   "ZIVO",
   "RUSNE",
+  "ZTICHLE",
+  "NIC",
   "CHYSTA_SE",
   "OZIVA",
   "ZKLIDNUJE",
   "ZTICHLO",
-  "NIC",
 ] as const;
 
 export type BranaAtmosferaStav = (typeof BRANA_ATMOSFERA_STAVY)[number];
 
+/** Stavy z jednoho snímku. ZTICHLE se AI nabízí jen v nočním režimu. */
 export const BRANA_ATMOSFERA_STATICKE_STAVY = [
   "KLIDNE",
   "ZIVO",
   "RUSNE",
-  "CHYSTA_SE",
+  "ZTICHLE",
   "NIC",
 ] as const;
 
 export type BranaAtmosferaStatickyStav =
   (typeof BRANA_ATMOSFERA_STATICKE_STAVY)[number];
 
+/** Dřívější přechodové stavy. Klasifikace je už nenabízí. */
 export const BRANA_ATMOSFERA_DYNAMICKE_STAVY = [
   "OZIVA",
   "ZKLIDNUJE",
@@ -72,18 +78,22 @@ export const BRANA_ATMOSFERA_VERZE = 1 as const;
 /** Aktuální JPEG starší než toto → NIC. */
 export const BRANA_ATMOSFERA_MAX_STARI_SNIMKU_MS = 30 * 60 * 1000;
 
-/** Předchozí JPEG starší než toto vůči aktuálnímu → nepoužít pro dynamiku. */
+/**
+ * Historický limit porovnání snímků. Klasifikace ho už nepoužívá.
+ * Konstanta zůstává kvůli stávajícímu exportu.
+ */
 export const BRANA_ATMOSFERA_MAX_STARI_PREDCHOZIHO_MS = 12 * 60 * 60 * 1000;
 
 const MAPOVANI_VETY: Record<BranaAtmosferaStav, string | null> = {
   KLIDNE: "Náměstí je klidné.",
-  ZIVO: "Na náměstí je živo.",
+  ZIVO: "Náměstí je živé.",
   RUSNE: "Náměstí je rušné.",
-  CHYSTA_SE: "Náměstí se chystá.",
-  OZIVA: "Náměstí pomalu ožívá.",
-  ZKLIDNUJE: "Náměstí se zklidňuje.",
-  ZTICHLO: "Náměstí už ztichlo.",
+  ZTICHLE: "Náměstí je ztichlé.",
   NIC: null,
+  CHYSTA_SE: null,
+  OZIVA: null,
+  ZKLIDNUJE: null,
+  ZTICHLO: null,
 };
 
 export function verejnaVetaAtmosfery(
@@ -148,6 +158,16 @@ export function jeAtmosferaDynamickyStav(
     typeof hodnota === "string" &&
     (BRANA_ATMOSFERA_DYNAMICKE_STAVY as readonly string[]).includes(hodnota)
   );
+}
+
+/** Stavy, které smí AI vrátit. ZTICHLE jen když je noční režim BRÁNY. */
+export function povoleneStavyKlasifikace(
+  nocniRezim: boolean,
+): readonly BranaAtmosferaStav[] {
+  if (nocniRezim) {
+    return ["KLIDNE", "ZIVO", "RUSNE", "ZTICHLE", "NIC"];
+  }
+  return ["KLIDNE", "ZIVO", "RUSNE", "NIC"];
 }
 
 export function vychoziAtmosferaDokument(
