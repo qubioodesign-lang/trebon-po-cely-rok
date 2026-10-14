@@ -5,8 +5,10 @@
 
 import { okamzikVPraze } from "@/lib/brana/cas";
 
-/** Cílové hodiny kontrol v Europe/Prague. */
-export const BRANA_ATMOSFERA_SLOTY_HODIN = [8, 11, 15, 19, 23] as const;
+/** Cílové hodiny kontrol v Europe/Prague. 0 = začátek nového pražského dne. */
+export const BRANA_ATMOSFERA_SLOTY_HODIN = [
+  0, 6, 7, 8, 9, 11, 13, 15, 17, 19, 20, 22, 23,
+] as const;
 
 export type BranaAtmosferaCasovySlotHodina =
   (typeof BRANA_ATMOSFERA_SLOTY_HODIN)[number];

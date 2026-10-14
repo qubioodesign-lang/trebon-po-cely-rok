@@ -10,11 +10,23 @@
     },
     {
       "path": "/api/brana/atmosfera/casovy-plan",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/brana/atmosfera/casovy-plan",
+      "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/brana/atmosfera/casovy-plan",
       "schedule": "0 6 * * *"
     },
     {
       "path": "/api/brana/atmosfera/casovy-plan",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/brana/atmosfera/casovy-plan",
+      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/brana/atmosfera/casovy-plan",
@@ -26,11 +38,27 @@
     },
     {
       "path": "/api/brana/atmosfera/casovy-plan",
+      "schedule": "0 11 * * *"
+    },
+    {
+      "path": "/api/brana/atmosfera/casovy-plan",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/brana/atmosfera/casovy-plan",
       "schedule": "0 13 * * *"
     },
     {
       "path": "/api/brana/atmosfera/casovy-plan",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/brana/atmosfera/casovy-plan",
+      "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/brana/atmosfera/casovy-plan",
+      "schedule": "0 16 * * *"
     },
     {
       "path": "/api/brana/atmosfera/casovy-plan",
@@ -42,11 +70,23 @@
     },
     {
       "path": "/api/brana/atmosfera/casovy-plan",
+      "schedule": "0 19 * * *"
+    },
+    {
+      "path": "/api/brana/atmosfera/casovy-plan",
+      "schedule": "0 20 * * *"
+    },
+    {
+      "path": "/api/brana/atmosfera/casovy-plan",
       "schedule": "0 21 * * *"
     },
     {
       "path": "/api/brana/atmosfera/casovy-plan",
       "schedule": "0 22 * * *"
+    },
+    {
+      "path": "/api/brana/atmosfera/casovy-plan",
+      "schedule": "0 23 * * *"
     }
   ]
 }

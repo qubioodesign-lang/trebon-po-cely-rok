@@ -13,7 +13,7 @@ export const maxDuration = 60;
 
 /**
  * Vercel Cron trigger Atmosféry (oddělený od /api/brana/casovy-plan).
- * CRON_SECRET → Pražský slot 8/11/15/19/23 → dedup slotu → jeden běh motoru.
+ * CRON_SECRET → pražský hodinový slot → dedup stejného dne a hodiny → jeden běh motoru.
  */
 
 function jePlatnaCronAutorizace(authHeader: string | null): boolean {
