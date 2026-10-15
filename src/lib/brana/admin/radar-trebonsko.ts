@@ -6,6 +6,7 @@
 import {
   atributHref,
   kanonizovatHttpUrl,
+  normalizovatRadarText,
   parsovatCeskeDatumVTextu,
   textBezHtml,
   vytahnoutCasZTextu,
@@ -109,4 +110,43 @@ export function vytahnoutRadarTrebonskoNalezy(
   }
 
   return vysledek;
+}
+
+/**
+ * Veřejná rybářská akce na přehledu Třeboňska.
+ * Samotné „rybník“ nestačí. Svět jen ve spojení s výlovem nebo rybníkem.
+ */
+export function jeRadarTrebonskoRybarskyNazev(nazev: string): boolean {
+  const n = normalizovatRadarText(nazev);
+  if (!n) {
+    return false;
+  }
+  if (/\bvylov\w*\b/.test(n) || /\bsad(?:k\w*|ek)\b/.test(n)) {
+    return true;
+  }
+  if (/\brybar(?:i|e|u|um|ich|sk\w*)\b/.test(n)) {
+    return true;
+  }
+  if (/\bzablatsk\w*\b/.test(n) || /\brozmberk\w*\b/.test(n)) {
+    return true;
+  }
+  if (
+    /\bvelk(?:y|eho|em|emu)\s+tis(?:y|eho|em|emu)\b/.test(n) ||
+    /\btisy\b/.test(n) ||
+    /\btiseho\b/.test(n)
+  ) {
+    return true;
+  }
+  return /\b(?:rybnik\w*|vylov\w*)\s+svet\w*\b/.test(n);
+}
+
+/** ZRUŠEN / ZRUŠENO / ZRUŠENA / neuskuteční se. Jen pro už rozpoznaný rybářský název. */
+export function jeRadarTrebonskoZrusenyNazev(nazev: string): boolean {
+  const n = normalizovatRadarText(nazev);
+  return (
+    /\bzrusen\b/.test(n) ||
+    /\bzruseno\b/.test(n) ||
+    /\bzrusena\b/.test(n) ||
+    /\bneuskutecni\b/.test(n)
+  );
 }

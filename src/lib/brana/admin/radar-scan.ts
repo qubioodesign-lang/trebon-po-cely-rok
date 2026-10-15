@@ -13,7 +13,11 @@ import {
 } from "./radar-html";
 import { vytahnoutRadarKphNalezy } from "./radar-kultura-pod-hvezdami";
 import { vytahnoutRadarTlsNalezy } from "./radar-letni-setkavani";
-import { vytahnoutRadarTrebonskoNalezy } from "./radar-trebonsko";
+import {
+  jeRadarTrebonskoRybarskyNazev,
+  jeRadarTrebonskoZrusenyNazev,
+  vytahnoutRadarTrebonskoNalezy,
+} from "./radar-trebonsko";
 import {
   BRANA_MATINE_KDE_ALTAN_BERTA,
   BRANA_MATINE_KDE_LAZNE_AURORA,
@@ -39,6 +43,9 @@ import {
 } from "./radar-zamek";
 
 const OKNO_DNI = 14;
+/** Jen rozpoznané rybářské řádky přehledu Třeboňska. Ostatní vstupy zůstávají na 14 dnech. */
+const RYBARSKY_OKNO_DNI = 90;
+const RYBARSKY_ZRUSENO_KDE = "Zrušeno";
 const FETCH_TIMEOUT_MS = 20_000;
 const USER_AGENT = "BranaRadarReadOnly/1.0";
 
@@ -128,12 +135,19 @@ const UZ_V_BRANE_URL: readonly string[] = [
   "okolotrebone.cz",
 ];
 
-export function radarOknoDo(oknoOd: string): string {
-  const doDne = pridatDnyKIso(oknoOd, OKNO_DNI);
+export function radarOknoDo(oknoOd: string, dnu: number = OKNO_DNI): string {
+  const doDne = pridatDnyKIso(oknoOd, dnu);
   if (!doDne) {
     return oknoOd;
   }
   return doDne;
+}
+
+function jeRybarskyNalezPrehledu(vstupId: string, nazev: string): boolean {
+  return (
+    vstupId === BRANA_RADAR_VSTUP_TREBONSKO &&
+    jeRadarTrebonskoRybarskyNazev(nazev)
+  );
 }
 
 function geoKlic(text: string): string {
@@ -577,6 +591,7 @@ export async function spustitRadarScanReadOnly(
   const poGeografii = hruby.filter(
     (r) =>
       jeOvereneLazenskeMatine(r.vstupId, r.nalez) ||
+      jeRybarskyNalezPrehledu(r.vstupId, r.nalez.nazev) ||
       jeRadarPovolenaGeografie(`${r.nalez.nazev} ${r.nalez.kde} ${r.nalez.url}`),
   );
   const poOkne = poGeografii.filter((r) =>
@@ -584,7 +599,9 @@ export async function spustitRadarScanReadOnly(
       datumOd: r.nalez.datumOd,
       datumDo: r.nalez.datumDo,
       oknoOd,
-      oknoDo,
+      oknoDo: jeRybarskyNalezPrehledu(r.vstupId, r.nalez.nazev)
+        ? radarOknoDo(oknoOd, RYBARSKY_OKNO_DNI)
+        : oknoDo,
     }),
   );
 
@@ -596,6 +613,19 @@ export async function spustitRadarScanReadOnly(
       odectenoUzVBrane += 1;
       continue;
     }
+    if (
+      jeRybarskyNalezPrehledu(r.vstupId, r.nalez.nazev) &&
+      jeRadarTrebonskoZrusenyNazev(r.nalez.nazev)
+    ) {
+      prosle.push({
+        vstupId: r.vstupId,
+        nalez: {
+          ...r.nalez,
+          kde: r.nalez.kde.trim() ? r.nalez.kde : RYBARSKY_ZRUSENO_KDE,
+        },
+      });
+      continue;
+    }
     if (jeZjevnySumProvoz(r.nalez) || jeZjevneZruseno(r.nalez.nazev)) {
       odectenoSum += 1;
       continue;
@@ -605,8 +635,11 @@ export async function spustitRadarScanReadOnly(
 
   const rozlozene: RadarScanKandidat[] = [];
   for (const r of prosle) {
+    const oknoDoNalezu = jeRybarskyNalezPrehledu(r.vstupId, r.nalez.nazev)
+      ? radarOknoDo(oknoOd, RYBARSKY_OKNO_DNI)
+      : oknoDo;
     rozlozene.push(
-      ...rozlozitNaDnyVOkne(r.nalez, r.vstupId, oknoOd, oknoDo),
+      ...rozlozitNaDnyVOkne(r.nalez, r.vstupId, oknoOd, oknoDoNalezu),
     );
   }
   const kandidati = sloucitDuplicity(rozlozene);

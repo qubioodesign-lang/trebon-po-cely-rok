@@ -35,7 +35,11 @@ import {
   spustitRadarScanReadOnly,
 } from "../src/lib/brana/admin/radar-scan";
 import { BRANA_RADAR_VSTUPY } from "../src/lib/brana/admin/radar-vstupy";
-import { vytahnoutRadarTrebonskoNalezy } from "../src/lib/brana/admin/radar-trebonsko";
+import {
+  jeRadarTrebonskoRybarskyNazev,
+  jeRadarTrebonskoZrusenyNazev,
+  vytahnoutRadarTrebonskoNalezy,
+} from "../src/lib/brana/admin/radar-trebonsko";
 import { vytahnoutRadarZamekNalezZDetailu } from "../src/lib/brana/admin/radar-zamek";
 
 let selhalo = 0;
@@ -609,9 +613,9 @@ assert(
 );
 
 assert(
-  BRANA_RADAR_VSTUPY.length === 4 &&
+  BRANA_RADAR_VSTUPY.length === 5 &&
     BRANA_RADAR_VSTUPY.every((v) => v.id && v.url.startsWith("https://")),
-  "3A: čtyři veřejné vstupy",
+  "3A: pět veřejných vstupů",
 );
 assert(
     jeRadarPovolenaGeografie("Chinaski Open air Třeboň") &&
@@ -1042,6 +1046,116 @@ void (async () => {
     throw new Error("radar boom");
   });
   assert(true, "4H: neočekávaná chyba RADARU nepropadne ven");
+
+  assert(
+    jeRadarTrebonskoRybarskyNazev(
+      "Rožmberk nebude, dny s třeboňskými rybáři ano",
+    ) &&
+      jeRadarTrebonskoRybarskyNazev("Rybník Záblatský - podzimní výlov") &&
+      jeRadarTrebonskoRybarskyNazev("Velký Tisý - podzimní výlov") &&
+      jeRadarTrebonskoRybarskyNazev("Výlov rybníka Svět") &&
+      jeRadarTrebonskoRybarskyNazev("Rybářská slavnost na sádkách") &&
+      !jeRadarTrebonskoRybarskyNazev("Koncert u rybníka v Lišově") &&
+      !jeRadarTrebonskoRybarskyNazev("Divadlo v Borovanech") &&
+      !jeRadarTrebonskoRybarskyNazev("Vánoční koncert v Třeboni"),
+    "5A: rybářský název je úzký, samotný rybník ani Borovany neprojdou",
+  );
+  assert(
+    jeRadarTrebonskoZrusenyNazev("Slavnostní výlov rybníka Rožmberk 2026 - ZRUŠEN") &&
+      jeRadarTrebonskoZrusenyNazev("Výlov rybníka Svět ZRUŠENO") &&
+      jeRadarTrebonskoZrusenyNazev("Rybářská slavnost na sádkách ZRUŠENA") &&
+      jeRadarTrebonskoZrusenyNazev("Dny s rybáři se neuskuteční") &&
+      !jeRadarTrebonskoZrusenyNazev("Rybník Záblatský - podzimní výlov"),
+    "5B: ZRUŠEN, ZRUŠENO, ZRUŠENA a neuskuteční se",
+  );
+
+  const rybarskyHtml = `<html><body>trebonsko.cz
+<li><span>16.10.2026 - 17.10.2026 -</span> <a href="/dny-s-rybari">Rožmberk nebude, dny s třeboňskými rybáři ano</a></li>
+<li><span>16.11.2026 - 19.11.2026 -</span> <a href="/zablatsky">Rybník Záblatský - podzimní výlov</a></li>
+<li><span>23.11.2026 - 26.11.2026 -</span> <a href="/tisy">Velký Tisý - podzimní výlov</a></li>
+<li><span>16.10.2026 - 18.10.2026 -</span> <a href="/rozmberk-zrusen">Slavnostní výlov rybníka Rožmberk 2026 - ZRUŠEN</a></li>
+<li><span>02.11.2026 -</span> <a href="/svet-zruseno">Výlov rybníka Svět ZRUŠENO</a></li>
+<li><span>03.11.2026 -</span> <a href="/slavnost-zrusena">Rybářská slavnost na sádkách ZRUŠENA</a></li>
+<li><span>04.11.2026 -</span> <a href="/sadky-ne">Dny s rybáři se neuskuteční</a></li>
+<li><span>20.11.2026 -</span> <a href="/lisov-rybnik">Koncert u rybníka v Lišově</a></li>
+<li><span>16.10.2026 -</span> <a href="/borovany">Divadlo v Borovanech</a></li>
+<li><span>15.12.2026 -</span> <a href="/vanocni-koncert">Vánoční koncert v Třeboni</a></li>
+<li><span>20.10.2026 -</span> <a href="/dasha">Dasha - koncert v Třeboni</a></li>
+</body></html>`;
+  const rybarskyScan = await spustitRadarScanReadOnly({
+    ted: new Date("2026-10-15T08:00:00.000Z"),
+    stahnoutHtml: async (url) => {
+      const klic = url.split("?")[0] ?? url;
+      if (klic === "https://www.trebonsko.cz/prehled-akci-trebonsko") {
+        return rybarskyHtml;
+      }
+      return "<html><body></body></html>";
+    },
+  });
+  const dnyRadaru = (nazev: RegExp): string[] =>
+    rybarskyScan.kandidati
+      .filter((k) => nazev.test(k.nazev))
+      .map((k) => k.datumOd)
+      .sort();
+  assert(
+    rybarskyScan.oknoOd === "2026-10-15" && rybarskyScan.oknoDo === "2026-10-29",
+    "5C: hlášené okno ostatních nálezů zůstává 14 dní",
+  );
+  assert(
+    dnyRadaru(/rybáři ano/i).join() === "2026-10-16,2026-10-17" &&
+      rybarskyScan.kandidati
+        .filter((k) => /rybáři ano/i.test(k.nazev))
+        .every((k) => k.kde === "" && k.radarVstupId === "trebonsko-prehled"),
+    "5D: Dny s třeboňskými rybáři 16.–17. 10.",
+  );
+  assert(
+    dnyRadaru(/Záblatský/i).join() ===
+      "2026-11-16,2026-11-17,2026-11-18,2026-11-19",
+    "5E: Záblatský je v 90denním okně",
+  );
+  assert(
+    dnyRadaru(/Velký Tisý/i).join() ===
+      "2026-11-23,2026-11-24,2026-11-25,2026-11-26",
+    "5F: Velký Tisý je v 90denním okně",
+  );
+  assert(
+    dnyRadaru(/Rožmberk 2026 - ZRUŠEN/i).join() ===
+      "2026-10-16,2026-10-17,2026-10-18" &&
+      rybarskyScan.kandidati
+        .filter((k) => /Rožmberk 2026 - ZRUŠEN/i.test(k.nazev))
+        .every((k) => k.kde === "Zrušeno" && k.nazev.includes("ZRUŠEN")),
+    "5G: zrušený Rožmberk zůstává vidět s označením Zrušeno",
+  );
+  assert(
+    rybarskyScan.kandidati.some(
+      (k) =>
+        k.datumOd === "2026-11-02" &&
+        k.nazev.includes("ZRUŠENO") &&
+        k.kde === "Zrušeno",
+    ) &&
+      rybarskyScan.kandidati.some(
+        (k) =>
+          k.datumOd === "2026-11-03" &&
+          k.nazev.includes("ZRUŠENA") &&
+          k.kde === "Zrušeno",
+      ) &&
+      rybarskyScan.kandidati.some(
+        (k) =>
+          k.datumOd === "2026-11-04" &&
+          /neuskuteční/i.test(k.nazev) &&
+          k.kde === "Zrušeno",
+      ),
+    "5H: ZRUŠENO, ZRUŠENA a neuskuteční se zůstávají označené",
+  );
+  assert(
+    !rybarskyScan.kandidati.some((k) => /Lišov/i.test(k.nazev)) &&
+      !rybarskyScan.kandidati.some((k) => /Borovan/i.test(k.nazev)) &&
+      !rybarskyScan.kandidati.some((k) => k.datumOd === "2026-12-15") &&
+      rybarskyScan.kandidati.some(
+        (k) => k.datumOd === "2026-10-20" && /Dasha/i.test(k.nazev),
+      ),
+    "5I: Lišov a Borovany mimo, prosincový koncert mimo 14 dní, říjnový koncert zůstává",
+  );
 
   if (selhalo > 0) {
     console.error(`\nFAIL: ${selhalo} kontrol`);
