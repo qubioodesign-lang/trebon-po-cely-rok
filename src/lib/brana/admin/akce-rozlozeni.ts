@@ -134,6 +134,9 @@ function jeNazevRedundantniVuciVerejnemu(
       return true;
     }
   }
+  if (typ === "Třeboňský maraton" && nazev === "Třeboňský maraton") {
+    return true;
+  }
   return false;
 }
 
