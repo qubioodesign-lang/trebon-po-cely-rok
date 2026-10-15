@@ -39,6 +39,11 @@ import {
 } from "@/lib/brana/admin/radar-uloziste";
 import { validovatRucniRadarNalezVstup } from "@/lib/brana/admin/radar";
 import {
+  pridatRadarZalozku,
+  smazatRadarZalozku,
+} from "@/lib/brana/admin/radar-zalozky-uloziste";
+import type { BranaRadarZalozka } from "@/lib/brana/admin/radar-zalozky";
+import {
   pridatPolozkuDoUceni,
   pridatPolozkuDoUceniBestEffort,
   vyprazdnitUceniArchiv,
@@ -813,6 +818,62 @@ export async function smazatBranaRadarStopuAkce(
     return {
       uspech: false,
       chyba: detail ?? "Stopu se nepodařilo smazat.",
+    };
+  }
+}
+
+export type BranaRadarZalozkaAkceVysledek =
+  | { uspech: true; zalozka: BranaRadarZalozka }
+  | { uspech: false; chyba: string };
+
+/** Osobní odkaz na stránce RADAR. Nezapisuje nález, scan ani Učení. */
+export async function pridatBranaRadarZalozkuAkce(
+  vstup: unknown,
+): Promise<BranaRadarZalozkaAkceVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  try {
+    const zalozka = await pridatRadarZalozku(vstup);
+    revalidatePath("/brana/admin/sprava/radar");
+    return { uspech: true, zalozka };
+  } catch (error) {
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "Odkaz se nepodařilo uložit.",
+    };
+  }
+}
+
+export type BranaRadarZalozkaSmazatVysledek =
+  | { uspech: true }
+  | { uspech: false; chyba: string };
+
+/** Odebere osobní odkaz. Pracovní nálezy RADARU nemění. */
+export async function smazatBranaRadarZalozkuAkce(
+  id: string,
+): Promise<BranaRadarZalozkaSmazatVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  try {
+    await smazatRadarZalozku(id);
+    revalidatePath("/brana/admin/sprava/radar");
+    return { uspech: true };
+  } catch (error) {
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "Odkaz se nepodařilo smazat.",
     };
   }
 }

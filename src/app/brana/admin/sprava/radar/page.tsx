@@ -2,10 +2,15 @@ import { headers } from "next/headers";
 import { BranaAdminObal } from "@/components/brana/admin/BranaAdminObal";
 import { BranaAdminRadarPridat } from "@/components/brana/admin/BranaAdminRadarPridat";
 import { BranaAdminRadarSeznam } from "@/components/brana/admin/BranaAdminRadarSeznam";
+import { BranaAdminRadarZalozky } from "@/components/brana/admin/BranaAdminRadarZalozky";
 import {
   BRANA_RADAR_CHYBA_CTENI,
   nacistRadar,
 } from "@/lib/brana/admin/radar-uloziste";
+import {
+  BRANA_RADAR_ZALOZKY_CHYBA_CTENI,
+  nacistRadarZalozky,
+} from "@/lib/brana/admin/radar-zalozky-uloziste";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 
 /** Správa → RADAR – výzkumný přehled. Nic odsud se nepublikuje. */
@@ -15,7 +20,10 @@ export default async function StrankaBranaAdminRadar() {
   }
 
   const host = (await headers()).get("host");
-  const nacist = await nacistRadar();
+  const [nacist, zalozky] = await Promise.all([
+    nacistRadar(),
+    nacistRadarZalozky(),
+  ]);
 
   return (
     <BranaAdminObal
@@ -50,6 +58,24 @@ export default async function StrankaBranaAdminRadar() {
         </div>
 
         <BranaAdminRadarPridat uloziteniPovoleno={nacist.ok} />
+
+        <div role="region" aria-label="Moje sledované weby">
+          {zalozky.ok ? (
+            <BranaAdminRadarZalozky
+              pocatecni={zalozky.polozky}
+              uloziteniPovoleno
+            />
+          ) : (
+            <div className="space-y-2">
+              <h3 className="text-sm font-normal text-text">
+                Moje sledované weby
+              </h3>
+              <p className="text-sm text-text" role="alert">
+                {BRANA_RADAR_ZALOZKY_CHYBA_CTENI}
+              </p>
+            </div>
+          )}
+        </div>
       </section>
     </BranaAdminObal>
   );
