@@ -11,6 +11,7 @@ import {
   pridatDnyKIso,
   type RadarHrubyNalez,
 } from "./radar-html";
+import { vytahnoutRadarCharitaKalendarNalezy } from "./radar-charita-kalendar";
 import { vytahnoutRadarKphNalezy } from "./radar-kultura-pod-hvezdami";
 import { vytahnoutRadarTlsNalezy } from "./radar-letni-setkavani";
 import {
@@ -30,6 +31,7 @@ import {
   vytahnoutTrebonskoTanecniVecerMesicUrlky,
 } from "./tanecni-vecery";
 import {
+  BRANA_RADAR_VSTUP_CHARITA,
   BRANA_RADAR_VSTUP_KPH,
   BRANA_RADAR_VSTUP_MATINE,
   BRANA_RADAR_VSTUP_TLS,
@@ -45,6 +47,8 @@ import {
 const OKNO_DNI = 14;
 /** Jen rozpoznané rybářské řádky přehledu Třeboňska. Ostatní vstupy zůstávají na 14 dnech. */
 const RYBARSKY_OKNO_DNI = 90;
+/** Jen Kalendář akcí Charity. Ostatní vstupy zůstávají na 14 dnech. */
+const CHARITA_OKNO_DNI = 90;
 const RYBARSKY_ZRUSENO_KDE = "Zrušeno";
 const FETCH_TIMEOUT_MS = 20_000;
 const USER_AGENT = "BranaRadarReadOnly/1.0";
@@ -148,6 +152,25 @@ function jeRybarskyNalezPrehledu(vstupId: string, nazev: string): boolean {
     vstupId === BRANA_RADAR_VSTUP_TREBONSKO &&
     jeRadarTrebonskoRybarskyNazev(nazev)
   );
+}
+
+function jeCharitaKalendar(vstupId: string): boolean {
+  return vstupId === BRANA_RADAR_VSTUP_CHARITA;
+}
+
+function oknoDoProNalez(
+  vstupId: string,
+  nazev: string,
+  oknoOd: string,
+  oknoDo: string,
+): string {
+  if (jeRybarskyNalezPrehledu(vstupId, nazev)) {
+    return radarOknoDo(oknoOd, RYBARSKY_OKNO_DNI);
+  }
+  if (jeCharitaKalendar(vstupId)) {
+    return radarOknoDo(oknoOd, CHARITA_OKNO_DNI);
+  }
+  return oknoDo;
 }
 
 function geoKlic(text: string): string {
@@ -493,6 +516,10 @@ async function sberVstupu(args: {
       referencniOkamzik: args.ted,
     });
   }
+  if (args.vstupId === BRANA_RADAR_VSTUP_CHARITA) {
+    const html = await args.stahnoutHtml(args.url);
+    return vytahnoutRadarCharitaKalendarNalezy(html, args.url);
+  }
   return [];
 }
 
@@ -592,6 +619,7 @@ export async function spustitRadarScanReadOnly(
     (r) =>
       jeOvereneLazenskeMatine(r.vstupId, r.nalez) ||
       jeRybarskyNalezPrehledu(r.vstupId, r.nalez.nazev) ||
+      jeCharitaKalendar(r.vstupId) ||
       jeRadarPovolenaGeografie(`${r.nalez.nazev} ${r.nalez.kde} ${r.nalez.url}`),
   );
   const poOkne = poGeografii.filter((r) =>
@@ -599,9 +627,7 @@ export async function spustitRadarScanReadOnly(
       datumOd: r.nalez.datumOd,
       datumDo: r.nalez.datumDo,
       oknoOd,
-      oknoDo: jeRybarskyNalezPrehledu(r.vstupId, r.nalez.nazev)
-        ? radarOknoDo(oknoOd, RYBARSKY_OKNO_DNI)
-        : oknoDo,
+      oknoDo: oknoDoProNalez(r.vstupId, r.nalez.nazev, oknoOd, oknoDo),
     }),
   );
 
@@ -635,9 +661,12 @@ export async function spustitRadarScanReadOnly(
 
   const rozlozene: RadarScanKandidat[] = [];
   for (const r of prosle) {
-    const oknoDoNalezu = jeRybarskyNalezPrehledu(r.vstupId, r.nalez.nazev)
-      ? radarOknoDo(oknoOd, RYBARSKY_OKNO_DNI)
-      : oknoDo;
+    const oknoDoNalezu = oknoDoProNalez(
+      r.vstupId,
+      r.nalez.nazev,
+      oknoOd,
+      oknoDo,
+    );
     rozlozene.push(
       ...rozlozitNaDnyVOkne(r.nalez, r.vstupId, oknoOd, oknoDoNalezu),
     );

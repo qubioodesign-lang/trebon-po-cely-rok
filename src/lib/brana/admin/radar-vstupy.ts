@@ -17,6 +17,8 @@ export const BRANA_RADAR_VSTUP_KPH = "kultura-pod-hvezdami";
 export const BRANA_RADAR_VSTUP_TLS = "trebonska-letni-setkavani";
 /** Úzký vstup: jen Třeboňská lázeňská matiné z měsíčních článků hubu. */
 export const BRANA_RADAR_VSTUP_MATINE = "lazenske-matine";
+/** Jen výchozí Kalendář akcí Charity Třeboň, bez historie. */
+export const BRANA_RADAR_VSTUP_CHARITA = "charita-trebon-kalendar";
 
 export const BRANA_RADAR_VSTUPY: readonly BranaRadarVstup[] = [
   {
@@ -43,6 +45,11 @@ export const BRANA_RADAR_VSTUPY: readonly BranaRadarVstup[] = [
     id: BRANA_RADAR_VSTUP_MATINE,
     nazev: "Lázeňské matiné",
     url: `https://www.trebonsko.cz${TREBONSKO_LAZENSKY_PROGRAM_HUB_PATH}/`,
+  },
+  {
+    id: BRANA_RADAR_VSTUP_CHARITA,
+    nazev: "Charita Třeboň — kalendář akcí",
+    url: "https://trebon.charita.cz/aktualne/kalendar-akci/",
   },
 ];
 

@@ -34,7 +34,14 @@ import {
   jeZjevnySumProvoz,
   spustitRadarScanReadOnly,
 } from "../src/lib/brana/admin/radar-scan";
-import { BRANA_RADAR_VSTUPY } from "../src/lib/brana/admin/radar-vstupy";
+import {
+  BRANA_RADAR_VSTUP_CHARITA,
+  BRANA_RADAR_VSTUPY,
+} from "../src/lib/brana/admin/radar-vstupy";
+import {
+  RADAR_CHARITA_CHYBA_STRUKTURY,
+  vytahnoutRadarCharitaKalendarNalezy,
+} from "../src/lib/brana/admin/radar-charita-kalendar";
 import {
   jeRadarTrebonskoRybarskyNazev,
   jeRadarTrebonskoZrusenyNazev,
@@ -613,9 +620,40 @@ assert(
 );
 
 assert(
-  BRANA_RADAR_VSTUPY.length === 5 &&
-    BRANA_RADAR_VSTUPY.every((v) => v.id && v.url.startsWith("https://")),
-  "3A: pět veřejných vstupů",
+  BRANA_RADAR_VSTUPY.length === 6 &&
+    BRANA_RADAR_VSTUPY.every((v) => v.id && v.url.startsWith("https://")) &&
+    BRANA_RADAR_VSTUPY.some(
+      (v) =>
+        v.id === "trebonsko-prehled" &&
+        v.url === "https://www.trebonsko.cz/prehled-akci-trebonsko",
+    ) &&
+    BRANA_RADAR_VSTUPY.some(
+      (v) =>
+        v.id === "zamek-trebon" &&
+        v.url === "https://www.zamek-trebon.cz/cs/akce",
+    ) &&
+    BRANA_RADAR_VSTUPY.some(
+      (v) =>
+        v.id === "kultura-pod-hvezdami" &&
+        v.url === "https://www.kulturapodhvezdami.cz/",
+    ) &&
+    BRANA_RADAR_VSTUPY.some(
+      (v) =>
+        v.id === "trebonska-letni-setkavani" &&
+        v.url === "https://www.trebon-kurzy.cz/",
+    ) &&
+    BRANA_RADAR_VSTUPY.some(
+      (v) =>
+        v.id === "lazenske-matine" &&
+        v.url === "https://www.trebonsko.cz/kategorie/lazensky-kulturni-program/",
+    ) &&
+    BRANA_RADAR_VSTUPY.some(
+      (v) =>
+        v.id === BRANA_RADAR_VSTUP_CHARITA &&
+        v.url === "https://trebon.charita.cz/aktualne/kalendar-akci/" &&
+        !v.url.includes("filterShowHistory"),
+    ),
+  "3A: šest veřejných vstupů, původních pět beze změny",
 );
 assert(
     jeRadarPovolenaGeografie("Chinaski Open air Třeboň") &&
@@ -975,6 +1013,8 @@ const htmlMapa: Record<string, string> = {
 </body></html>`,
   "https://www.trebon-kurzy.cz/":
     `<html>trebon-kurzy<body>14. ročník proběhne v termínu 11. - 16. 8. 2026.</body></html>`,
+  "https://trebon.charita.cz/aktualne/kalendar-akci/":
+    `<div class="message alert alert-info alert-top">Nebyly nalezeny žádné položky.</div>`,
 };
 
 void (async () => {
@@ -1089,6 +1129,9 @@ void (async () => {
       if (klic === "https://www.trebonsko.cz/prehled-akci-trebonsko") {
         return rybarskyHtml;
       }
+      if (klic === "https://trebon.charita.cz/aktualne/kalendar-akci/") {
+        return `<div class="message alert alert-info alert-top">Nebyly nalezeny žádné položky.</div>`;
+      }
       return "<html><body></body></html>";
     },
   });
@@ -1155,6 +1198,177 @@ void (async () => {
         (k) => k.datumOd === "2026-10-20" && /Dasha/i.test(k.nazev),
       ),
     "5I: Lišov a Borovany mimo, prosincový koncert mimo 14 dní, říjnový koncert zůstává",
+  );
+  assert(
+    !fixtureScan.kandidati.some((k) => k.radarVstupId === BRANA_RADAR_VSTUP_CHARITA) &&
+      !rybarskyScan.kandidati.some(
+        (k) => k.radarVstupId === BRANA_RADAR_VSTUP_CHARITA,
+      ) &&
+      !rybarskyScan.chyby.some((c) => c.radarVstupId === BRANA_RADAR_VSTUP_CHARITA),
+    "6H: staré fixture ostatních vstupů Charitu nepřidávají",
+  );
+
+  const charitaPrazdny = `<div class="message alert alert-info alert-top">Nebyly nalezeny žádné položky.</div>`;
+  const charitaKarty = `<div class="items-list">
+<div class="item event"> <a class="inside" href="https://trebon.charita.cz/aktualne/kalendar-akci/den-otevrenych-dveri-charity-trebon/" title="Den otevřených dveří Charity Třeboň 25.09.2026"> <div class="text"> <div class="info"> <h2 class="title">Den otevřených dveří Charity Třeboň 25.09.2026</h2> <span class="icon date">25. 9. 2026</span> <span class="icon place">Chelčického 2, Třeboň </span> <span class="icon type">Akce pro veřejnost</span> </div> </div> </a> </div>
+<div class="item event"> <a class="inside" href="https://trebon.charita.cz/aktualne/kalendar-akci/dozvuky-prazdnin-koncert-pro-charitu-12-9-2026/" title="Dozvuky prázdnin, koncert pro Charitu 12. 9. 2026"> <div class="text"> <div class="info"> <h2 class="title">Dozvuky prázdnin, koncert pro Charitu 12. 9. 2026</h2> <span class="icon date">12. 9. 2026</span> <span class="icon place">Lomnice nad Lužnicí</span> <span class="icon type">Benefiční akce, Koncert, Ostatní, Akce pro dobrovolníky, Akce pro veřejnost</span> </div> </div> </a> </div>
+<div class="item event"> <a class="inside" href="https://trebon.charita.cz/aktualne/kalendar-akci/trebonsky-pulmaraton-pro-charitu-trebon-v-roce-2026/" title="Třeboňský půlmaraton pro Charitu Třeboň 2026"> <div class="text"> <div class="info"> <h2 class="title">Třeboňský půlmaraton pro Charitu Třeboň 2026</h2> <span class="icon date">3. 10. 2026</span> <span class="icon place">Třeboň</span> <span class="icon type">Akce pro veřejnost</span> </div> </div> </a> </div>
+<div class="item event"> <a class="inside" href="https://trebon.charita.cz/aktualne/kalendar-akci/koncert-raduzy-a-frantiska-zemana-pro-charitu-trebon/" title="Koncert Radůzy"> <div class="text"> <div class="info"> <h2 class="title">Koncert Radůzy a Františka Zemana pro Charitu Třeboň</h2> <span class="icon date">18. 4. 2024, 12:02 - 6. 5. 2024, 12:02</span> <span class="icon place">Farská louka v Lomnici nad Lužnicí</span> <span class="icon type">Koncert, Akce pro veřejnost</span> </div> </div> </a> </div>
+<div class="item event"> <a class="inside" href="https://trebon.charita.cz/aktualne/kalendar-akci/strom-splnenych-prani-v-supermarketu-terno-trebon/" title="Strom splněných přání"> <div class="text"> <div class="info"> <h2 class="title">Strom splněných přání v supermarketu Terno Třeboň</h2> <span class="icon date">12. 2019</span> <span class="icon place">supermarket TERNO Třeboň</span> <span class="icon type">Benefiční akce, Akce pro veřejnost</span> </div> </div> </a> </div>
+<div class="item event"> <a class="inside" href="https://trebon.charita.cz/aktualne/charita-trebon/trebonsky-pulmaraton-pro-charitu-trebon-v-roce-2026/" title="Článek Aktualně"> <div class="text"> <div class="info"> <h2 class="title">Třeboňský půlmaraton v Aktualně</h2> <span class="icon date">3. 10. 2026</span> <span class="icon place">Třeboň</span> <span class="icon type">Akce pro veřejnost</span> </div> </div> </a> </div>
+<div class="item event"> <a class="inside" href="https://trebon.charita.cz/aktualne/kalendar-akci/neplatne-datum/" title="Neplatné datum"> <div class="text"> <div class="info"> <h2 class="title">Neplatný den</h2> <span class="icon date">31. 2. 2026</span> <span class="icon place">Třeboň</span> <span class="icon type">Akce pro veřejnost</span> </div> </div> </a> </div>
+</div>`;
+  const charitaUrl = "https://trebon.charita.cz/aktualne/kalendar-akci/";
+  const stahnoutCharitu = (htmlCharity: string, selhat: boolean) =>
+    async (url: string) => {
+      const klic = url.split("?")[0] ?? url;
+      if (klic === charitaUrl) {
+        if (selhat) {
+          throw new Error("HTTP 500");
+        }
+        return htmlCharity;
+      }
+      return "<html></html>";
+    };
+
+  const prazdnyScan = await spustitRadarScanReadOnly({
+    ted: new Date("2026-09-01T08:00:00.000Z"),
+    stahnoutHtml: stahnoutCharitu(charitaPrazdny, false),
+  });
+  assert(
+    prazdnyScan.kandidati.filter((k) => k.radarVstupId === BRANA_RADAR_VSTUP_CHARITA)
+      .length === 0 &&
+      !prazdnyScan.chyby.some((c) => c.radarVstupId === BRANA_RADAR_VSTUP_CHARITA) &&
+      prazdnyScan.oknoDo === "2026-09-15",
+    "6A: prázdný kalendář Charity je nula tipů a není chyba",
+  );
+
+  const kartyScan = await spustitRadarScanReadOnly({
+    ted: new Date("2026-09-01T08:00:00.000Z"),
+    stahnoutHtml: stahnoutCharitu(charitaKarty, false),
+  });
+  const charitaKandidati = kartyScan.kandidati.filter(
+    (k) => k.radarVstupId === BRANA_RADAR_VSTUP_CHARITA,
+  );
+  const karta = (datum: string) =>
+    charitaKandidati.find((k) => k.datumOd === datum);
+  const dvere = karta("2026-09-25");
+  const dozvuky = karta("2026-09-12");
+  const pulmaraton = karta("2026-10-03");
+  assert(
+    charitaKandidati.length === 3 &&
+      dvere?.nazev === "Den otevřených dveří Charity Třeboň 25.09.2026" &&
+      dvere.kde === "Chelčického 2, Třeboň" &&
+      dvere.url ===
+        "https://trebon.charita.cz/aktualne/kalendar-akci/den-otevrenych-dveri-charity-trebon/" &&
+      dvere.cas === "" &&
+      dozvuky?.nazev === "Dozvuky prázdnin, koncert pro Charitu 12. 9. 2026" &&
+      dozvuky.kde === "Lomnice nad Lužnicí" &&
+      dozvuky.url ===
+        "https://trebon.charita.cz/aktualne/kalendar-akci/dozvuky-prazdnin-koncert-pro-charitu-12-9-2026/" &&
+      pulmaraton?.nazev === "Třeboňský půlmaraton pro Charitu Třeboň 2026" &&
+      pulmaraton.kde === "Třeboň" &&
+      pulmaraton.url ===
+        "https://trebon.charita.cz/aktualne/kalendar-akci/trebonsky-pulmaraton-pro-charitu-trebon-v-roce-2026/",
+    "6B: tři historické karty s jedním dnem, včetně Lomnice a dne mimo 14denní okno",
+  );
+  assert(
+    !charitaKandidati.some((k) => /Radůzy|12:02|Farská louka/i.test(`${k.nazev} ${k.kde}`)) &&
+      !kartyScan.chyby.some((c) => c.radarVstupId === BRANA_RADAR_VSTUP_CHARITA),
+    "6C: rozsah data s časem se odmítne",
+  );
+  assert(
+    !charitaKandidati.some((k) => /Terno|2019/i.test(`${k.nazev} ${k.datumOd}`)),
+    "6D: samotný měsíc se odmítne",
+  );
+  assert(
+    !charitaKandidati.some((k) => k.url.includes("/aktualne/charita-trebon/")),
+    "6E: článek z Aktualně se odmítne",
+  );
+  assert(
+    !charitaKandidati.some((k) => k.nazev === "Neplatný den"),
+    "6B2: neplatné datum 31. 2. 2026 se neodhaduje",
+  );
+
+  const chybaScan = await spustitRadarScanReadOnly({
+    ted: new Date("2026-09-01T08:00:00.000Z"),
+    stahnoutHtml: stahnoutCharitu(charitaPrazdny, true),
+  });
+  assert(
+    chybaScan.chyby.some(
+      (c) => c.radarVstupId === BRANA_RADAR_VSTUP_CHARITA && c.chyba === "HTTP 500",
+    ) &&
+      chybaScan.kandidati.every((k) => k.radarVstupId !== BRANA_RADAR_VSTUP_CHARITA),
+    "6F: chyba načtení se zaznamená a nevznikne tip",
+  );
+
+  let strukturaVyjimka = false;
+  try {
+    vytahnoutRadarCharitaKalendarNalezy(
+      "<html><body><article><p>Den Charity bez karty kalendáře.</p></article></body></html>",
+      charitaUrl,
+    );
+  } catch (error) {
+    strukturaVyjimka =
+      error instanceof Error && error.message === RADAR_CHARITA_CHYBA_STRUKTURY;
+  }
+  const strukturaScan = await spustitRadarScanReadOnly({
+    ted: new Date("2026-09-01T08:00:00.000Z"),
+    stahnoutHtml: stahnoutCharitu(
+      "<html><body><article><p>Den Charity bez karty kalendáře.</p></article></body></html>",
+      false,
+    ),
+  });
+  assert(
+    strukturaVyjimka &&
+      strukturaScan.chyby.some(
+        (c) =>
+          c.radarVstupId === BRANA_RADAR_VSTUP_CHARITA &&
+          c.chyba === RADAR_CHARITA_CHYBA_STRUKTURY,
+      ) &&
+      strukturaScan.kandidati.every((k) => k.radarVstupId !== BRANA_RADAR_VSTUP_CHARITA),
+    "6F2: neočekávaná struktura není prázdný kalendář",
+  );
+
+  let historieUrlSelhala = false;
+  try {
+    vytahnoutRadarCharitaKalendarNalezy(
+      charitaKarty,
+      `${charitaUrl}?filterShowHistory=1`,
+    );
+  } catch (error) {
+    historieUrlSelhala =
+      error instanceof Error && error.message === RADAR_CHARITA_CHYBA_STRUKTURY;
+  }
+  assert(historieUrlSelhala, "6A2: výpis s filterShowHistory se nečte");
+
+  const poPrvnim = zapsatRadarScanDoDokumentu(
+    vychoziRadarDokument(),
+    charitaKandidati,
+    {
+      tedIso: "2026-09-01T08:00:00.000Z",
+      noveId: (() => {
+        let i = 0;
+        return () => `charita-${++i}`;
+      })(),
+      dnesIso: "2026-09-01",
+      behDokoncen: true,
+    },
+  );
+  const poDruheCharite = zapsatRadarScanDoDokumentu(poPrvnim, charitaKandidati, {
+    tedIso: "2026-09-01T09:00:00.000Z",
+    noveId: () => "charita-duplicita",
+    dnesIso: "2026-09-01",
+    behDokoncen: true,
+  });
+  assert(
+    poPrvnim.pracovni.length === 3 &&
+      poDruheCharite.pracovni.length === 3 &&
+      !poDruheCharite.pracovni.some((s) => s.id === "charita-duplicita") &&
+      poDruheCharite.historie.length === 0 &&
+      new Set(poDruheCharite.pracovni.map((s) => vytvoritRadarOtiskKlic(s))).size ===
+        3,
+    "6G: opakovaný scan stejné karty znovu nenabídne",
   );
 
   if (selhalo > 0) {
