@@ -5,6 +5,7 @@
 
 import {
   atributHref,
+  isoZCeskehoData,
   kanonizovatHttpUrl,
   parsovatCeskeDatumVTextu,
   textBezHtml,
@@ -152,36 +153,220 @@ function kdeZeZamekTextu(text: string): string {
   return "";
 }
 
+function textBunky(tr: string, trida: string): string {
+  const m = tr.match(
+    new RegExp(
+      `<td\\b[^>]*\\bclass=["'][^"']*\\b${trida}\\b[^"']*["'][^>]*>([\\s\\S]*?)</td>`,
+      "i",
+    ),
+  );
+  return m ? textBezHtml(m[1]) : "";
+}
+
+function rokZBunky(text: string): number | null {
+  const m = text.match(/^(20\d{2})$/);
+  return m ? Number(m[1]) : null;
+}
+
+/**
+ * Den a měsíc v řádku, rok z visiting-hours-year.
+ * Řádek, který už rok nese, si ho nechá. Chybějící rok se nedoplňuje.
+ * Rozmezí, které by po připojení roku teklo pozpátku, se neposouvá do dalšího roku.
+ */
+function terminZTextuObdobi(
+  text: string,
+  rok: number | null,
+): { od: string; doDne: string } | null {
+  const t = text.replace(/\s+/g, " ").trim();
+  if (!t) {
+    return null;
+  }
+  const sRokem = parsovatCeskeDatumVTextu(t);
+  if (sRokem) {
+    return { od: sRokem.od, doDne: sRokem.doDne };
+  }
+  if (rok === null) {
+    return null;
+  }
+  const rozmezi = t.match(
+    /^(\d{1,2})\.\s*(\d{1,2})\.?\s*[–\-]\s*(\d{1,2})\.\s*(\d{1,2})\.?$/,
+  );
+  if (rozmezi) {
+    const od = isoZCeskehoData(Number(rozmezi[1]), Number(rozmezi[2]), rok);
+    const doDne = isoZCeskehoData(Number(rozmezi[3]), Number(rozmezi[4]), rok);
+    if (!od || !doDne || doDne < od) {
+      return null;
+    }
+    return { od, doDne };
+  }
+  const jeden = t.match(/^(\d{1,2})\.\s*(\d{1,2})\.?$/);
+  if (!jeden) {
+    return null;
+  }
+  const den = isoZCeskehoData(Number(jeden[1]), Number(jeden[2]), rok);
+  return den ? { od: den, doDne: den } : null;
+}
+
+type ZamekTermin = {
+  datumOd: string;
+  datumDo: string;
+  cas: string;
+};
+
+function terminyZTabulky(html: string): ZamekTermin[] {
+  const out: ZamekTermin[] = [];
+  let rok: number | null = null;
+  for (const m of html.matchAll(/<tr\b[^>]*>[\s\S]*?<\/tr>/gi)) {
+    const tr = m[0];
+    const rokText = textBunky(tr, "visiting-hours-year");
+    if (rokText) {
+      rok = rokZBunky(rokText);
+      continue;
+    }
+    const obdobi = textBunky(tr, "obdobi");
+    if (!obdobi) {
+      continue;
+    }
+    const datum = terminZTextuObdobi(obdobi, rok);
+    if (!datum) {
+      continue;
+    }
+    out.push({
+      datumOd: datum.od,
+      datumDo: datum.doDne,
+      cas: vytahnoutCasZTextu(textBunky(tr, "hodiny")),
+    });
+  }
+  return out;
+}
+
+type ZamekPrednaska = {
+  den: number;
+  mesic: number;
+  rok: number | null;
+  nazev: string;
+};
+
+/** Jen seznam ul.indented: jeden den v položce a název v em. Jinak se název nehádá. */
+function prednaskyZeSeznamu(html: string): ZamekPrednaska[] {
+  const out: ZamekPrednaska[] = [];
+  for (const ul of html.matchAll(
+    /<ul\b[^>]*\bindented\b[^>]*>([\s\S]*?)<\/ul>/gi,
+  )) {
+    for (const li of ul[1].matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)) {
+      const telo = li[1] ?? "";
+      const em = telo.match(/<em\b[^>]*>([\s\S]*?)<\/em>/i);
+      const nazev = em ? textBezHtml(em[1]) : "";
+      if (!nazev) {
+        continue;
+      }
+      const data = [
+        ...textBezHtml(telo).matchAll(
+          /(\d{1,2})\.\s*(\d{1,2})\.(?:\s*(20\d{2}))?/g,
+        ),
+      ];
+      if (data.length !== 1) {
+        continue;
+      }
+      out.push({
+        den: Number(data[0][1]),
+        mesic: Number(data[0][2]),
+        rok: data[0][3] ? Number(data[0][3]) : null,
+        nazev,
+      });
+    }
+  }
+  return out;
+}
+
+function nazevKartyZDetailu(html: string, nazevZListingu: string): string {
+  const nazevZHlavicky = cistyNazevZamku(nazevZListingu);
+  const nazevZH1 = cistyNazevZamku(
+    textBezHtml(html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1] ?? ""),
+  );
+  return (
+    nazevZHlavicky ||
+    (nazevZH1 && nazevZH1.toLowerCase() !== "třeboň" ? nazevZH1 : "")
+  );
+}
+
+function nazevProTermin(
+  termin: ZamekTermin,
+  nazevKarty: string,
+  prednasky: readonly ZamekPrednaska[],
+): string {
+  if (termin.datumOd !== termin.datumDo) {
+    return nazevKarty;
+  }
+  const den = Number(termin.datumOd.slice(8, 10));
+  const mesic = Number(termin.datumOd.slice(5, 7));
+  const rok = Number(termin.datumOd.slice(0, 4));
+  const shoda = prednasky.filter(
+    (p) =>
+      p.den === den &&
+      p.mesic === mesic &&
+      (p.rok === null || p.rok === rok),
+  );
+  if (shoda.length !== 1) {
+    return nazevKarty;
+  }
+  return cistyNazevZamku(shoda[0].nazev) || nazevKarty;
+}
+
+/**
+ * Tabulka termínů: jeden nález na konkrétní den, rozmezí zůstává jedno.
+ * Bez tabulky zůstává původní datum v textu události.
+ */
+export function vytahnoutRadarZamekNalezyZDetailu(
+  html: string,
+  detailUrl: string,
+  nazevZListingu: string,
+): RadarHrubyNalez[] {
+  const nazevKarty = nazevKartyZDetailu(html, nazevZListingu);
+  if (!nazevKarty) {
+    return [];
+  }
+  const eventBlok =
+    html.match(/<div class="event">([\s\S]*?)<div class="post-text">/i)?.[1] ??
+    html;
+  const kde = kdeZeZamekTextu(textBezHtml(eventBlok));
+  const terminy = terminyZTabulky(html);
+  if (terminy.length > 0) {
+    const prednasky = prednaskyZeSeznamu(html);
+    return terminy.map((termin) => ({
+      nazev: nazevProTermin(termin, nazevKarty, prednasky),
+      datumOd: termin.datumOd,
+      datumDo: termin.datumDo,
+      cas: termin.cas,
+      kde,
+      url: detailUrl,
+    }));
+  }
+  const datum = parsovatCeskeDatumVTextu(textBezHtml(eventBlok));
+  if (!datum) {
+    return [];
+  }
+  return [
+    {
+      nazev: nazevKarty,
+      datumOd: datum.od,
+      datumDo: datum.doDne,
+      cas: vytahnoutCasZTextu(textBezHtml(eventBlok)),
+      kde,
+      url: detailUrl,
+    },
+  ];
+}
+
 export function vytahnoutRadarZamekNalezZDetailu(
   html: string,
   detailUrl: string,
   nazevZListingu: string,
 ): RadarHrubyNalez | null {
-  const nazevZHlavicky = cistyNazevZamku(nazevZListingu);
-  const nazevZH1 = cistyNazevZamku(
-    textBezHtml(html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1] ?? ""),
+  return (
+    vytahnoutRadarZamekNalezyZDetailu(html, detailUrl, nazevZListingu)[0] ??
+    null
   );
-  const nazev =
-    nazevZHlavicky ||
-    (nazevZH1 && nazevZH1.toLowerCase() !== "třeboň" ? nazevZH1 : "");
-  if (!nazev) {
-    return null;
-  }
-  const eventBlok =
-    html.match(/<div class="event">([\s\S]*?)<div class="post-text">/i)?.[1] ??
-    html;
-  const datum = parsovatCeskeDatumVTextu(textBezHtml(eventBlok));
-  if (!datum) {
-    return null;
-  }
-  return {
-    nazev,
-    datumOd: datum.od,
-    datumDo: datum.doDne,
-    cas: vytahnoutCasZTextu(textBezHtml(eventBlok)),
-    kde: kdeZeZamekTextu(textBezHtml(eventBlok)),
-    url: detailUrl,
-  };
 }
 
 export async function vytahnoutRadarZamekNalezy(args: {
@@ -223,14 +408,9 @@ export async function vytahnoutRadarZamekNalezy(args: {
     }
     detaily += 1;
     const html = await args.stahnoutHtml(karta.url);
-    const nalez = vytahnoutRadarZamekNalezZDetailu(
-      html,
-      karta.url,
-      karta.nazev,
+    nalezy.push(
+      ...vytahnoutRadarZamekNalezyZDetailu(html, karta.url, karta.nazev),
     );
-    if (nalez) {
-      nalezy.push(nalez);
-    }
   }
   return nalezy;
 }
