@@ -76,6 +76,11 @@ import {
   BRANA_GBU_REDAKCNI_POLOZKA_ID,
   sestavGbuZapisPoSparovani,
 } from "./gbu-titulek";
+import {
+  BRANA_ZUS_TREBON_AKCE_REDAKCNI_POLOZKA_ID,
+  jeZusTrebonPlanAkciZdrojUrl,
+  parsovatZusTrebonPlanAkci,
+} from "./zus-plan-akci";
 import { sestavBesedaZapisPoSparovani } from "./beseda";
 import {
   jeRozmberskaNocDetailUrl,
@@ -826,6 +831,9 @@ async function skenovatZnamyZdrojJadro(
   } else if (jeRozmberskaNocDetailUrl(zdroj.url)) {
     const { text, contentType } = await nacistTeloZdroje(zdroj.url);
     kandidati = parsovatUdalostiZeZdroje(text, contentType);
+  } else if (jeZusTrebonPlanAkciZdrojUrl(zdroj.url)) {
+    const { text } = await nacistTeloZdroje(zdroj.url);
+    kandidati = deduplikovatScanKandidaty(parsovatZusTrebonPlanAkci(text));
   } else {
     const { text, contentType } = await nacistTeloZdroje(zdroj.url);
     kandidati = parsovatUdalostiZeZdroje(text, contentType);
@@ -1023,6 +1031,12 @@ async function skenovatZnamyZdrojJadro(
                   zdroj.hlidaneRedakcniPolozkaIds,
                   BRANA_DPT_REDAKCNI_POLOZKA_ID,
                 )
+            : jeZusTrebonPlanAkciZdrojUrl(zdroj.url)
+              ? sparovatVlastnictvimHlidaneKotvy(
+                  redakcni.polozky,
+                  zdroj.hlidaneRedakcniPolozkaIds,
+                  BRANA_ZUS_TREBON_AKCE_REDAKCNI_POLOZKA_ID,
+                )
             : hlidaneKotvy
             ? sparovatSHlidanymiKotvami(
                 kandidat,
@@ -1104,6 +1118,10 @@ async function skenovatZnamyZdrojJadro(
       // živá Položka Galerie města Třeboň) → tiše, bez Nezařazených,
       // bez GBU / JKT / 105 / muzea.
       if (jeItrebonGalerieMestaTrebonZdroj(zdroj)) {
+        continue;
+      }
+      // ZUŠ nástěnka: neshoda kotvy → tiše, bez Nezařazených.
+      if (jeZusTrebonPlanAkciZdrojUrl(zdroj.url)) {
         continue;
       }
       // Bohatý zdroj: neshody se neposílají do Nezařazených (provozní šum).

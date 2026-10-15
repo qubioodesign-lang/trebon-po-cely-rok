@@ -1,5 +1,5 @@
 /**
- * Statická Redakční kostra – katalog 54 pevných ID a výchozí prioritní seznam (22 ANO).
+ * Statická Redakční kostra – katalog 55 pevných ID a výchozí prioritní seznam (23 ANO).
  * Editovatelné hodnoty se ukládají do samostatného Vercel Blob dokumentu (verzeUloziste ≥ 2).
  *
  * Veřejný jazyk BRÁNY (CO / KDE) je oddělený od identity položky (matching).
@@ -255,6 +255,13 @@ const DEFINITIVNI_SEED: Readonly<
     vyhled: "NE",
     jazyk: { co: pevne("ZUŠ Open"), rozliseni: Z_UDALOSTI },
   },
+  "zus-trebon-akce": {
+    polozka: "ZUŠ Třeboň",
+    priorita: 22,
+    vyhled: "NE",
+    vyhledSerie: false,
+    jazyk: { co: NIC, rozliseni: Z_UDALOSTI },
+  },
 };
 
 /** Explicitní výchozí Výhled pro id (včetně zpětné kompatibility starého null). */
@@ -294,7 +301,7 @@ export function maStrukturovanyJazykPravidla(polozka: {
   return polozka.jazykVerejny !== null;
 }
 
-/** IDs 22 definitivních pravidel (priority dle seedu). */
+/** IDs 23 definitivních pravidel (priority dle seedu). */
 export const BRANA_REDAKCNI_DEFINITIVNI_ID: readonly string[] = Object.freeze(
   Object.keys(DEFINITIVNI_SEED).sort(
     (a, b) =>
@@ -369,9 +376,10 @@ export const BRANA_REDAKCNI_MIMO_KOSTRA: readonly BranaRedakcniPolozkaVychozi[] 
     { id: "rybarske-muzeum-rozmberk", polozka: "Rybářské muzeum Rožmberk", pouzivat: "NE", mimoKostru: true },
     { id: "farska-louka-lomnice", polozka: "Farská louka (Lomnice nad Lužnicí)", pouzivat: "NE", mimoKostru: true },
     { id: "plaz-u-rybnika-svet", polozka: "Pláž u rybníka Svět", pouzivat: "NE", mimoKostru: true },
+    { id: "zus-trebon-akce", polozka: "ZUŠ Třeboň", pouzivat: "ANO", mimoKostru: true },
   ];
 
-/** Pevné pořadí všech 54 položek (kostra + mimo) – kompatibilita Blob / matching */
+/** Pevné pořadí všech 55 položek (kostra + mimo) – kompatibilita Blob / matching */
 export const BRANA_REDAKCNI_VSECHNY_VYCHOZI: readonly BranaRedakcniPolozkaVychozi[] =
   [...BRANA_REDAKCNI_KOSTRA, ...BRANA_REDAKCNI_MIMO_KOSTRA];
 
@@ -382,7 +390,7 @@ export function vytvoritVychoziStavPolozky(
   return {
     id: vychozi.id,
     polozka: seed?.polozka ?? vychozi.polozka,
-    /** Přesně 22 definitivních = ANO; ostatní = NE */
+    /** Přesně 23 definitivních = ANO; ostatní = NE */
     pouzivat: seed ? "ANO" : "NE",
     priorita: seed?.priorita ?? null,
     subpriorita: null,

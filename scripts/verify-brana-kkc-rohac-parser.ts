@@ -471,8 +471,8 @@ function overOwnership(): void {
 
 function overKatalog(): void {
   assert(
-    BRANA_REDAKCNI_VSECHNY_VYCHOZI.length === 54,
-    `katalog 54, je ${BRANA_REDAKCNI_VSECHNY_VYCHOZI.length}`,
+    BRANA_REDAKCNI_VSECHNY_VYCHOZI.length === 55,
+    `katalog 55, je ${BRANA_REDAKCNI_VSECHNY_VYCHOZI.length}`,
   );
   assert(
     BRANA_REDAKCNI_VSECHNY_VYCHOZI.every((p) => p.id !== "kkc-rohac"),
@@ -484,7 +484,7 @@ function overKatalog(): void {
     ),
     "katalog bez seedové Položky KKC Roháč",
   );
-  console.log("OK katalog 54, bez kkc-rohac");
+  console.log("OK katalog 55, bez kkc-rohac");
 }
 
 function overIdentituHelper(): void {
