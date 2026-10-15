@@ -4,7 +4,10 @@
  */
 
 import { dnesVPraze } from "@/lib/brana/cas";
-import { maDatumOdPatritDoVyhledu } from "./obdobi-7-dni";
+import {
+  maDatumOdPatritDoVyhledu,
+  type BranaVyhledDatumovaHranice,
+} from "./obdobi-7-dni";
 
 /**
  * Stav schválení / vyřazení k budoucí publikaci.
@@ -72,6 +75,12 @@ export type BranaKonkretniUdalost = {
    * U automatických událostí null.
    */
   rucniPoziceVDni: number | null;
+  /**
+   * Jen ruční událost (redakcniPolozkaId === null).
+   * Chybí nebo není přesné true → ve Výhledu není.
+   * Automatická událost pole nepoužívá.
+   */
+  zobrazitVeVyhledu?: boolean;
   /**
    * Schválení k publikaci.
    * Starší záznamy bez pole se čtou jako SCHVALENO (viz normalizovatStavSchvaleni).
@@ -337,6 +346,20 @@ export function formatujDatumVyhled(udalost: {
 
 export function rokUdalosti(udalost: BranaKonkretniUdalost): number {
   return parsujIsoDen(udalost.datumOd).getUTCFullYear();
+}
+
+/**
+ * Do uložené události patří jen přesné true u ruční události.
+ * Chybějící, neplatná i true u automatické události pole vynechá.
+ */
+export function poleZobrazitVeVyhleduProUlozeni(
+  redakcniPolozkaId: string | null,
+  hodnota: unknown,
+): { zobrazitVeVyhledu: true } | Record<string, never> {
+  if (redakcniPolozkaId === null && hodnota === true) {
+    return { zobrazitVeVyhledu: true };
+  }
+  return {};
 }
 
 const DNY_TYDNE = [
@@ -607,12 +630,84 @@ export function seskupVyhledUdalostiRokuNaSouhrny(
     });
   }
 
-  souhrny.sort((a, b) => {
-    const cmp = a.datumOd.localeCompare(b.datumOd);
-    return cmp !== 0 ? cmp : a.klic.localeCompare(b.klic);
-  });
+  souhrny.sort(porovnatSouhrnyVyhledu);
 
   return souhrny;
+}
+
+function porovnatSouhrnyVyhledu(
+  a: BranaAdminVyhledSouhrn,
+  b: BranaAdminVyhledSouhrn,
+): number {
+  const cmp = a.datumOd.localeCompare(b.datumOd);
+  return cmp !== 0 ? cmp : a.klic.localeCompare(b.klic);
+}
+
+/**
+ * Ruční událost ve Výhledu: samostatný řádek, mimo seskupení sérií.
+ * Stejné časové pravidlo jako u automatických. NE a chybějící pole nejsou zahrnuty.
+ */
+export function souhrnyRucniUdalostiVyhledu(
+  udalosti: readonly BranaKonkretniUdalost[],
+  hranice?: BranaVyhledDatumovaHranice,
+): BranaAdminVyhledSouhrn[] {
+  const souhrny: BranaAdminVyhledSouhrn[] = [];
+  for (const udalost of udalosti) {
+    if (udalost.redakcniPolozkaId !== null) {
+      continue;
+    }
+    if (udalost.zobrazitVeVyhledu !== true) {
+      continue;
+    }
+    if (udalost.stavSchvaleni !== "SCHVALENO") {
+      continue;
+    }
+    if (!maDatumOdPatritDoVyhledu(udalost.datumOd, hranice)) {
+      continue;
+    }
+    const rok = rokUdalosti(udalost);
+    souhrny.push({
+      klic: `${rok}:rucni:${udalost.id}`,
+      redakcniPolozkaId: udalost.id,
+      datumOd: udalost.datumOd,
+      datumDo: posledniPlatnyDenUdalosti(udalost),
+      mistoNeboTyp: udalost.mistoNeboTyp,
+      nazev: udalost.nazev,
+      ...(udalost.verejneCo !== undefined
+        ? {
+            verejneCo: udalost.verejneCo,
+            verejneRozliseni: udalost.verejneRozliseni ?? null,
+          }
+        : {}),
+    });
+  }
+  souhrny.sort(porovnatSouhrnyVyhledu);
+  return souhrny;
+}
+
+function pripojRucniSouhrnyDoSkupin(
+  skupiny: readonly BranaAdminVyhledRokSkupina[],
+  rucniSouhrny: readonly BranaAdminVyhledSouhrn[],
+): BranaAdminVyhledRokSkupina[] {
+  if (rucniSouhrny.length === 0) {
+    return [...skupiny];
+  }
+  const mapa = new Map<number, BranaAdminVyhledSouhrn[]>();
+  for (const skupina of skupiny) {
+    mapa.set(skupina.rok, [...skupina.souhrny]);
+  }
+  for (const souhrn of rucniSouhrny) {
+    const rok = Number(souhrn.datumOd.slice(0, 4));
+    const seznam = mapa.get(rok) ?? [];
+    seznam.push(souhrn);
+    mapa.set(rok, seznam);
+  }
+  return [...mapa.keys()]
+    .sort((a, b) => a - b)
+    .map((rok) => ({
+      rok,
+      souhrny: (mapa.get(rok) ?? []).slice().sort(porovnatSouhrnyVyhledu),
+    }));
 }
 
 /**
@@ -626,7 +721,7 @@ export function projektujAdminVyhledSouhrnyPodleRoku(
   maVyhledAno: (redakcniPolozkaId: string) => boolean,
   maVyhledSerii: (redakcniPolozkaId: string) => boolean = () => true,
 ): BranaAdminVyhledRokSkupina[] {
-  return projektujVyhledPodleRoku(udalosti, maVyhledAno).map(
+  const skupiny = projektujVyhledPodleRoku(udalosti, maVyhledAno).map(
     ({ rok, udalosti: udalostiRoku }) => ({
       rok,
       souhrny: seskupVyhledUdalostiRokuNaSouhrny(
@@ -635,6 +730,10 @@ export function projektujAdminVyhledSouhrnyPodleRoku(
         maVyhledSerii,
       ),
     }),
+  );
+  return pripojRucniSouhrnyDoSkupin(
+    skupiny,
+    souhrnyRucniUdalostiVyhledu(udalosti),
   );
 }
 

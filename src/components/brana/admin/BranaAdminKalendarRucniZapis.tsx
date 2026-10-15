@@ -393,6 +393,7 @@ export function BranaAdminKalendarRucniZapis({
   const [editaceStrukturovana, setEditaceStrukturovana] = useState(false);
   const [nazev, setNazev] = useState("");
   const [rucniPoziceVDni, setRucniPoziceVDni] = useState(0);
+  const [zobrazitVeVyhledu, setZobrazitVeVyhledu] = useState(false);
   const [chyba, setChyba] = useState<string | null>(null);
   const [zprava, setZprava] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -507,6 +508,7 @@ export function BranaAdminKalendarRucniZapis({
     setEditaceStrukturovana(false);
     setNazev("");
     setRucniPoziceVDni(0);
+    setZobrazitVeVyhledu(false);
   }
 
   function zavrit() {
@@ -544,6 +546,9 @@ export function BranaAdminKalendarRucniZapis({
     setVerejneCo(strukturovana ? (udalost.verejneCo ?? "") : "");
     setVerejneRozliseni(strukturovana ? (udalost.verejneRozliseni ?? "") : "");
     setNazev(udalost.nazev);
+    setZobrazitVeVyhledu(
+      jeRucni && udalost.zobrazitVeVyhledu === true,
+    );
     // 0 = Na začátek – nesmí se ztratit přes truthy kontrolu
     setRucniPoziceVDni(
       udalost.rucniPoziceVDni === null || udalost.rucniPoziceVDni === undefined
@@ -596,6 +601,7 @@ export function BranaAdminKalendarRucniZapis({
       mistoNeboTyp,
       nazev,
       rucniPoziceVDni,
+      zobrazitVeVyhledu,
     };
     startTransition(async () => {
       const vysledek = editovaneId
@@ -879,6 +885,19 @@ export function BranaAdminKalendarRucniZapis({
                       {volba.popisek}
                     </option>
                   ))}
+                </select>
+              </label>
+            ) : null}
+            {!editaceAutomaticke ? (
+              <label className="space-y-1 text-sm text-text sm:col-span-2">
+                <span className="text-text-jemny">Zobrazit ve Výhledu</span>
+                <select
+                  className={VSTUP}
+                  value={zobrazitVeVyhledu ? "ANO" : "NE"}
+                  onChange={(e) => setZobrazitVeVyhledu(e.target.value === "ANO")}
+                >
+                  <option value="NE">NE</option>
+                  <option value="ANO">ANO</option>
                 </select>
               </label>
             ) : null}

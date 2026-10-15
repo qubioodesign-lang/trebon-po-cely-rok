@@ -2,7 +2,10 @@
  * Validace ručně vložené konkrétní události – pouze administrace BRÁNY.
  */
 
-import type { BranaKonkretniUdalost } from "./konkretni-udalost";
+import {
+  poleZobrazitVeVyhleduProUlozeni,
+  type BranaKonkretniUdalost,
+} from "./konkretni-udalost";
 import { slozitMistoNeboTypZCoKde } from "./redakcni-override";
 
 const ISO_DEN = /^\d{4}-\d{2}-\d{2}$/;
@@ -15,6 +18,8 @@ export type BranaRucniUdalostVstup = {
   mistoNeboTyp: string;
   nazev: string;
   rucniPoziceVDni: number;
+  /** Jen přesné true se uloží. Chybí, false i neplatná hodnota = NE. */
+  zobrazitVeVyhledu?: boolean;
 };
 
 export type ValidaceRucniUdalostiVysledek =
@@ -111,6 +116,7 @@ export function validovatRucniUdalostVstup(
       rucniPoziceVDni,
       /** Ruční zápis redaktora – vždy schváleno, bez schvalovacího workflow */
       stavSchvaleni: "SCHVALENO",
+      ...poleZobrazitVeVyhleduProUlozeni(null, data.zobrazitVeVyhledu),
     },
   };
 }

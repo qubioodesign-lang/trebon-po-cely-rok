@@ -27,9 +27,11 @@ import {
   jeBranaStavSchvaleni,
   normalizovatStavSchvaleni,
   normalizovatVerejnaJazykovaPoleZBlobu,
+  poleZobrazitVeVyhleduProUlozeni,
   rokUdalosti,
   seradUdalostiDne,
   seskupVyhledUdalostiRokuNaSouhrny,
+  souhrnyRucniUdalostiVyhledu,
   type BranaAdminVyhledSouhrn,
   type BranaKonkretniUdalost,
   type BranaRedakcniPoradiProKalendar,
@@ -162,6 +164,7 @@ function normalizovatUdalostZBlobu(hodnota: unknown): BranaKonkretniUdalost {
     rucniPoziceVDni:
       redakcniPolozkaId === null ? (u.rucniPoziceVDni as number) : null,
     stavSchvaleni: normalizovatStavSchvaleni(u.stavSchvaleni),
+    ...poleZobrazitVeVyhleduProUlozeni(redakcniPolozkaId, u.zobrazitVeVyhledu),
     ...(scanKlic !== undefined ? { scanKlic } : {}),
     ...verejnaPole,
   };
@@ -421,7 +424,8 @@ export function projektujSchvaleneDoVerejnehoPohledu(args: {
     };
   }
 
-  // Výhled – stejný význam jako maDatumOdPatritDoVyhledu + Výhled=ANO (ruční ne).
+  // Výhled automatických: maDatumOdPatritDoVyhledu + Výhled=ANO.
+  // Ruční s přesným true se připojí až potom, každá jako vlastní řádek.
   const vyhledUdalosti = kandidati.filter((u) => {
     if (u.redakcniPolozkaId === null) {
       return false;
@@ -452,11 +456,31 @@ export function projektujSchvaleneDoVerejnehoPohledu(args: {
       maVyhledSerii,
     );
 
-  const letosni = souhrnyRoku(okna.aktualniRok);
-  const pozdejsi = [...podleRoku.keys()]
-    .filter((rok) => rok > okna.aktualniRok)
-    .sort((a, b) => a - b)
-    .flatMap((rok) => souhrnyRoku(rok));
+  const rucniSouhrny = souhrnyRucniUdalostiVyhledu(kandidati, {
+    dnesIso: okna.dnesIso,
+    sedmDniIso: okna.sedmDniIso,
+  });
+  const letosni = [
+    ...souhrnyRoku(okna.aktualniRok),
+    ...rucniSouhrny.filter(
+      (souhrn) => Number(souhrn.datumOd.slice(0, 4)) === okna.aktualniRok,
+    ),
+  ].sort((a, b) => {
+    const cmp = a.datumOd.localeCompare(b.datumOd);
+    return cmp !== 0 ? cmp : a.klic.localeCompare(b.klic);
+  });
+  const pozdejsi = [
+    ...[...podleRoku.keys()]
+      .filter((rok) => rok > okna.aktualniRok)
+      .sort((a, b) => a - b)
+      .flatMap((rok) => souhrnyRoku(rok)),
+    ...rucniSouhrny.filter(
+      (souhrn) => Number(souhrn.datumOd.slice(0, 4)) > okna.aktualniRok,
+    ),
+  ].sort((a, b) => {
+    const cmp = a.datumOd.localeCompare(b.datumOd);
+    return cmp !== 0 ? cmp : a.klic.localeCompare(b.klic);
+  });
 
   const blok0Akce = letosni.map(doVerejneAkceZeSouhrnu);
   const blok0Datumy = letosni.map(formatujDatumVyhled);
