@@ -15,7 +15,19 @@ import { vytahnoutRadarKphNalezy } from "./radar-kultura-pod-hvezdami";
 import { vytahnoutRadarTlsNalezy } from "./radar-letni-setkavani";
 import { vytahnoutRadarTrebonskoNalezy } from "./radar-trebonsko";
 import {
+  BRANA_MATINE_KDE_ALTAN_BERTA,
+  BRANA_MATINE_KDE_LAZNE_AURORA,
+  jeMatineZdrojIdentita,
+  parsovatLazenskaMatineProgram,
+} from "./lazenska-matine";
+import {
+  jeTrebonskoLazenskyKulturniProgramZdrojUrl,
+  sestavTrebonskoLazenskyKulturniProgramHubUrl,
+  vytahnoutTrebonskoTanecniVecerMesicUrlky,
+} from "./tanecni-vecery";
+import {
   BRANA_RADAR_VSTUP_KPH,
+  BRANA_RADAR_VSTUP_MATINE,
   BRANA_RADAR_VSTUP_TLS,
   BRANA_RADAR_VSTUP_TREBONSKO,
   BRANA_RADAR_VSTUP_ZAMEK,
@@ -142,6 +154,45 @@ export function jeRadarPovolenaGeografie(text: string): boolean {
   const bezOkolo = bezUTreboně.replace(/\bokolo trebone\b/g, " ");
   const bezRegionu = bezOkolo.replace(/\btrebonsko\b/g, " ");
   return TREBON_MESTO_RE.test(bezRegionu);
+}
+
+/** Měsíční článek Aurory/Berty. Hub lázeňské kategorie sem nepatří. */
+function jeUrlMesicnihoLazenskehoClanku(url: string): boolean {
+  if (!jeTrebonskoLazenskyKulturniProgramZdrojUrl(url)) {
+    return false;
+  }
+  try {
+    const path = new URL(url).pathname.replace(/\/+$/, "") || "/";
+    return path.startsWith("/kultura-v-lazenskem-dome-");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Jen nález, který už pustil parser matiné: jeden den, čas, ověřené místo
+ * a URL měsíčního článku. Globální geografii ani „už v BRÁNĚ“ nemění.
+ */
+function jeOvereneLazenskeMatine(
+  vstupId: string,
+  nalez: RadarHrubyNalez,
+): boolean {
+  if (vstupId !== BRANA_RADAR_VSTUP_MATINE) {
+    return false;
+  }
+  if (nalez.datumOd !== nalez.datumDo || !nalez.cas.trim() || !nalez.nazev.trim()) {
+    return false;
+  }
+  if (!jeMatineZdrojIdentita(`matine|${nalez.datumOd}`)) {
+    return false;
+  }
+  if (
+    nalez.kde !== BRANA_MATINE_KDE_ALTAN_BERTA &&
+    nalez.kde !== BRANA_MATINE_KDE_LAZNE_AURORA
+  ) {
+    return false;
+  }
+  return jeUrlMesicnihoLazenskehoClanku(nalez.url);
 }
 
 export function prekryvaRadarOkno(args: {
@@ -338,12 +389,59 @@ function mesiceOkna(oknoOd: string, oknoDo: string): { rok: number; mesic: numbe
   return out;
 }
 
+/**
+ * Hub → měsíční články stávajícím výběrem, pak existující parser matiné.
+ * Identita `matine|den` drží jeden nález na den (Aurora i Berta).
+ * Adresa nálezu je článek, ne hub.
+ */
+async function vytahnoutRadarMatineNalezy(args: {
+  hubUrl: string;
+  stahnoutHtml: (url: string, init?: RequestInit) => Promise<string>;
+  referencniOkamzik: Date;
+}): Promise<RadarHrubyNalez[]> {
+  const hub = sestavTrebonskoLazenskyKulturniProgramHubUrl(args.hubUrl);
+  if (!hub) {
+    return [];
+  }
+  const hubHtml = await args.stahnoutHtml(hub);
+  const mesice = vytahnoutTrebonskoTanecniVecerMesicUrlky(
+    hubHtml,
+    hub,
+    args.referencniOkamzik,
+  );
+  const nalezy: RadarHrubyNalez[] = [];
+  const videne = new Set<string>();
+  for (const mesic of mesice) {
+    const html = await args.stahnoutHtml(mesic.url);
+    for (const kandidat of parsovatLazenskaMatineProgram(html)) {
+      const identita = kandidat.zdrojIdentita ?? "";
+      if (!jeMatineZdrojIdentita(identita) || videne.has(identita)) {
+        continue;
+      }
+      if (!jeUrlMesicnihoLazenskehoClanku(mesic.url)) {
+        continue;
+      }
+      videne.add(identita);
+      nalezy.push({
+        nazev: kandidat.nazev,
+        datumOd: kandidat.datumOd,
+        datumDo: kandidat.datumDo,
+        cas: kandidat.cas,
+        kde: kandidat.mistoNeboTyp,
+        url: mesic.url,
+      });
+    }
+  }
+  return nalezy;
+}
+
 async function sberVstupu(args: {
   vstupId: string;
   url: string;
   stahnoutHtml: (url: string, init?: RequestInit) => Promise<string>;
   oknoOd: string;
   oknoDo: string;
+  ted: Date;
 }): Promise<RadarHrubyNalez[]> {
   if (args.vstupId === BRANA_RADAR_VSTUP_TREBONSKO) {
     const html = await args.stahnoutHtml(args.url);
@@ -373,6 +471,13 @@ async function sberVstupu(args: {
   if (args.vstupId === BRANA_RADAR_VSTUP_TLS) {
     const html = await args.stahnoutHtml(args.url);
     return vytahnoutRadarTlsNalezy(html, args.url);
+  }
+  if (args.vstupId === BRANA_RADAR_VSTUP_MATINE) {
+    return vytahnoutRadarMatineNalezy({
+      hubUrl: args.url,
+      stahnoutHtml: args.stahnoutHtml,
+      referencniOkamzik: args.ted,
+    });
   }
   return [];
 }
@@ -426,6 +531,7 @@ export async function spustitRadarScanReadOnly(
         stahnoutHtml,
         oknoOd,
         oknoDo,
+        ted,
       });
       hrubyPoVstupech.push({ vstupId: vstup.id, nalezy });
 
@@ -468,8 +574,10 @@ export async function spustitRadarScanReadOnly(
     }
   }
 
-  const poGeografii = hruby.filter((r) =>
-    jeRadarPovolenaGeografie(`${r.nalez.nazev} ${r.nalez.kde} ${r.nalez.url}`),
+  const poGeografii = hruby.filter(
+    (r) =>
+      jeOvereneLazenskeMatine(r.vstupId, r.nalez) ||
+      jeRadarPovolenaGeografie(`${r.nalez.nazev} ${r.nalez.kde} ${r.nalez.url}`),
   );
   const poOkne = poGeografii.filter((r) =>
     prekryvaRadarOkno({
