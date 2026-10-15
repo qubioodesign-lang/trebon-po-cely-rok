@@ -1,46 +1,14 @@
 {
-  "vytvoreno": "2026-08-31T07:12:07.682Z",
+  "vytvoreno": "2026-10-11T16:49:20.749Z",
   "zdrojUrl": "https://www.itrebon.cz/kalendar.html",
   "kandidati": [
     {
-      "nazev": "Rockové balady při svíčkách",
-      "datumOd": "2026-09-17",
-      "datumDo": "2026-09-17",
-      "cas": "19:00",
-      "mistoNeboTyp": "Divadlo J. K. Tyla",
-      "zdrojIdentita": "itrebon|19548"
-    },
-    {
-      "nazev": "Bůh masakru - činohra",
-      "datumOd": "2026-09-18",
-      "datumDo": "2026-09-18",
+      "nazev": "Roztomilé dámy aneb oko za oko - činohra",
+      "datumOd": "2026-10-13",
+      "datumDo": "2026-10-13",
       "cas": "19:30",
       "mistoNeboTyp": "Divadlo J. K. Tyla",
-      "zdrojIdentita": "itrebon|20351"
-    },
-    {
-      "nazev": "Sex na vlnách",
-      "datumOd": "2026-09-25",
-      "datumDo": "2026-09-25",
-      "cas": "19:30",
-      "mistoNeboTyp": "Divadlo J. K. Tyla",
-      "zdrojIdentita": "itrebon|19441"
-    },
-    {
-      "nazev": "Keltie - Jedinečná houslová show (CELTIC/POP/ROCK)",
-      "datumOd": "2026-09-29",
-      "datumDo": "2026-09-29",
-      "cas": "19:00",
-      "mistoNeboTyp": "Divadlo J. K. Tyla",
-      "zdrojIdentita": "itrebon|19885"
-    },
-    {
-      "nazev": "Koncert: Cross Tower",
-      "datumOd": "2026-10-02",
-      "datumDo": "2026-10-02",
-      "cas": "19:00",
-      "mistoNeboTyp": "Divadlo J. K. Tyla",
-      "zdrojIdentita": "itrebon|20068"
+      "zdrojIdentita": "itrebon|20634"
     },
     {
       "nazev": "DASHA: koncert s kapelou",
@@ -49,6 +17,14 @@
       "cas": "19:30",
       "mistoNeboTyp": "Divadlo J. K. Tyla",
       "zdrojIdentita": "itrebon|19874"
+    },
+    {
+      "nazev": "O Pavlíkovi a jeho hvězdě - loutková pohádka",
+      "datumOd": "2026-10-17",
+      "datumDo": "2026-10-17",
+      "cas": "15:00",
+      "mistoNeboTyp": "Divadlo J. K. Tyla",
+      "zdrojIdentita": "itrebon|20624"
     },
     {
       "nazev": "Cello Republic",
@@ -67,12 +43,28 @@
       "zdrojIdentita": "itrebon|20352"
     },
     {
-      "nazev": "R.U.R. - činohra divadelního spolku Milečín",
+      "nazev": "R.U.R. - činohra divadelního spolku Miličín",
       "datumOd": "2026-10-23",
       "datumDo": "2026-10-23",
       "cas": "19:30",
       "mistoNeboTyp": "Divadlo J. K. Tyla",
       "zdrojIdentita": "itrebon|20584"
+    },
+    {
+      "nazev": "Dřevěný vojáček a jeho přátelé",
+      "datumOd": "2026-10-24",
+      "datumDo": "2026-10-24",
+      "cas": "15:00",
+      "mistoNeboTyp": "Divadlo J. K. Tyla",
+      "zdrojIdentita": "itrebon|20777"
+    },
+    {
+      "nazev": "OKOLO TŘEBONĚ: Jazz a blues v Třeboni",
+      "datumOd": "2026-10-29",
+      "datumDo": "2026-10-30",
+      "cas": "19:00",
+      "mistoNeboTyp": "Divadlo J. K. Tyla",
+      "zdrojIdentita": "itrebon|20680"
     },
     {
       "nazev": "Aladin a kouzelná lampa - rodinný muzikál",
@@ -115,6 +107,22 @@
       "zdrojIdentita": "itrebon|20354"
     },
     {
+      "nazev": "Kalif čáp - loutkové představení",
+      "datumOd": "2026-11-21",
+      "datumDo": "2026-11-21",
+      "cas": "15:00",
+      "mistoNeboTyp": "Divadlo J. K. Tyla",
+      "zdrojIdentita": "itrebon|20778"
+    },
+    {
+      "nazev": "Céline show - benefiční koncert pro kostel v Krabonoši",
+      "datumOd": "2026-11-26",
+      "datumDo": "2026-11-26",
+      "cas": "19:00",
+      "mistoNeboTyp": "Divadlo J. K. Tyla",
+      "zdrojIdentita": "itrebon|20618"
+    },
+    {
       "nazev": "S čerty nejsou žádné žerty",
       "datumOd": "2026-11-28",
       "datumDo": "2026-11-28",
@@ -153,6 +161,22 @@
       "cas": "19:30",
       "mistoNeboTyp": "Divadlo J. K. Tyla",
       "zdrojIdentita": "itrebon|20356"
+    },
+    {
+      "nazev": "Smokie the Best Tribute Band",
+      "datumOd": "2027-02-27",
+      "datumDo": "2027-02-27",
+      "cas": "19:00",
+      "mistoNeboTyp": "Divadlo J. K. Tyla",
+      "zdrojIdentita": "itrebon|20776"
+    },
+    {
+      "nazev": "Vlasta Redl - koncert s kapelou",
+      "datumOd": "2027-03-10",
+      "datumDo": "2027-03-10",
+      "cas": "19:00",
+      "mistoNeboTyp": "Divadlo J. K. Tyla",
+      "zdrojIdentita": "itrebon|20771"
     }
   ]
 }
