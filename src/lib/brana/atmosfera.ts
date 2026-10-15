@@ -97,10 +97,10 @@ export const BRANA_ATMOSFERA_MAX_STARI_SNIMKU_MS = 30 * 60 * 1000;
 export const BRANA_ATMOSFERA_MAX_STARI_PREDCHOZIHO_MS = 12 * 60 * 60 * 1000;
 
 const MAPOVANI_VETY: Record<BranaAtmosferaStav, string | null> = {
-  KLIDNE: "Náměstí je klidné.",
-  ZIVO: "Náměstí je živé.",
-  RUSNE: "Náměstí je rušné.",
-  ZTICHLE: "Náměstí je ztichlé.",
+  KLIDNE: "Náměstí je klidné",
+  ZIVO: "Náměstí je živé",
+  RUSNE: "Náměstí je rušné",
+  ZTICHLE: "Náměstí je ztichlé",
   NIC: null,
   CHYSTA_SE: null,
   OZIVA: null,
@@ -130,12 +130,36 @@ export function verejnaVetaZDokumentuAtmosfery(
   if (!dovetek) {
     return veta;
   }
-  return `${veta} ${dovetek}`;
+  return pripojitDovetekAtmosfery(veta, dovetek);
 }
 
-/** Jedna mezera, bez zalomení. Prázdný výsledek je prázdný řetězec. */
+/** Dovětek se připojí přesně tak, jak je napsaný. Bez přidané mezery a interpunkce. */
+export function pripojitDovetekAtmosfery(veta: string, dovetek: string): string {
+  return `${veta}${dovetek}`;
+}
+
+/** Živý náhled z neuloženého vstupu. Stejné připojení jako veřejný text. */
+export function nahledDovetkuAtmosfery(
+  automatickaVeta: string | null,
+  surovyDovetek: string,
+): string | null {
+  const slozeny = slozitTextDovetkuAtmosfery(surovyDovetek);
+  if (!automatickaVeta || !slozeny) {
+    return automatickaVeta;
+  }
+  return pripojitDovetekAtmosfery(automatickaVeta, slozeny);
+}
+
+/**
+ * Zalomení a tabulátory na mezeru, víc mezer na jednu, bez koncových mezer.
+ * Jedna úvodní mezera zůstává. Samé mezery jsou prázdný řetězec.
+ */
 export function slozitTextDovetkuAtmosfery(vstup: string): string {
-  return vstup.replace(/[\r\n\t]+/g, " ").replace(/ {2,}/g, " ").trim();
+  const text = vstup.replace(/[\r\n\t]+/g, " ").replace(/ {2,}/g, " ").trimEnd();
+  if (!text.trim()) {
+    return "";
+  }
+  return text;
 }
 
 export function normalizovatDovetekAtmosfery(

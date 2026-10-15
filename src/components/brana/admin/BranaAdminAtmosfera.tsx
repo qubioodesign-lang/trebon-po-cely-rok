@@ -11,6 +11,7 @@ import { BranaAtmosferaDnes } from "@/components/brana/BranaAtmosferaDnes";
 import {
   BRANA_ATMOSFERA_DOVETEK_MAX,
   BRANA_ATMOSFERA_RUCNI_TEXT_MAX,
+  nahledDovetkuAtmosfery,
   normalizovatDovetekAtmosfery,
   slozitTextDovetkuAtmosfery,
   verejnaVetaAtmosfery,
@@ -59,10 +60,7 @@ export function BranaAdminAtmosfera({
   const rucniAktivni = Boolean(dokument?.rucniText?.trim());
   const slozenyDovetek = slozitTextDovetkuAtmosfery(dovetek);
   const validaceDovetku = normalizovatDovetekAtmosfery(dovetek);
-  const nahledVeta =
-    automatickaVeta && slozenyDovetek
-      ? `${automatickaVeta} ${slozenyDovetek}`
-      : automatickaVeta;
+  const nahledVeta = nahledDovetkuAtmosfery(automatickaVeta, dovetek);
   const zverejneno = dokument
     ? verejnaVetaZDokumentuAtmosfery(dokument)
     : null;
