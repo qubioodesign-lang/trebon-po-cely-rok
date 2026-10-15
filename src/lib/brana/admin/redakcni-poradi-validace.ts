@@ -387,7 +387,7 @@ export function validovatRedakcniPoradiVstup(
  * Sloučí uložené hodnoty s pevným katalogem podle stabilního id.
  * Uložený prázdný NE slot (Položka "") se nesmí doplnit seedovým názvem.
  * Seed jen pro id, které v uloženém dokumentu chybí.
- * `katalog` jen pro izolovaný test rozšíření; produkce bere 55 ID.
+ * `katalog` jen pro izolovaný test rozšíření; produkce bere 56 ID.
  */
 export function sloucitUlozeneSKostrou(
   ulozene: unknown,

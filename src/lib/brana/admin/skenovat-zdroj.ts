@@ -93,6 +93,11 @@ import {
   vybratJednoznacnyRozmberskaNocDetailUrl,
 } from "./rozmberska-noc";
 import {
+  BRANA_TREBONSKY_MARATON_REDAKCNI_POLOZKA_ID,
+  jeTrebonskyMaratonZdrojUrl,
+  parsovatTrebonskyMaratonOdpocty,
+} from "./trebonsky-maraton";
+import {
   BRANA_JKT_REDAKCNI_POLOZKA_ID,
   jeItrebonDivadloJkTylaZdroj,
   nacistItrebonJktKandidatyZMezidokumentu,
@@ -834,6 +839,9 @@ async function skenovatZnamyZdrojJadro(
   } else if (jeZusTrebonPlanAkciZdrojUrl(zdroj.url)) {
     const { text } = await nacistTeloZdroje(zdroj.url);
     kandidati = deduplikovatScanKandidaty(parsovatZusTrebonPlanAkci(text));
+  } else if (jeTrebonskyMaratonZdrojUrl(zdroj.url)) {
+    const { text } = await nacistTeloZdroje(zdroj.url);
+    kandidati = parsovatTrebonskyMaratonOdpocty(text);
   } else {
     const { text, contentType } = await nacistTeloZdroje(zdroj.url);
     kandidati = parsovatUdalostiZeZdroje(text, contentType);
@@ -931,6 +939,14 @@ async function skenovatZnamyZdrojJadro(
               rozmberskaNocKotva,
             )
           : { ok: false as const }
+      : jeTrebonskyMaratonZdrojUrl(zdroj.url)
+        ? sparovatVlastnictvimHlidaneKotvy(
+            redakcni.polozky,
+            hlidaneKotvy
+              ? zdroj.hlidaneRedakcniPolozkaIds
+              : [BRANA_TREBONSKY_MARATON_REDAKCNI_POLOZKA_ID],
+            BRANA_TREBONSKY_MARATON_REDAKCNI_POLOZKA_ID,
+          )
       : jeKkcRohacZdrojUrl(zdroj.url)
         ? kkcRohacKotva
           ? sparovatVlastnictvimHlidaneKotvy(
@@ -1089,6 +1105,11 @@ async function skenovatZnamyZdrojJadro(
       // Rožmberská noc: neshoda kotvy (chybí právě jedna živá
       // Položka Rožmberská noc s id rozmberska-noc) → tiše, bez Nezařazených.
       if (jeRozmberskaNocZdrojUrl(zdroj.url)) {
+        continue;
+      }
+      // Třeboňský maraton: neshoda kotvy (chybí živá Položka
+      // trebonsky-maraton s Používat=ANO) → tiše, bez Nezařazených.
+      if (jeTrebonskyMaratonZdrojUrl(zdroj.url)) {
         continue;
       }
       // KKC Roháč: neshoda kotvy (chybí právě jedna živá

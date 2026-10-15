@@ -1,5 +1,5 @@
 /**
- * Statická Redakční kostra – katalog 55 pevných ID a výchozí prioritní seznam (23 ANO).
+ * Statická Redakční kostra – katalog 56 pevných ID a výchozí prioritní seznam (24 ANO).
  * Editovatelné hodnoty se ukládají do samostatného Vercel Blob dokumentu (verzeUloziste ≥ 2).
  *
  * Veřejný jazyk BRÁNY (CO / KDE) je oddělený od identity položky (matching).
@@ -84,7 +84,7 @@ const Z_UDALOSTI: BranaJazykSlot = { rezim: "Z_UDALOSTI" };
 const NIC: BranaJazykSlot = { rezim: "NIC" };
 
 /**
- * Definitivní seed veřejného jazyka + priority + Výhled pro 22 pravidel.
+ * Definitivní seed veřejného jazyka + priority + Výhled pro 24 pravidel.
  * Ostatní id katalogu → jazyk null (legacy), priorita null.
  */
 const DEFINITIVNI_SEED: Readonly<
@@ -262,6 +262,15 @@ const DEFINITIVNI_SEED: Readonly<
     vyhledSerie: false,
     jazyk: { co: NIC, rozliseni: Z_UDALOSTI },
   },
+  "trebonsky-maraton": {
+    polozka: "Třeboňský maraton",
+    priorita: 23,
+    vyhled: "NE",
+    jazyk: {
+      co: pevne("Třeboňský maraton"),
+      rozliseni: pevne("Třeboň"),
+    },
+  },
 };
 
 /** Explicitní výchozí Výhled pro id (včetně zpětné kompatibility starého null). */
@@ -283,7 +292,7 @@ export function vyhledSerieProId(id: string): boolean {
   return vychoziVyhledSerieProId(id);
 }
 
-/** Výchozí strukturovaný jazyk podle id – 21 pravidel, ostatní null (legacy). */
+/** Výchozí strukturovaný jazyk podle id – 24 pravidel, ostatní null (legacy). */
 export function vychoziJazykVerejnyProId(
   id: string,
 ): BranaRedakcniJazykVerejny | null {
@@ -301,7 +310,7 @@ export function maStrukturovanyJazykPravidla(polozka: {
   return polozka.jazykVerejny !== null;
 }
 
-/** IDs 23 definitivních pravidel (priority dle seedu). */
+/** IDs 24 definitivních pravidel (priority dle seedu). */
 export const BRANA_REDAKCNI_DEFINITIVNI_ID: readonly string[] = Object.freeze(
   Object.keys(DEFINITIVNI_SEED).sort(
     (a, b) =>
@@ -377,9 +386,10 @@ export const BRANA_REDAKCNI_MIMO_KOSTRA: readonly BranaRedakcniPolozkaVychozi[] 
     { id: "farska-louka-lomnice", polozka: "Farská louka (Lomnice nad Lužnicí)", pouzivat: "NE", mimoKostru: true },
     { id: "plaz-u-rybnika-svet", polozka: "Pláž u rybníka Svět", pouzivat: "NE", mimoKostru: true },
     { id: "zus-trebon-akce", polozka: "ZUŠ Třeboň", pouzivat: "ANO", mimoKostru: true },
+    { id: "trebonsky-maraton", polozka: "Třeboňský maraton", pouzivat: "ANO", mimoKostru: true },
   ];
 
-/** Pevné pořadí všech 55 položek (kostra + mimo) – kompatibilita Blob / matching */
+/** Pevné pořadí všech 56 položek (kostra + mimo) – kompatibilita Blob / matching */
 export const BRANA_REDAKCNI_VSECHNY_VYCHOZI: readonly BranaRedakcniPolozkaVychozi[] =
   [...BRANA_REDAKCNI_KOSTRA, ...BRANA_REDAKCNI_MIMO_KOSTRA];
 
@@ -390,7 +400,7 @@ export function vytvoritVychoziStavPolozky(
   return {
     id: vychozi.id,
     polozka: seed?.polozka ?? vychozi.polozka,
-    /** Přesně 23 definitivních = ANO; ostatní = NE */
+    /** Přesně 24 definitivních = ANO; ostatní = NE */
     pouzivat: seed ? "ANO" : "NE",
     priorita: seed?.priorita ?? null,
     subpriorita: null,
