@@ -214,7 +214,7 @@ export function BranaObrazovka({
       <div className="brana-pata-stred">
         <Link href={trebonHref} className="brana-pata-odkaz">
           <span className="brana-pata-odkaz-text">
-            <span className="brana-pata-odkaz-hlavni">Třeboň</span>
+            <span className="brana-pata-odkaz-hlavni">TŘEBOŇ</span>
             <span className="brana-pata-odkaz-pokracovani"> po celý rok</span>
           </span>{" "}
           <span className="brana-pata-odkaz-sipka" aria-hidden>
