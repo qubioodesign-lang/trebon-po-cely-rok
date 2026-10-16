@@ -261,6 +261,15 @@
     @apply relative inline-block;
   }
 
+  /* Stejný poměr a řez jako horní značka, základ je stávající velikost odkazu. */
+  .brana-pata-odkaz-hlavni {
+    @apply text-[calc(0.9375rem*1.09)] font-semibold;
+  }
+
+  .brana-pata-odkaz-pokracovani {
+    @apply text-[calc(0.9375rem*0.875)] font-normal;
+  }
+
   .brana-pata-odkaz-text::after {
     content: "";
     display: block;
