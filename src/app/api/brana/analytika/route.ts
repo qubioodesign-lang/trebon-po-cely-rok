@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { BRANA_ANALYTIKA_MAX_TELA_BAJTU } from "@/lib/brana/analytika/model";
 import { vytvoritOdpovedPrijmu } from "@/lib/brana/analytika/prijem";
 import { zaznamenatBranaAnalytikuDoBlobu } from "@/lib/brana/analytika/uloziste";
+import { klasifikovatOblastZHlavicek } from "@/lib/brana/analytika/vercel-geo";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +44,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ chyba: "Neplatná dávka." }, { status: 400 });
     }
 
-    const vysledek = await zaznamenatBranaAnalytikuDoBlobu(telo);
+    const oblast = klasifikovatOblastZHlavicek(request.headers);
+    const vysledek = await zaznamenatBranaAnalytikuDoBlobu(telo, undefined, oblast);
     if (!vysledek.ok) {
       return NextResponse.json({ chyba: "Neplatná dávka." }, { status: 400 });
     }

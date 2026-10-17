@@ -10,7 +10,11 @@ import {
   type BranaAnalytikaIo,
   type VysledekZalozeniAnalytiky,
 } from "./zapis";
-import type { BranaAnalytikaDokument, VysledekBranaAnalytiky } from "./model";
+import type {
+  BranaAnalytikaDokument,
+  BranaAnalytikaOblast,
+  VysledekBranaAnalytiky,
+} from "./model";
 import { parsovatDokumentAnalytiky } from "./model";
 
 function volbyZapisu() {
@@ -112,6 +116,31 @@ function vytvoritIo(): BranaAnalytikaIo {
   };
 }
 
+/**
+ * Pouhé čtení analytiky. Etag se nevrací a soubor se nezakládá ani nepřepisuje.
+ * Poškozený dokument zůstane na Blobu beze změny.
+ */
+export async function nacistBranaAnalytikuKeCteni(): Promise<
+  | { stav: "ok"; dokument: BranaAnalytikaDokument }
+  | { stav: "neexistuje" }
+  | { stav: "poskozeny" }
+  | { stav: "chyba" }
+> {
+  try {
+    const cteni = await nacistSEtag();
+    if (cteni.stav === "neexistuje") {
+      return { stav: "neexistuje" };
+    }
+    return { stav: "ok", dokument: cteni.dokument };
+  } catch (error) {
+    const zprava = error instanceof Error ? error.message : "";
+    if (zprava.includes("není platný JSON") || zprava.includes("neplatnou strukturu")) {
+      return { stav: "poskozeny" };
+    }
+    return { stav: "chyba" };
+  }
+}
+
 /** Jednorázové založení prázdného souboru. Existující dokument nepřepisuje. */
 export async function zalozitPrazdnouBranaAnalytikuVBlobu(): Promise<VysledekZalozeniAnalytiky> {
   return zalozitPrazdnouAnalytiku(vytvoritIo());
@@ -121,6 +150,7 @@ export async function zalozitPrazdnouBranaAnalytikuVBlobu(): Promise<VysledekZal
 export async function zaznamenatBranaAnalytikuDoBlobu(
   telo: unknown,
   referencniCas?: Date,
+  oblast?: BranaAnalytikaOblast,
 ): Promise<VysledekBranaAnalytiky> {
-  return zaznamenatDavkuAnalytiky(telo, vytvoritIo(), referencniCas);
+  return zaznamenatDavkuAnalytiky(telo, vytvoritIo(), referencniCas, oblast);
 }

@@ -1,5 +1,6 @@
-/** URL v QR kódu desktopové pozvánky BRÁNY */
-export const BRANA_DESKTOP_QR_URL = "https://www.trebonpocelyrok.cz/brana";
+/** URL v QR kódu desktopové pozvánky BRÁNY. Cíl je stejný, přidaná je jen značka zdroje. */
+export const BRANA_DESKTOP_QR_URL =
+  "https://www.trebonpocelyrok.cz/brana?zdroj=desktop-qr";
 
 /** Text adresa zobrazená pod QR kódem */
 export const BRANA_DESKTOP_ADRESA = "trebonpocelyrok.cz/brana";

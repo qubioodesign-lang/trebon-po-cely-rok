@@ -150,7 +150,7 @@ async function testOdmitnuti(): Promise<void> {
   const pred = klon(pamat.dokument);
 
   const neznama = await zaznamenatDavkuAnalytiky(
-    { udalosti: [{ typ: "sdileni" }] },
+    { udalosti: [{ typ: "scroll" }] },
     ioZPameti(pamat),
     CAS,
   );
@@ -401,6 +401,109 @@ async function testKonfliktLimit(): Promise<void> {
   assert(pokusu === 8, "souběh má omezený počet pokusů");
 }
 
+async function testNavstevnost(): Promise<void> {
+  const vychozi = dokumentSNavstevou(4, 2);
+  const denVychozi = vychozi.dny[DEN];
+  denVychozi.spusteni = { ikona: 1, prohlizec: 3 };
+  denVychozi.novi = 2;
+  denVychozi.vracejici = 1;
+  denVychozi.proklikTrebon = 8;
+  denVychozi.pohledy.dnes = { prvni: 5, dalsi: 6 };
+
+  const pamat = vytvoritPamat(vychozi);
+  const io = ioZPameti(pamat);
+
+  const ikona = await zaznamenatDavkuAnalytiky(
+    { udalosti: [{ typ: "navsteva", spusteni: "ikona", navstevnik: "novy" }] },
+    io,
+    CAS,
+  );
+  const poIkone = pamat.dokument?.dny[DEN];
+  assert(ikona.ok, "návštěva z ikony s novým návštěvníkem se přijme");
+  assert(poIkone?.navstevy === 5, "ikona zvýší počet návštěv");
+  assert(poIkone?.spusteni.ikona === 2, "ikona zvýší spuštění z ikony");
+  assert(poIkone?.spusteni.prohlizec === 3, "ikona nezvýší prohlížeč");
+  assert(poIkone?.novi === 3, "ikona zvýší nové návštěvníky");
+  assert(poIkone?.vracejici === 1, "ikona nezvýší vracející se");
+
+  const prohlizec = await zaznamenatDavkuAnalytiky(
+    {
+      udalosti: [
+        { typ: "navsteva", spusteni: "prohlizec", navstevnik: "vracejici" },
+      ],
+    },
+    io,
+    CAS,
+  );
+  const poProhlizeci = pamat.dokument?.dny[DEN];
+  assert(prohlizec.ok, "návštěva z prohlížeče s vracejícím se se přijme");
+  assert(poProhlizeci?.navstevy === 6, "prohlížeč zvýší počet návštěv");
+  assert(poProhlizeci?.spusteni.prohlizec === 4, "prohlížeč zvýší spuštění z prohlížeče");
+  assert(poProhlizeci?.spusteni.ikona === 2, "prohlížeč nezvýší ikonu");
+  assert(poProhlizeci?.vracejici === 2, "prohlížeč zvýší vracející se");
+  assert(poProhlizeci?.novi === 3, "prohlížeč nezvýší nové");
+
+  const bezNavstevnika = await zaznamenatDavkuAnalytiky(
+    { udalosti: [{ typ: "navsteva", spusteni: "prohlizec" }] },
+    io,
+    CAS,
+  );
+  const poBez = pamat.dokument?.dny[DEN];
+  assert(bezNavstevnika.ok, "návštěva bez údaje návštěvník se přijme");
+  assert(poBez?.navstevy === 7, "návštěva bez návštěvníka zvýší návštěvy");
+  assert(poBez?.spusteni.prohlizec === 5, "návštěva bez návštěvníka zvýší způsob spuštění");
+  assert(poBez?.novi === 3, "návštěva bez návštěvníka nezvýší nové");
+  assert(poBez?.vracejici === 2, "návštěva bez návštěvníka nezvýší vracející se");
+
+  const predOdmitnutim = klon(pamat.dokument);
+  const zapisuPred = pamat.zapisy;
+  const spatneSpusteni = await zaznamenatDavkuAnalytiky(
+    { udalosti: [{ typ: "navsteva", spusteni: "android" }] },
+    io,
+    CAS,
+  );
+  const spatnyNavstevnik = await zaznamenatDavkuAnalytiky(
+    { udalosti: [{ typ: "navsteva", spusteni: "ikona", navstevnik: "host" }] },
+    io,
+    CAS,
+  );
+  const ciziPole = await zaznamenatDavkuAnalytiky(
+    { udalosti: [{ typ: "navsteva", spusteni: "ikona", adresa: "https://www.trebonpocelyrok.cz/brana" }] },
+    io,
+    CAS,
+  );
+  assert(!spatneSpusteni.ok, "neplatný způsob spuštění se odmítne");
+  assert(!spatnyNavstevnik.ok, "neplatný druh návštěvníka se odmítne");
+  assert(!ciziPole.ok, "nepovolené pole návštěvy se odmítne");
+  assert(pamat.zapisy === zapisuPred, "odmítnutá návštěvnost nezapisuje");
+  assert(
+    JSON.stringify(pamat.dokument) === JSON.stringify(predOdmitnutim),
+    "odmítnutá návštěvnost nezmění uložený den",
+  );
+
+  const starsi = parsovatDokumentAnalytiky(vychozi);
+  const poStarsiDavce = aplikovatDavkuAnalytiky(
+    starsi ?? prazdnyDokumentAnalytiky(),
+    [{ typ: "navsteva" }],
+    CAS,
+  );
+  const denStarsich = poStarsiDavce.dny[DEN];
+  assert(starsi?.verze === 1, "starší dokument verze 1 zůstane čitelný");
+  assert(denStarsich?.navstevy === 5, "starší událost bez údajů zvýší jen návštěvy");
+  assert(denStarsich?.spusteni.ikona === 1, "starší událost nezmění spuštění z ikony");
+  assert(denStarsich?.spusteni.prohlizec === 3, "starší událost nezmění prohlížeč");
+  assert(denStarsich?.novi === 2, "starší událost nezmění nové návštěvníky");
+  assert(denStarsich?.vracejici === 1, "starší událost nezmění vracející se");
+  assert(denStarsich?.sdileniKlik === 2, "starší údaj o sdílení zůstane");
+  assert(denStarsich?.proklikTrebon === 8, "starší proklik zůstane");
+  assert(
+    denStarsich?.pohledy.dnes.prvni === 5 && denStarsich.pohledy.dnes.dalsi === 6,
+    "starší počty pohledů zůstanou",
+  );
+  assert(pamat.kalendar.polozek === 7, "návštěvnost nemění cizí objekt");
+  assert(pamat.zapisy === 3, "návštěvnost se ověřuje jen v paměti");
+}
+
 function testHraniceModulu(): void {
   const uloziste = readFileSync(
     join("src", "lib", "brana", "analytika", "uloziste.ts"),
@@ -461,6 +564,7 @@ async function main(): Promise<void> {
   await testNovySouborAOrez();
   await testZalozeni();
   await testKonfliktLimit();
+  await testNavstevnost();
   testHraniceModulu();
 
   if (selhalo > 0) {

@@ -1,6 +1,9 @@
+/** Jediná sdílená adresa. Vždy Dnes, bez parametrů právě otevřené stránky. */
+export const BRANA_SDILENA_ADRESA = "https://www.trebonpocelyrok.cz/brana?z=sdileni";
+
 /** Sdílení stránky BRÁNY – Web Share API s fallbackem na schránku */
 export async function sdiletBrana(): Promise<"sdileno" | "zkopirovano"> {
-  const url = window.location.href;
+  const url = BRANA_SDILENA_ADRESA;
   const title = "BRÁNA do Třeboně";
 
   if (typeof navigator !== "undefined" && navigator.share) {

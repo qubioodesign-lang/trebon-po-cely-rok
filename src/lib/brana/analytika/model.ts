@@ -34,6 +34,10 @@ export const BRANA_ANALYTIKA_POHLEDY = [
   "vyhled",
 ] as const;
 
+export const BRANA_ANALYTIKA_RAZY_POHLEDU = ["prvni", "dalsi"] as const;
+
+export const BRANA_ANALYTIKA_METRIKY_PROCHAZENI = ["delsi", "konec"] as const;
+
 export const BRANA_ANALYTIKA_ZARIZENI = [
   "android",
   "ios",
@@ -41,13 +45,35 @@ export const BRANA_ANALYTIKA_ZARIZENI = [
   "ostatni",
 ] as const;
 
+export const BRANA_ANALYTIKA_SPUSTENI = ["ikona", "prohlizec"] as const;
+
+export const BRANA_ANALYTIKA_NAVSTEVNICI = ["novy", "vracejici"] as const;
+
+/** Odhad sítě podle ORP Třeboň. Není to GPS ani uložená poloha. */
+export const BRANA_ANALYTIKA_OBLASTI = [
+  "trebonsko",
+  "mimo_trebonsko",
+  "neurceno",
+] as const;
+
 export type BranaAnalytikaZdroj = (typeof BRANA_ANALYTIKA_ZDROJE)[number];
 export type BranaAnalytikaPohled = (typeof BRANA_ANALYTIKA_POHLEDY)[number];
+export type BranaAnalytikaRazPohledu = (typeof BRANA_ANALYTIKA_RAZY_POHLEDU)[number];
+export type BranaAnalytikaMetrikaProchazeni =
+  (typeof BRANA_ANALYTIKA_METRIKY_PROCHAZENI)[number];
 export type BranaAnalytikaZarizeni = (typeof BRANA_ANALYTIKA_ZARIZENI)[number];
+export type BranaAnalytikaSpusteni = (typeof BRANA_ANALYTIKA_SPUSTENI)[number];
+export type BranaAnalytikaNavstevnik = (typeof BRANA_ANALYTIKA_NAVSTEVNICI)[number];
+export type BranaAnalytikaOblast = (typeof BRANA_ANALYTIKA_OBLASTI)[number];
 
 export type BranaAnalytikaPohledPocty = {
   prvni: number;
   dalsi: number;
+};
+
+export type BranaAnalytikaProchazeniPocty = {
+  delsi: number;
+  konec: number;
 };
 
 export type BranaAnalytikaDen = {
@@ -63,13 +89,18 @@ export type BranaAnalytikaDen = {
     vikend: number;
     "7-dni": number;
   };
+  /** Delší seznam a dosažený konec pro každý pohled. Chybějící údaj staršího dne je nula. */
+  prochazeni: Record<BranaAnalytikaPohled, BranaAnalytikaProchazeniPocty>;
   proklikTrebon: number;
+  /** Desktopový QR. Chybějící údaj staršího dne je nula a je součástí zdrojů qr. */
+  qrDesktop: number;
   hodiny: number[];
   zarizeni: Record<BranaAnalytikaZarizeni, number>;
   spusteni: {
     ikona: number;
     prohlizec: number;
   };
+  oblast: Record<BranaAnalytikaOblast, number>;
 };
 
 export type BranaAnalytikaDokument = {
@@ -77,10 +108,42 @@ export type BranaAnalytikaDokument = {
   dny: Record<string, BranaAnalytikaDen>;
 };
 
-/** Jediná událost, kterou základ umí přičíst. Ostatní typy se odmítnou. */
-export type BranaAnalytikaUdalost = {
-  typ: "navsteva";
+/**
+ * Návštěva, otevření pohledu, procházení seznamu, nebo stisk sdílení.
+ * Ostatní typy se odmítnou. Starší dávka `{ typ: "navsteva" }` zůstává platná.
+ * Způsob spuštění a druh návštěvníka jsou volitelné.
+ * Sdílení je jen `{ typ: "sdileni" }` a přičítá denní počet stisků.
+ */
+export type BranaAnalytikaUdalostSdileni = {
+  typ: "sdileni";
 };
+export type BranaAnalytikaUdalostNavstevy = {
+  typ: "navsteva";
+  spusteni?: BranaAnalytikaSpusteni;
+  navstevnik?: BranaAnalytikaNavstevnik;
+  /** QR nebo příchod ze sdíleného odkazu. Jeden zdroj na návštěvu. */
+  zdroj?: "qr" | "sdileni";
+  /** Desktopový QR. Smí být jen spolu se zdrojem qr a není další návštěva. */
+  qrDesktop?: true;
+};
+
+export type BranaAnalytikaUdalostPohledu = {
+  typ: "pohled";
+  pohled: BranaAnalytikaPohled;
+  raz: BranaAnalytikaRazPohledu;
+};
+
+export type BranaAnalytikaUdalostProchazeni = {
+  typ: "prochazeni";
+  pohled: BranaAnalytikaPohled;
+  metrika: BranaAnalytikaMetrikaProchazeni;
+};
+
+export type BranaAnalytikaUdalost =
+  | BranaAnalytikaUdalostNavstevy
+  | BranaAnalytikaUdalostPohledu
+  | BranaAnalytikaUdalostProchazeni
+  | BranaAnalytikaUdalostSdileni;
 
 export type VysledekBranaAnalytiky =
   | { ok: true }
@@ -96,8 +159,10 @@ export function isoDenZData(datum: BranaDatum): string {
 
 export function prazdnyDenAnalytiky(): BranaAnalytikaDen {
   const pohledy = {} as Record<BranaAnalytikaPohled, BranaAnalytikaPohledPocty>;
+  const prochazeni = {} as Record<BranaAnalytikaPohled, BranaAnalytikaProchazeniPocty>;
   for (const pohled of BRANA_ANALYTIKA_POHLEDY) {
     pohledy[pohled] = { prvni: 0, dalsi: 0 };
+    prochazeni[pohled] = { delsi: 0, konec: 0 };
   }
 
   const zdroje = {} as Record<BranaAnalytikaZdroj, number>;
@@ -120,10 +185,13 @@ export function prazdnyDenAnalytiky(): BranaAnalytikaDen {
     zdroje,
     pohledy,
     konecObsahu: { vikend: 0, "7-dni": 0 },
+    prochazeni,
     proklikTrebon: 0,
+    qrDesktop: 0,
     hodiny: Array.from({ length: 24 }, () => 0),
     zarizeni,
     spusteni: { ikona: 0, prohlizec: 0 },
+    oblast: { trebonsko: 0, mimo_trebonsko: 0, neurceno: 0 },
   };
 }
 
@@ -166,6 +234,12 @@ function parsovatDen(raw: unknown): BranaAnalytikaDen | null {
   vysledek.dobaZobrazeniPocet = den.dobaZobrazeniPocet;
   vysledek.sdileniKlik = den.sdileniKlik;
   vysledek.proklikTrebon = den.proklikTrebon;
+  if (den.qrDesktop !== undefined) {
+    if (!jeNezaporneCeleCislo(den.qrDesktop)) {
+      return null;
+    }
+    vysledek.qrDesktop = den.qrDesktop;
+  }
 
   if (!den.zdroje || typeof den.zdroje !== "object") {
     return null;
@@ -239,6 +313,52 @@ function parsovatDen(raw: unknown): BranaAnalytikaDen | null {
     prohlizec: den.spusteni.prohlizec,
   };
 
+  if (den.oblast !== undefined) {
+    if (!den.oblast || typeof den.oblast !== "object" || Array.isArray(den.oblast)) {
+      return null;
+    }
+    const klice = Object.keys(den.oblast);
+    if (klice.length !== BRANA_ANALYTIKA_OBLASTI.length) {
+      return null;
+    }
+    for (const oblast of BRANA_ANALYTIKA_OBLASTI) {
+      const pocet = den.oblast[oblast];
+      if (!jeNezaporneCeleCislo(pocet)) {
+        return null;
+      }
+      vysledek.oblast[oblast] = pocet;
+    }
+  }
+
+  if (den.prochazeni !== undefined) {
+    if (
+      !den.prochazeni ||
+      typeof den.prochazeni !== "object" ||
+      Array.isArray(den.prochazeni)
+    ) {
+      return null;
+    }
+    const klice = Object.keys(den.prochazeni);
+    if (klice.length !== BRANA_ANALYTIKA_POHLEDY.length) {
+      return null;
+    }
+    for (const pohled of BRANA_ANALYTIKA_POHLEDY) {
+      const pocty = den.prochazeni[pohled];
+      if (!pocty || typeof pocty !== "object" || Array.isArray(pocty)) {
+        return null;
+      }
+      const klicePoctu = Object.keys(pocty);
+      if (
+        klicePoctu.length !== 2 ||
+        !jeNezaporneCeleCislo(pocty.delsi) ||
+        !jeNezaporneCeleCislo(pocty.konec)
+      ) {
+        return null;
+      }
+      vysledek.prochazeni[pohled] = { delsi: pocty.delsi, konec: pocty.konec };
+    }
+  }
+
   return vysledek;
 }
 
@@ -290,17 +410,11 @@ export function validovatDavkuAnalytiky(
 
   const ciste: BranaAnalytikaUdalost[] = [];
   for (const udalost of udalosti) {
-    if (!udalost || typeof udalost !== "object" || Array.isArray(udalost)) {
+    const cista = vycistitUdalost(udalost);
+    if (!cista) {
       return { ok: false };
     }
-    const klice = Object.keys(udalost);
-    if (klice.length !== 1 || klice[0] !== "typ") {
-      return { ok: false };
-    }
-    if ((udalost as { typ?: unknown }).typ !== "navsteva") {
-      return { ok: false };
-    }
-    ciste.push({ typ: "navsteva" });
+    ciste.push(cista);
   }
 
   return { ok: true, udalosti: ciste };
@@ -325,21 +439,300 @@ export function orezatStareDny(
   return vysledek;
 }
 
-/** Přičte platné návštěvy do denního koše. Ostatní připravené čítače nemění. */
+const POVOLENE_KLICE_NAVSTEVY = new Set([
+  "typ",
+  "spusteni",
+  "navstevnik",
+  "zdroj",
+  "qrDesktop",
+]);
+const POVOLENE_KLICE_POHLEDU = new Set(["typ", "pohled", "raz"]);
+const POVOLENE_KLICE_PROCHAZENI = new Set(["typ", "pohled", "metrika"]);
+const POVOLENE_KLICE_SDILENI = new Set(["typ"]);
+
+function jeSpusteni(hodnota: unknown): hodnota is BranaAnalytikaSpusteni {
+  return (BRANA_ANALYTIKA_SPUSTENI as readonly string[]).includes(
+    hodnota as string,
+  );
+}
+
+function jeNavstevnik(hodnota: unknown): hodnota is BranaAnalytikaNavstevnik {
+  return (BRANA_ANALYTIKA_NAVSTEVNICI as readonly string[]).includes(
+    hodnota as string,
+  );
+}
+
+function vycistitUdalost(raw: unknown): BranaAnalytikaUdalost | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return null;
+  }
+
+  const zaznam = raw as Record<string, unknown>;
+  if (zaznam.typ === "pohled") {
+    return vycistitUdalostPohledu(zaznam);
+  }
+  if (zaznam.typ === "prochazeni") {
+    return vycistitUdalostProchazeni(zaznam);
+  }
+  if (zaznam.typ === "sdileni") {
+    return vycistitUdalostSdileni(zaznam);
+  }
+  return vycistitUdalostNavstevy(raw);
+}
+
+function vycistitUdalostSdileni(
+  zaznam: Record<string, unknown>,
+): BranaAnalytikaUdalostSdileni | null {
+  for (const klic of Object.keys(zaznam)) {
+    if (!POVOLENE_KLICE_SDILENI.has(klic)) {
+      return null;
+    }
+  }
+  if (zaznam.typ !== "sdileni") {
+    return null;
+  }
+
+  return { typ: "sdileni" };
+}
+
+function vycistitUdalostProchazeni(
+  zaznam: Record<string, unknown>,
+): BranaAnalytikaUdalostProchazeni | null {
+  for (const klic of Object.keys(zaznam)) {
+    if (!POVOLENE_KLICE_PROCHAZENI.has(klic)) {
+      return null;
+    }
+  }
+  if (!jePohled(zaznam.pohled) || !jeMetrikaProchazeni(zaznam.metrika)) {
+    return null;
+  }
+
+  return { typ: "prochazeni", pohled: zaznam.pohled, metrika: zaznam.metrika };
+}
+
+function vycistitUdalostPohledu(
+  zaznam: Record<string, unknown>,
+): BranaAnalytikaUdalostPohledu | null {
+  for (const klic of Object.keys(zaznam)) {
+    if (!POVOLENE_KLICE_POHLEDU.has(klic)) {
+      return null;
+    }
+  }
+  if (!jePohled(zaznam.pohled) || !jeRazPohledu(zaznam.raz)) {
+    return null;
+  }
+
+  return { typ: "pohled", pohled: zaznam.pohled, raz: zaznam.raz };
+}
+
+/** Vrátí očištěnou návštěvu, nebo null když dávka obsahuje cizí údaj. */
+function vycistitUdalostNavstevy(raw: unknown): BranaAnalytikaUdalostNavstevy | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return null;
+  }
+
+  const zaznam = raw as Record<string, unknown>;
+  for (const klic of Object.keys(zaznam)) {
+    if (!POVOLENE_KLICE_NAVSTEVY.has(klic)) {
+      return null;
+    }
+  }
+  if (zaznam.typ !== "navsteva") {
+    return null;
+  }
+
+  const cista: BranaAnalytikaUdalostNavstevy = { typ: "navsteva" };
+  if ("spusteni" in zaznam) {
+    if (!jeSpusteni(zaznam.spusteni)) {
+      return null;
+    }
+    cista.spusteni = zaznam.spusteni;
+  }
+  if ("navstevnik" in zaznam) {
+    if (!jeNavstevnik(zaznam.navstevnik)) {
+      return null;
+    }
+    cista.navstevnik = zaznam.navstevnik;
+  }
+  if ("zdroj" in zaznam || "qrDesktop" in zaznam) {
+    if (zaznam.zdroj === "sdileni") {
+      if ("qrDesktop" in zaznam) {
+        return null;
+      }
+      cista.zdroj = "sdileni";
+    } else if (zaznam.zdroj === "qr") {
+      cista.zdroj = "qr";
+      if ("qrDesktop" in zaznam) {
+        if (zaznam.qrDesktop !== true) {
+          return null;
+        }
+        cista.qrDesktop = true;
+      }
+    } else {
+      return null;
+    }
+  }
+
+  return cista;
+}
+
+function jePohled(hodnota: unknown): hodnota is BranaAnalytikaPohled {
+  return (BRANA_ANALYTIKA_POHLEDY as readonly string[]).includes(hodnota as string);
+}
+
+function jeMetrikaProchazeni(
+  hodnota: unknown,
+): hodnota is BranaAnalytikaMetrikaProchazeni {
+  return (BRANA_ANALYTIKA_METRIKY_PROCHAZENI as readonly string[]).includes(
+    hodnota as string,
+  );
+}
+
+function jeRazPohledu(hodnota: unknown): hodnota is BranaAnalytikaRazPohledu {
+  return (BRANA_ANALYTIKA_RAZY_POHLEDU as readonly string[]).includes(
+    hodnota as string,
+  );
+}
+
+function jeOblast(hodnota: unknown): hodnota is BranaAnalytikaOblast {
+  return (BRANA_ANALYTIKA_OBLASTI as readonly string[]).includes(hodnota as string);
+}
+
+function pricistProchazeni(
+  den: BranaAnalytikaDen,
+  udalost: BranaAnalytikaUdalostProchazeni,
+): BranaAnalytikaDen {
+  const pocty = { ...den.prochazeni[udalost.pohled] };
+  pocty[udalost.metrika] += 1;
+  if (!Number.isSafeInteger(pocty[udalost.metrika])) {
+    throw new Error(
+      "Počet procházení přesáhl bezpečný rozsah. Nic nebylo uloženo.",
+    );
+  }
+
+  return {
+    ...den,
+    prochazeni: {
+      ...den.prochazeni,
+      [udalost.pohled]: pocty,
+    },
+  };
+}
+
+function pricistPohled(
+  den: BranaAnalytikaDen,
+  udalost: BranaAnalytikaUdalostPohledu,
+): BranaAnalytikaDen {
+  const pocty = { ...den.pohledy[udalost.pohled] };
+  pocty[udalost.raz] += 1;
+  if (!Number.isSafeInteger(pocty[udalost.raz])) {
+    throw new Error(
+      "Počet otevření pohledu přesáhl bezpečný rozsah. Nic nebylo uloženo.",
+    );
+  }
+
+  return {
+    ...den,
+    pohledy: {
+      ...den.pohledy,
+      [udalost.pohled]: pocty,
+    },
+  };
+}
+
+function pricistSdileni(den: BranaAnalytikaDen): BranaAnalytikaDen {
+  const sdileniKlik = den.sdileniKlik + 1;
+  if (!Number.isSafeInteger(sdileniKlik)) {
+    throw new Error("Počet sdílení přesáhl bezpečný rozsah. Nic nebylo uloženo.");
+  }
+
+  return { ...den, sdileniKlik };
+}
+
+function pricistNavstevu(
+  den: BranaAnalytikaDen,
+  udalost: BranaAnalytikaUdalostNavstevy,
+  oblast?: BranaAnalytikaOblast,
+): BranaAnalytikaDen {
+  const navstevy = den.navstevy + 1;
+  const spusteni = { ...den.spusteni };
+  if (udalost.spusteni) {
+    spusteni[udalost.spusteni] += 1;
+  }
+  const novi = den.novi + (udalost.navstevnik === "novy" ? 1 : 0);
+  const vracejici = den.vracejici + (udalost.navstevnik === "vracejici" ? 1 : 0);
+  const poctyOblasti = { ...den.oblast };
+  if (jeOblast(oblast)) {
+    poctyOblasti[oblast] += 1;
+  }
+  const zdroje = { ...den.zdroje };
+  let qrDesktop = den.qrDesktop;
+  if (udalost.zdroj === "qr") {
+    zdroje.qr += 1;
+    if (udalost.qrDesktop) {
+      qrDesktop += 1;
+    }
+  } else if (udalost.zdroj === "sdileni") {
+    zdroje.sdileni += 1;
+  }
+  const pocty = [
+    navstevy,
+    spusteni.ikona,
+    spusteni.prohlizec,
+    novi,
+    vracejici,
+    poctyOblasti.trebonsko,
+    poctyOblasti.mimo_trebonsko,
+    poctyOblasti.neurceno,
+    zdroje.qr,
+    zdroje.sdileni,
+    qrDesktop,
+  ];
+
+  if (pocty.some((hodnota) => !Number.isSafeInteger(hodnota))) {
+    throw new Error("Počet návštěv přesáhl bezpečný rozsah. Nic nebylo uloženo.");
+  }
+
+  return {
+    ...den,
+    navstevy,
+    novi,
+    vracejici,
+    spusteni,
+    oblast: poctyOblasti,
+    zdroje,
+    qrDesktop,
+  };
+}
+
+/**
+ * Přičte návštěvu, otevření pohledu, procházení seznamu, nebo stisk sdílení.
+ * Oblast je odhad serveru a přičítá se jen k návštěvě.
+ * Stisk sdílení mění jen denní počet kliknutí.
+ * Starší pole konce obsahu u dvou pohledů se těmito událostmi nemění.
+ */
 export function aplikovatDavkuAnalytiky(
   dokument: BranaAnalytikaDokument,
   udalosti: readonly BranaAnalytikaUdalost[],
   referencniCas: Date,
+  oblast?: BranaAnalytikaOblast,
 ): BranaAnalytikaDokument {
   const denKlic = isoDenZData(dnesVPraze(referencniCas));
   const dny = orezatStareDny(dokument.dny, referencniCas);
-  const den = dny[denKlic] ?? prazdnyDenAnalytiky();
-  const navstevy = den.navstevy + udalosti.length;
+  let den = dny[denKlic] ?? prazdnyDenAnalytiky();
 
-  if (!Number.isSafeInteger(navstevy)) {
-    throw new Error("Počet návštěv přesáhl bezpečný rozsah. Nic nebylo uloženo.");
+  for (const udalost of udalosti) {
+    if (udalost.typ === "pohled") {
+      den = pricistPohled(den, udalost);
+    } else if (udalost.typ === "prochazeni") {
+      den = pricistProchazeni(den, udalost);
+    } else if (udalost.typ === "sdileni") {
+      den = pricistSdileni(den);
+    } else {
+      den = pricistNavstevu(den, udalost, oblast);
+    }
   }
 
-  dny[denKlic] = { ...den, navstevy };
+  dny[denKlic] = den;
   return { verze: BRANA_ANALYTIKA_VERZE, dny };
 }

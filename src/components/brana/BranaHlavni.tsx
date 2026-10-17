@@ -6,6 +6,7 @@ import type {
 } from "@/lib/brana/pohledy-data";
 import { BranaDesktopInformacniPanel } from "./BranaDesktopInformacniPanel";
 import { BranaDenniDobaObal } from "./BranaDenniDobaObal";
+import { BranaRozpoznaniNavstevy } from "./BranaRozpoznaniNavstevy";
 
 type BranaHlavniProps = {
   stranka?: BranaVerejnaStranka;
@@ -27,14 +28,17 @@ export function BranaHlavni({
   atmosferaVeta = null,
 }: BranaHlavniProps) {
   return (
-    <BranaDenniDobaObal
-      stranka={stranka}
-      pohledovaData={pohledovaData}
-      konfiguracePohledu={konfiguracePohledu}
-      variantaPozadi={variantaPozadi}
-      vychoziNocRezim={vychoziNocRezim}
-      atmosferaVeta={atmosferaVeta}
-      desktopPanel={<BranaDesktopInformacniPanel />}
-    />
+    <>
+      <BranaRozpoznaniNavstevy stranka={stranka} />
+      <BranaDenniDobaObal
+        stranka={stranka}
+        pohledovaData={pohledovaData}
+        konfiguracePohledu={konfiguracePohledu}
+        variantaPozadi={variantaPozadi}
+        vychoziNocRezim={vychoziNocRezim}
+        atmosferaVeta={atmosferaVeta}
+        desktopPanel={<BranaDesktopInformacniPanel />}
+      />
+    </>
   );
 }
