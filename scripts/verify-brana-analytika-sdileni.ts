@@ -309,7 +309,7 @@ async function testVypnutoAVylouceniASelhani(): Promise<void> {
   });
   assert(zapisy === 0 && sdileni === 1, "vypnutá analytika stisk neodešle a sdílení nechá");
   const vypnuteOkno = await zaznamenatKlikSdileniVOkne();
-  assert(vypnuteOkno.pokusu === 0 && !vypnuteOkno.odeslano, "vypnuté okno sdílení požadavek nevytvoří");
+  assert(vypnuteOkno.pokusu === 1 && !vypnuteOkno.odeslano, "neúspěšný stisk se odešle jednou a neopakuje se");
 
   let hozeno = false;
   await obslouzitStiskSdileni({
@@ -447,7 +447,7 @@ async function testDenAStarsiUdalosti(): Promise<void> {
 }
 
 function testZdroje(): void {
-  assert(BRANA_ANALYTIKA_PRIJEM_ZAPNUT === false, "příjem zůstává vypnutý");
+  assert(BRANA_ANALYTIKA_PRIJEM_ZAPNUT === true, "příjem je zapnutý");
 
   const tlacitko = readFileSync(
     join("src", "components", "brana", "BranaTlacitkoSdileni.tsx"),

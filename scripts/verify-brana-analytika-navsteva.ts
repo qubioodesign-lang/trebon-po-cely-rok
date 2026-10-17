@@ -589,7 +589,7 @@ async function testVylouceni(): Promise<void> {
 }
 
 async function testNapojeni(): Promise<void> {
-  assert(BRANA_ANALYTIKA_PRIJEM_ZAPNUT === false, "příjem pro napojení zůstává vypnutý");
+  assert(BRANA_ANALYTIKA_PRIJEM_ZAPNUT === true, "příjem pro napojení je zapnutý");
 
   const vypnuto = simulace(async () => ({ ok: true, status: 200 }));
   let vypnuteCteni = false;

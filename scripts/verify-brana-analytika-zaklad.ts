@@ -540,11 +540,11 @@ function testHraniceModulu(): void {
     !uloziste.includes("brana-upozorneni-nastaveni"),
     "zápis nejde do upozornění",
   );
-  assert(BRANA_ANALYTIKA_PRIJEM_ZAPNUT === false, "veřejný příjem je vypnutý");
+  assert(BRANA_ANALYTIKA_PRIJEM_ZAPNUT === true, "veřejný příjem je zapnutý");
 
   const post = vytvoritOdpovedPrijmu("POST");
   const get = vytvoritOdpovedPrijmu("GET");
-  assert(post?.status === 404, "POST se při vypnutém příjmu odmítne");
+  assert(post === null, "POST při zapnutém příjmu pokračuje do zápisu");
   assert(get?.status === 405, "GET statistiky nevrací");
   assert(route.includes("vytvoritOdpovedPrijmu"), "endpoint používá stejnou bránu");
   const teloPost = route.slice(route.indexOf("export async function POST"));

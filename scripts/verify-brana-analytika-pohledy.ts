@@ -172,7 +172,7 @@ function soucetPohledu(
 }
 
 async function testPohledy(): Promise<void> {
-  assert(BRANA_ANALYTIKA_PRIJEM_ZAPNUT === false, "příjem zůstává vypnutý");
+  assert(BRANA_ANALYTIKA_PRIJEM_ZAPNUT === true, "příjem je zapnutý");
 
   const sahnutiVypnuto = { pocet: 0 };
   const vypnuto = simulace(true);
@@ -189,9 +189,43 @@ async function testPohledy(): Promise<void> {
   );
   assert(bezMer.pokusu === 0 && vypnuto.volani.length === 0, "vypnutá analytika pohled neodešle");
   assert(sahnutiVypnuto.pocet === 0, "vypnutá analytika na úložiště nesáhne");
-  const uklid = spustitRozpoznaniNavstevyVOkne("vikend");
-  assert(typeof uklid === "function", "vypnuté spuštění v okně jen vrátí úklid");
-  uklid();
+  const puvodniOkno = Object.getOwnPropertyDescriptor(globalThis, "window");
+  const puvodniDokument = Object.getOwnPropertyDescriptor(globalThis, "document");
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: {
+      location: { search: "" },
+      matchMedia: () => ({ matches: false }),
+      navigator: {},
+    },
+  });
+  Object.defineProperty(globalThis, "document", {
+    configurable: true,
+    value: {
+      addEventListener() {},
+      removeEventListener() {},
+      querySelector() {
+        return null;
+      },
+      visibilityState: "visible",
+    },
+  });
+  try {
+    const uklid = spustitRozpoznaniNavstevyVOkne("vikend");
+    assert(typeof uklid === "function", "zapnuté spuštění v okně vrátí úklid");
+    uklid();
+  } finally {
+    if (puvodniOkno) {
+      Object.defineProperty(globalThis, "window", puvodniOkno);
+    } else {
+      delete (globalThis as { window?: unknown }).window;
+    }
+    if (puvodniDokument) {
+      Object.defineProperty(globalThis, "document", puvodniDokument);
+    } else {
+      delete (globalThis as { document?: unknown }).document;
+    }
+  }
 
   await sMístnímUlozistem(vylouceneMistni(), async () => {
     const sahnuti = { pocet: 0 };

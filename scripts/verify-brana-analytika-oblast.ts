@@ -284,7 +284,7 @@ function vsechnySoubory(adresar: string): string[] {
 }
 
 function testIzolace(): void {
-  assert(BRANA_ANALYTIKA_PRIJEM_ZAPNUT === false, "veřejný příjem zůstává vypnutý");
+  assert(BRANA_ANALYTIKA_PRIJEM_ZAPNUT === true, "veřejný příjem je zapnutý");
 
   const route = readFileSync(join("src", "app", "api", "brana", "analytika", "route.ts"), "utf8");
   const post = route.slice(route.indexOf("export async function POST"));

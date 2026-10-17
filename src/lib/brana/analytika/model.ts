@@ -9,7 +9,7 @@ export const BRANA_ANALYTIKA_BLOB_CESTA = "data/brana-analytika.json";
 export const BRANA_ANALYTIKA_VERZE = 1;
 
 /** Veřejný příjem je vypnutý, dokud nebude analytika vědomě napojená. */
-export const BRANA_ANALYTIKA_PRIJEM_ZAPNUT = false;
+export const BRANA_ANALYTIKA_PRIJEM_ZAPNUT = true;
 
 export const BRANA_ANALYTIKA_MAX_UDALOSTI = 20;
 

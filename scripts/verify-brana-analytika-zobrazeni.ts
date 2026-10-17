@@ -122,7 +122,7 @@ function testZapojeni(): void {
   );
   const obal = readFileSync(join("src", "components", "brana", "admin", "BranaAdminObal.tsx"), "utf8");
 
-  assert(BRANA_ANALYTIKA_PRIJEM_ZAPNUT === false, "příjem analytiky zůstává vypnutý");
+  assert(BRANA_ANALYTIKA_PRIJEM_ZAPNUT === true, "příjem analytiky je zapnutý");
   assert(
     stranka.includes("if (!(await jeAdminPrihlasen()))") &&
       stranka.includes("nacistPodkladyGrafuProAdministraci") &&

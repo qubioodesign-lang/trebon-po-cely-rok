@@ -374,7 +374,7 @@ function testZapojeni(): void {
   const konec = uloziste.indexOf("export async function zalozitPrazdnouBranaAnalytikuVBlobu");
   const telo = uloziste.slice(zacatek, konec);
 
-  assert(BRANA_ANALYTIKA_PRIJEM_ZAPNUT === false, "příjem analytiky zůstává vypnutý");
+  assert(BRANA_ANALYTIKA_PRIJEM_ZAPNUT === true, "příjem analytiky je zapnutý");
   assert(
     cteni.indexOf("await jeAdminPrihlasen()") !== -1 &&
       cteni.indexOf("await jeAdminPrihlasen()") < cteni.indexOf("() => nacistBranaAnalytikuKeCteni()"),

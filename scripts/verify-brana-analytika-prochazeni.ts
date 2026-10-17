@@ -111,10 +111,44 @@ function metriky(udalosti: Array<{ metrika: string }>, metrika: string): number 
 }
 
 async function testProchazeni(): Promise<void> {
-  assert(BRANA_ANALYTIKA_PRIJEM_ZAPNUT === false, "příjem zůstává vypnutý");
-  const uklid = spustitRozpoznaniNavstevyVOkne("dnes");
-  uklid();
-  assert(typeof uklid === "function", "vypnuté měření scroll neposlouchá");
+  assert(BRANA_ANALYTIKA_PRIJEM_ZAPNUT === true, "příjem je zapnutý");
+  const puvodniOkno = Object.getOwnPropertyDescriptor(globalThis, "window");
+  const puvodniDokument = Object.getOwnPropertyDescriptor(globalThis, "document");
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: {
+      location: { search: "" },
+      matchMedia: () => ({ matches: false }),
+      navigator: {},
+    },
+  });
+  Object.defineProperty(globalThis, "document", {
+    configurable: true,
+    value: {
+      addEventListener() {},
+      removeEventListener() {},
+      querySelector() {
+        return null;
+      },
+      visibilityState: "visible",
+    },
+  });
+  try {
+    const uklid = spustitRozpoznaniNavstevyVOkne("dnes");
+    uklid();
+    assert(typeof uklid === "function", "zapnuté měření vrátí úklid a neshodí běh");
+  } finally {
+    if (puvodniOkno) {
+      Object.defineProperty(globalThis, "window", puvodniOkno);
+    } else {
+      delete (globalThis as { window?: unknown }).window;
+    }
+    if (puvodniDokument) {
+      Object.defineProperty(globalThis, "document", puvodniDokument);
+    } else {
+      delete (globalThis as { document?: unknown }).document;
+    }
+  }
 
   const dnesKratky = projed(pamet(), "dnes", kratky());
   assert(dnesKratky.length === 0, "krátký obsah Dnes scrollování nevyžaduje");

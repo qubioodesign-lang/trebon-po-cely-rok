@@ -400,9 +400,10 @@ function testStarsiANeplatne(): void {
 }
 
 async function testVypnutiAVylouceni(): Promise<void> {
-  assert(BRANA_ANALYTIKA_PRIJEM_ZAPNUT === false, "příjem zůstává vypnutý");
+  assert(BRANA_ANALYTIKA_PRIJEM_ZAPNUT === true, "příjem je zapnutý");
   let cteniAdresy = 0;
   const puvodni = Object.getOwnPropertyDescriptor(globalThis, "window");
+  const puvodniDokument = Object.getOwnPropertyDescriptor(globalThis, "document");
   Object.defineProperty(globalThis, "window", {
     configurable: true,
     value: {
@@ -410,6 +411,19 @@ async function testVypnutiAVylouceni(): Promise<void> {
         cteniAdresy += 1;
         return { search: "?zdroj=desktop-qr" };
       },
+      matchMedia: () => ({ matches: false }),
+      navigator: {},
+    },
+  });
+  Object.defineProperty(globalThis, "document", {
+    configurable: true,
+    value: {
+      addEventListener() {},
+      removeEventListener() {},
+      querySelector() {
+        return null;
+      },
+      visibilityState: "visible",
     },
   });
   try {
@@ -421,8 +435,13 @@ async function testVypnutiAVylouceni(): Promise<void> {
     } else {
       delete (globalThis as { window?: unknown }).window;
     }
+    if (puvodniDokument) {
+      Object.defineProperty(globalThis, "document", puvodniDokument);
+    } else {
+      delete (globalThis as { document?: unknown }).document;
+    }
   }
-  assert(cteniAdresy === 0, "vypnutá analytika adresu ani úložiště nečte");
+  assert(cteniAdresy === 1, "zapnutá analytika přečte adresu jednou kvůli QR a sdílení");
 
   const vyloucene = new Map<string, string>([[KLIC_BRANA_VYLOUCIT_ANALYTIKU, "1"]]);
   const ulozeno = panel();
