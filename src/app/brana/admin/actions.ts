@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
+import { ziskatOidcZHlavicek } from "@/lib/env-blob";
+import { smazatBranaVzkazSoubor } from "@/lib/brana/vzkaz/uloziste";
 import type { BranaKonkretniUdalost } from "@/lib/brana/admin/konkretni-udalost";
 import {
   nastavitPosledniScanDokoncen,
@@ -1062,6 +1064,35 @@ export async function ulozitBranaAtmosferaDovetekAkce(
       chyba: detail ?? "Dovětek Atmosféry se nepodařilo uložit.",
       dokument: null,
     };
+  }
+}
+
+const ID_VZKAZU =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export type BranaVzkazSmazatVysledek =
+  | { uspech: true }
+  | { uspech: false; chyba: string };
+
+/** Smaže jeden soubor vzkazu BRÁNY. Vzkazy galerie nemění. */
+export async function smazatBranaVzkazAkce(
+  id: string,
+): Promise<BranaVzkazSmazatVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  if (typeof id !== "string" || !ID_VZKAZU.test(id)) {
+    return { uspech: false, chyba: "Tento vzkaz nelze smazat." };
+  }
+
+  try {
+    const oidc = await ziskatOidcZHlavicek();
+    await smazatBranaVzkazSoubor(id, oidc);
+    revalidatePath("/brana/admin/sprava/vzkazy");
+    return { uspech: true };
+  } catch {
+    return { uspech: false, chyba: "Vzkaz se nepodařilo smazat." };
   }
 }
 
