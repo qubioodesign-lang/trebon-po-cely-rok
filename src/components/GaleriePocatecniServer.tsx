@@ -122,10 +122,13 @@ export function GaleriePocatecniServer({
               aria-hidden="true"
             />
 
-            <div className="absolute inset-x-0 top-0 z-20 px-6 pt-8 text-center md:bg-gradient-to-b md:from-black/30 md:to-transparent md:pb-16">
+            <div className="trebon-horni-lista absolute inset-x-0 top-0 z-20 md:bg-gradient-to-b md:from-black/30 md:to-transparent md:pb-16">
+              <div className="trebon-horni-misto" aria-hidden="true" />
               <h1 className="trebon-horni-napis">
-                Třeboň po celý rok
+                <span className="trebon-horni-napis-hlavni">TŘEBOŇ</span>
+                <span className="trebon-horni-napis-pokracovani"> po celý rok</span>
               </h1>
+              <div className="trebon-horni-misto" aria-hidden="true" />
             </div>
 
             <div className="absolute inset-x-0 bottom-0 z-20 flex flex-col items-center px-6 pb-[calc(2.75rem+env(safe-area-inset-bottom,0px))] text-center md:hidden">

@@ -39,19 +39,37 @@
 }
 
 @layer components {
-  /* Horní nápis galerie – stejný textový styl a linka jako .brana-pata-odkaz (bez šipky; pravý konec u „k“) */
-  .trebon-horni-napis {
-    @apply inline-block shrink-0 text-[0.9375rem] font-medium leading-snug tracking-tight text-white;
+  /* Záhlaví mobilní galerie: mřížka jako záhlaví BRÁNY, písmo jako její zápatí. */
+  .trebon-horni-lista {
+    @apply grid grid-cols-[2.75rem_1fr_2.75rem] items-center gap-2 px-4 pb-0;
+    padding-top: calc(0.5rem + env(safe-area-inset-top, 0px));
   }
 
-  .trebon-horni-napis::after {
+  .trebon-horni-misto {
+    @apply h-11 w-11;
+  }
+
+  .trebon-horni-napis {
+    @apply m-0 whitespace-nowrap text-center text-[0.9375rem] font-medium leading-snug tracking-tight text-white;
+  }
+
+  .trebon-horni-napis-hlavni {
+    @apply relative inline-block text-[calc(0.9375rem*1.09)] font-semibold;
+  }
+
+  .trebon-horni-napis-hlavni::after {
     content: "";
     display: block;
+    font-size: 0.9375rem;
     width: calc(100% - 0.15em);
     height: 1px;
     margin-top: 0.125rem;
     margin-left: 0.15em;
     background-color: #cf9168;
+  }
+
+  .trebon-horni-napis-pokracovani {
+    @apply text-[calc(0.9375rem*0.875)] font-normal;
   }
 
   /* Nenápadný textový odkaz – bez rámečku, bez zvýraznění */
