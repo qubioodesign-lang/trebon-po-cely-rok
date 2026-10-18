@@ -160,13 +160,31 @@ export function GaleriePocatecniServer({
               </div>
             </div>
 
-            <div className="pointer-events-none absolute inset-x-0 bottom-[calc((2.75rem+env(safe-area-inset-bottom,0px))/2-0.6875rem)] z-20 flex justify-center md:hidden">
-              <div className="pointer-events-auto -translate-y-1/2">
-                <span className="inline-block text-[0.6875rem] font-light tracking-wide text-white/60">
-                  sdílet
-                </span>
-              </div>
-            </div>
+            <span
+              className="pointer-events-none fixed z-[25] flex h-11 w-11 items-center justify-center text-white/70 md:hidden"
+              style={{
+                right: "1rem",
+                top: "calc(0.5rem + env(safe-area-inset-top, 0px))",
+              }}
+              aria-hidden="true"
+            >
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="18" cy="5" r="3" />
+                <circle cx="6" cy="12" r="3" />
+                <circle cx="18" cy="19" r="3" />
+                <path d="M8.59 13.51l6.83 3.98" />
+                <path d="M15.41 6.51l-6.82 3.98" />
+              </svg>
+            </span>
           </div>
         </div>
 
