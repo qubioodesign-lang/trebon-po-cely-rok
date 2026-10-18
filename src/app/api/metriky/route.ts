@@ -17,6 +17,7 @@ const POVOLENE_TYPY: TypUdalostiMetriky[] = [
   "posun_vpred",
   "navrat_zpet",
   "klik_chci_se_vracet",
+  "klik_na_branu",
   "povoleno_upozorneni",
   "klik_pridat_na_plochu",
   "navsteva_standalone",

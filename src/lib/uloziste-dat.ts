@@ -45,6 +45,8 @@ export interface MetrikyAgregovane {
   pocetPosunuVpred: number;
   pocetNavratuZpet: number;
   pocetKliknutiChciSeVracet: number;
+  /** Každé kliknutí na spodní odkaz „BRÁNA do Třeboně →“. */
+  pocetKliknutiNaBranu: number;
   pocetPovolenychUpozorneni: number;
   /** Kliknutí na CTA „Přidat Třeboň na plochu“ (zájem, ne instalace) */
   pocetKliknutiPridatNaPlochu: number;

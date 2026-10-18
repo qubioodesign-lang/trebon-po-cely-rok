@@ -1,8 +1,17 @@
+"use client";
+
+import { useMetriky } from "@/hooks/useMetriky";
+
 /** Odkaz z mobilní galerie na veřejnou BRÁNU. */
 export function OdkazNaBranu() {
+  const { odeslat } = useMetriky();
+
   return (
     <a
       href="https://brana.trebonpocelyrok.cz/"
+      onClick={() => {
+        odeslat("klik_na_branu");
+      }}
       className="fixed z-[25] whitespace-nowrap font-sans text-[12px] font-medium leading-snug tracking-tight text-white no-underline md:hidden"
       style={{
         left: "50%",

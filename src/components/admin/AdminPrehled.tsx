@@ -71,6 +71,10 @@ export function AdminPrehled({
             popisek="replay"
             hodnota={metriky.pocetReplayProlnuti}
           />
+          <KartaMetriky
+            popisek="Kliknutí na BRÁNU"
+            hodnota={metriky.pocetKliknutiNaBranu}
+          />
         </div>
       ) : (
         <p className="text-xs text-text-velmiJemny">data metrik nejsou k dispozici</p>
