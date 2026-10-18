@@ -265,10 +265,10 @@ export function VzkazTreboni() {
         <button
           type="button"
           onClick={otevritModal}
-          className="fixed z-[25] text-white/70 transition-colors duration-300 hover:text-white/95 focus-visible:text-white/95 focus-visible:outline-none"
+          className="fixed z-[25] flex h-11 w-11 items-center justify-center text-white/70 transition-colors duration-300 hover:text-white/95 focus-visible:text-white/95 focus-visible:outline-none"
           style={{
-            right: "0.5rem",
-            bottom: "calc(0.5rem + env(safe-area-inset-bottom, 0px))",
+            left: "1rem",
+            top: "calc(0.5rem + env(safe-area-inset-top, 0px))",
           }}
           aria-label="Nechte vzkaz Třeboni"
         >
