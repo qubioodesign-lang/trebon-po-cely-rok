@@ -35,6 +35,14 @@ export function BranaInformace() {
             změny či zrušení událostí odpovídají jejich pořadatelé. Před
             návštěvou doporučujeme ověřit podrobnosti přímo u pořadatele.
           </p>
+          <p>
+            Analytika neukládá jména, e-mailové adresy, IP adresy ani přesné
+            souřadnice. V prohlížeči používá jednoduché značky pro rozlišení
+            návštěv a návratů. Souhrnné údaje se uchovávají nejvýše 400 dní.
+          </p>
+          <p>
+            Vzkazy lze odesílat anonymně, bez uvedení kontaktních údajů.
+          </p>
           <h2>Kontakt</h2>
           <p>
             <a href="mailto:trebonpocelyrok@gmail.com">
