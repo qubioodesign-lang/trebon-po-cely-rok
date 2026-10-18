@@ -39,6 +39,7 @@ function tridyPopisuGalerie(
 }
 import { ZobrazeniPolozky } from "./ZobrazeniPolozky";
 import { OdkazChciSeVracet } from "./OdkazChciSeVracet";
+import { OdkazNaBranu } from "./OdkazNaBranu";
 import { OdkazSdilet } from "./OdkazSdilet";
 import { RegistracePWA } from "./RegistracePWA";
 import { VzkazTreboni } from "./VzkazTreboni";
@@ -382,6 +383,7 @@ export function GalerieHlavni({
       <RegistracePWA />
       <VzkazTreboni />
       <OdkazSdilet polozkaId={aktualniPolozka.id} nadFotkou />
+      <OdkazNaBranu />
 
       {/* Fotografie – na mobilu celý displej, na desktopu 70dvh */}
       <div

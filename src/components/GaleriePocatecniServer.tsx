@@ -2,6 +2,7 @@ import type { PolozkaVerejna } from "@/types";
 import { maViceRadkuPopisu } from "@/lib/popis-radky";
 import { GalerieKritickyCss } from "./GalerieKritickyCss";
 import { LinkaPodPopisem } from "./LinkaPodPopisem";
+import { OdkazNaBranu } from "./OdkazNaBranu";
 import { ZobrazeniPolozkyServer } from "./ZobrazeniPolozkyServer";
 
 function tridyPopisuGalerie(
@@ -185,6 +186,7 @@ export function GaleriePocatecniServer({
                 <path d="M15.41 6.51l-6.82 3.98" />
               </svg>
             </span>
+            <OdkazNaBranu />
           </div>
         </div>
 
