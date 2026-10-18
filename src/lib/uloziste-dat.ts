@@ -56,6 +56,22 @@ export interface MetrikyAgregovane {
   navstevyPodleNavstevnika: Record<string, number>;
 }
 
+/** Denní součty tří geografických kategorií. Bez souřadnic a bez identifikátorů. */
+export interface GeografieNavstevDen {
+  trebonsko: number;
+  mimo_trebonsko: number;
+  neurceno: number;
+}
+
+/**
+ * Měření běží až od `merenoOd`.
+ * Starší dny se nedoplňují. Chybějící den po tomto datu je naměřená nula.
+ */
+export interface GeografieNavstev {
+  merenoOd: string;
+  dny: Record<string, GeografieNavstevDen>;
+}
+
 /** Struktura celého úložiště */
 export interface UlozisteDat {
   polozky: Polozka[];
@@ -76,6 +92,8 @@ export interface UlozisteDat {
   chovaniNavstevnikuAgregovane?: ChovaniNavstevnikuAgregovane;
   /** Interní čítač – detekce ztráty souběžného zápisu */
   verzeUloziste?: number;
+  /** Denní geografické součty návštěv. Chybějící blok znamená, že se ještě neměřilo. */
+  geografieNavstev?: GeografieNavstev;
 }
 
 /** Volby pro bezpečný zápis s ověřením po uložení */

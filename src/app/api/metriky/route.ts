@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { klasifikovatOblastZHlavicek } from "@/lib/brana/analytika/vercel-geo";
 import { zaznamenatMetrikyBatch } from "@/lib/metriky";
 import { ziskatOidcZHlavicek } from "@/lib/env-blob";
 import type {
@@ -74,7 +75,8 @@ export async function POST(request: NextRequest) {
     }
 
     const oidcHeader = await ziskatOidcZHlavicek();
-    await zaznamenatMetrikyBatch(udalosti, oidcHeader);
+    const oblast = klasifikovatOblastZHlavicek(request.headers);
+    await zaznamenatMetrikyBatch(udalosti, oidcHeader, oblast);
     return NextResponse.json({ uspech: true });
   } catch (error) {
     const zprava =

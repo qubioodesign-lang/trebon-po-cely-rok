@@ -2,6 +2,7 @@ import type { AnalyticsSouhrn, KomunitaSouhrn, MetrikySouhrn, Polozka } from "@/
 import { sestavitUrlPolozky } from "@/lib/url-polozky";
 import { ziskatHlavniSouborPolozky } from "@/lib/polozka-soubory";
 import { AdminKomunita } from "./AdminKomunita";
+import { GrafGeografieTrebon } from "./GrafGeografieTrebon";
 import { soucetSdileni, topPolozky } from "./pomocne";
 
 function KartaMetriky({
@@ -79,6 +80,8 @@ export function AdminPrehled({
       ) : (
         <p className="text-xs text-text-velmiJemny">data metrik nejsou k dispozici</p>
       )}
+
+      {metriky ? <GrafGeografieTrebon podklady={metriky.geografie} /> : null}
 
       <div className="space-y-2 rounded border border-text-velmiJemny/20 p-4">
         <h3 className="text-xs font-light text-text-velmiJemny">top 10 položek</h3>

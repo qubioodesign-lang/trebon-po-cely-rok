@@ -62,7 +62,44 @@ export interface MetrikySouhrn {
   pocetKliknutiPridatNaPlochu: number;
   pocetNavstevZePlochy: number;
   pocetReplayProlnuti: number;
+  /** Denní geografický graf. Null v řadě je neměřený nebo nedostupný den, ne nula. */
+  geografie: GeografieGrafyAdmin;
 }
+
+/** Stejná období jako graf Geografie na BRÁNĚ. Výchozí je 30 dní. */
+export const GEOGRAFIE_OBDOBI = [7, 30, 90, 365] as const;
+
+export type GeografieObdobi = (typeof GEOGRAFIE_OBDOBI)[number];
+
+export interface BodGeografieGrafu {
+  od: string;
+  do: string;
+  rok: number;
+  mesic: number;
+  den: number | null;
+  pocetDnu: number;
+  nedostupnychDnu: number;
+  trebonsko: number | null;
+  mimo_trebonsko: number | null;
+  neurceno: number | null;
+}
+
+export interface SouctyGeografieGrafu {
+  trebonsko: number | null;
+  mimo_trebonsko: number | null;
+  neurceno: number | null;
+}
+
+export interface GeografieObdobiPodklady {
+  obdobi: GeografieObdobi;
+  rozliseni: "den" | "mesic";
+  okno: { od: string; do: string };
+  body: BodGeografieGrafu[];
+  soucty: SouctyGeografieGrafu;
+  procenta: SouctyGeografieGrafu;
+}
+
+export type GeografieGrafyAdmin = Record<GeografieObdobi, GeografieObdobiPodklady>;
 
 /** Souhrn analytics pro administraci */
 export interface AnalyticsSouhrn {

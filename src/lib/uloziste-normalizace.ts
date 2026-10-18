@@ -14,5 +14,6 @@ export function normalizovatUloziste(data: UlozisteDat): UlozisteDat {
     desktopPozvankaFotografie: data.desktopPozvankaFotografie ?? null,
     chovaniNavstevnikuAgregovane: data.chovaniNavstevnikuAgregovane,
     verzeUloziste: data.verzeUloziste,
+    geografieNavstev: data.geografieNavstev,
   };
 }
