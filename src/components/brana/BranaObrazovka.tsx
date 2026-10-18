@@ -132,6 +132,7 @@ export function BranaObrazovka({
       ?.opakovaniSeznamu ?? opakovaniSeznamu;
   const navigace = useBranaNavigace();
   const vzkazHref = useBranaVerejnaCesta("vzkaz");
+  const informaceHref = useBranaVerejnaCesta("informace");
   const trebonHref = useBranaOdkazNaTrebon();
   const kotvaScroll = kotvaScrollProStranku(pohled);
   const pataJednodenni = pohled === "dnes" || pohled === "zitra";
@@ -224,6 +225,24 @@ export function BranaObrazovka({
       </div>
       <p className="brana-pata-aktualizace">
         <BranaTextAktualizace />
+        <Link
+          href={informaceHref}
+          className="brana-pata-informace"
+          aria-label="Informace o BRÁNĚ"
+        >
+          <svg
+            className="brana-pata-informace-znak"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.25"
+            aria-hidden
+          >
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 11v5.5" strokeLinecap="round" />
+            <circle cx="12" cy="7.6" r="0.8" fill="currentColor" stroke="none" />
+          </svg>
+        </Link>
       </p>
     </footer>
   );

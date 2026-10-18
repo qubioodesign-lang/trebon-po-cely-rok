@@ -286,9 +286,30 @@
   }
 
   .brana-pata-aktualizace {
-    @apply mt-auto shrink-0 text-center leading-snug text-white/70;
+    @apply relative mt-auto shrink-0 self-stretch text-center leading-snug text-white/70;
     font-size: calc(0.875rem * 0.68);
     padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Pravý okraj kresby jako Sdílet: px-4 + střed 22px ikony v buňce 2.75rem, minus px-6 seznamu. */
+  .brana-pata-informace {
+    @apply absolute flex items-start justify-end text-white/70 no-underline;
+    right: calc(1rem + (2.75rem - 22px) / 2 - 1.5rem);
+    top: 0;
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+
+  .brana-pata-informace-znak {
+    display: block;
+    width: 0.8rem;
+    height: 0.8rem;
+    margin-top: 0.05rem;
+  }
+
+  .brana-pata-informace:hover,
+  .brana-pata-informace:focus-visible {
+    @apply text-white outline-none;
   }
 
   /* Dnes + Zítra: volný prostor nad odkazem, ne mezi odkazem a aktualizací */
@@ -386,6 +407,42 @@
   .brana-vzkaz-zavrit:hover,
   .brana-vzkaz-zavrit:focus-visible {
     @apply text-white outline-none;
+  }
+
+  .brana-informace-text {
+    @apply text-left leading-snug text-white/70;
+    font-size: calc(0.875rem * 0.68);
+    font-weight: 400;
+  }
+
+  .brana-informace-text h1,
+  .brana-informace-text h2,
+  .brana-informace-text p,
+  .brana-informace-text a {
+    font-size: inherit;
+    font-weight: inherit;
+    line-height: inherit;
+    color: inherit;
+  }
+
+  .brana-informace-text h1 {
+    @apply m-0;
+    margin-bottom: 1.25rem;
+  }
+
+  .brana-informace-text p {
+    @apply m-0;
+    margin-bottom: 1rem;
+  }
+
+  .brana-informace-text h2 {
+    @apply m-0;
+    margin-top: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .brana-informace-text a {
+    text-decoration: none;
   }
 
   .brana-vzkaz-tlacitko {

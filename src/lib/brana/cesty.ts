@@ -6,7 +6,11 @@ export const BRANA_SUBDOMENA_HOST = "brana.trebonpocelyrok.cz";
 /** Absolutní URL hlavního webu Třeboň po celý rok */
 export const TREBON_PRODUKCNI_URL = "https://www.trebonpocelyrok.cz";
 
-export type BranaInterniStranka = BranaVerejnaStranka | "vzkaz" | "admin";
+export type BranaInterniStranka =
+  | BranaVerejnaStranka
+  | "vzkaz"
+  | "informace"
+  | "admin";
 
 const STRANKA_SEGMENT: Record<BranaInterniStranka, string> = {
   dnes: "",
@@ -15,6 +19,7 @@ const STRANKA_SEGMENT: Record<BranaInterniStranka, string> = {
   "7-dni": "/7-dni",
   vyhled: "/vyhled",
   vzkaz: "/vzkaz",
+  informace: "/informace",
   admin: "/admin",
 };
 

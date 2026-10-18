@@ -9,6 +9,7 @@ const BRANA_CISTE_CESTY = new Set([
   "/7-dni",
   "/vyhled",
   "/vzkaz",
+  "/informace",
 ]);
 
 function jeBranaSubdomena(request: NextRequest): boolean {
