@@ -153,8 +153,8 @@ export function GaleriePocatecniServer({
                   </div>
                 )}
               </div>
-              <div className="[&_.odkaz-jemny]:text-white/75">
-                <a href={hrefChciSeVracet} className="odkaz-jemny mt-3 inline-block">
+              <div className="flex justify-center [&_.odkaz-jemny]:text-white/75">
+                <a href={hrefChciSeVracet} className="odkaz-jemny inline-block">
                   chci se vracet
                 </a>
               </div>

@@ -470,7 +470,7 @@ export function GalerieHlavni({
                 </div>
               )}
             </div>
-            <div className="[&_.odkaz-jemny]:text-white/75 [&_.odkaz-jemny:hover]:text-white/95 [&_.odkaz-jemny:focus-visible]:text-white/95">
+            <div className="flex justify-center [&_.odkaz-jemny]:mt-0 [&_.odkaz-jemny]:text-white/75 [&_.odkaz-jemny:hover]:text-white/95 [&_.odkaz-jemny:focus-visible]:text-white/95">
               <OdkazChciSeVracet
                 aktualniIndex={aktualniIndex}
                 polozkaId={aktualniPolozka.id}
