@@ -32,6 +32,8 @@ interface PropsAdminSeznamPolozek {
 
   onUpravit: (id: string) => void;
 
+  onNahled: (id: string) => void;
+
   onPosun: (index: number, smer: "nahoru" | "dolu") => void;
 
   onPripnoutNahoru: (index: number) => void;
@@ -63,6 +65,8 @@ export function AdminSeznamPolozek({
   maChybuNacitani,
 
   onUpravit,
+
+  onNahled,
 
   onPosun,
 
@@ -331,6 +335,26 @@ export function AdminSeznamPolozek({
                     připnout nahoru
 
                   </button>
+
+
+
+                  {polozka.typ === "prolnuti" && (
+
+                    <button
+
+                      type="button"
+
+                      onClick={() => onNahled(polozka.id)}
+
+                      className="text-xs text-text"
+
+                    >
+
+                      Náhled
+
+                    </button>
+
+                  )}
 
 
 

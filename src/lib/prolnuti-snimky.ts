@@ -20,3 +20,11 @@ export function normalizovatCestySnimkuProlnuti(soubory: string[]): string[] {
 export function pocetKrokuProlnuti(pocetSnimku: number): number {
   return Math.max(0, pocetSnimku - 1);
 }
+
+/**
+ * Viditelnost nového prolnutí.
+ * Bez výslovné volby zůstane skryté, dokud ho autor nezveřejní.
+ */
+export function viditelnostNovehoProlnuti(aktivni: boolean | undefined): boolean {
+  return aktivni ?? false;
+}

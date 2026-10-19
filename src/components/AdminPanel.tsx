@@ -26,6 +26,7 @@ import { formatovatVelikost } from "@/lib/zaloha/pomocne";
 import { BlokDiagnozy } from "./admin/BlokDiagnozy";
 import { AdminPrehled } from "./admin/AdminPrehled";
 import { AdminSeznamPolozek } from "./admin/AdminSeznamPolozek";
+import { AdminNahledProlnuti } from "./admin/AdminNahledProlnuti";
 import type { UpravaPolozkyStav } from "./admin/AdminFormularUpravy";
 import { AdminPanelUpravy } from "./admin/AdminPanelUpravy";
 import { AdminAnalyticsDetail } from "./admin/AdminAnalyticsDetail";
@@ -98,6 +99,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
     id: string;
     snimek: "A" | "B" | "C";
   } | null>(null);
+  const [nahledId, setNahledId] = useState<string | null>(null);
   const [potvrzeniAkce, setPotvrzeniAkce] = useState("");
   const [potvrzeniUrlSouboru, setPotvrzeniUrlSouboru] = useState<string | null>(
     null
@@ -872,6 +874,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
           chybaPolozky={chyby.polozky}
           maChybuNacitani={maChybuNacitani}
           onUpravit={handleUpravit}
+          onNahled={setNahledId}
           onPosun={handlePosun}
           onPripnoutNahoru={(index) => void handlePripnoutNahoru(index)}
           onPrepnoutAktivni={handlePrepnoutAktivni}
@@ -1071,6 +1074,16 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
           pocetNavstevZePlochy={metriky?.pocetNavstevZePlochy ?? 0}
         />
       </div>
+
+      {nahledId &&
+        polozky.find((polozka) => polozka.id === nahledId)?.typ ===
+          "prolnuti" && (
+          <AdminNahledProlnuti
+            polozka={polozky.find((polozka) => polozka.id === nahledId)!}
+            casovani={data?.prolnutiCasovani ?? PROLNUTI_CASOVANI_VYCHOZI}
+            onZavrit={() => setNahledId(null)}
+          />
+        )}
 
       {potvrzeniSmazani && (
         <AdminPotvrzeniSmazani

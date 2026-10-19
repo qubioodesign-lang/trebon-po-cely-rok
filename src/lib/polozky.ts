@@ -14,6 +14,7 @@ import {
 import {
   jePlatnyPocetSnimkuProlnuti,
   PROLNUTI_MAX_SNIMKU,
+  viditelnostNovehoProlnuti,
 } from "./prolnuti-snimky";
 
 /** Vrátí všechny aktivní položky seřazené podle pořadí */
@@ -117,7 +118,7 @@ export async function vytvoritProlnuti(
       novaPolozka = {
         ...zaklad,
         soubory,
-        aktivni: data.aktivni ?? true,
+        aktivni: viditelnostNovehoProlnuti(data.aktivni),
       };
       uloziste.polozky.push(novaPolozka);
     },
