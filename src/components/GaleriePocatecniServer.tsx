@@ -6,6 +6,7 @@ import {
 } from "@/lib/popis-radky";
 import { GalerieKritickyCss } from "./GalerieKritickyCss";
 import { LinkaPodPopisem } from "./LinkaPodPopisem";
+import { OdkazInformace } from "./OdkazInformace";
 import { OdkazNaBranu } from "./OdkazNaBranu";
 import { ZobrazeniPolozkyServer } from "./ZobrazeniPolozkyServer";
 
@@ -201,6 +202,7 @@ export function GaleriePocatecniServer({
                 <path d="M15.41 6.51l-6.82 3.98" />
               </svg>
             </span>
+            <OdkazInformace />
             <OdkazNaBranu />
           </div>
         </div>

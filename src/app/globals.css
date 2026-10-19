@@ -113,6 +113,48 @@
     animation-timing-function: cubic-bezier(0.42, 0, 0.18, 1);
     animation-fill-mode: forwards;
   }
+
+  .trebon-informace-text {
+    @apply text-left leading-snug;
+    color: #6b6b6b;
+    font-size: calc(0.875rem * 0.68);
+    font-weight: 400;
+  }
+
+  .trebon-informace-text h2,
+  .trebon-informace-text p,
+  .trebon-informace-text a {
+    font-size: inherit;
+    font-weight: inherit;
+    line-height: inherit;
+    color: inherit;
+  }
+
+  .trebon-informace-text p {
+    @apply m-0;
+    margin-bottom: 1rem;
+  }
+
+  .trebon-informace-text h2 {
+    @apply m-0;
+    margin-top: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .trebon-informace-text a {
+    text-decoration: none;
+  }
+
+  .trebon-informace-zavrit {
+    @apply border-0 bg-transparent p-0 text-sm tracking-wide transition-colors duration-300;
+    color: #6b6b6b;
+    top: calc(2rem + env(safe-area-inset-top, 0px));
+  }
+
+  .trebon-informace-zavrit:hover,
+  .trebon-informace-zavrit:focus-visible {
+    @apply text-text outline-none;
+  }
 }
 
 @keyframes vzkaz-pismeno-tah {
