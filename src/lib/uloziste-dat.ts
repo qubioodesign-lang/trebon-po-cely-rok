@@ -94,6 +94,11 @@ export interface UlozisteDat {
   verzeUloziste?: number;
   /** Denní geografické součty návštěv. Chybějící blok znamená, že se ještě neměřilo. */
   geografieNavstev?: GeografieNavstev;
+  /**
+   * Začátek aktuálního 24hodinového okna rotace viditelných prolnutí.
+   * Chybí nebo je neplatný = galerie se netočí a pořadí zůstává uložené.
+   */
+  rotaceProlnutiOd?: string;
 }
 
 /** Volby pro bezpečný zápis s ověřením po uložení */
@@ -277,6 +282,13 @@ export async function upravitData(
 
         await cekatPredOpakovanim(pokus);
       } catch (error) {
+        if (
+          error instanceof Error &&
+          "bezOpakovani" in error &&
+          Boolean((error as { bezOpakovani?: boolean }).bezOpakovani)
+        ) {
+          throw error;
+        }
         posledniChyba = error;
         await cekatPredOpakovanim(pokus);
       }

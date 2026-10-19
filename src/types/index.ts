@@ -207,6 +207,10 @@ export interface AdminData {
   desktopPozvankaFotografieUrl: string;
   vzkazyTreboni: VzkazTreboni[];
   chovaniNavstevniku: ChovaniNavstevnikuSouhrn;
+  /** Začátek rotace viditelných prolnutí. Null znamená, že rotace ještě neběží. */
+  rotaceProlnutiOd: string | null;
+  /** První aktivní položka uloženého pořadí. Push se řídí jí, ne otočenou galerií. */
+  polozkaPosledniPublikace: Polozka | null;
 }
 
 /** Chyby při načítání jednotlivých částí administrace */

@@ -4,6 +4,10 @@ import fs from "fs";
 import path from "path";
 import type { AdminVysledek } from "@/types";
 import { seraditPolozky, nacistData } from "./uloziste-dat";
+import {
+  efektivniPoradiPolozek,
+  jePlatnyCasRotaceProlnuti,
+} from "./rotace-prolnuti";
 import { prazdnySouhrnKomunity, spocitatSouhrnKomunity } from "./komunita";
 import { prazdnySouhrnMetrik, ziskatSouhrnZUloziste } from "./metriky";
 import {
@@ -60,13 +64,27 @@ export async function nacistAdminData(): Promise<AdminVysledek> {
   let desktopPozvankaFotografie: string | null = null;
   let vzkazyTreboni: AdminVysledek["data"]["vzkazyTreboni"] = [];
   let legacyVzkazy: AdminVysledek["data"]["vzkazyTreboni"] = [];
+  let rotaceProlnutiOd: string | null = null;
+  let polozkaPosledniPublikace: AdminVysledek["data"]["polozkaPosledniPublikace"] =
+    null;
 
   try {
     const uloziste = await nacistData(oidcHeader);
-    polozky = seraditPolozky(uloziste.polozky);
+    const zakladniPoradi = seraditPolozky(uloziste.polozky);
+    const casRotace = jePlatnyCasRotaceProlnuti(uloziste.rotaceProlnutiOd)
+      ? uloziste.rotaceProlnutiOd.trim()
+      : null;
+    polozky = efektivniPoradiPolozek(
+      uloziste.polozky,
+      casRotace,
+      Date.now()
+    );
+    rotaceProlnutiOd = casRotace;
+    polozkaPosledniPublikace =
+      zakladniPoradi.find((polozka) => polozka.aktivni) ?? null;
     metriky = ziskatSouhrnZUloziste(uloziste);
     komunita = spocitatSouhrnKomunity(uloziste);
-    analytics = ziskatSouhrnAnalytics(uloziste, polozky);
+    analytics = ziskatSouhrnAnalytics(uloziste, zakladniPoradi);
     chovaniNavstevniku = spocitatSouhrnChovaniNavstevniku(uloziste);
     pocetPushOdberu = uloziste.pushOdbery?.length ?? 0;
     prolnutiCasovani = sloucitProlnutiCasovani(uloziste.prolnutiCasovani);
@@ -110,6 +128,8 @@ export async function nacistAdminData(): Promise<AdminVysledek> {
         desktopPozvankaFotografie
       ),
       vzkazyTreboni,
+      rotaceProlnutiOd,
+      polozkaPosledniPublikace,
     },
     chyby,
   };

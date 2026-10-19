@@ -99,7 +99,15 @@ export async function PATCH(request: NextRequest) {
   const { id, popis, aktivni, poradiIds } = body;
 
   if (poradiIds && Array.isArray(poradiIds)) {
-    await zmenitPoradi(poradiIds, oidcHeader);
+    try {
+      await zmenitPoradi(poradiIds, oidcHeader);
+    } catch (error) {
+      const zprava =
+        error instanceof Error
+          ? error.message
+          : "Pořadí se nepodařilo změnit";
+      return NextResponse.json({ chyba: zprava }, { status: 409 });
+    }
     return NextResponse.json({ uspech: true });
   }
 

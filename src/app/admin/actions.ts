@@ -20,8 +20,10 @@ import {
   ziskatPolozkuCerstve,
   ziskatVsechnyPolozky,
   zmenitPoradi,
+  presunoutPolozku,
   nahraditSouborPolozky,
   nahraditSnimekProlnuti,
+  spustitRotaciProlnuti,
 } from "@/lib/polozky";
 import { ulozitSoubor, smazatSoubor, smazatSoubory, overitSouborVerejne } from "@/lib/soubory";
 import {
@@ -43,6 +45,7 @@ import {
 } from "@/lib/env-blob";
 import type { DiagnozaBlob } from "@/types";
 import type { ProlnutiCasovaniNastaveni } from "@/lib/prolnuti-casovani";
+import type { SmerRucnihoPresunu } from "@/lib/rotace-prolnuti";
 import { validovatProlnutiCasovani } from "@/lib/prolnuti-casovani";
 import {
   overitProlnutiCasovaniVUlozisti,
@@ -871,6 +874,60 @@ export async function nahraditSnimekProlnutiPolozky(
         ? error.message
         : "Chyba při nahrazování snímku prolnutí";
     return { chyba: zprava, diagnoza: ziskatDiagnozuBlob(oidcHeader, { lzeZalohovat: lzeVytvoritZalohu() }) };
+  }
+}
+
+/** Jednorázově spustí rotaci viditelných prolnutí. Pořadí galerie nemění. */
+export async function spustitRotaciProlnutiAdmin(): Promise<
+  | { uspech: true; stav: "spusteno" | "uz-bezi" }
+  | { chyba: string; diagnoza?: DiagnozaBlob }
+> {
+  const admin = await overitAdmina();
+  if ("chyba" in admin) return { chyba: admin.chyba, diagnoza: admin.diagnoza };
+
+  try {
+    const stav = await spustitRotaciProlnuti(admin.oidcHeader);
+    if (stav === "spusteno") {
+      await potvrditAUvolnitWeb((uloziste) =>
+        Boolean(uloziste.rotaceProlnutiOd)
+      );
+    }
+    return { uspech: true, stav };
+  } catch (error) {
+    return {
+      chyba:
+        error instanceof Error
+          ? error.message
+          : "Chyba při spuštění rotace prolnutí",
+      diagnoza: admin.diagnoza,
+    };
+  }
+}
+
+/** Šipka nebo připnutí jedné položky v aktuálním pořadí. */
+export async function presunoutPolozkuAdmin(
+  id: string,
+  smer: SmerRucnihoPresunu
+): Promise<AkceVysledek> {
+  const admin = await overitAdmina();
+  if ("chyba" in admin) return { chyba: admin.chyba, diagnoza: admin.diagnoza };
+
+  try {
+    const ocekavaneIds = await presunoutPolozku(id, smer, admin.oidcHeader);
+    await potvrditAUvolnitWeb((uloziste) =>
+      ocekavaneIds.every(
+        (polozkaId, index) =>
+          uloziste.polozky.find((polozka) => polozka.id === polozkaId)?.poradi ===
+          index
+      )
+    );
+    return { uspech: true };
+  } catch (error) {
+    return {
+      chyba:
+        error instanceof Error ? error.message : "Chyba při změně pořadí",
+      diagnoza: admin.diagnoza,
+    };
   }
 }
 

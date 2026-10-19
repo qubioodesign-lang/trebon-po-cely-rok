@@ -12,7 +12,8 @@
     "seed:prolnuti": "node scripts/seed-prolnuti.mjs",
     "test:analytics": "node scripts/verify-analytics-normalizace.mjs",
     "test:brana-cas": "npx tsx scripts/verify-brana-cas.ts",
-    "test:brana-denni-doba": "npx tsx scripts/verify-brana-denni-doba.ts"
+    "test:brana-denni-doba": "npx tsx scripts/verify-brana-denni-doba.ts",
+    "test:rotace-prolnuti": "npx tsx scripts/verify-rotace-prolnuti.ts"
   },
   "dependencies": {
     "@vercel/blob": "^2.4.0",

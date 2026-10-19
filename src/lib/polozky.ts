@@ -6,7 +6,6 @@ import {
   seraditPolozky,
 } from "./uloziste-dat";
 import {
-  jePlatnaPolozkaGalerie,
   mapovatPolozkuVerejnou,
   normalizovatSouboryProlnuti,
   overitProlnutiPolozkuVMetadatech,
@@ -16,19 +15,44 @@ import {
   PROLNUTI_MAX_SNIMKU,
   viditelnostNovehoProlnuti,
 } from "./prolnuti-snimky";
+import {
+  jePlatnyCasRotaceProlnuti,
+  polozkyVerejneGalerie,
+  vysledekPridaniProlnuti,
+  vysledekPrepnutiViditelnosti,
+  vysledekSmazaniPolozky,
+  vysledekSpusteniRotace,
+  vysledekRucnihoPresunu,
+  vysledekUpravyPolozky,
+  vysledekZmenyPoradi,
+  type SmerRucnihoPresunu,
+  type StavRotacePolozek,
+} from "./rotace-prolnuti";
+import type { UlozisteDat } from "./uloziste-dat";
 
-/** Vrátí všechny aktivní položky seřazené podle pořadí */
+function zapsatStavRotace(uloziste: UlozisteDat, stav: StavRotacePolozek): void {
+  uloziste.polozky = stav.polozky;
+  if (stav.rotaceOd) uloziste.rotaceProlnutiOd = stav.rotaceOd;
+  else delete uloziste.rotaceProlnutiOd;
+}
+
+/** Vrátí aktivní položky v pořadí, které se právě ukazuje návštěvníkům. */
 export async function ziskatAktivniPolozky(
   oidcZHeaderu?: string | null
 ): Promise<PolozkaVerejna[]> {
-  const { polozky } = await nacistData(oidcZHeaderu);
+  const uloziste = await nacistData(oidcZHeaderu);
 
-  return seraditPolozky(polozky)
-    .filter(jePlatnaPolozkaGalerie)
-    .map(mapovatPolozkuVerejnou);
+  return polozkyVerejneGalerie(
+    uloziste.polozky,
+    uloziste.rotaceProlnutiOd,
+    Date.now()
+  ).map(mapovatPolozkuVerejnou);
 }
 
-/** Vrátí všechny položky včetně neaktivních (pro administraci) */
+/**
+ * Uložené pořadí včetně skrytých položek, bez automatické rotace.
+ * Podle něj se určuje poslední publikace pro push. Administrace bere efektivní pořadí.
+ */
 export async function ziskatVsechnyPolozky(
   oidcZHeaderu?: string | null
 ): Promise<Polozka[]> {
@@ -120,7 +144,13 @@ export async function vytvoritProlnuti(
         soubory,
         aktivni: viditelnostNovehoProlnuti(data.aktivni),
       };
-      uloziste.polozky.push(novaPolozka);
+      const stav = vysledekPridaniProlnuti(
+        uloziste.polozky,
+        uloziste.rotaceProlnutiOd,
+        novaPolozka,
+        Date.now()
+      );
+      zapsatStavRotace(uloziste, stav);
     },
     oidcZHeaderu,
     {
@@ -219,15 +249,17 @@ export async function aktualizovatPolozku(
 ): Promise<void> {
   await upravitData(
     (uloziste) => {
-      const polozka = uloziste.polozky.find((p) => p.id === id);
-      if (!polozka) {
+      const stav = vysledekUpravyPolozky(
+        uloziste.polozky,
+        uloziste.rotaceProlnutiOd,
+        id,
+        data,
+        Date.now()
+      );
+      if (!stav) {
         throw new Error("Položka nebyla nalezena");
       }
-      if (data.popis !== undefined) polozka.popis = data.popis;
-      if (data.datumPorizeni !== undefined) {
-        polozka.datumPorizeni = data.datumPorizeni;
-      }
-      if (data.aktivni !== undefined) polozka.aktivni = data.aktivni;
+      zapsatStavRotace(uloziste, stav);
     },
     oidcZHeaderu,
     {
@@ -316,8 +348,15 @@ export async function prepnoutAktivni(
 ): Promise<void> {
   await upravitData(
     (uloziste) => {
-      const polozka = uloziste.polozky.find((p) => p.id === id);
-      if (polozka) polozka.aktivni = aktivni;
+      const stav = vysledekPrepnutiViditelnosti(
+        uloziste.polozky,
+        uloziste.rotaceProlnutiOd,
+        id,
+        aktivni,
+        Date.now()
+      );
+      if (!stav) return;
+      zapsatStavRotace(uloziste, stav);
     },
     oidcZHeaderu,
     {
@@ -339,7 +378,14 @@ export async function smazatPolozku(
       const index = uloziste.polozky.findIndex((p) => p.id === id);
       if (index === -1) return;
       smazana = uloziste.polozky[index];
-      uloziste.polozky.splice(index, 1);
+      const stav = vysledekSmazaniPolozky(
+        uloziste.polozky,
+        uloziste.rotaceProlnutiOd,
+        id,
+        Date.now()
+      );
+      if (!stav) return;
+      zapsatStavRotace(uloziste, stav);
     },
     oidcZHeaderu,
     {
@@ -352,17 +398,101 @@ export async function smazatPolozku(
   return smazana;
 }
 
-/** Změní pořadí položek podle pole ID */
+function chybaZastarelehoPresunu(): Error {
+  const error = new Error(
+    "Pořadí galerie se mezitím změnilo. Obnovte administraci a proveďte přesun znovu."
+  );
+  (error as Error & { bezOpakovani?: boolean }).bezOpakovani = true;
+  return error;
+}
+
+/**
+ * Posune jednu položku v pořadí, které právě platí.
+ * Šipka ani připnutí neberou celý seznam z otevřené stránky.
+ */
+export async function presunoutPolozku(
+  id: string,
+  smer: SmerRucnihoPresunu,
+  oidcZHeaderu?: string | null
+): Promise<string[]> {
+  const now = Date.now();
+  const aktualni = await nacistDataCerstve(oidcZHeaderu);
+  const nahled = vysledekRucnihoPresunu(
+    aktualni.polozky,
+    aktualni.rotaceProlnutiOd,
+    id,
+    smer,
+    now
+  );
+  if (nahled === "chybi") {
+    throw new Error("Položka nebyla nalezena");
+  }
+  if (nahled === "kraj") {
+    throw chybaZastarelehoPresunu();
+  }
+
+  const ocekavaneIds = nahled.polozky.map((polozka) => polozka.id);
+  await upravitData(
+    (uloziste) => {
+      const stav = vysledekRucnihoPresunu(
+        uloziste.polozky,
+        uloziste.rotaceProlnutiOd,
+        id,
+        smer,
+        now
+      );
+      if (stav === "chybi" || stav === "kraj") {
+        throw chybaZastarelehoPresunu();
+      }
+      zapsatStavRotace(uloziste, stav);
+    },
+    oidcZHeaderu,
+    {
+      overitPoUlozeni: (uloziste) =>
+        ocekavaneIds.every(
+          (polozkaId, index) =>
+            uloziste.polozky.find((polozka) => polozka.id === polozkaId)?.poradi ===
+            index
+        ),
+    }
+  );
+
+  return ocekavaneIds;
+}
+
+/**
+ * Celý seznam se zapíše jen tehdy, když je to jeden přesun vůči aktuálnímu pořadí.
+ * Starý seznam z prohlížeče se odmítne a nic se neuloží.
+ */
 export async function zmenitPoradi(
   ids: string[],
   oidcZHeaderu?: string | null
 ): Promise<void> {
+  const now = Date.now();
+  const aktualni = await nacistDataCerstve(oidcZHeaderu);
+  const nahled = vysledekZmenyPoradi(
+    aktualni.polozky,
+    aktualni.rotaceProlnutiOd,
+    ids,
+    now
+  );
+  if (nahled === "odmitnuto") {
+    throw chybaZastarelehoPresunu();
+  }
+  if (nahled === "bezeZmeny") return;
+
   await upravitData(
     (uloziste) => {
-      ids.forEach((id, index) => {
-        const polozka = uloziste.polozky.find((p) => p.id === id);
-        if (polozka) polozka.poradi = index;
-      });
+      const stav = vysledekZmenyPoradi(
+        uloziste.polozky,
+        uloziste.rotaceProlnutiOd,
+        ids,
+        now
+      );
+      if (stav === "odmitnuto" || stav === "bezeZmeny") {
+        throw chybaZastarelehoPresunu();
+      }
+      zapsatStavRotace(uloziste, stav);
     },
     oidcZHeaderu,
     {
@@ -373,4 +503,33 @@ export async function zmenitPoradi(
         ),
     }
   );
+}
+
+/**
+ * Spustí 24hodinové okno, aniž by změnilo pořadí.
+ * Už běžící rotaci neresetuje. Veřejné čtení galerie tuto funkci nevolá.
+ */
+export async function spustitRotaciProlnuti(
+  oidcZHeaderu?: string | null
+): Promise<"spusteno" | "uz-bezi"> {
+  const stav = await nacistDataCerstve(oidcZHeaderu);
+  if (jePlatnyCasRotaceProlnuti(stav.rotaceProlnutiOd)) return "uz-bezi";
+
+  await upravitData(
+    (uloziste) => {
+      const vysledek = vysledekSpusteniRotace(
+        uloziste.rotaceProlnutiOd,
+        Date.now()
+      );
+      if (!vysledek.spusteno) return;
+      uloziste.rotaceProlnutiOd = vysledek.rotaceOd;
+    },
+    oidcZHeaderu,
+    {
+      overitPoUlozeni: (uloziste) =>
+        jePlatnyCasRotaceProlnuti(uloziste.rotaceProlnutiOd),
+    }
+  );
+
+  return "spusteno";
 }

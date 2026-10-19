@@ -12,7 +12,8 @@ import {
   smazatNahrateSouboryProlnuti,
   prepnoutAktivniPolozky,
   smazatPolozkuAdmin,
-  zmenitPoradiPolozek,
+  presunoutPolozkuAdmin,
+  spustitRotaciProlnutiAdmin,
   odeslatPushUpozorneni,
   nahraditFotografiiPolozky,
   ulozitUpravyPolozky,
@@ -112,6 +113,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
   const [zalohy, setZalohy] = useState<ZalohaInfo[]>([]);
   const [nacitaZalohy, setNacitaZalohy] = useState(false);
   const [vytvariZalohu, setVytvariZalohu] = useState(false);
+  const [spoustiRotaci, setSpoustiRotaci] = useState(false);
   const [obnovujeZalohu, setObnovujeZalohu] = useState<string | null>(null);
   const [upravovanyId, setUpravovanyId] = useState<string | null>(null);
   const [potvrzeniSmazani, setPotvrzeniSmazani] = useState<{
@@ -178,7 +180,9 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
   const trvaleUloziste = data?.trvaleUloziste ?? false;
   const lzeVytvoritZalohu = data?.lzeVytvoritZalohu ?? false;
   const diagnoza = data?.diagnoza ?? null;
-  const posledniAktivniPolozka = polozky.find((p) => p.aktivni) ?? null;
+  const posledniAktivniPolozka = data
+    ? data.polozkaPosledniPublikace
+    : (polozky.find((p) => p.aktivni) ?? null);
   const upravovanaPolozka = upravovanyId
     ? (polozky.find((p) => p.id === upravovanyId) ?? null)
     : null;
@@ -194,6 +198,34 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
     startTransition(() => {
       router.refresh();
     });
+  };
+
+  const handleSpustitRotaci = async () => {
+    setSpoustiRotaci(true);
+    setChybaAkce("");
+    setPotvrzeniAkce("");
+    setPotvrzeniUrlSouboru(null);
+    try {
+      const vysledek = await spustitRotaciProlnutiAdmin();
+      if ("chyba" in vysledek && vysledek.chyba) {
+        setChybaAkce(vysledek.chyba);
+        return;
+      }
+      setPotvrzeniAkce(
+        "stav" in vysledek && vysledek.stav === "uz-bezi"
+          ? "Denní rotace viditelných prolnutí už běží."
+          : "Denní rotace viditelných prolnutí byla spuštěna. Pořadí se teď nemění. První posun nastane za 24 hodin."
+      );
+      obnovit();
+    } catch (error) {
+      setChybaAkce(
+        error instanceof Error
+          ? error.message
+          : "Neočekávaná chyba při spuštění rotace prolnutí"
+      );
+    } finally {
+      setSpoustiRotaci(false);
+    }
   };
 
   const zpracovatChybuAkce = (vysledek: { chyba?: string; uspech?: boolean }) => {
@@ -549,23 +581,18 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
   };
 
   const handlePosun = async (index: number, smer: "nahoru" | "dolu") => {
-    const noveIds = polozky.map((p) => p.id);
-    const cil = smer === "nahoru" ? index - 1 : index + 1;
-    if (cil < 0 || cil >= noveIds.length) return;
+    const polozka = polozky[index];
+    if (!polozka) return;
 
-    [noveIds[index], noveIds[cil]] = [noveIds[cil], noveIds[index]];
-    const vysledek = await zmenitPoradiPolozek(noveIds);
+    const vysledek = await presunoutPolozkuAdmin(polozka.id, smer);
     if (zpracovatChybuAkce(vysledek)) obnovit();
   };
 
   const handlePripnoutNahoru = async (index: number) => {
-    if (index <= 0) return;
+    const polozka = polozky[index];
+    if (!polozka || index <= 0) return;
 
-    const noveIds = polozky.map((p) => p.id);
-    const [id] = noveIds.splice(index, 1);
-    noveIds.unshift(id);
-
-    const vysledek = await zmenitPoradiPolozek(noveIds);
+    const vysledek = await presunoutPolozkuAdmin(polozka.id, "pripnout");
     if (zpracovatChybuAkce(vysledek)) obnovit();
   };
 
@@ -864,6 +891,32 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
             }
           }}
         />
+
+        <section className="space-y-2 border border-text-velmiJemny/20 p-4">
+          <h2 className="text-sm font-light text-text-jemny">
+            denní rotace prolnutí
+          </h2>
+          {data?.rotaceProlnutiOd ? (
+            <p className="text-xs text-text-velmiJemny">
+              Denní rotace je aktivní. Probíhá automaticky.
+            </p>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => void handleSpustitRotaci()}
+                disabled={spoustiRotaci}
+                className="tlacitko-klidne disabled:opacity-30"
+              >
+                {spoustiRotaci ? "spouštím…" : "Spustit denní rotaci"}
+              </button>
+              <p className="text-xs text-text-velmiJemny">
+                Použít pouze jednou při prvním spuštění. Poté rotace probíhá
+                automaticky.
+              </p>
+            </>
+          )}
+        </section>
 
         <AdminSeznamPolozek
           polozky={polozky}

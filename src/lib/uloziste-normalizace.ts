@@ -1,4 +1,5 @@
 import type { UlozisteDat } from "./uloziste-dat";
+import { jePlatnyCasRotaceProlnuti } from "./rotace-prolnuti";
 
 /** Sjednocená normalizace JSON úložiště – zachová všechna agregovaná pole */
 export function normalizovatUloziste(data: UlozisteDat): UlozisteDat {
@@ -15,5 +16,8 @@ export function normalizovatUloziste(data: UlozisteDat): UlozisteDat {
     chovaniNavstevnikuAgregovane: data.chovaniNavstevnikuAgregovane,
     verzeUloziste: data.verzeUloziste,
     geografieNavstev: data.geografieNavstev,
+    rotaceProlnutiOd: jePlatnyCasRotaceProlnuti(data.rotaceProlnutiOd)
+      ? data.rotaceProlnutiOd.trim()
+      : undefined,
   };
 }
