@@ -109,13 +109,18 @@ export type BranaAnalytikaDokument = {
 };
 
 /**
- * Návštěva, otevření pohledu, procházení seznamu, nebo stisk sdílení.
+ * Návštěva, otevření pohledu, procházení seznamu, stisk sdílení,
+ * nebo kliknutí na odkaz Třeboň po celý rok v zápatí.
  * Ostatní typy se odmítnou. Starší dávka `{ typ: "navsteva" }` zůstává platná.
  * Způsob spuštění a druh návštěvníka jsou volitelné.
  * Sdílení je jen `{ typ: "sdileni" }` a přičítá denní počet stisků.
+ * Proklik je jen `{ typ: "proklikTrebon" }` a přičítá denní počet kliknutí.
  */
 export type BranaAnalytikaUdalostSdileni = {
   typ: "sdileni";
+};
+export type BranaAnalytikaUdalostProklikTrebon = {
+  typ: "proklikTrebon";
 };
 export type BranaAnalytikaUdalostNavstevy = {
   typ: "navsteva";
@@ -143,7 +148,8 @@ export type BranaAnalytikaUdalost =
   | BranaAnalytikaUdalostNavstevy
   | BranaAnalytikaUdalostPohledu
   | BranaAnalytikaUdalostProchazeni
-  | BranaAnalytikaUdalostSdileni;
+  | BranaAnalytikaUdalostSdileni
+  | BranaAnalytikaUdalostProklikTrebon;
 
 export type VysledekBranaAnalytiky =
   | { ok: true }
@@ -449,6 +455,7 @@ const POVOLENE_KLICE_NAVSTEVY = new Set([
 const POVOLENE_KLICE_POHLEDU = new Set(["typ", "pohled", "raz"]);
 const POVOLENE_KLICE_PROCHAZENI = new Set(["typ", "pohled", "metrika"]);
 const POVOLENE_KLICE_SDILENI = new Set(["typ"]);
+const POVOLENE_KLICE_PROKLIK_TREBON = new Set(["typ"]);
 
 function jeSpusteni(hodnota: unknown): hodnota is BranaAnalytikaSpusteni {
   return (BRANA_ANALYTIKA_SPUSTENI as readonly string[]).includes(
@@ -477,7 +484,25 @@ function vycistitUdalost(raw: unknown): BranaAnalytikaUdalost | null {
   if (zaznam.typ === "sdileni") {
     return vycistitUdalostSdileni(zaznam);
   }
+  if (zaznam.typ === "proklikTrebon") {
+    return vycistitUdalostProklikTrebon(zaznam);
+  }
   return vycistitUdalostNavstevy(raw);
+}
+
+function vycistitUdalostProklikTrebon(
+  zaznam: Record<string, unknown>,
+): BranaAnalytikaUdalostProklikTrebon | null {
+  for (const klic of Object.keys(zaznam)) {
+    if (!POVOLENE_KLICE_PROKLIK_TREBON.has(klic)) {
+      return null;
+    }
+  }
+  if (zaznam.typ !== "proklikTrebon") {
+    return null;
+  }
+
+  return { typ: "proklikTrebon" };
 }
 
 function vycistitUdalostSdileni(
@@ -649,6 +674,15 @@ function pricistSdileni(den: BranaAnalytikaDen): BranaAnalytikaDen {
   return { ...den, sdileniKlik };
 }
 
+function pricistProklikTrebon(den: BranaAnalytikaDen): BranaAnalytikaDen {
+  const proklikTrebon = den.proklikTrebon + 1;
+  if (!Number.isSafeInteger(proklikTrebon)) {
+    throw new Error("Počet prokliků přesáhl bezpečný rozsah. Nic nebylo uloženo.");
+  }
+
+  return { ...den, proklikTrebon };
+}
+
 function pricistNavstevu(
   den: BranaAnalytikaDen,
   udalost: BranaAnalytikaUdalostNavstevy,
@@ -706,9 +740,11 @@ function pricistNavstevu(
 }
 
 /**
- * Přičte návštěvu, otevření pohledu, procházení seznamu, nebo stisk sdílení.
+ * Přičte návštěvu, otevření pohledu, procházení seznamu, stisk sdílení,
+ * nebo kliknutí na odkaz Třeboň po celý rok.
  * Oblast je odhad serveru a přičítá se jen k návštěvě.
- * Stisk sdílení mění jen denní počet kliknutí.
+ * Stisk sdílení mění jen denní počet sdílení.
+ * Proklik mění jen denní počet kliknutí na zápatí.
  * Starší pole konce obsahu u dvou pohledů se těmito událostmi nemění.
  */
 export function aplikovatDavkuAnalytiky(
@@ -728,6 +764,8 @@ export function aplikovatDavkuAnalytiky(
       den = pricistProchazeni(den, udalost);
     } else if (udalost.typ === "sdileni") {
       den = pricistSdileni(den);
+    } else if (udalost.typ === "proklikTrebon") {
+      den = pricistProklikTrebon(den);
     } else {
       den = pricistNavstevu(den, udalost, oblast);
     }

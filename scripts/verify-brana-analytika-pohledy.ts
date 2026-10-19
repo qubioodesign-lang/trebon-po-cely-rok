@@ -493,7 +493,12 @@ async function testPohledy(): Promise<void> {
   assert(komponenta.includes("[stranka]"), "měření sleduje skutečně zobrazenou stránku");
   assert(hlavni.includes("<BranaRozpoznaniNavstevy stranka={stranka} />"), "veřejná obrazovka předá svůj pohled");
   assert(!swipe.includes("analytika"), "swipe zůstává původní navigace");
-  assert(!obrazovka.includes("analytika"), "obrazovka nedostala nový navigační mechanismus");
+  assert(
+    !obrazovka.includes("napojeni-navstevy") &&
+      !obrazovka.includes("prochazeni-obsahu") &&
+      !obrazovka.includes('typ: "pohled"'),
+    "obrazovka nedostala nový navigační mechanismus",
+  );
   assert(!galerie.includes("BranaRozpoznaniNavstevy"), "galerie měření pohledů nemá");
   assert(!komponenta.includes("document.cookie"), "měření nezakládá cookie");
 }

@@ -11,6 +11,8 @@ import {
   type BranaSdilenaPohledovaData,
 } from "@/lib/brana/pohledy-data";
 import { rozlozAkci } from "@/lib/brana/admin/akce-rozlozeni";
+import { BRANA_ANALYTIKA_PRIJEM_ZAPNUT } from "@/lib/brana/analytika/model";
+import { odeslatKlikNaTrebon } from "@/lib/brana/analytika/odeslani-navstevy";
 import {
   useBranaNavigace,
   useBranaOdkazNaTrebon,
@@ -28,6 +30,21 @@ import { BranaTlacitkoSdileni } from "./BranaTlacitkoSdileni";
 import { BranaTextAktualizace, BranaAktualizaceProvider } from "./BranaTextAktualizace";
 
 const JEDNOPISMENNE_PREDLOZKY = /(\s)([ksvzou])(\s+)(?=\S)/gi;
+
+/** Kliknutí na zápatí. Požadavek se nečeká a chyba nezastaví přechod. */
+function zaznamenatKlikNaTrebon(): void {
+  if (!BRANA_ANALYTIKA_PRIJEM_ZAPNUT) {
+    return;
+  }
+
+  try {
+    void odeslatKlikNaTrebon((url, pozadavek) => fetch(url, pozadavek)).catch(
+      () => undefined,
+    );
+  } catch {
+    // Analytika nesmí změnit otevření odkazu.
+  }
+}
 
 /** Nezlomitelná mezera za jednopísmennou předložkou – pouze při vykreslení. */
 function zalomPredlozky(text: string): string {
@@ -213,7 +230,11 @@ export function BranaObrazovka({
       }
     >
       <div className="brana-pata-stred">
-        <Link href={trebonHref} className="brana-pata-odkaz">
+        <Link
+          href={trebonHref}
+          className="brana-pata-odkaz"
+          onClick={zaznamenatKlikNaTrebon}
+        >
           <span className="brana-pata-odkaz-text">
             <span className="brana-pata-odkaz-hlavni">TŘEBOŇ</span>
             <span className="brana-pata-odkaz-pokracovani"> po celý rok</span>

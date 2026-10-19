@@ -20,6 +20,7 @@ import {
 } from "../src/lib/brana/analytika/model";
 import {
   BRANA_ANALYTIKA_ODESLANI_CESTA,
+  odeslatKlikNaTrebon,
   odeslatKlikSdileni,
   type BranaAnalytikaPozadavek,
 } from "../src/lib/brana/analytika/odeslani-navstevy";
@@ -444,6 +445,24 @@ async function testDenAStarsiUdalosti(): Promise<void> {
     CAS,
   );
   assert(jenNavsteva.dny[DEN]?.sdileniKlik === 0 && jenNavsteva.dny[DEN]?.navstevy === 1, "starší událost návštěvy zůstává platná");
+
+  const telaProkliku: unknown[] = [];
+  let hozenoProklik = false;
+  await sUlozistem(new Map(), async () => {
+    const vysledek = await odeslatKlikNaTrebon(async (_adresa, pozadavek) => {
+      telaProkliku.push(JSON.parse(pozadavek.body));
+      assert(pozadavek.keepalive === true, "proklik odchází s keepalive");
+      return { ok: true };
+    }).catch(() => {
+      hozenoProklik = true;
+      return { pokusu: 0, odeslano: false };
+    });
+    assert(!hozenoProklik && vysledek.odeslano, "odeslání prokliku volajícího nevyhodí");
+    assert(
+      JSON.stringify(telaProkliku[0]) === JSON.stringify({ udalosti: [{ typ: "proklikTrebon" }] }),
+      "odesílá se jen typ proklikTrebon",
+    );
+  });
 }
 
 function testZdroje(): void {
@@ -482,6 +501,16 @@ function testZdroje(): void {
   assert(sdileni.includes('const title = "BRÁNA do Třeboně"'), "titulek sdílení zůstal");
   assert(!klik.includes("fetch(") && !klik.includes("localStorage"), "obsluha stisku sama nic neodesílá");
   assert(!galerie.includes("odeslatKlikSdileni") && !galerie.includes("sdileni-klik"), "galerie měření BRÁNY nemá");
+  assert(!galerie.includes("odeslatKlikNaTrebon") && !galerie.includes("proklikTrebon"), "galerie proklik BRÁNY nemá");
+  const obrazovka = readFileSync(join("src", "components", "brana", "BranaObrazovka.tsx"), "utf8");
+  assert(
+    obrazovka.includes("href={trebonHref}") &&
+      obrazovka.includes("onClick={zaznamenatKlikNaTrebon}") &&
+      obrazovka.includes('className="brana-pata-odkaz"') &&
+      !obrazovka.includes("preventDefault") &&
+      !obrazovka.includes("import("),
+    "zápatí odešle proklik hned při kliknutí a přechod neruší",
+  );
   assert(BRANA_ANALYTIKA_ODESLANI_CESTA === "/api/brana/analytika", "sdílení používá existující endpoint");
 }
 

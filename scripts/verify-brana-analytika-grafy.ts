@@ -109,6 +109,30 @@ function testObdobi(): void {
   );
 }
 
+function testProklikObdobi(): void {
+  const dny = {
+    [DNES]: denS((den) => {
+      den.proklikTrebon = 1;
+    }),
+    [posun(DNES, -3)]: denS((den) => {
+      den.proklikTrebon = 2;
+    }),
+    [posun(DNES, -20)]: denS((den) => {
+      den.proklikTrebon = 4;
+    }),
+    [posun(DNES, -60)]: denS((den) => {
+      den.proklikTrebon = 8;
+    }),
+    [posun(DNES, -200)]: denS((den) => {
+      den.proklikTrebon = 16;
+    }),
+  };
+  assert(rada(7, dny).proklikTrebon.soucet === 3, "7 dní sečte jen kliknutí v týdnu");
+  assert(rada(30, dny).proklikTrebon.soucet === 7, "30 dní přidá kliknutí z tohoto měsíce");
+  assert(rada(90, dny).proklikTrebon.soucet === 15, "90 dní přidá kliknutí z posledních tří měsíců");
+  assert(rada(365, dny).proklikTrebon.soucet === 31, "rok sečte všechna kliknutí v uchování");
+}
+
 function testRokANuly(): void {
   const stary = posun(hraniceUchovaniGrafu(DNES), -1);
   const podklady = rada(365, {
@@ -189,6 +213,7 @@ function testRady(): void {
       den.prochazeni.dnes = { delsi: 1, konec: 1 };
       den.konecObsahu = { vikend: 99, "7-dni": 99 };
       den.sdileniKlik = 4;
+      den.proklikTrebon = 6;
       den.zdroje.sdileni = 1;
       den.zdroje.qr = 5;
       den.zdroje.whatsapp = 7;
@@ -234,6 +259,10 @@ function testRady(): void {
       podklady.sdileni.soucetPrichod === 1 &&
       !("pomer" in podklady.sdileni),
     "stisk a příchod ze sdílení nejsou konverzní poměr",
+  );
+  assert(
+    podklady.proklikTrebon.soucet === 6 && podklady.sdileni.soucetKlik === 4,
+    "kliknutí na Třeboň po celý rok je samostatný součet",
   );
   assert(
     podklady.qr.soucetCelkem === 5 &&
@@ -392,6 +421,7 @@ function testZapojeni(): void {
 
 async function main(): Promise<void> {
   testObdobi();
+  testProklikObdobi();
   testRokANuly();
   testRady();
   testStarsiAPrazdne();

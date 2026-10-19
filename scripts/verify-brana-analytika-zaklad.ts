@@ -14,6 +14,7 @@ import {
   BRANA_ANALYTIKA_PRIJEM_ZAPNUT,
   aplikovatDavkuAnalytiky,
   isoDenZData,
+  validovatDavkuAnalytiky,
   parsovatDokumentAnalytiky,
   prazdnyDenAnalytiky,
   prazdnyDokumentAnalytiky,
@@ -556,6 +557,52 @@ function testHraniceModulu(): void {
   );
 }
 
+function testProklikTrebon(): void {
+  const poKliku = aplikovatDavkuAnalytiky(
+    prazdnyDokumentAnalytiky(),
+    [{ typ: "proklikTrebon" }, { typ: "proklikTrebon" }],
+    CAS,
+  );
+  const den = poKliku.dny[DEN];
+  assert(den?.proklikTrebon === 2, "dva prokliky dají denní součet 2");
+  assert(
+    den?.navstevy === 0 &&
+      den.novi === 0 &&
+      den.vracejici === 0 &&
+      den.sdileniKlik === 0 &&
+      den.zdroje.qr === 0 &&
+      den.zdroje.sdileni === 0 &&
+      den.pohledy.dnes.prvni === 0 &&
+      den.prochazeni.dnes.delsi === 0 &&
+      den.oblast.trebonsko === 0,
+    "proklik mění jen své počítadlo",
+  );
+
+  const poOstatnich = aplikovatDavkuAnalytiky(
+    poKliku,
+    [
+      { typ: "navsteva" },
+      { typ: "sdileni" },
+      { typ: "pohled", pohled: "dnes", raz: "prvni" },
+      { typ: "prochazeni", pohled: "dnes", metrika: "delsi" },
+    ],
+    CAS,
+  );
+  const dalsi = poOstatnich.dny[DEN];
+  assert(dalsi?.proklikTrebon === 2, "ostatní události proklik nemění");
+  assert(
+    dalsi?.navstevy === 1 && dalsi.sdileniKlik === 1 && dalsi.pohledy.dnes.prvni === 1,
+    "ostatní události se přičtou ve svých počítadlech",
+  );
+
+  const cisty = validovatDavkuAnalytiky({ udalosti: [{ typ: "proklikTrebon" }] });
+  const cizi = validovatDavkuAnalytiky({
+    udalosti: [{ typ: "proklikTrebon", url: "https://www.trebonpocelyrok.cz" }],
+  });
+  assert(cisty.ok && cisty.udalosti.length === 1, "čistý proklik se přijme");
+  assert(!cizi.ok, "proklik s cizím polem se odmítne");
+}
+
 async function main(): Promise<void> {
   await testSdkIfMatch();
   await testOdmitnuti();
@@ -565,6 +612,7 @@ async function main(): Promise<void> {
   await testZalozeni();
   await testKonfliktLimit();
   await testNavstevnost();
+  testProklikTrebon();
   testHraniceModulu();
 
   if (selhalo > 0) {

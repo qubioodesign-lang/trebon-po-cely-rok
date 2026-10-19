@@ -145,9 +145,16 @@ function testZapojeni(): void {
       grafy.includes("Rok"),
     "přepínač začíná na 30 dnech a má čtyři období",
   );
-  for (const nadpis of ["Návštěvnost", "Návratovost", "Způsob spuštění", "Geografie", "Kalendář", "Procházení Kalendáře", "Sdílení", "QR"]) {
+  for (const nadpis of ["Návštěvnost", "Návratovost", "Způsob spuštění", "Geografie", "Kalendář", "Procházení Kalendáře", "Sdílení", "Třeboň po celý rok", "QR"]) {
     assert(grafy.includes(`nadpis="${nadpis}"`) || grafy.includes(`"${nadpis}"`), `graf ${nadpis} je na stránce`);
   }
+  const poradiSdileni = grafy.indexOf('nadpis="Sdílení"');
+  const poradiTrebon = grafy.indexOf('nadpis="Třeboň po celý rok"');
+  const poradiQr = grafy.indexOf('nadpis="QR"');
+  assert(
+    poradiSdileni !== -1 && poradiTrebon > poradiSdileni && poradiQr > poradiTrebon,
+    "graf Třeboň po celý rok je hned za Sdílením",
+  );
   assert(
     grafy.includes("onPointerDown") &&
       grafy.includes("onPointerMove") &&

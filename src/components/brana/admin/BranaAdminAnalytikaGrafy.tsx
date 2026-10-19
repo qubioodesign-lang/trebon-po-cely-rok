@@ -139,6 +139,14 @@ export function BranaAdminAnalytikaGrafy({
         ]}
       />
       <GrafDvou
+        key={`trebon-${obdobi}`}
+        nadpis="Třeboň po celý rok"
+        popis="Počet kliknutí na odkaz v zápatí BRÁNY. Není to počet osob ani dokončená návštěva cílového webu. Měření začíná nasazením této funkce; starší nuly nejsou důkaz nulového zájmu."
+        souhrn={`Kliknutí ${textPoctu(data.proklikTrebon.soucet)}.`}
+        body={data.proklikTrebon.klik}
+        krivky={[krivkaPoctu("Kliknutí", 0, data.proklikTrebon.klik)]}
+      />
+      <GrafDvou
         key={`qr-${obdobi}`}
         nadpis="QR"
         popis="QR desktop je část QR celkem. Součty se nesčítají."

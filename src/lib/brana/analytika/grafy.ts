@@ -107,6 +107,10 @@ export type PodkladyGrafuBrany = {
     soucetKlik: number | null;
     soucetPrichod: number | null;
   };
+  proklikTrebon: {
+    klik: BodPoctuGrafu[];
+    soucet: number | null;
+  };
   qr: {
     celkem: BodPoctuGrafu[];
     desktop: BodPoctuGrafu[];
@@ -128,6 +132,7 @@ type MetrikyDne = {
   prochazeni: Record<BranaAnalytikaPohled, { delsi: number; konec: number }>;
   sdileniKlik: number;
   sdileni: number;
+  proklikTrebon: number;
   qr: number;
   qrDesktop: number;
 };
@@ -184,6 +189,7 @@ function prazdneMetriky(): MetrikyDne {
     prochazeni,
     sdileniKlik: 0,
     sdileni: 0,
+    proklikTrebon: 0,
     qr: 0,
     qrDesktop: 0,
   };
@@ -213,6 +219,7 @@ function metrikyZDne(den: BranaAnalytikaDen): MetrikyDne {
     prochazeni,
     sdileniKlik: den.sdileniKlik,
     sdileni: den.zdroje.sdileni,
+    proklikTrebon: den.proklikTrebon,
     qr: den.zdroje.qr,
     qrDesktop: den.qrDesktop,
   };
@@ -466,6 +473,7 @@ export function sestavitPodkladyGrafu(
 
   const klik = rada(aktualniDny, (metriky) => metriky.sdileniKlik);
   const prichod = rada(aktualniDny, (metriky) => metriky.sdileni);
+  const proklikTrebon = rada(aktualniDny, (metriky) => metriky.proklikTrebon);
   const qrCelkem = rada(aktualniDny, (metriky) => metriky.qr);
   const qrDesktop = rada(aktualniDny, (metriky) => metriky.qrDesktop);
 
@@ -518,6 +526,10 @@ export function sestavitPodkladyGrafu(
       prichod,
       soucetKlik: soucetHodnot(klik),
       soucetPrichod: soucetHodnot(prichod),
+    },
+    proklikTrebon: {
+      klik: proklikTrebon,
+      soucet: soucetHodnot(proklikTrebon),
     },
     qr: {
       celkem: qrCelkem,

@@ -116,6 +116,20 @@ async function odeslatPripravenyPozadavek(
   }
 }
 
+/** Jedno kliknutí na odkaz Třeboň po celý rok. Neúspěch se neopakuje a fronta se nezakládá. */
+export async function odeslatKlikNaTrebon(
+  odeslat: BranaAnalytikaOdesilac,
+): Promise<BranaOdeslaniVysledek> {
+  if (!jeOdeslaniBranaAnalytikyPovoleno()) {
+    return { pokusu: 0, odeslano: false };
+  }
+
+  return odeslatPripravenyPozadavek(
+    sestavitPozadavekDavky([{ typ: "proklikTrebon" }]),
+    odeslat,
+  );
+}
+
 /** Jeden stisk sdílení. Neúspěch se neopakuje a fronta se nezakládá. */
 export async function odeslatKlikSdileni(
   odeslat: BranaAnalytikaOdesilac,
