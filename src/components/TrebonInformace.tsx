@@ -19,14 +19,8 @@ export function TrebonInformace() {
       >
         <div className="trebon-informace-text">
           <p>
-            Třeboň po celý rok je pro všechny, kterým se po Třeboni občas
-            zasteskne.
+            Třeboň po celý rok je pro všechny, kterým se po Třeboni občas zasteskne. Pro chvíle mezi návštěvami. Pro návraty ve vzpomínkách. Pro místa, na která se člověk rád vrací. Jen malé kousky Třeboně během celého roku.
           </p>
-          <p>
-            Pro chvíle mezi návštěvami. Pro návraty ve vzpomínkách. Pro místa,
-            na která se člověk rád vrací.
-          </p>
-          <p>Jen malé kousky Třeboně během celého roku.</p>
           <p>
             Analytika neukládá jména, e-mailové adresy, IP adresy ani přesné
             souřadnice. V prohlížeči používá jednoduché značky pro rozlišení
