@@ -999,6 +999,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
             <AdminPolePopisu
               key={klicPopisuProlnuti}
               name="popis"
+              zivyNahledProlnuti
               className="w-full border border-text-velmiJemny/30 bg-transparent px-3 py-2 text-sm text-text outline-none"
             />
             <input

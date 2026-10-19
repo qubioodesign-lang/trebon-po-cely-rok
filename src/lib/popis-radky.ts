@@ -55,6 +55,32 @@ export function maPrilisDlouhyRadek(popis: string): boolean {
 export const HLASKA_MAX_RADKU = "Maximálně 4 řádky.";
 export const HLASKA_DLOUHY_RADEK =
   "Řádek přesahuje šířku textu na mobilu.";
+export const HLASKA_DLOUHY_RADEK_PROLNUTI =
+  "Řádek je delší než mobilní sloupec a v náhledu se zalomí. Enter zůstává.";
+
+/**
+ * Mobilní popisek prolnutí.
+ * Jednořádkový vzhled zůstává jako v galerii.
+ * Ruční Enter zůstává. Řádek delší než sloupec se zalomí dovnitř,
+ * i na užším displeji než 240 px.
+ */
+export function tridyMobilnihoPopisuProlnuti(popis: string): string {
+  const zaklad = "text-center text-sm font-light tracking-wide text-white/90";
+  if (!maViceRadkuPopisu(popis)) {
+    return zaklad;
+  }
+  return `${zaklad} min-w-0 whitespace-pre-wrap break-words leading-[1.625]`;
+}
+
+/** Sloupec mobilního popisku. Na užším displeji se stáhne na dostupnou šířku. */
+export function stylMobilnihoPopisuProlnuti(
+  popis: string,
+): { maxWidth: string } | undefined {
+  if (!maViceRadkuPopisu(popis)) {
+    return undefined;
+  }
+  return { maxWidth: "min(240px, 100%)" };
+}
 
 /**
  * Nová hodnota popisu: při > 4 řádcích zachová předchozí text a vrátí hlášku.

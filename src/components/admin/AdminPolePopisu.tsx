@@ -3,12 +3,15 @@
 import { useEffect, useState } from "react";
 import {
   HLASKA_DLOUHY_RADEK,
+  HLASKA_DLOUHY_RADEK_PROLNUTI,
   HLASKA_MAX_RADKU,
   MAX_RADKU_POPISU,
   maPrilisDlouhyRadek,
   navrhnoutZmenuPopisu,
   prekrocilMaxRadku,
   radkyPopisu,
+  stylMobilnihoPopisuProlnuti,
+  tridyMobilnihoPopisuProlnuti,
 } from "@/lib/popis-radky";
 
 interface PropsAdminPolePopisu {
@@ -17,6 +20,8 @@ interface PropsAdminPolePopisu {
   defaultValue?: string;
   onChange?: (popis: string) => void;
   className?: string;
+  /** Živý mobilní náhled jen u textu prolnutí. */
+  zivyNahledProlnuti?: boolean;
 }
 
 /**
@@ -29,6 +34,7 @@ export function AdminPolePopisu({
   defaultValue = "",
   onChange,
   className = "w-full border border-text-velmiJemny/30 bg-transparent px-3 py-2 text-sm text-text outline-none focus:border-text-jemny/50",
+  zivyNahledProlnuti = false,
 }: PropsAdminPolePopisu) {
   const [vnitrni, setVnitrni] = useState(value ?? defaultValue);
   const popis = value !== undefined ? value : vnitrni;
@@ -52,6 +58,12 @@ export function AdminPolePopisu({
     setHlaskaMaxRadku(vysledek.hlaskaMaxRadku);
     setHlaskaSirka(vysledek.hlaskaSirka);
   };
+
+  const hlaskaSirkyVEditoru = zivyNahledProlnuti
+    ? hlaskaSirka
+      ? HLASKA_DLOUHY_RADEK_PROLNUTI
+      : null
+    : hlaskaSirka;
 
   return (
     <div className="space-y-1">
@@ -89,8 +101,28 @@ export function AdminPolePopisu({
       {hlaskaMaxRadku ? (
         <p className="text-[10px] font-light text-text-jemny">{hlaskaMaxRadku}</p>
       ) : null}
-      {hlaskaSirka ? (
-        <p className="text-[10px] font-light text-text-jemny">{hlaskaSirka}</p>
+      {hlaskaSirkyVEditoru ? (
+        <p className="text-[10px] font-light text-text-jemny">
+          {hlaskaSirkyVEditoru}
+        </p>
+      ) : null}
+      {zivyNahledProlnuti ? (
+        <div className="space-y-1 pt-2">
+          <p className="text-[10px] font-light text-text-jemny">
+            mobilní náhled textu
+          </p>
+          <div
+            className="mx-auto flex flex-col items-center bg-black/80 px-6 py-6 text-center"
+            style={{ width: "min(390px, 100%)" }}
+          >
+            <p
+              className={tridyMobilnihoPopisuProlnuti(popis)}
+              style={stylMobilnihoPopisuProlnuti(popis)}
+            >
+              {popis || "\u00a0"}
+            </p>
+          </div>
+        </div>
       ) : null}
     </div>
   );

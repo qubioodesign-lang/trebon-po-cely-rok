@@ -81,6 +81,7 @@ export function AdminFormularUpravy({
         <AdminPolePopisu
           value={uprava.popis}
           onChange={(popis) => onZmena({ popis })}
+          zivyNahledProlnuti={polozka.typ === "prolnuti"}
         />
       </label>
 

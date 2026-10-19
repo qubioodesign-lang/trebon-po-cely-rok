@@ -3,7 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { Polozka, ProlnutiCasovaniNastaveni } from "@/types";
 import { mapovatPolozkuVerejnou } from "@/lib/polozka-soubory";
-import { maViceRadkuPopisu } from "@/lib/popis-radky";
+import {
+  stylMobilnihoPopisuProlnuti,
+  tridyMobilnihoPopisuProlnuti,
+} from "@/lib/popis-radky";
 import { ZobrazeniProlnuti } from "@/components/ZobrazeniProlnuti";
 import {
   SipkaPrehratProlnuti,
@@ -14,14 +17,6 @@ interface PropsAdminNahledProlnuti {
   polozka: Polozka;
   casovani: ProlnutiCasovaniNastaveni;
   onZavrit: () => void;
-}
-
-function tridyPopisu(popis: string): string {
-  const zaklad = "text-sm font-light tracking-wide text-white/90";
-  if (!maViceRadkuPopisu(popis)) {
-    return zaklad;
-  }
-  return `${zaklad} max-w-[240px] whitespace-pre leading-[1.625]`;
 }
 
 /**
@@ -110,7 +105,12 @@ export function AdminNahledProlnuti({
           )}
 
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-6 pb-[calc(2.75rem+env(safe-area-inset-bottom,0px))] text-center">
-            <p className={tridyPopisu(verejna.popis)}>{verejna.popis}</p>
+            <p
+              className={tridyMobilnihoPopisuProlnuti(verejna.popis)}
+              style={stylMobilnihoPopisuProlnuti(verejna.popis)}
+            >
+              {verejna.popis}
+            </p>
           </div>
         </div>
       </div>

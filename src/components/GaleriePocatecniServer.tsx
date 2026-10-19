@@ -1,5 +1,9 @@
 import type { PolozkaVerejna } from "@/types";
-import { maViceRadkuPopisu } from "@/lib/popis-radky";
+import {
+  maViceRadkuPopisu,
+  stylMobilnihoPopisuProlnuti,
+  tridyMobilnihoPopisuProlnuti,
+} from "@/lib/popis-radky";
 import { GalerieKritickyCss } from "./GalerieKritickyCss";
 import { LinkaPodPopisem } from "./LinkaPodPopisem";
 import { OdkazNaBranu } from "./OdkazNaBranu";
@@ -133,7 +137,18 @@ export function GaleriePocatecniServer({
             </div>
 
             <div className="absolute inset-x-0 bottom-0 z-20 flex flex-col items-center px-6 pb-[calc(2.75rem+env(safe-area-inset-bottom,0px))] text-center md:hidden">
-              <p className={tridyPopisuGalerie(polozka.popis, "mobil")}>
+              <p
+                className={
+                  polozka.typ === "prolnuti"
+                    ? tridyMobilnihoPopisuProlnuti(polozka.popis)
+                    : tridyPopisuGalerie(polozka.popis, "mobil")
+                }
+                style={
+                  polozka.typ === "prolnuti"
+                    ? stylMobilnihoPopisuProlnuti(polozka.popis)
+                    : undefined
+                }
+              >
                 {polozka.popis}
               </p>
               <div className="relative my-3 flex w-full items-center justify-center">

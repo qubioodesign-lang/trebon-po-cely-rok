@@ -24,7 +24,11 @@ import { useMetriky } from "@/hooks/useMetriky";
 import { useAnalytics } from "@/hooks/useAnalytics";
 import { useChovaniNavstevnika } from "@/hooks/useChovaniNavstevnika";
 import { LinkaPodPopisem } from "./LinkaPodPopisem";
-import { maViceRadkuPopisu } from "@/lib/popis-radky";
+import {
+  maViceRadkuPopisu,
+  stylMobilnihoPopisuProlnuti,
+  tridyMobilnihoPopisuProlnuti,
+} from "@/lib/popis-radky";
 
 function tridyPopisuGalerie(
   popis: string,
@@ -451,7 +455,18 @@ export function GalerieHlavni({
 
           {/* Popis a odkaz přes fotografií – pouze mobil, nad gradientem (z-20) */}
           <div className="absolute inset-x-0 bottom-0 z-20 flex flex-col items-center px-6 pb-[calc(2.75rem+env(safe-area-inset-bottom,0px))] text-center md:hidden">
-            <p className={tridyPopisuGalerie(aktualniPolozka.popis, "mobil")}>
+            <p
+              className={
+                aktualniPolozka.typ === "prolnuti"
+                  ? tridyMobilnihoPopisuProlnuti(aktualniPolozka.popis)
+                  : tridyPopisuGalerie(aktualniPolozka.popis, "mobil")
+              }
+              style={
+                aktualniPolozka.typ === "prolnuti"
+                  ? stylMobilnihoPopisuProlnuti(aktualniPolozka.popis)
+                  : undefined
+              }
+            >
               {aktualniPolozka.popis}
             </p>
             <div className="relative my-3 flex w-full items-center justify-center">
