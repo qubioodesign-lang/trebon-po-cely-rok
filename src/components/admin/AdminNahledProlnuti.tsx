@@ -104,7 +104,7 @@ export function AdminNahledProlnuti({
             </div>
           )}
 
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-6 pb-[calc(2.75rem+env(safe-area-inset-bottom,0px))] text-center">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col items-center px-6 pb-[calc(2.75rem+env(safe-area-inset-bottom,0px))] text-center">
             <p
               className={tridyMobilnihoPopisuProlnuti(verejna.popis)}
               style={stylMobilnihoPopisuProlnuti(verejna.popis)}
