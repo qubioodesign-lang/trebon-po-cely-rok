@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { ziskatOidcZHlavicek } from "@/lib/env-blob";
+import { odeslatTrebonSpravceUpozorneniNaVzkaz } from "@/lib/trebon-spravce-upozorneni-odeslani";
 import { MAX_DELKA_VZKAZU, pridatVzkaz } from "@/lib/vzkaz-treboni";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,13 @@ export async function POST(request: NextRequest) {
 
     const oidcHeader = await ziskatOidcZHlavicek();
     await pridatVzkaz(text, oidcHeader);
+    after(async () => {
+      try {
+        await odeslatTrebonSpravceUpozorneniNaVzkaz();
+      } catch (error) {
+        console.error("[trebon-vzkaz-push] neočekávané selhání", error);
+      }
+    });
 
     return NextResponse.json({ uspech: true });
   } catch (error) {

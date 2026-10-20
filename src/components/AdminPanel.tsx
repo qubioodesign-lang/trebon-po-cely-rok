@@ -35,6 +35,7 @@ import { AdminChovaniNavstevniku } from "./admin/AdminChovaniNavstevniku";
 import { AdminVylouceniZeStatistik } from "./admin/AdminVylouceniZeStatistik";
 import { AdminNastaveniProlnuti } from "./admin/AdminNastaveniProlnuti";
 import { AdminDesktopPozvanka } from "./admin/AdminDesktopPozvanka";
+import { AdminSpravceUpozorneni } from "./admin/AdminSpravceUpozorneni";
 import { AdminVzkazyTreboni } from "./admin/AdminVzkazyTreboni";
 import { AdminPotvrzeniSmazani } from "./admin/AdminPotvrzeniSmazani";
 import { AdminPolePopisu } from "./admin/AdminPolePopisu";
@@ -1035,6 +1036,8 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
           onChyba={setChybaAkce}
           onPotvrzeni={setPotvrzeniAkce}
         />
+
+        <AdminSpravceUpozorneni />
 
         <AdminVzkazyTreboni vzkazy={data?.vzkazyTreboni ?? []} />
 
