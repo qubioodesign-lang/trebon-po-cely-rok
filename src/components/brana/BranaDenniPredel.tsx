@@ -3,22 +3,29 @@
 import { useEffect, useRef } from "react";
 import { useBranaKotvaScroll } from "./BranaKotvaScrollProvider";
 
-/** Vizuální předěl mezi dny – sledovaný bod pro scroll časovou kotvu. */
-export function BranaDenniPredel() {
-  const predelRef = useRef<HTMLDivElement>(null);
+/**
+ * Předěl mezi dny nebo roky.
+ * Sledovaný bod je spodní okraj textu, ne horní okraj rámečku.
+ * `vyhodnotLabel` dál porovnává horní okraj registrovaného prvku.
+ */
+export function BranaDenniPredel({ label }: { label: string }) {
+  const bodRef = useRef<HTMLSpanElement>(null);
   const kontext = useBranaKotvaScroll();
 
   useEffect(() => {
-    if (!kontext || !predelRef.current) {
+    if (!kontext || !bodRef.current) {
       return;
     }
 
-    return kontext.registerPredel(predelRef.current);
+    return kontext.registerPredel(bodRef.current);
   }, [kontext]);
 
   return (
-    <div ref={predelRef} className="brana-denni-predel" aria-hidden>
-      <hr className="brana-denni-predel-linka" />
+    <div className="brana-denni-predel" aria-hidden>
+      <div className="brana-denni-predel-znacka">
+        <p className="brana-denni-predel-popis">{label}</p>
+        <span ref={bodRef} className="brana-denni-predel-bod" />
+      </div>
     </div>
   );
 }

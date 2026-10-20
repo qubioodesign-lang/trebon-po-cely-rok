@@ -170,10 +170,13 @@ export function BranaObrazovka({
 
   const seznamAkci = (
     <>
-      {Array.from({ length: pocetBloku }, (_, blok) => (
+      {Array.from({ length: pocetBloku }, (_, blok) => {
+        const labelPredelu = kotvaScroll?.poPredelu[blok - 1];
+
+        return (
         <Fragment key={`blok-${blok}`}>
-          {zobrazitDenniPredel(pohled, blok) ? (
-            <BranaDenniPredel />
+          {zobrazitDenniPredel(pohled, blok) && labelPredelu ? (
+            <BranaDenniPredel label={labelPredelu} />
           ) : null}
           <ul className="brana-seznam-akci">
             {akceProBlok(data, pohled, blok).map((akce, indexVBloku) => {
@@ -219,7 +222,8 @@ export function BranaObrazovka({
             })}
           </ul>
         </Fragment>
-      ))}
+        );
+      })}
     </>
   );
 
