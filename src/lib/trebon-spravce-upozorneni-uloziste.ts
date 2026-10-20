@@ -5,10 +5,7 @@ import path from "path";
 import { get, put } from "@vercel/blob";
 import { BlobNotFoundError } from "@vercel/blob";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
-import {
-  pouzivaBlobUloziste,
-  ziskatVolbyBlobAsync,
-} from "@/lib/env-blob";
+import { pouzivaBlobUloziste } from "@/lib/env-blob";
 import {
   validovatTrebonSpravceSubscription,
   type TrebonSpravceUpozorneniDokument,
@@ -50,53 +47,67 @@ function parsovatDokument(text: string): TrebonSpravceUpozorneniDokument | null 
   }
 }
 
+function ziskatTrebonSpravceBlobToken(): string | undefined {
+  const token = process.env.TREBON_SPRAVCE_BLOB_READ_WRITE_TOKEN;
+  if (typeof token !== "string") {
+    return undefined;
+  }
+  const orezany = token.trim();
+  return orezany.length > 0 ? orezany : undefined;
+}
+
 async function nacistText(): Promise<string | null> {
-  if (pouzivaBlobUloziste()) {
-    const volby = await ziskatVolbyBlobAsync();
-    try {
-      const vysledek = await get(TREBON_SPRAVCE_UPOZORNENI_CESTA, {
-        access: "private",
-        ...volby,
-      });
-      if (!vysledek?.stream) {
-        return null;
-      }
-      return new Response(vysledek.stream).text();
-    } catch (error) {
-      if (error instanceof BlobNotFoundError) {
-        return null;
-      }
-      throw error;
+  const token = ziskatTrebonSpravceBlobToken();
+  if (!token) {
+    if (pouzivaBlobUloziste()) {
+      return null;
     }
+    if (!fs.existsSync(CESTA_LOKALNI)) {
+      return null;
+    }
+    return fs.readFileSync(CESTA_LOKALNI, "utf-8");
   }
 
-  if (!fs.existsSync(CESTA_LOKALNI)) {
-    return null;
+  try {
+    const vysledek = await get(TREBON_SPRAVCE_UPOZORNENI_CESTA, {
+      access: "private",
+      token,
+      useCache: false,
+    });
+    if (!vysledek?.stream) {
+      return null;
+    }
+    return new Response(vysledek.stream).text();
+  } catch (error) {
+    if (error instanceof BlobNotFoundError) {
+      return null;
+    }
+    throw error;
   }
-  return fs.readFileSync(CESTA_LOKALNI, "utf-8");
 }
 
 async function zapsat(dokument: TrebonSpravceUpozorneniDokument): Promise<void> {
   const telo = JSON.stringify(dokument);
-
-  if (pouzivaBlobUloziste()) {
-    const volby = await ziskatVolbyBlobAsync();
-    if (!volby.token && !volby.oidcToken) {
-      throw new Error("Nelze uložit upozornění: chybí přístup k úložišti.");
+  const token = ziskatTrebonSpravceBlobToken();
+  if (!token) {
+    if (pouzivaBlobUloziste()) {
+      throw new Error(
+        "Nelze uložit upozornění: chybí TREBON_SPRAVCE_BLOB_READ_WRITE_TOKEN.",
+      );
     }
-    await put(TREBON_SPRAVCE_UPOZORNENI_CESTA, telo, {
-      ...volby,
-      access: "private",
-      addRandomSuffix: false,
-      allowOverwrite: true,
-      contentType: "application/json",
-      cacheControlMaxAge: 0,
-    });
+    fs.mkdirSync(path.dirname(CESTA_LOKALNI), { recursive: true });
+    fs.writeFileSync(CESTA_LOKALNI, telo, "utf-8");
     return;
   }
 
-  fs.mkdirSync(path.dirname(CESTA_LOKALNI), { recursive: true });
-  fs.writeFileSync(CESTA_LOKALNI, telo, "utf-8");
+  await put(TREBON_SPRAVCE_UPOZORNENI_CESTA, telo, {
+    access: "private",
+    token,
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    contentType: "application/json",
+    cacheControlMaxAge: 0,
+  });
 }
 
 /** Čtení pro odeslání po uložení vzkazu. Bez přihlášení, bez zápisu. */

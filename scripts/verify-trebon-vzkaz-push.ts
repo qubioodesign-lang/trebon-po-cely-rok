@@ -318,14 +318,45 @@ async function hlavni(): Promise<void> {
       !nove.includes("BLOB_BRANA_ADMIN"),
     "správcovské upozornění Třeboně nečte návštěvnické odběry ani úložiště BRÁNY",
   );
+  const uloziste = cist("src/lib/trebon-spravce-upozorneni-uloziste.ts");
   assert(
-    cist("src/lib/trebon-spravce-upozorneni-uloziste.ts").includes(
-      "data/trebon-spravce-vzkaz-upozorneni.json",
-    ) &&
-      cist("src/lib/trebon-spravce-upozorneni-uloziste.ts").includes(
-        "jeAdminPrihlasen",
-      ),
+    uloziste.includes("data/trebon-spravce-vzkaz-upozorneni.json") &&
+      uloziste.includes("jeAdminPrihlasen"),
     "subscription je v samostatném souboru a zápis vyžaduje přihlášení",
+  );
+  const bezTokenuNacteni = uloziste.slice(
+    uloziste.indexOf("async function nacistText"),
+    uloziste.indexOf("await get("),
+  );
+  const bezTokenuZapisu = uloziste.slice(
+    uloziste.indexOf("async function zapsat"),
+    uloziste.indexOf("await put("),
+  );
+  assert(
+    uloziste.includes("process.env.TREBON_SPRAVCE_BLOB_READ_WRITE_TOKEN") &&
+      uloziste.includes('access: "private"') &&
+      uloziste.includes("useCache: false") &&
+      !uloziste.includes("ziskatVolbyBlobAsync") &&
+      !uloziste.includes("ziskatVolbyBranaAdminBlob") &&
+      !uloziste.includes("BLOB_STORE_ID") &&
+      !uloziste.includes("process.env.BLOB_READ_WRITE_TOKEN") &&
+      !uloziste.includes("BLOB_BRANA_ADMIN") &&
+      bezTokenuNacteni.includes("if (!token)") &&
+      bezTokenuNacteni.includes("return null") &&
+      !bezTokenuNacteni.includes("await get(") &&
+      bezTokenuZapisu.includes("if (!token)") &&
+      bezTokenuZapisu.includes("throw new Error") &&
+      !bezTokenuZapisu.includes("await put("),
+    "chybějící nový token nepadá zpět do veřejného store ani do store BRÁNY",
+  );
+  const importySkriptu = cist("scripts/verify-trebon-vzkaz-push.ts").slice(
+    0,
+    cist("scripts/verify-trebon-vzkaz-push.ts").indexOf("let selhalo"),
+  );
+  assert(
+    !importySkriptu.includes("@vercel/blob") &&
+      !importySkriptu.includes("trebon-spravce-upozorneni-uloziste"),
+    "ověřovací skript nevolá Blob a nemůže zapisovat do produkce",
   );
   assert(
     !cist("src/lib/trebon-spravce-upozorneni-odeslani.ts").includes("delete") &&
