@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
+import { odeslatUpozorneniNaNovyVzkaz } from "@/lib/brana/admin/odeslat-vzkaz-upozorneni";
 import {
   BRANA_MAX_DELKA_VZKAZU,
   pridatBranaVzkaz,
@@ -29,6 +30,14 @@ export async function POST(request: NextRequest) {
 
     const oidcHeader = await ziskatOidcZHlavicek();
     await pridatBranaVzkaz(text, oidcHeader);
+
+    after(async () => {
+      try {
+        await odeslatUpozorneniNaNovyVzkaz();
+      } catch (error) {
+        console.error("[brana-vzkaz-push] neočekávané selhání", error);
+      }
+    });
 
     return NextResponse.json({ uspech: true });
   } catch (error) {
