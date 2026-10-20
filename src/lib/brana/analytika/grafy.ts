@@ -55,6 +55,13 @@ export type SouctyGeografieGrafu = {
   neurceno: number | null;
 };
 
+export type SouctyZarizeniGrafu = {
+  android: number | null;
+  ios: number | null;
+  pocitac: number | null;
+  ostatni: number | null;
+};
+
 export type SoucetProchazeniGrafu = {
   delsi: number | null;
   konec: number | null;
@@ -85,6 +92,15 @@ export type PodkladyGrafuBrany = {
     prohlizec: BodPoctuGrafu[];
     soucetIkona: number | null;
     soucetProhlizec: number | null;
+  };
+  zarizeni: {
+    mereniOd: string | null;
+    android: BodPoctuGrafu[];
+    ios: BodPoctuGrafu[];
+    pocitac: BodPoctuGrafu[];
+    ostatni: BodPoctuGrafu[];
+    soucty: SouctyZarizeniGrafu;
+    procenta: SouctyZarizeniGrafu;
   };
   geografie: {
     trebonsko: BodPoctuGrafu[];
@@ -270,6 +286,27 @@ function podilyGeografie(
   };
 }
 
+function podilyZarizeni(
+  android: number | null,
+  ios: number | null,
+  pocitac: number | null,
+  ostatni: number | null,
+): SouctyZarizeniGrafu {
+  if (android === null || ios === null || pocitac === null || ostatni === null) {
+    return { android: null, ios: null, pocitac: null, ostatni: null };
+  }
+  const soucet = android + ios + pocitac + ostatni;
+  if (soucet === 0) {
+    return { android: null, ios: null, pocitac: null, ostatni: null };
+  }
+  return {
+    android: (100 * android) / soucet,
+    ios: (100 * ios) / soucet,
+    pocitac: (100 * pocitac) / soucet,
+    ostatni: (100 * ostatni) / soucet,
+  };
+}
+
 function soucetHodnot(body: readonly BodPoctuGrafu[]): number | null {
   let soucet = 0;
   let dostupnych = 0;
@@ -353,6 +390,59 @@ function radaPoctu(
   );
 }
 
+/**
+ * Den před začátkem měření nemá číslo. Naměřená nula je až od uloženého data.
+ * Chybějící den po začátku měření je nula, stejně jako u ostatních grafů.
+ */
+function bodZarizeni(
+  skupina: SkupinaDnu,
+  dokument: BranaAnalytikaDokument,
+  dnesIso: string,
+  mereniOd: string | null,
+  vyber: (den: BranaAnalytikaDen) => number,
+): BodPoctuGrafu {
+  let soucet = 0;
+  let merenych = 0;
+  let mimoMereni = 0;
+  for (const den of skupina.dny) {
+    if (!jeDenDostupnyProGraf(den, dnesIso)) {
+      mimoMereni += 1;
+      continue;
+    }
+    if (!mereniOd || den < mereniOd) {
+      mimoMereni += 1;
+      continue;
+    }
+    merenych += 1;
+    const ulozeny = dokument.dny[den];
+    soucet += ulozeny ? vyber(ulozeny) : 0;
+  }
+
+  return {
+    od: skupina.dny[0] ?? "",
+    do: skupina.dny[skupina.dny.length - 1] ?? "",
+    rok: skupina.rok,
+    mesic: skupina.mesic,
+    den: skupina.dny.length === 1 ? Number(skupina.dny[0]?.slice(8, 10)) : null,
+    pocetDnu: skupina.dny.length,
+    nedostupnychDnu: mimoMereni,
+    hodnota: merenych === 0 ? null : soucet,
+  };
+}
+
+function radaZarizeni(
+  dny: readonly string[],
+  poMesicich: boolean,
+  dokument: BranaAnalytikaDokument,
+  dnesIso: string,
+  mereniOd: string | null,
+  vyber: (den: BranaAnalytikaDen) => number,
+): BodPoctuGrafu[] {
+  return skupinyDnu(dny, poMesicich).map((skupina) =>
+    bodZarizeni(skupina, dokument, dnesIso, mereniOd, vyber),
+  );
+}
+
 function bodProchazeni(
   skupina: SkupinaDnu,
   dokument: BranaAnalytikaDokument,
@@ -418,8 +508,9 @@ export function hodnotaNavstevZaDen(
 }
 
 /**
- * Sestaví řady osmi grafů z denního dokumentu.
+ * Sestaví řady grafů z denního dokumentu.
  * Rok je 365 dní po kalendářních měsících a nemá předchozí období.
+ * Zařízení před uloženým začátkem měření zůstávají prázdná, ne nulová.
  */
 export function sestavitPodkladyGrafu(
   dokument: BranaAnalytikaDokument,
@@ -449,6 +540,21 @@ export function sestavitPodkladyGrafu(
   const vracejici = rada(aktualniDny, (metriky) => metriky.vracejici);
   const ikona = rada(aktualniDny, (metriky) => metriky.ikona);
   const prohlizec = rada(aktualniDny, (metriky) => metriky.prohlizec);
+  const mereniOd = dokument.zarizeniMereniOd ?? null;
+  const radaZarizeniObdobi = (
+    vyber: (den: BranaAnalytikaDen) => number,
+  ): BodPoctuGrafu[] =>
+    radaZarizeni(aktualniDny, poMesicich, dokument, dnes, mereniOd, vyber);
+  const android = radaZarizeniObdobi((den) => den.zarizeni.android);
+  const ios = radaZarizeniObdobi((den) => den.zarizeni.ios);
+  const pocitac = radaZarizeniObdobi((den) => den.zarizeni.pocitac);
+  const ostatniZarizeni = radaZarizeniObdobi((den) => den.zarizeni.ostatni);
+  const souctyZarizeni = {
+    android: soucetHodnot(android),
+    ios: soucetHodnot(ios),
+    pocitac: soucetHodnot(pocitac),
+    ostatni: soucetHodnot(ostatniZarizeni),
+  };
   const trebonsko = rada(aktualniDny, (metriky) => metriky.trebonsko);
   const mimo = rada(aktualniDny, (metriky) => metriky.mimo_trebonsko);
   const neurceno = rada(aktualniDny, (metriky) => metriky.neurceno);
@@ -501,6 +607,20 @@ export function sestavitPodkladyGrafu(
       prohlizec,
       soucetIkona: soucetHodnot(ikona),
       soucetProhlizec: soucetHodnot(prohlizec),
+    },
+    zarizeni: {
+      mereniOd,
+      android,
+      ios,
+      pocitac,
+      ostatni: ostatniZarizeni,
+      soucty: souctyZarizeni,
+      procenta: podilyZarizeni(
+        souctyZarizeni.android,
+        souctyZarizeni.ios,
+        souctyZarizeni.pocitac,
+        souctyZarizeni.ostatni,
+      ),
     },
     geografie: {
       trebonsko,

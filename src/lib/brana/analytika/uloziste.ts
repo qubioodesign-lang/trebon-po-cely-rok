@@ -13,6 +13,7 @@ import {
 import type {
   BranaAnalytikaDokument,
   BranaAnalytikaOblast,
+  BranaAnalytikaZarizeni,
   VysledekBranaAnalytiky,
 } from "./model";
 import { parsovatDokumentAnalytiky } from "./model";
@@ -151,6 +152,7 @@ export async function zaznamenatBranaAnalytikuDoBlobu(
   telo: unknown,
   referencniCas?: Date,
   oblast?: BranaAnalytikaOblast,
+  zarizeni?: BranaAnalytikaZarizeni,
 ): Promise<VysledekBranaAnalytiky> {
-  return zaznamenatDavkuAnalytiky(telo, vytvoritIo(), referencniCas, oblast);
+  return zaznamenatDavkuAnalytiky(telo, vytvoritIo(), referencniCas, oblast, zarizeni);
 }

@@ -106,6 +106,12 @@ export type BranaAnalytikaDen = {
 export type BranaAnalytikaDokument = {
   verze: typeof BRANA_ANALYTIKA_VERZE;
   dny: Record<string, BranaAnalytikaDen>;
+  /**
+   * Pražský den, od kterého se při návštěvě počítá zařízení.
+   * Chybí nebo je null, dokud nový kód nezapíše první návštěvu.
+   * Jednou uložená hodnota se při dalších zápisech nemění.
+   */
+  zarizeniMereniOd?: string | null;
 };
 
 /**
@@ -202,7 +208,7 @@ export function prazdnyDenAnalytiky(): BranaAnalytikaDen {
 }
 
 export function prazdnyDokumentAnalytiky(): BranaAnalytikaDokument {
-  return { verze: BRANA_ANALYTIKA_VERZE, dny: {} };
+  return { verze: BRANA_ANALYTIKA_VERZE, dny: {}, zarizeniMereniOd: null };
 }
 
 function jeNezaporneCeleCislo(hodnota: unknown): hodnota is number {
@@ -396,7 +402,44 @@ export function parsovatDokumentAnalytiky(
     dny[klic] = den;
   }
 
-  return { verze: BRANA_ANALYTIKA_VERZE, dny };
+  const zarizeniMereniOd = precistZacatekMereniZarizeni(dokument);
+  if (zarizeniMereniOd === "neplatne") {
+    return null;
+  }
+
+  return { verze: BRANA_ANALYTIKA_VERZE, dny, zarizeniMereniOd };
+}
+
+/**
+ * Chybějící pole starého souboru znamená, že měření ještě nezačalo.
+ * Neplatná hodnota soubor nezahodí tichým přepsáním data.
+ */
+function precistZacatekMereniZarizeni(
+  dokument: object,
+): string | null | "neplatne" {
+  if (!Object.prototype.hasOwnProperty.call(dokument, "zarizeniMereniOd")) {
+    return null;
+  }
+  const hodnota = (dokument as { zarizeniMereniOd?: unknown }).zarizeniMereniOd;
+  if (hodnota === null) {
+    return null;
+  }
+  return jeIsoDen(hodnota) ? hodnota : "neplatne";
+}
+
+function jeIsoDen(hodnota: unknown): hodnota is string {
+  if (typeof hodnota !== "string" || !KLIC_DNE.test(hodnota)) {
+    return false;
+  }
+  const rok = Number(hodnota.slice(0, 4));
+  const mesic = Number(hodnota.slice(5, 7));
+  const den = Number(hodnota.slice(8, 10));
+  const datum = new Date(Date.UTC(rok, mesic - 1, den));
+  return (
+    datum.getUTCFullYear() === rok &&
+    datum.getUTCMonth() === mesic - 1 &&
+    datum.getUTCDate() === den
+  );
 }
 
 export function validovatDavkuAnalytiky(
@@ -623,6 +666,10 @@ function jeOblast(hodnota: unknown): hodnota is BranaAnalytikaOblast {
   return (BRANA_ANALYTIKA_OBLASTI as readonly string[]).includes(hodnota as string);
 }
 
+function jeZarizeni(hodnota: unknown): hodnota is BranaAnalytikaZarizeni {
+  return (BRANA_ANALYTIKA_ZARIZENI as readonly string[]).includes(hodnota as string);
+}
+
 function pricistProchazeni(
   den: BranaAnalytikaDen,
   udalost: BranaAnalytikaUdalostProchazeni,
@@ -687,6 +734,7 @@ function pricistNavstevu(
   den: BranaAnalytikaDen,
   udalost: BranaAnalytikaUdalostNavstevy,
   oblast?: BranaAnalytikaOblast,
+  zarizeni?: BranaAnalytikaZarizeni,
 ): BranaAnalytikaDen {
   const navstevy = den.navstevy + 1;
   const spusteni = { ...den.spusteni };
@@ -699,6 +747,9 @@ function pricistNavstevu(
   if (jeOblast(oblast)) {
     poctyOblasti[oblast] += 1;
   }
+  const poctyZarizeni = { ...den.zarizeni };
+  const kategorie = jeZarizeni(zarizeni) ? zarizeni : "ostatni";
+  poctyZarizeni[kategorie] += 1;
   const zdroje = { ...den.zdroje };
   let qrDesktop = den.qrDesktop;
   if (udalost.zdroj === "qr") {
@@ -718,6 +769,10 @@ function pricistNavstevu(
     poctyOblasti.trebonsko,
     poctyOblasti.mimo_trebonsko,
     poctyOblasti.neurceno,
+    poctyZarizeni.android,
+    poctyZarizeni.ios,
+    poctyZarizeni.pocitac,
+    poctyZarizeni.ostatni,
     zdroje.qr,
     zdroje.sdileni,
     qrDesktop,
@@ -734,6 +789,7 @@ function pricistNavstevu(
     vracejici,
     spusteni,
     oblast: poctyOblasti,
+    zarizeni: poctyZarizeni,
     zdroje,
     qrDesktop,
   };
@@ -742,20 +798,27 @@ function pricistNavstevu(
 /**
  * Přičte návštěvu, otevření pohledu, procházení seznamu, stisk sdílení,
  * nebo kliknutí na odkaz Třeboň po celý rok.
- * Oblast je odhad serveru a přičítá se jen k návštěvě.
+ * Oblast a zařízení jsou odhad serveru a přičítají se jen k návštěvě.
+ * Jedna návštěva zvýší právě jedno počítadlo zařízení.
  * Stisk sdílení mění jen denní počet sdílení.
  * Proklik mění jen denní počet kliknutí na zápatí.
  * Starší pole konce obsahu u dvou pohledů se těmito událostmi nemění.
+ * Začátek měření zařízení se zapíše při první návštěvě a dál se nemění.
  */
 export function aplikovatDavkuAnalytiky(
   dokument: BranaAnalytikaDokument,
   udalosti: readonly BranaAnalytikaUdalost[],
   referencniCas: Date,
   oblast?: BranaAnalytikaOblast,
+  zarizeni?: BranaAnalytikaZarizeni,
 ): BranaAnalytikaDokument {
   const denKlic = isoDenZData(dnesVPraze(referencniCas));
   const dny = orezatStareDny(dokument.dny, referencniCas);
   let den = dny[denKlic] ?? prazdnyDenAnalytiky();
+  const maNavstevu = udalosti.some((udalost) => udalost.typ === "navsteva");
+  const stavajici = dokument.zarizeniMereniOd;
+  const zarizeniMereniOd =
+    jeIsoDen(stavajici) ? stavajici : maNavstevu ? denKlic : (stavajici ?? null);
 
   for (const udalost of udalosti) {
     if (udalost.typ === "pohled") {
@@ -767,10 +830,10 @@ export function aplikovatDavkuAnalytiky(
     } else if (udalost.typ === "proklikTrebon") {
       den = pricistProklikTrebon(den);
     } else {
-      den = pricistNavstevu(den, udalost, oblast);
+      den = pricistNavstevu(den, udalost, oblast, zarizeni);
     }
   }
 
   dny[denKlic] = den;
-  return { verze: BRANA_ANALYTIKA_VERZE, dny };
+  return { verze: BRANA_ANALYTIKA_VERZE, dny, zarizeniMereniOd };
 }

@@ -10,7 +10,7 @@ import {
   type PodkladyGrafuBrany,
 } from "@/lib/brana/analytika/grafy";
 
-/** Analytika – osm grafů nad denními součty. */
+/** Analytika – grafy nad denními součty, včetně zařízení. */
 export default async function StrankaBranaAdminAnalytika() {
   if (!(await jeAdminPrihlasen())) {
     return null;

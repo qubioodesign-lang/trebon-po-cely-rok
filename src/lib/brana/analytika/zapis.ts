@@ -6,6 +6,7 @@ import {
   validovatDavkuAnalytiky,
   type BranaAnalytikaDokument,
   type BranaAnalytikaOblast,
+  type BranaAnalytikaZarizeni,
   type VysledekBranaAnalytiky,
 } from "./model";
 
@@ -104,6 +105,7 @@ export async function zaznamenatDavkuAnalytiky(
   io: BranaAnalytikaIo,
   referencniCas: Date = new Date(),
   oblast?: BranaAnalytikaOblast,
+  zarizeni?: BranaAnalytikaZarizeni,
 ): Promise<VysledekBranaAnalytiky> {
   const davka = validovatDavkuAnalytiky(telo);
   if (!davka.ok) {
@@ -138,6 +140,7 @@ export async function zaznamenatDavkuAnalytiky(
       davka.udalosti,
       referencniCas,
       oblast,
+      zarizeni,
     );
     const zkontrolovany = parsovatDokumentAnalytiky(dalsi);
     if (!zkontrolovany) {

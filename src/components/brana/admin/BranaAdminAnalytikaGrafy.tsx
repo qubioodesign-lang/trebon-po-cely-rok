@@ -114,6 +114,7 @@ export function BranaAdminAnalytikaGrafy({
         ]}
       />
       <GrafSpusteni key={`spusteni-${obdobi}`} data={data} />
+      <GrafZarizeni key={`zarizeni-${obdobi}`} data={data} />
       <GrafGeografie key={`geografie-${obdobi}`} data={data} />
       <GrafPohledu
         key={`kalendar-${obdobi}`}
@@ -218,6 +219,60 @@ function GrafSpusteni({ data }: { data: PodkladyGrafuBrany }) {
       krivky={[
         krivkaPoctu("Ikona", 0, data.spusteni.ikona),
         krivkaPoctu("Prohlížeč", 1, data.spusteni.prohlizec),
+      ]}
+    />
+  );
+}
+
+function formatDenMereni(iso: string): string {
+  const [rok, mesic, den] = iso.split("-");
+  return `${Number(den)}. ${Number(mesic)}. ${rok}`;
+}
+
+function krivkaZarizeni(nazev: string, poradi: number, body: readonly BodPoctuGrafu[]): Krivka {
+  return {
+    ...krivkaPoctu(nazev, poradi, body),
+    poznamka: (index) => {
+      const bod = body[index];
+      if (!bod || bod.hodnota === null) {
+        return "ještě se nesledovalo";
+      }
+      return textPoctu(bod.hodnota);
+    },
+  };
+}
+
+function GrafZarizeni({ data }: { data: PodkladyGrafuBrany }) {
+  const mereniOd = data.zarizeni.mereniOd;
+  const soucty = data.zarizeni.soucty;
+  const procenta = data.zarizeni.procenta;
+  const zasahujePred = Boolean(mereniOd && data.okno.od < mereniOd);
+  const popis = !mereniOd
+    ? "Zařízení se zatím nesledují."
+    : zasahujePred
+      ? `Zařízení se sledují až od ${formatDenMereni(mereniOd)}. Dny před tímto datem v grafu chybí a nejsou to naměřené nuly.`
+      : `Zařízení se sledují od ${formatDenMereni(mereniOd)}. Podíly jsou jen z návštěv, u kterých se zařízení měřilo.`;
+  const maPodily = procenta.android !== null;
+  const souhrn = maPodily
+    ? [
+        `Android ${textPoctu(soucty.android)} (${textProcenta(procenta.android)})`,
+        `iPhone / iOS ${textPoctu(soucty.ios)} (${textProcenta(procenta.ios)})`,
+        `Počítač ${textPoctu(soucty.pocitac)} (${textProcenta(procenta.pocitac)})`,
+        `Ostatní ${textPoctu(soucty.ostatni)} (${textProcenta(procenta.ostatni)})`,
+      ].join(". ")
+    : "Ve vybraném období není žádná měřená návštěva.";
+
+  return (
+    <GrafDvou
+      nadpis="Zařízení"
+      popis={popis}
+      souhrn={souhrn}
+      body={data.zarizeni.android}
+      krivky={[
+        krivkaZarizeni("Android", 0, data.zarizeni.android),
+        krivkaZarizeni("iPhone / iOS", 1, data.zarizeni.ios),
+        krivkaZarizeni("Počítač", 2, data.zarizeni.pocitac),
+        krivkaZarizeni("Ostatní", 3, data.zarizeni.ostatni),
       ]}
     />
   );
