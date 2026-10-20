@@ -113,7 +113,7 @@ export function AdminPolePopisu({
           </p>
           <div
             className="mx-auto flex flex-col items-center bg-black/80 px-6 py-6 text-center"
-            style={{ width: "min(390px, 100%)" }}
+            style={{ width: "min(320px, 100%)" }}
           >
             <p
               className={tridyMobilnihoPopisuProlnuti(popis)}
