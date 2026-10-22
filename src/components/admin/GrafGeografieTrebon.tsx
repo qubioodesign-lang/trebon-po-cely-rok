@@ -130,12 +130,27 @@ function GrafKrivek({
   const bod = body[index];
 
   function vybratZUdalosti(udalost: PointerEvent<SVGSVGElement>): void {
-    const rect = udalost.currentTarget.getBoundingClientRect();
-    if (rect.width <= 0) {
+    const ctm = udalost.currentTarget.getScreenCTM();
+    if (!ctm) {
       return;
     }
-    const x = ((udalost.clientX - rect.left) / rect.width) * RASTR_GRAFU.sirka;
-    setVyber(indexZPozice(x, body.length));
+    let bod: DOMPoint;
+    try {
+      bod = new DOMPoint(udalost.clientX, udalost.clientY).matrixTransform(ctm.inverse());
+    } catch {
+      return;
+    }
+    if (
+      !Number.isFinite(bod.x) ||
+      !Number.isFinite(bod.y) ||
+      bod.x < 0 ||
+      bod.y < 0 ||
+      bod.x > RASTR_GRAFU.sirka ||
+      bod.y > RASTR_GRAFU.vyska
+    ) {
+      return;
+    }
+    setVyber(indexZPozice(bod.x, body.length));
   }
 
   return (
