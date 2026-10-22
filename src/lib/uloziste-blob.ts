@@ -1,6 +1,6 @@
 import "server-only";
 
-import { get, put } from "@vercel/blob";
+import { get, head, put } from "@vercel/blob";
 import { unstable_noStore as noStore } from "next/cache";
 import type { UlozisteDat } from "./uloziste-dat";
 import { normalizovatUloziste } from "./uloziste-normalizace";
@@ -18,6 +18,13 @@ const PRAZDNA_DATA: UlozisteDat = {
 export interface VolbyCteniBlob {
   /** Po zápisu – obejde CDN cache pro spolehlivé ověření */
   bypassCache?: boolean;
+  /**
+   * Čtení pro ověření zápisu.
+   * Nejdřív `get({ useCache: false })`. Veřejná CDN URL se nepoužije.
+   * U veřejného blobu knihovna tento příznak může ignorovat; potvrzení
+   * zápisu proto stojí na etagu z `put` a `head`, ne na tomto těle.
+   */
+  bezVerejneCache?: boolean;
 }
 
 /** Veřejná URL metadat – čtení bez autentizovaného Blob get() */
@@ -34,9 +41,14 @@ function sestavitVerejneUrlMetadata(): string {
 
 async function nacistTextZBlobGet(
   pathname: string,
-  volby: { storeId?: string; token?: string; oidcToken?: string }
+  volby: { storeId?: string; token?: string; oidcToken?: string },
+  useCache?: boolean
 ): Promise<string | null> {
-  const vysledek = await get(pathname, { access: "public", ...volby });
+  const vysledek = await get(pathname, {
+    access: "public",
+    ...volby,
+    ...(useCache === false ? { useCache: false as const } : {}),
+  });
 
   if (!vysledek?.stream) {
     return null;
@@ -97,7 +109,29 @@ export async function nacistDataBlob(
   noStore();
 
   const bypassCache = volbyCteni?.bypassCache ?? true;
+  const bezVerejneCache = volbyCteni?.bezVerejneCache === true;
   const volby = await ziskatVolbyBlobAsync(oidcZHeaderu);
+
+  if (bezVerejneCache) {
+    if (!volby.token && !volby.oidcToken) {
+      throw new Error(
+        "Aktuální metadata vyžadují autentizaci k Blobu. Veřejná cache se pro ověření zápisu nepoužije."
+      );
+    }
+
+    try {
+      const cerstvy = await nacistTextZBlobGet(BLOB_CESTA_METADATA, volby, false);
+      if (cerstvy !== null) return parsovatMetadata(cerstvy);
+    } catch {
+      // useCache: false u veřejného blobu nemusí projít – běžné get() stále bez veřejné URL
+    }
+
+    const text = await nacistTextZBlobGet(BLOB_CESTA_METADATA, volby);
+    if (text === null) {
+      throw new Error("Metadata v Blob nebyla nalezena.");
+    }
+    return parsovatMetadata(text);
+  }
 
   if (volby.token || volby.oidcToken) {
     try {
@@ -122,11 +156,11 @@ export async function nacistDataBlob(
   }
 }
 
-/** Uloží data do Vercel Blob (autentizovaný put) */
+/** Uloží data do Vercel Blob (autentizovaný put) a vrátí etag tohoto zápisu */
 export async function ulozitDataBlob(
   data: UlozisteDat,
   oidcZHeaderu?: string | null
-): Promise<void> {
+): Promise<string> {
   const volby = await ziskatVolbyBlobAsync(oidcZHeaderu);
 
   if (!volby.token && !volby.oidcToken) {
@@ -135,7 +169,7 @@ export async function ulozitDataBlob(
     );
   }
 
-  await put(BLOB_CESTA_METADATA, JSON.stringify(data, null, 2), {
+  const vysledek = await put(BLOB_CESTA_METADATA, JSON.stringify(data, null, 2), {
     ...volby,
     access: "public",
     addRandomSuffix: false,
@@ -143,6 +177,25 @@ export async function ulozitDataBlob(
     contentType: "application/json",
     cacheControlMaxAge: 0,
   });
+
+  if (!vysledek.etag) {
+    throw new Error("Blob nevrátil etag zápisu metadat.");
+  }
+
+  return vysledek.etag;
+}
+
+/**
+ * Aktuální etag metadat přes Blob API (`head`), ne přes veřejnou CDN.
+ * Platí pro veřejný i soukromý blob v @vercel/blob 2.4.
+ */
+export async function etagMetadatJeAktualni(
+  etag: string,
+  oidcZHeaderu?: string | null
+): Promise<boolean> {
+  const volby = await ziskatVolbyBlobAsync(oidcZHeaderu);
+  const hlavicka = await head(BLOB_CESTA_METADATA, volby);
+  return hlavicka.etag === etag;
 }
 
 /** Stáhne metadata tak, jak je vidí veřejný web (veřejná URL, bez CDN cache) */

@@ -13,7 +13,8 @@
     "test:analytics": "node scripts/verify-analytics-normalizace.mjs",
     "test:brana-cas": "npx tsx scripts/verify-brana-cas.ts",
     "test:brana-denni-doba": "npx tsx scripts/verify-brana-denni-doba.ts",
-    "test:rotace-prolnuti": "npx tsx scripts/verify-rotace-prolnuti.ts"
+    "test:rotace-prolnuti": "npx tsx scripts/verify-rotace-prolnuti.ts",
+    "test:prolnuti-vytvoreni": "npx tsx scripts/verify-prolnuti-vytvoreni.ts"
   },
   "dependencies": {
     "@vercel/blob": "^2.4.0",

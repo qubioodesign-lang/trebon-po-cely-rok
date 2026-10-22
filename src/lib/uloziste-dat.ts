@@ -5,7 +5,12 @@ import path from "path";
 import { cache } from "react";
 import type { Polozka, VzkazTreboni } from "@/types";
 import type { TypUdalostiMetriky } from "@/types";
-import { nacistDataBlob, ulozitDataBlob, nacistMetadataVerejne } from "./uloziste-blob";
+import {
+  nacistDataBlob,
+  ulozitDataBlob,
+  nacistMetadataVerejne,
+  etagMetadatJeAktualni,
+} from "./uloziste-blob";
 import { normalizovatUloziste } from "./uloziste-normalizace";
 import { pouzivaBlobUloziste } from "./env-blob";
 import type { AnalyticsAgregovane } from "./analytics";
@@ -108,11 +113,18 @@ export interface VolbyUpravyDat {
   chybovaZprava?: string;
   /** Počet pokusů při kolizi – výchozí 8 */
   maxPokusu?: number;
+  /**
+   * Potvrzení zápisu etagem z Blob API (`put` + `head`).
+   * Veřejná CDN se pro toto potvrzení nečte.
+   */
+  potvrditBezVerejneCache?: boolean;
 }
 
 /** Volby pro čtení metadat mimo React cache */
 export interface VolbyCteniDat {
   bypassCache?: boolean;
+  /** Viz `VolbyCteniBlob.bezVerejneCache`. */
+  bezVerejneCache?: boolean;
 }
 
 const MAX_POKUSY_ZAPISU = 12;
@@ -153,16 +165,16 @@ function nacistDataLokalne(): UlozisteDat {
   return normalizovatUloziste(data);
 }
 
-/** Uloží data */
+/** Uloží data. Etag je k dispozici jen u zápisu do Blobu. */
 export async function ulozitData(
   data: UlozisteDat,
   oidcZHeaderu?: string | null
-): Promise<void> {
+): Promise<{ etag: string | null }> {
   if (pouzivaBlobUloziste()) {
-    await ulozitDataBlob(data, oidcZHeaderu);
-    return;
+    return { etag: await ulozitDataBlob(data, oidcZHeaderu) };
   }
   ulozitDataLokalne(data);
+  return { etag: null };
 }
 
 function ulozitDataLokalne(data: UlozisteDat): void {
@@ -184,6 +196,7 @@ async function nacistDataProZapis(
   if (pouzivaBlobUloziste()) {
     return nacistDataBlob(oidcZHeaderu, {
       bypassCache: volbyCteni?.bypassCache ?? true,
+      bezVerejneCache: volbyCteni?.bezVerejneCache === true,
     });
   }
   return nacistDataLokalne();
@@ -241,6 +254,30 @@ export async function overitMetadataVerejne(
 }
 
 /**
+ * Potvrzení zápisu bez veřejné CDN.
+ * Blob: etag z `put` se porovná s `head`. Lokální soubor se přečte z disku.
+ */
+async function potvrditZapisBezVerejneCache(
+  zapsanaData: UlozisteDat,
+  etag: string | null,
+  oidcZHeaderu: string | null | undefined,
+  volby: VolbyUpravyDat
+): Promise<UlozisteDat | null> {
+  const obsahSedi = (data: UlozisteDat): boolean =>
+    !volby.overitPoUlozeni || volby.overitPoUlozeni(data);
+
+  if (!pouzivaBlobUloziste()) {
+    const kontrola = await nacistDataProZapis(oidcZHeaderu);
+    return obsahSedi(kontrola) ? kontrola : null;
+  }
+
+  if (!etag) return null;
+  const etagSedi = await etagMetadatJeAktualni(etag, oidcZHeaderu);
+  if (!etagSedi || !obsahSedi(zapsanaData)) return null;
+  return zapsanaData;
+}
+
+/**
  * Provede změnu dat a uloží je.
  * Zápisy jsou serializované; při kolizi se znovu načte aktuální stav a operace se opakuje.
  */
@@ -255,11 +292,28 @@ export async function upravitData(
 
     for (let pokus = 0; pokus < maxPokusu; pokus++) {
       try {
-        const data = await nacistDataProZapis(oidcZHeaderu);
+        const data = await nacistDataProZapis(
+          oidcZHeaderu,
+          volby?.potvrditBezVerejneCache
+            ? { bezVerejneCache: true }
+            : undefined
+        );
         const predVerze = data.verzeUloziste ?? 0;
         upravitel(data);
         data.verzeUloziste = predVerze + 1;
-        await ulozitData(data, oidcZHeaderu);
+        const zapsano = await ulozitData(data, oidcZHeaderu);
+
+        if (volby?.potvrditBezVerejneCache) {
+          const potvrzene = await potvrditZapisBezVerejneCache(
+            data,
+            zapsano.etag,
+            oidcZHeaderu,
+            volby
+          );
+          if (potvrzene) return potvrzene;
+          await cekatPredOpakovanim(pokus);
+          continue;
+        }
 
         const kontrola = await nacistDataProZapis(oidcZHeaderu, {
           bypassCache: true,

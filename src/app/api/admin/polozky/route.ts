@@ -9,7 +9,8 @@ import {
   smazatPolozku,
   zmenitPoradi,
 } from "@/lib/polozky";
-import { ulozitSoubor, smazatSoubor } from "@/lib/soubory";
+import { ulozitSoubor } from "@/lib/soubory";
+import { smazatNepouzivaneSoubory } from "@/lib/bezpecne-mazani-souboru";
 import { ziskatSouboryPolozky } from "@/lib/polozka-soubory";
 import { ziskatDiagnozuBlob } from "@/lib/env-blob";
 
@@ -141,9 +142,7 @@ export async function DELETE(request: NextRequest) {
 
   const smazana = await smazatPolozku(id, oidcHeader);
   if (smazana) {
-    for (const cesta of ziskatSouboryPolozky(smazana)) {
-      await smazatSoubor(cesta, oidcHeader);
-    }
+    await smazatNepouzivaneSoubory(ziskatSouboryPolozky(smazana), oidcHeader);
   }
 
   return NextResponse.json({ uspech: true });

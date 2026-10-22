@@ -25,11 +25,9 @@ import {
   nahraditSnimekProlnuti,
   spustitRotaciProlnuti,
 } from "@/lib/polozky";
-import { ulozitSoubor, smazatSoubor, smazatSoubory, overitSouborVerejne } from "@/lib/soubory";
-import {
-  ziskatSouboryPolozky,
-  overitProlnutiPolozkuVMetadatech,
-} from "@/lib/polozka-soubory";
+import { ulozitSoubor, smazatSoubor, overitSouborVerejne } from "@/lib/soubory";
+import { smazatNepouzivaneSoubory } from "@/lib/bezpecne-mazani-souboru";
+import { ziskatSouboryPolozky } from "@/lib/polozka-soubory";
 import { jePlatnyPocetSnimkuProlnuti } from "@/lib/prolnuti-snimky";
 import { odeslatPushNotifikaceVsem } from "@/lib/push-notifikace";
 import {
@@ -367,11 +365,12 @@ export async function smazatNahrateSouboryProlnuti(
     soubory: cesty.map(zkratitUrlProLog).join(", "),
   });
 
-  await smazatSoubory(cesty, admin.oidcHeader);
+  const smazane = await smazatNepouzivaneSoubory(cesty, admin.oidcHeader);
 
   logProlnuti("rollback.klient.hotovo", {
     operaceId: volby?.operaceId,
-    pocetSouboru: cesty.length,
+    pocetSouboru: smazane.length,
+    ponechano: cesty.length - smazane.length,
   });
 }
 
@@ -412,7 +411,9 @@ export async function vytvoritProlnutiAdmin(data: {
     };
   }
 
-  let novaPolozka: Awaited<ReturnType<typeof vytvoritProlnuti>> | null = null;
+  let novaPolozka: Awaited<
+    ReturnType<typeof vytvoritProlnuti>
+  >["polozka"] | null = null;
   let faze = "overeni-souboru";
 
   try {
@@ -426,31 +427,29 @@ export async function vytvoritProlnutiAdmin(data: {
     }
 
     faze = "zapis-metadat";
-    novaPolozka = await vytvoritProlnuti(
+    const vytvoreni = await vytvoritProlnuti(
       {
+        id: operaceId,
         soubory,
         popis: data.popis,
         datumPorizeni: data.datumPorizeni,
       },
       oidcHeader
     );
+    novaPolozka = vytvoreni.polozka;
 
     logProlnuti("metadata.vytvoreno", {
       operaceId,
       polozkaId: novaPolozka.id,
+      uzExistovalo: vytvoreni.uzExistovalo,
       pocetSouboruVMeta: novaPolozka.soubory?.length ?? 0,
     });
 
-    faze = "overeni-verejne";
-    await potvrditAUvolnitWeb((uloziste) =>
-      overitProlnutiPolozkuVMetadatech(
-        uloziste,
-        novaPolozka!.id,
-        soubory
-      )
-    );
+    faze = "overeni-etag";
+    revalidatePath("/admin");
+    revalidatePath("/");
 
-    logProlnuti("metadata.verejne.potvrzeno", {
+    logProlnuti("metadata.potvrzeno", {
       operaceId,
       polozkaId: novaPolozka.id,
       pocetSnimku: soubory.length,
@@ -476,31 +475,11 @@ export async function vytvoritProlnutiAdmin(data: {
       polozkaId: novaPolozka?.id,
     });
 
-    let metadataSmazana = false;
-    if (novaPolozka) {
-      faze = "rollback-metadata";
-      try {
-        await smazatPolozku(novaPolozka.id, oidcHeader);
-        metadataSmazana = true;
-        logProlnuti("rollback.metadata.ok", {
-          operaceId,
-          polozkaId: novaPolozka.id,
-        });
-      } catch (rollbackError) {
-        logProlnutiChyba("rollback.metadata.chyba", rollbackError, {
-          operaceId,
-          polozkaId: novaPolozka.id,
-          duvod,
-        });
-      }
-    }
-
-    faze = "rollback-soubory";
-    await smazatSoubory(soubory, oidcHeader);
+    const smazane = await smazatNepouzivaneSoubory(soubory, oidcHeader);
     logProlnuti("rollback.soubory.ok", {
       operaceId,
-      pocetSouboru: soubory.length,
-      metadataSmazana,
+      pocetSouboru: smazane.length,
+      ponechano: soubory.length - smazane.length,
       duvod,
     });
 
@@ -551,10 +530,10 @@ export async function smazatPolozkuAdmin(id: string): Promise<AkceVysledek> {
     }
 
     await smazatPolozku(id, admin.oidcHeader);
-
-    for (const cesta of ziskatSouboryPolozky(polozka)) {
-      await smazatSouborBezpecne(cesta, admin.oidcHeader);
-    }
+    await smazatNepouzivaneSoubory(
+      ziskatSouboryPolozky(polozka),
+      admin.oidcHeader
+    );
 
     await potvrditAUvolnitWeb(
       (uloziste) => !uloziste.polozky.some((p) => p.id === id)

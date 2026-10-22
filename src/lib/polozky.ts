@@ -13,12 +13,14 @@ import {
 import {
   jePlatnyPocetSnimkuProlnuti,
   PROLNUTI_MAX_SNIMKU,
-  viditelnostNovehoProlnuti,
 } from "./prolnuti-snimky";
+import {
+  stabilniIdOperaceProlnuti,
+  vysledekVytvoreniProlnuti,
+} from "./prolnuti-vytvoreni";
 import {
   jePlatnyCasRotaceProlnuti,
   polozkyVerejneGalerie,
-  vysledekPridaniProlnuti,
   vysledekPrepnutiViditelnosti,
   vysledekSmazaniPolozky,
   vysledekSpusteniRotace,
@@ -115,57 +117,88 @@ export async function vytvoritPolozku(
   return novaPolozka;
 }
 
-/** Vytvoří položku typu prolnutí se 2–3 soubory */
+/** Vytvoří položku typu prolnutí se 2–3 soubory. Jedna operace = jedno ID. */
 export async function vytvoritProlnuti(
   data: {
+    /** Stabilní ID operace. Platné UUID se použije jako id položky. */
+    id?: string | null;
     soubory: string[];
     popis: string;
     datumPorizeni?: string | null;
     aktivni?: boolean;
   },
   oidcZHeaderu?: string | null
-): Promise<Polozka> {
+): Promise<{ polozka: Polozka; uzExistovalo: boolean }> {
   const soubory = normalizovatSouboryProlnuti(data.soubory);
   if (!jePlatnyPocetSnimkuProlnuti(soubory.length)) {
     throw new Error("Prolnutí musí mít 2 nebo 3 fotografie");
   }
 
+  const id = stabilniIdOperaceProlnuti(data.id, () => crypto.randomUUID());
+  const datumPublikace = new Date().toISOString();
+  const nowMs = Date.now();
   let novaPolozka!: Polozka;
+  let uzExistovalo = false;
 
-  await upravitData(
-    (uloziste) => {
-      const zaklad = vytvoritZakladPolozky(uloziste, {
-        typ: "prolnuti",
-        popis: data.popis,
-        datumPorizeni: data.datumPorizeni,
-      });
-      novaPolozka = {
-        ...zaklad,
-        soubory,
-        aktivni: viditelnostNovehoProlnuti(data.aktivni),
-      };
-      const stav = vysledekPridaniProlnuti(
-        uloziste.polozky,
-        uloziste.rotaceProlnutiOd,
-        novaPolozka,
-        Date.now()
-      );
-      zapsatStavRotace(uloziste, stav);
-    },
-    oidcZHeaderu,
-    {
-      overitPoUlozeni: (uloziste) =>
-        overitProlnutiPolozkuVMetadatech(
-          uloziste,
-          novaPolozka.id,
-          soubory
-        ),
-      chybovaZprava:
-        "Prolnutí se nepodařilo uložit do metadat. Zkuste akci znovu.",
+  try {
+    await upravitData(
+      (uloziste) => {
+        const vysledek = vysledekVytvoreniProlnuti(
+          uloziste.polozky,
+          uloziste.rotaceProlnutiOd,
+          {
+            id,
+            soubory,
+            popis: data.popis,
+            datumPorizeni: data.datumPorizeni,
+            aktivni: data.aktivni,
+            datumPublikace,
+          },
+          nowMs
+        );
+        novaPolozka = vysledek.polozka;
+        uzExistovalo = vysledek.stav === "uz-existuje";
+        if (vysledek.stav === "vlozeno") {
+          zapsatStavRotace(uloziste, vysledek.uloziste);
+        }
+      },
+      oidcZHeaderu,
+      {
+        potvrditBezVerejneCache: true,
+        overitPoUlozeni: (uloziste) =>
+          overitProlnutiPolozkuVMetadatech(uloziste, id, soubory),
+        chybovaZprava:
+          "Prolnutí se nepodařilo uložit do metadat. Zkuste akci znovu.",
+      }
+    );
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      "bezOpakovani" in error &&
+      Boolean((error as { bezOpakovani?: boolean }).bezOpakovani)
+    ) {
+      throw error;
     }
-  );
 
-  return novaPolozka;
+    try {
+      const stav = await nacistDataCerstve(oidcZHeaderu, {
+        bezVerejneCache: true,
+      });
+      const ulozena = stav.polozky.find((polozka) => polozka.id === id);
+      if (
+        ulozena &&
+        overitProlnutiPolozkuVMetadatech(stav, id, soubory)
+      ) {
+        return { polozka: ulozena, uzExistovalo: true };
+      }
+    } catch {
+      // Čtení selhalo – platí původní chyba zápisu.
+    }
+
+    throw error;
+  }
+
+  return { polozka: novaPolozka, uzExistovalo };
 }
 
 /** Vrátí jednu položku podle ID (bez mazání) */
