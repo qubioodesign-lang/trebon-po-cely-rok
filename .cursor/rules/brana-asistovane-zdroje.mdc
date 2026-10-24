@@ -1,19 +1,50 @@
 ---
-description: Aktualizuj všechny asistované zdroje podle uloženého postupu. JKT mezidokument, stavy OK / KONTROLA / STOP.
+description: Asistované zdroje BRÁNY. Příkaz 1 připraví podklady. Příkaz 2 je zveřejní. Stavy OK / KONTROLA / STOP.
 alwaysApply: true
 ---
 
 # Asistované zdroje BRÁNY
 
+Povolené výstupní soubory jsou jen `mezidokumentRelativniCesta` ze seznamu `ASISTOVANE_ZDROJE` v `scripts/brana-asistovane-zdroje.ts`. Před zveřejněním ten seznam znovu přečti. Dnes je v něm jediný soubor `src/lib/brana/admin/divadlo-jk-tyla-itrebon.json`. Nepředpokládej další soubor, dokud v seznamu není. Do commitu nesmí přijít nic jiného.
+
+## Příkaz 1
+
 Při pokynu **„Aktualizuj všechny asistované zdroje podle uloženého postupu.“**:
 
 1. Na tomto PC spusť jen:
    `npx tsx scripts/brana-asistovane-zdroje.ts --aktualizovat`
-2. Výsledek bere **jen** z orchestrátoru: OK / KONTROLA / STOP.
+2. Výsledek ber **jen** z orchestrátoru: OK / KONTROLA / STOP.
 3. Neimprovizuj. Nepoužívej `--prescan`. Nesahej na parser, scan, GBU, Zdroje, Kalendář, cron, `vercel.json`.
 
-**STOP** — nic dalšího. Mezidokument neměň, necommit, nepush, nedeploy.
+**STOP** — nic dalšího. Mezidokument neměň, necommit, nepush, nedeploy. Větu o připravenosti nepiš. Oznam problém a zastav se.
 
-**KONTROLA** — mezidokument už není zapsaný. Zeptej se uživatele. Bez souhlasu nic dalšího.
+**KONTROLA** — mezidokument už není zapsaný. Oznam důvod a zastav se. Bez souhlasu nic dalšího. Větu o připravenosti nepiš.
 
-**OK** — ukaž souhrn. Orchestrátor už JSON zapsal. **Bez dalšího souhlasu nepushuj na main.** Commit jen když o něj uživatel výslovně požádá, a jen `src/lib/brana/admin/divadlo-jk-tyla-itrebon.json`.
+**OK** — ukaž souhrn. Orchestrátor už JSON zapsal. Příkaz 1 tím končí. Necommit, nepush, nedeploy.
+
+Jen při tomto OK, když orchestrátor podklady ověřil a zapsal a žádný jiný sledovaný soubor se nezměnil, ukonči výstup přesně větou:
+
+„Podklady jsou připravené ke zveřejnění.“
+
+Při chybě, nejasnosti, KONTROLA nebo STOP tu větu nepoužívej.
+
+## Příkaz 2
+
+Při pokynu **„Zveřejni připravené asistované zdroje.“**:
+
+Novou aktualizaci nespouštěj. `--aktualizovat` ani `--prescan` nespouštěj. Scan nespouštěj. Nic neopravuj a nevracej.
+
+1. Ověř, že povolené mezidokumenty jsou v pracovním stromu změněné proti `HEAD`. Bez takové změny není co zveřejnit.
+2. Znovu zkontroluj git: větev `main`, žádný konflikt, žádný jiný staged soubor a žádný jiný změněný sledovaný soubor. Nesledované soubory do commitu nepatří.
+3. Znovu zkontroluj platnost změněných povolených JSON stávajícím čtením mezidokumentu. Žádný živý fetch.
+4. Pokud cokoli nesedí, nic nezveřejňuj a nic neopravuj. Zastav se a vysvětli problém.
+5. Pokud vše sedí, commitni výhradně změněné povolené mezidokumenty.
+6. Pushni na `main`. Žádný force push.
+7. Ověř, že produkční nasazení tohoto commitu je READY a že oba weby odpovídají:
+   https://brana.trebonpocelyrok.cz/
+   https://www.trebonpocelyrok.cz/
+8. Teprve potom potvrď přesně:
+
+„Asistované zdroje jsou zveřejněné a připravené pro příští dlouhý scan.“
+
+Tu větu nepiš, dokud nasazení a oba weby nejsou ověřené.

@@ -178,11 +178,20 @@ export default async function StrankaBranaAdminKalendar() {
           {textStariAsistovanych ? (
             <p className="text-sm text-text">{textStariAsistovanych}</p>
           ) : null}
+          <p className="text-xs text-text-jemny">
+            Příkaz 1 – Aktualizace podkladů
+          </p>
           <p className="text-sm text-text">
             Aktualizuj všechny asistované zdroje podle uloženého postupu.
           </p>
+          <p className="pt-1 text-xs text-text-jemny">
+            Příkaz 2 – Zveřejnění podkladů
+          </p>
           <p className="text-xs text-text-jemny">
-            Vlož do Cursoru → projekt trebon-po-cely-rok
+            Pokud Cursor po prvním příkazu potvrdí: „Podklady jsou připravené ke zveřejnění.“
+          </p>
+          <p className="text-sm text-text">
+            Zveřejni připravené asistované zdroje.
           </p>
         </div>
 

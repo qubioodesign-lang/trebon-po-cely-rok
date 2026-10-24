@@ -250,19 +250,52 @@ const idxNadpis = kalendar.indexOf("Pracovní kalendář");
 const idxAktualizuj = kalendar.indexOf(
   "Aktualizuj všechny asistované zdroje podle uloženého postupu.",
 );
-const idxCursor = kalendar.indexOf(
-  "Vlož do Cursoru → projekt trebon-po-cely-rok",
+const idxPripravene = kalendar.indexOf(
+  "Podklady jsou připravené ke zveřejnění.",
+);
+const idxZverejni = kalendar.indexOf(
+  "Zveřejni připravené asistované zdroje.",
 );
 const idxRucniKomponenta = kalendar.indexOf("<BranaAdminKalendarRucniZapis");
 assert(
   idxNadpis > 0 &&
     idxAktualizuj > idxNadpis &&
-    idxCursor > idxAktualizuj &&
-    idxRucniKomponenta > idxCursor &&
+    idxPripravene > idxAktualizuj &&
+    idxZverejni > idxPripravene &&
+    idxRucniKomponenta > idxZverejni &&
+    kalendar.includes("Příkaz 1 – Aktualizace podkladů") &&
+    kalendar.includes("Příkaz 2 – Zveřejnění podkladů") &&
     kalendar.includes("{textStariAsistovanych ?") &&
     kalendar.includes("textStariAsistovanychZdroju()") &&
-    !kalendar.includes("idCekaKeSchvaleniKontroly.length > 0"),
-  "G: stáří + pokyn nahoře v Kalendáři, mimo Schválit kontrolu",
+    !kalendar.includes("idCekaKeSchvaleniKontroly.length > 0") &&
+    !kalendar.includes("<button"),
+  "G: stáří + dva příkazy nahoře v Kalendáři, bez tlačítka a mimo Schválit kontrolu",
+);
+
+const pravidlo = readFileSync(
+  join(koren, ".cursor/rules/brana-asistovane-zdroje.mdc"),
+  "utf8",
+);
+const idxPravidloPriprava = pravidlo.indexOf("## Příkaz 1");
+const idxPravidloZverejneni = pravidlo.indexOf("## Příkaz 2");
+assert(
+  idxPravidloPriprava > 0 &&
+    idxPravidloZverejneni > idxPravidloPriprava &&
+    pravidlo.includes(
+      "Aktualizuj všechny asistované zdroje podle uloženého postupu.",
+    ) &&
+    pravidlo.includes("Podklady jsou připravené ke zveřejnění.") &&
+    pravidlo.includes("Zveřejni připravené asistované zdroje.") &&
+    pravidlo.includes(
+      "Asistované zdroje jsou zveřejněné a připravené pro příští dlouhý scan.",
+    ) &&
+    pravidlo.includes("src/lib/brana/admin/divadlo-jk-tyla-itrebon.json") &&
+    pravidlo.includes("Necommit, nepush, nedeploy.") &&
+    pravidlo.includes("Žádný force push.") &&
+    pravidlo.slice(idxPravidloPriprava, idxPravidloZverejneni).includes(
+      "Necommit, nepush, nedeploy.",
+    ),
+  "G2: pravidlo drží dva příkazy, povolený soubor a zákaz zveřejnění v příkazu 1",
 );
 
 // H. stará červená připomínka u Schválit kontrolu pryč
