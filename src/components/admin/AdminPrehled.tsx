@@ -3,7 +3,7 @@ import { sestavitUrlPolozky } from "@/lib/url-polozky";
 import { ziskatHlavniSouborPolozky } from "@/lib/polozka-soubory";
 import { AdminKomunita } from "./AdminKomunita";
 import { GrafGeografieTrebon } from "./GrafGeografieTrebon";
-import { soucetSdileni, topPolozky } from "./pomocne";
+import { soucetSdileni, textProcentaReplay, topPolozky } from "./pomocne";
 
 function KartaMetriky({
   popisek,
@@ -89,12 +89,14 @@ export function AdminPrehled({
           <p className="text-xs text-text-velmiJemny">žádné položky</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[28rem] text-left text-xs text-text-velmiJemny">
+            <table className="w-full min-w-[40rem] text-left text-xs text-text-velmiJemny">
               <thead>
                 <tr className="border-b border-text-velmiJemny/20">
                   <th className="py-1.5 pr-3 font-light">#</th>
                   <th className="py-1.5 pr-3 font-light">položka</th>
                   <th className="py-1.5 pr-3 font-light">zobrazení</th>
+                  <th className="py-1.5 pr-3 font-light">replay</th>
+                  <th className="py-1.5 pr-3 font-light">replay %</th>
                   <th className="py-1.5 font-light">sdílení</th>
                 </tr>
               </thead>
@@ -129,6 +131,10 @@ export function AdminPrehled({
                         </div>
                       </td>
                       <td className="py-2 pr-3 tabular-nums">{radek.zobrazeni}</td>
+                      <td className="py-2 pr-3 tabular-nums">{radek.replay}</td>
+                      <td className="py-2 pr-3 tabular-nums">
+                        {textProcentaReplay(radek.zobrazeni, radek.replay)}
+                      </td>
                       <td className="py-2 tabular-nums">{radek.sdileni}</td>
                     </tr>
                   );
