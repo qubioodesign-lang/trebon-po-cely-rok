@@ -46,6 +46,15 @@ export function ziskatHlavniSouborPolozky(
   return soubory[0] ?? null;
 }
 
+/** Třetí snímek prolnutí (C). U dvou snímků chybí. */
+export function ziskatTretiSouborProlnuti(
+  polozka: Pick<Polozka, "typ" | "soubor" | "soubory">
+): string | null {
+  if (polozka.typ !== "prolnuti") return null;
+  const soubory = ziskatSouboryPolozky(polozka);
+  return soubory[2] ?? null;
+}
+
 export function jePlatneProlnuti(
   polozka: Pick<Polozka, "typ" | "soubory">
 ): boolean {

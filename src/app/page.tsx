@@ -32,11 +32,11 @@ export async function generateMetadata({
 
 }: {
 
-  searchParams: Promise<{ polozka?: string }>;
+  searchParams: Promise<{ polozka?: string; nahled?: string }>;
 
 }): Promise<Metadata> {
 
-  const { polozka } = await searchParams;
+  const { polozka, nahled } = await searchParams;
 
   const hlavicky = await headers();
 
@@ -46,7 +46,9 @@ export async function generateMetadata({
 
     hlavicky.get("x-vercel-oidc-token"),
 
-    hlavicky
+    hlavicky,
+
+    nahled
 
   );
 

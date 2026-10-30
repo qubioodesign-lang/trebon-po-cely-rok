@@ -40,6 +40,9 @@ import { AdminVzkazyTreboni } from "./admin/AdminVzkazyTreboni";
 import { AdminPotvrzeniSmazani } from "./admin/AdminPotvrzeniSmazani";
 import { AdminPolePopisu } from "./admin/AdminPolePopisu";
 import { PROLNUTI_CASOVANI_VYCHOZI } from "@/lib/prolnuti-casovani";
+import { ziskatTretiSouborProlnuti } from "@/lib/polozka-soubory";
+import { idPrvnihoViditelnehoProlnuti } from "@/lib/rotace-prolnuti";
+import { sestavitUrlNahleduFacebook } from "@/lib/sdileni";
 import { DESKTOP_POZVANKA_VYCHOZI_FOTOGRAFIE } from "@/lib/desktop-pozvanka";
 import {
   HLASKA_MAX_RADKU,
@@ -115,6 +118,10 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
   const [nacitaZalohy, setNacitaZalohy] = useState(false);
   const [vytvariZalohu, setVytvariZalohu] = useState(false);
   const [spoustiRotaci, setSpoustiRotaci] = useState(false);
+  const [hlaskaFacebook, setHlaskaFacebook] = useState<{
+    ok: boolean;
+    text: string;
+  } | null>(null);
   const [obnovujeZalohu, setObnovujeZalohu] = useState<string | null>(null);
   const [upravovanyId, setUpravovanyId] = useState<string | null>(null);
   const [potvrzeniSmazani, setPotvrzeniSmazani] = useState<{
@@ -597,6 +604,38 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
     if (zpracovatChybuAkce(vysledek)) obnovit();
   };
 
+  const handleOdkazFacebook = async () => {
+    setHlaskaFacebook(null);
+
+    const id = idPrvnihoViditelnehoProlnuti(polozky);
+    const polozka = id ? polozky.find((radek) => radek.id === id) : undefined;
+    if (!polozka) {
+      setHlaskaFacebook({
+        ok: false,
+        text: "Ve veřejné galerii teď není žádné prolnutí. Odkaz nebyl zkopírován.",
+      });
+      return;
+    }
+
+    if (!ziskatTretiSouborProlnuti(polozka)) {
+      setHlaskaFacebook({
+        ok: false,
+        text: "První veřejné prolnutí nemá třetí fotografii. Odkaz nebyl zkopírován.",
+      });
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(sestavitUrlNahleduFacebook(polozka.id));
+      setHlaskaFacebook({ ok: true, text: "Odkaz zkopírován" });
+    } catch {
+      setHlaskaFacebook({
+        ok: false,
+        text: "Odkaz se nepodařilo zkopírovat do schránky.",
+      });
+    }
+  };
+
   const handleOdeslatPush = async (id: string) => {
     setOdesilaPush(true);
     setChybaAkce("");
@@ -916,6 +955,25 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
                 automaticky.
               </p>
             </>
+          )}
+        </section>
+
+        <section className="space-y-2 border border-text-velmiJemny/20 p-4">
+          <button
+            type="button"
+            onClick={() => void handleOdkazFacebook()}
+            className="tlacitko-klidne"
+          >
+            Odkaz pro Facebook
+          </button>
+          {hlaskaFacebook && (
+            <p
+              className={`text-xs ${
+                hlaskaFacebook.ok ? "text-text-jemny" : "text-amber-700/80"
+              }`}
+            >
+              {hlaskaFacebook.text}
+            </p>
           )}
         </section>
 

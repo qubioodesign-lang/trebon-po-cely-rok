@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { metadataNahleduProlnuti } from "@/lib/nahled-facebook";
 import { ziskatAktivniPolozky, ziskatPolozku } from "@/lib/polozky";
 import { ziskatHlavniSouborPolozky } from "@/lib/polozka-soubory";
 import { SDILENI_TEXT, SDILENI_TITULEK } from "@/lib/sdileni";
@@ -47,7 +48,8 @@ function metadataProObrazek(obrazekUrl: string, strankaUrl: string): Metadata {
 export async function ziskatMetadataGalerie(
   polozkaId: string | undefined,
   oidcZHeaderu: string | null,
-  hlavicky: Headers
+  hlavicky: Headers,
+  nahledId?: string
 ): Promise<Metadata> {
   const zakladUrl = sestavitZakladUrl(hlavicky);
 
@@ -64,6 +66,12 @@ export async function ziskatMetadataGalerie(
         return metadataProObrazek(obrazekUrl, strankaUrl);
       }
     }
+  }
+
+  if (nahledId && !polozkaId) {
+    const polozka = await ziskatPolozku(nahledId, oidcZHeaderu);
+    const nahled = metadataNahleduProlnuti(polozka, zakladUrl);
+    if (nahled) return nahled;
   }
 
   const polozky = await ziskatAktivniPolozky(oidcZHeaderu);
