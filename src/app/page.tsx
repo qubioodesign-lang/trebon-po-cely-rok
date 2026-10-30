@@ -32,11 +32,11 @@ export async function generateMetadata({
 
 }: {
 
-  searchParams: Promise<{ polozka?: string; nahled?: string }>;
+  searchParams: Promise<{ polozka?: string; nahled?: string; fbtest?: string }>;
 
 }): Promise<Metadata> {
 
-  const { polozka, nahled } = await searchParams;
+  const { polozka, nahled, fbtest } = await searchParams;
 
   const hlavicky = await headers();
 
@@ -48,7 +48,9 @@ export async function generateMetadata({
 
     hlavicky,
 
-    nahled
+    nahled,
+
+    fbtest
 
   );
 

@@ -23,6 +23,38 @@ export function sestavitZakladUrl(hlavicky: Headers): string {
   return `${protocol}://${host}`;
 }
 
+/** Jednorázový pokus: široký výřez jen pro ?fbtest=1. Galerii nemění. */
+function metadataFacebookTestu(zakladUrl: string): Metadata {
+  const obrazekUrl = `${zakladUrl}/facebook-test-1200x630.jpg`;
+  const strankaUrl = `${zakladUrl}/?fbtest=1`;
+  return {
+    title: SDILENI_TITULEK,
+    description: SDILENI_TEXT,
+    openGraph: {
+      title: SDILENI_TITULEK,
+      description: SDILENI_TEXT,
+      url: strankaUrl,
+      type: "website",
+      locale: "cs_CZ",
+      images: [
+        {
+          url: obrazekUrl,
+          alt: SDILENI_TITULEK,
+          width: 1200,
+          height: 630,
+          type: "image/jpeg",
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: SDILENI_TITULEK,
+      description: SDILENI_TEXT,
+      images: [obrazekUrl],
+    },
+  };
+}
+
 function metadataProObrazek(obrazekUrl: string, strankaUrl: string): Metadata {
   return {
     title: SDILENI_TITULEK,
@@ -49,7 +81,8 @@ export async function ziskatMetadataGalerie(
   polozkaId: string | undefined,
   oidcZHeaderu: string | null,
   hlavicky: Headers,
-  nahledId?: string
+  nahledId?: string,
+  fbtest?: string
 ): Promise<Metadata> {
   const zakladUrl = sestavitZakladUrl(hlavicky);
 
@@ -72,6 +105,10 @@ export async function ziskatMetadataGalerie(
     const polozka = await ziskatPolozku(nahledId, oidcZHeaderu);
     const nahled = metadataNahleduProlnuti(polozka, zakladUrl);
     if (nahled) return nahled;
+  }
+
+  if (fbtest === "1" && !polozkaId && !nahledId) {
+    return metadataFacebookTestu(zakladUrl);
   }
 
   const polozky = await ziskatAktivniPolozky(oidcZHeaderu);
