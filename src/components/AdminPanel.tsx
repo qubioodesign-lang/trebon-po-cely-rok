@@ -40,9 +40,12 @@ import { AdminVzkazyTreboni } from "./admin/AdminVzkazyTreboni";
 import { AdminPotvrzeniSmazani } from "./admin/AdminPotvrzeniSmazani";
 import { AdminPolePopisu } from "./admin/AdminPolePopisu";
 import { PROLNUTI_CASOVANI_VYCHOZI } from "@/lib/prolnuti-casovani";
-import { ziskatTretiSouborProlnuti } from "@/lib/polozka-soubory";
+import {
+  sestavitOdkazFacebookKarty,
+  souborSnimkuProlnuti,
+  type SnimekFacebookKarty,
+} from "@/lib/facebook-karta";
 import { idPrvnihoViditelnehoProlnuti } from "@/lib/rotace-prolnuti";
-import { sestavitUrlNahleduFacebook } from "@/lib/sdileni";
 import { DESKTOP_POZVANKA_VYCHOZI_FOTOGRAFIE } from "@/lib/desktop-pozvanka";
 import {
   HLASKA_MAX_RADKU,
@@ -122,6 +125,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
     ok: boolean;
     text: string;
   } | null>(null);
+  const [volbaFacebook, setVolbaFacebook] = useState<SnimekFacebookKarty>(3);
   const [obnovujeZalohu, setObnovujeZalohu] = useState<string | null>(null);
   const [upravovanyId, setUpravovanyId] = useState<string | null>(null);
   const [potvrzeniSmazani, setPotvrzeniSmazani] = useState<{
@@ -617,16 +621,25 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
       return;
     }
 
-    if (!ziskatTretiSouborProlnuti(polozka)) {
+    if (!souborSnimkuProlnuti(polozka, volbaFacebook)) {
       setHlaskaFacebook({
         ok: false,
-        text: "První veřejné prolnutí nemá třetí fotografii. Odkaz nebyl zkopírován.",
+        text: `První veřejné prolnutí nemá fotografii ${volbaFacebook}. Odkaz nebyl zkopírován.`,
+      });
+      return;
+    }
+
+    const odkaz = sestavitOdkazFacebookKarty(polozka, volbaFacebook);
+    if (!odkaz) {
+      setHlaskaFacebook({
+        ok: false,
+        text: "Fotografii teď nelze použít pro facebookový náhled. Odkaz nebyl zkopírován.",
       });
       return;
     }
 
     try {
-      await navigator.clipboard.writeText(sestavitUrlNahleduFacebook(polozka.id));
+      await navigator.clipboard.writeText(odkaz);
       setHlaskaFacebook({ ok: true, text: "Odkaz zkopírován" });
     } catch {
       setHlaskaFacebook({
@@ -959,6 +972,27 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
         </section>
 
         <section className="space-y-2 border border-text-velmiJemny/20 p-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-text-velmiJemny">fotografie</span>
+            {([1, 2, 3] as const).map((cislo) => (
+              <button
+                key={cislo}
+                type="button"
+                aria-pressed={volbaFacebook === cislo}
+                onClick={() => {
+                  setVolbaFacebook(cislo);
+                  setHlaskaFacebook(null);
+                }}
+                className={`inline-flex h-8 w-8 items-center justify-center border text-sm ${
+                  volbaFacebook === cislo
+                    ? "border-text-jemny/50 text-text"
+                    : "border-text-velmiJemny/30 text-text-jemny"
+                }`}
+              >
+                {cislo}
+              </button>
+            ))}
+          </div>
           <button
             type="button"
             onClick={() => void handleOdkazFacebook()}
