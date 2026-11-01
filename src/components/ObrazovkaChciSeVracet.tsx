@@ -232,7 +232,7 @@ export function ObrazovkaChciSeVracet() {
           ) : otevritVChromu ? (
             <div className="space-y-4">
               <p className="text-[0.9rem] font-medium leading-snug text-text">
-                Třeboň si na plochu přidáte v prohlížeči Chrome.
+                V Chromu pak ještě jednou klepněte na Přidat Třeboň na plochu.
               </p>
               <a
                 href={ODKAZ_OTEVRIT_V_CHROMU}
