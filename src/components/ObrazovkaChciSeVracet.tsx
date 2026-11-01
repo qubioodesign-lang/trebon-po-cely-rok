@@ -201,8 +201,8 @@ export function ObrazovkaChciSeVracet() {
         zavřít
       </button>
 
-      <div className="max-w-sm space-y-8 text-center">
-        <div className="space-y-6 text-sm font-light leading-relaxed tracking-wide text-text-jemny">
+      <div className="max-w-sm space-y-4 text-center">
+        <div className="space-y-4 text-sm font-light leading-relaxed tracking-wide text-text-jemny">
           <p className="text-pretty">
             Třeboň po celý rok je pro všechny, kterým se po Třeboni občas
             zasteskne.
@@ -229,6 +229,22 @@ export function ObrazovkaChciSeVracet() {
           <p className="text-xs font-light tracking-wide text-text-velmiJemny">
             Třeboň přidána na plochu
           </p>
+        ) : otevritVChromu ? (
+          <div className="space-y-4">
+            <p className="text-xs font-light leading-relaxed text-text-jemny">
+              Třeboň si na plochu přidáte v prohlížeči Chrome.
+            </p>
+            <a
+              href={ODKAZ_OTEVRIT_V_CHROMU}
+              className="tlacitko-klidne !px-6 !py-2.5 !text-xs"
+            >
+              Otevřít v Chromu
+            </a>
+            <p className="text-xs font-light leading-relaxed text-text-jemny">
+              Facebook se zeptá, zda chcete otevřít externí aplikaci. Potvrďte{" "}
+              <strong className="font-bold">Pokračovat</strong>.
+            </p>
+          </div>
         ) : (
           <button
             type="button"
@@ -240,19 +256,7 @@ export function ObrazovkaChciSeVracet() {
           </button>
         )}
 
-        {otevritVChromu ? (
-          <div className="space-y-4">
-            <p className="text-xs font-light leading-relaxed text-text-jemny">
-              Facebook požádá o potvrzení přechodu do Chromu.
-            </p>
-            <a
-              href={ODKAZ_OTEVRIT_V_CHROMU}
-              className="tlacitko-klidne !px-6 !py-2.5 !text-xs"
-            >
-              Otevřít v Chromu
-            </a>
-          </div>
-        ) : hlaska ? (
+        {!otevritVChromu && hlaska ? (
           <p className="text-xs font-light leading-relaxed text-text-jemny">
             {hlaska}
           </p>
