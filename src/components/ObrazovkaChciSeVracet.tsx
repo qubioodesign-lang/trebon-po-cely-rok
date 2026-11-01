@@ -21,10 +21,10 @@ import {
 
 /**
  * Stejný intent:// jako ověřená zkouška na Honor 70.
- * Parametr nese jen cíl v Chromu. Záložní adresa zůstává bez něj.
+ * Cíl je stávající obrazovka „Chci se vracet“, bez dalšího parametru.
  */
 const ODKAZ_OTEVRIT_V_CHROMU =
-  "intent://www.trebonpocelyrok.cz/chci-se-vracet?dokoncit=1#Intent;scheme=https;action=android.intent.action.VIEW;package=com.android.chrome;S.browser_fallback_url=https%3A%2F%2Fwww.trebonpocelyrok.cz%2Fchci-se-vracet;end";
+  "intent://www.trebonpocelyrok.cz/chci-se-vracet#Intent;scheme=https;action=android.intent.action.VIEW;package=com.android.chrome;S.browser_fallback_url=https%3A%2F%2Fwww.trebonpocelyrok.cz%2Fchci-se-vracet;end";
 
 /** Interní prohlížeč Facebooku na Androidu. V běžném Chromu tyto značky nejsou. */
 function jeFacebookNaAndroidu(): boolean {
@@ -91,12 +91,7 @@ function muzeBezpecneZpet(): boolean {
  * Obrazovka „chci se vracet“ – klidná, centrovaná, teplé pozadí.
  * CTA vede k přidání Třeboně na plochu (ne k push upozornění).
  */
-export function ObrazovkaChciSeVracet({
-  dokoncitInstalaci = false,
-}: {
-  /** Chrome otevřený z facebookového postupu. Bez příznaku zůstává celá obrazovka. */
-  dokoncitInstalaci?: boolean;
-}) {
+export function ObrazovkaChciSeVracet() {
   useChovaniNavstevnika("chci_se_vracet");
   const router = useRouter();
   const { odeslat } = useMetriky();
@@ -207,8 +202,35 @@ export function ObrazovkaChciSeVracet({
       </button>
 
       <div className="max-w-sm space-y-2 text-center">
-        {otevritVChromu ? (
-          <div className="space-y-4">
+        <div className="space-y-2 text-sm font-light leading-relaxed tracking-wide text-text-jemny">
+          <p className="text-pretty">
+            Třeboň po celý rok je pro všechny, kterým se po Třeboni občas
+            zasteskne.
+          </p>
+          <p>
+            Pro chvíle mezi návštěvami.
+            <br />
+            Pro návraty ve vzpomínkách.
+            <br />
+            Pro místa, na která se člověk rád vrací.
+          </p>
+          <p>
+            Jen malé kousky Třeboně
+            <br />
+            během celého roku.
+          </p>
+        </div>
+
+        <p className="text-pretty px-2 py-3 text-[1.125rem] font-light leading-relaxed tracking-wide text-text/80">
+          Chcete vědět, když přibude další malý kousek Třeboně?
+        </p>
+
+        {nainstalovano ? (
+          <p className="text-xs font-light tracking-wide text-text-velmiJemny">
+            Třeboň přidána na plochu
+          </p>
+        ) : otevritVChromu ? (
+          <div className="space-y-2">
             <p className="text-xs font-light leading-relaxed text-text-jemny">
               Třeboň si na plochu přidáte v prohlížeči Chrome.
             </p>
@@ -223,78 +245,22 @@ export function ObrazovkaChciSeVracet({
               <strong className="font-bold">Pokračovat</strong>.
             </p>
           </div>
-        ) : dokoncitInstalaci ? (
-          <div className="space-y-4">
-            <p className="text-pretty text-[1.125rem] font-light leading-relaxed tracking-wide text-text/80">
-              Teď už si můžete Třeboň přidat na plochu.
-            </p>
-            {nainstalovano ? (
-              <p className="text-xs font-light tracking-wide text-text-velmiJemny">
-                Třeboň přidána na plochu
-              </p>
-            ) : (
-              <button
-                type="button"
-                onClick={() => void handlePridatNaPlochu()}
-                disabled={nacita}
-                className="tlacitko-klidne !px-6 !py-2.5 !text-xs"
-              >
-                {nacita ? "…" : "Přidat Třeboň na plochu"}
-              </button>
-            )}
-            {hlaska ? (
-              <p className="text-xs font-light leading-relaxed text-text-jemny">
-                {hlaska}
-              </p>
-            ) : null}
-          </div>
         ) : (
-          <>
-            <div className="space-y-2 text-sm font-light leading-relaxed tracking-wide text-text-jemny">
-              <p className="text-pretty">
-                Třeboň po celý rok je pro všechny, kterým se po Třeboni občas
-                zasteskne.
-              </p>
-              <p>
-                Pro chvíle mezi návštěvami.
-                <br />
-                Pro návraty ve vzpomínkách.
-                <br />
-                Pro místa, na která se člověk rád vrací.
-              </p>
-              <p>
-                Jen malé kousky Třeboně
-                <br />
-                během celého roku.
-              </p>
-            </div>
-
-            <p className="text-pretty px-2 py-3 text-[1.125rem] font-light leading-relaxed tracking-wide text-text/80">
-              Chcete vědět, když přibude další malý kousek Třeboně?
-            </p>
-
-            {nainstalovano ? (
-              <p className="text-xs font-light tracking-wide text-text-velmiJemny">
-                Třeboň přidána na plochu
-              </p>
-            ) : (
-              <button
-                type="button"
-                onClick={() => void handlePridatNaPlochu()}
-                disabled={nacita}
-                className="tlacitko-klidne !px-6 !py-2.5 !text-xs"
-              >
-                {nacita ? "…" : "Přidat Třeboň na plochu"}
-              </button>
-            )}
-
-            {hlaska ? (
-              <p className="text-xs font-light leading-relaxed text-text-jemny">
-                {hlaska}
-              </p>
-            ) : null}
-          </>
+          <button
+            type="button"
+            onClick={() => void handlePridatNaPlochu()}
+            disabled={nacita}
+            className="tlacitko-klidne !px-6 !py-2.5 !text-xs"
+          >
+            {nacita ? "…" : "Přidat Třeboň na plochu"}
+          </button>
         )}
+
+        {!otevritVChromu && hlaska ? (
+          <p className="text-xs font-light leading-relaxed text-text-jemny">
+            {hlaska}
+          </p>
+        ) : null}
       </div>
 
       <TrebonIosInstalacniVrstva />
