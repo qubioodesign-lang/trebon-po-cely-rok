@@ -246,19 +246,14 @@ export function ObrazovkaChciSeVracet() {
               </p>
             </div>
           ) : (
-            <>
-              <p className="mb-3 whitespace-nowrap text-[0.8125rem] font-normal leading-snug tracking-wide text-text-jemny">
-                A teď už jen přidat na plochu.
-              </p>
-              <button
-                type="button"
-                onClick={() => void handlePridatNaPlochu()}
-                disabled={nacita}
-                className="tlacitko-klidne whitespace-nowrap !border-text/70 !px-8 !py-3.5 !text-[0.9rem] !leading-[1.75rem] !font-semibold !tracking-wide !text-text"
-              >
-                {nacita ? "…" : "Přidat Třeboň na plochu"}
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={() => void handlePridatNaPlochu()}
+              disabled={nacita}
+              className="tlacitko-klidne whitespace-nowrap !border-text/70 !px-8 !py-3.5 !text-[0.9rem] !leading-[1.75rem] !font-semibold !tracking-wide !text-text"
+            >
+              {nacita ? "…" : "Přidat Třeboň na plochu"}
+            </button>
           )}
         </div>
 
