@@ -240,7 +240,7 @@ export function ObrazovkaChciSeVracet() {
               >
                 Otevřít v Chromu
               </a>
-              <p className="text-base font-normal leading-snug text-text">
+              <p className="text-base font-normal leading-[1.2] text-text">
                 Facebook se zeptá, zda chcete otevřít externí aplikaci. Potvrďte{" "}
                 <strong className="font-bold">Pokračovat</strong>.
               </p>
