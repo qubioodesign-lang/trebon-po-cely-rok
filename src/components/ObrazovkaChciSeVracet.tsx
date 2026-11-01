@@ -201,8 +201,8 @@ export function ObrazovkaChciSeVracet() {
         zavřít
       </button>
 
-      <div className="max-w-sm space-y-2 text-center">
-        <div className="space-y-2 text-sm font-light leading-relaxed tracking-wide text-text-jemny">
+      <div className="max-w-sm text-center">
+        <div className="space-y-1 text-xs font-light leading-snug tracking-wide text-[#7A7672]">
           <p className="text-pretty">
             Třeboň po celý rok je pro všechny, kterým se po Třeboni občas
             zasteskne.
@@ -219,45 +219,46 @@ export function ObrazovkaChciSeVracet() {
             <br />
             během celého roku.
           </p>
+          <p className="text-pretty">
+            Chcete vědět, když přibude další malý kousek Třeboně?
+          </p>
         </div>
 
-        <p className="text-pretty px-2 py-3 text-[1.125rem] font-light leading-relaxed tracking-wide text-text/80">
-          Chcete vědět, když přibude další malý kousek Třeboně?
-        </p>
-
-        {nainstalovano ? (
-          <p className="text-xs font-light tracking-wide text-text-velmiJemny">
-            Třeboň přidána na plochu
-          </p>
-        ) : otevritVChromu ? (
-          <div className="space-y-2">
-            <p className="text-xs font-light leading-relaxed text-text-jemny">
-              Třeboň si na plochu přidáte v prohlížeči Chrome.
+        <div className="mt-10">
+          {nainstalovano ? (
+            <p className="text-xl font-medium leading-snug tracking-wide text-text">
+              Třeboň přidána na plochu
             </p>
-            <a
-              href={ODKAZ_OTEVRIT_V_CHROMU}
-              className="tlacitko-klidne !px-6 !py-2.5 !text-xs"
+          ) : otevritVChromu ? (
+            <div className="space-y-4">
+              <p className="text-lg font-medium leading-snug text-text">
+                Třeboň si na plochu přidáte v prohlížeči Chrome.
+              </p>
+              <a
+                href={ODKAZ_OTEVRIT_V_CHROMU}
+                className="tlacitko-klidne !border-text/70 !px-8 !py-3.5 !text-lg !font-semibold !tracking-wide !text-text"
+              >
+                Otevřít v Chromu
+              </a>
+              <p className="text-base font-normal leading-snug text-text">
+                Facebook se zeptá, zda chcete otevřít externí aplikaci. Potvrďte{" "}
+                <strong className="font-bold">Pokračovat</strong>.
+              </p>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void handlePridatNaPlochu()}
+              disabled={nacita}
+              className="tlacitko-klidne !border-text/70 !px-8 !py-3.5 !text-lg !font-semibold !tracking-wide !text-text"
             >
-              Otevřít v Chromu
-            </a>
-            <p className="text-xs font-light leading-relaxed text-text-jemny">
-              Facebook se zeptá, zda chcete otevřít externí aplikaci. Potvrďte{" "}
-              <strong className="font-bold">Pokračovat</strong>.
-            </p>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => void handlePridatNaPlochu()}
-            disabled={nacita}
-            className="tlacitko-klidne !px-6 !py-2.5 !text-xs"
-          >
-            {nacita ? "…" : "Přidat Třeboň na plochu"}
-          </button>
-        )}
+              {nacita ? "…" : "Přidat Třeboň na plochu"}
+            </button>
+          )}
+        </div>
 
         {!otevritVChromu && hlaska ? (
-          <p className="text-xs font-light leading-relaxed text-text-jemny">
+          <p className="mt-4 text-sm font-normal leading-snug text-text">
             {hlaska}
           </p>
         ) : null}
