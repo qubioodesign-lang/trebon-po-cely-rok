@@ -226,21 +226,21 @@ export function ObrazovkaChciSeVracet() {
 
         <div className="mt-10">
           {nainstalovano ? (
-            <p className="text-xl font-medium leading-snug tracking-wide text-text">
+            <p className="text-[1rem] font-medium leading-snug tracking-wide text-text">
               Třeboň přidána na plochu
             </p>
           ) : otevritVChromu ? (
             <div className="space-y-4">
-              <p className="text-lg font-medium leading-snug text-text">
+              <p className="text-[0.9rem] font-medium leading-snug text-text">
                 Třeboň si na plochu přidáte v prohlížeči Chrome.
               </p>
               <a
                 href={ODKAZ_OTEVRIT_V_CHROMU}
-                className="tlacitko-klidne !border-text/70 !px-8 !py-3.5 !text-lg !font-semibold !tracking-wide !text-text"
+                className="tlacitko-klidne !border-text/70 !px-8 !py-3.5 !text-[0.9rem] !leading-[1.75rem] !font-semibold !tracking-wide !text-text"
               >
                 Otevřít v Chromu
               </a>
-              <p className="text-base font-normal leading-[1.2] text-text">
+              <p className="text-[0.8rem] font-normal leading-[1.2] text-text">
                 Facebook se zeptá, zda chcete otevřít externí aplikaci. Potvrďte{" "}
                 <strong className="font-bold">Pokračovat</strong>.
               </p>
@@ -250,7 +250,7 @@ export function ObrazovkaChciSeVracet() {
               type="button"
               onClick={() => void handlePridatNaPlochu()}
               disabled={nacita}
-              className="tlacitko-klidne !border-text/70 !px-8 !py-3.5 !text-lg !font-semibold !tracking-wide !text-text"
+              className="tlacitko-klidne !border-text/70 !px-8 !py-3.5 !text-[0.9rem] !leading-[1.75rem] !font-semibold !tracking-wide !text-text"
             >
               {nacita ? "…" : "Přidat Třeboň na plochu"}
             </button>
@@ -258,7 +258,7 @@ export function ObrazovkaChciSeVracet() {
         </div>
 
         {!otevritVChromu && hlaska ? (
-          <p className="mt-4 text-sm font-normal leading-snug text-text">
+          <p className="mt-4 text-[0.8rem] font-normal leading-snug text-text">
             {hlaska}
           </p>
         ) : null}
