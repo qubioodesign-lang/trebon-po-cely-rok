@@ -250,7 +250,7 @@ export function ObrazovkaChciSeVracet() {
               type="button"
               onClick={() => void handlePridatNaPlochu()}
               disabled={nacita}
-              className="tlacitko-klidne !border-text/70 !px-8 !py-3.5 !text-[0.9rem] !leading-[1.75rem] !font-semibold !tracking-wide !text-text"
+              className="tlacitko-klidne whitespace-nowrap !border-text/70 !px-8 !py-3.5 !text-[0.9rem] !leading-[1.75rem] !font-semibold !tracking-wide !text-text"
             >
               {nacita ? "…" : "Přidat Třeboň na plochu"}
             </button>
