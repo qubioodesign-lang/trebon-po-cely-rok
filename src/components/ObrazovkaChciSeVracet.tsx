@@ -191,7 +191,7 @@ export function ObrazovkaChciSeVracet() {
   };
 
   return (
-    <div className="relative flex min-h-dvh flex-col items-center justify-center bg-krem px-8 py-16">
+    <div className="relative flex min-h-dvh flex-col items-center justify-center bg-krem px-8 pt-16 pb-6">
       <button
         type="button"
         onClick={zavrit}
@@ -201,8 +201,8 @@ export function ObrazovkaChciSeVracet() {
         zavřít
       </button>
 
-      <div className="max-w-sm space-y-4 text-center">
-        <div className="space-y-4 text-sm font-light leading-relaxed tracking-wide text-text-jemny">
+      <div className="max-w-sm space-y-2 text-center">
+        <div className="space-y-2 text-sm font-light leading-relaxed tracking-wide text-text-jemny">
           <p className="text-pretty">
             Třeboň po celý rok je pro všechny, kterým se po Třeboni občas
             zasteskne.
@@ -221,7 +221,7 @@ export function ObrazovkaChciSeVracet() {
           </p>
         </div>
 
-        <p className="text-pretty px-2 py-8 text-[1.125rem] font-light leading-relaxed tracking-wide text-text/80">
+        <p className="text-pretty px-2 py-3 text-[1.125rem] font-light leading-relaxed tracking-wide text-text/80">
           Chcete vědět, když přibude další malý kousek Třeboně?
         </p>
 
@@ -230,7 +230,7 @@ export function ObrazovkaChciSeVracet() {
             Třeboň přidána na plochu
           </p>
         ) : otevritVChromu ? (
-          <div className="space-y-4">
+          <div className="space-y-2">
             <p className="text-xs font-light leading-relaxed text-text-jemny">
               Třeboň si na plochu přidáte v prohlížeči Chrome.
             </p>
