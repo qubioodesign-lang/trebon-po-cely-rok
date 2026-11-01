@@ -19,6 +19,23 @@ import {
   vyvolatTrebonInstalacniDialog,
 } from "@/lib/trebon-pwa-instalace";
 
+/**
+ * Stejný intent:// jako ověřená zkouška na Honor 70.
+ * Cíl je stávající obrazovka „Chci se vracet“, bez dalšího parametru.
+ */
+const ODKAZ_OTEVRIT_V_CHROMU =
+  "intent://www.trebonpocelyrok.cz/chci-se-vracet#Intent;scheme=https;action=android.intent.action.VIEW;package=com.android.chrome;S.browser_fallback_url=https%3A%2F%2Fwww.trebonpocelyrok.cz%2Fchci-se-vracet;end";
+
+/** Interní prohlížeč Facebooku na Androidu. V běžném Chromu tyto značky nejsou. */
+function jeFacebookNaAndroidu(): boolean {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
+
+  const prohlizec = navigator.userAgent;
+  return /Android/i.test(prohlizec) && /FB_IAB|FBAN|FBAV/.test(prohlizec);
+}
+
 /** Zpět jen když předchozí záznam historie je na stejném originu; jinak galerie. */
 function muzeBezpecneZpet(): boolean {
   if (typeof window === "undefined") {
@@ -81,6 +98,7 @@ export function ObrazovkaChciSeVracet() {
   const [nacita, setNacita] = useState(false);
   const [nainstalovano, setNainstalovano] = useState(() => jePWA());
   const [hlaska, setHlaska] = useState("");
+  const [otevritVChromu, setOtevritVChromu] = useState(false);
 
   const zavrit = useCallback(() => {
     if (muzeBezpecneZpet()) {
@@ -107,6 +125,7 @@ export function ObrazovkaChciSeVracet() {
     const zrusInstalaci = priTrebonAppInstalled(() => {
       setNainstalovano(true);
       setHlaska("");
+      setOtevritVChromu(false);
     });
 
     const zrusPrompt = priZmeneTrebonInstalacnihoPromptu(() => {
@@ -119,8 +138,20 @@ export function ObrazovkaChciSeVracet() {
     };
   }, [obnovitStavInstalace]);
 
+  const nabidnoutPrechodDoChromu = () => {
+    if (!jeFacebookNaAndroidu()) {
+      setHlaska(
+        "Přidání na plochu teď v tomto prohlížeči není k dispozici.",
+      );
+      return;
+    }
+
+    setOtevritVChromu(true);
+  };
+
   const handlePridatNaPlochu = async () => {
     setHlaska("");
+    setOtevritVChromu(false);
 
     if (jePWA()) {
       setNainstalovano(true);
@@ -139,9 +170,7 @@ export function ObrazovkaChciSeVracet() {
 
     try {
       if (!jeTrebonInstalacniPromptKDispozici()) {
-        setHlaska(
-          "Přidání na plochu teď v tomto prohlížeči není k dispozici.",
-        );
+        nabidnoutPrechodDoChromu();
         return;
       }
 
@@ -154,9 +183,7 @@ export function ObrazovkaChciSeVracet() {
       }
 
       if (vysledek === "nedostupny") {
-        setHlaska(
-          "Přidání na plochu teď v tomto prohlížeči není k dispozici.",
-        );
+        nabidnoutPrechodDoChromu();
       }
     } finally {
       setNacita(false);
@@ -213,7 +240,19 @@ export function ObrazovkaChciSeVracet() {
           </button>
         )}
 
-        {hlaska ? (
+        {otevritVChromu ? (
+          <div className="space-y-4">
+            <p className="text-xs font-light leading-relaxed text-text-jemny">
+              Facebook požádá o potvrzení přechodu do Chromu.
+            </p>
+            <a
+              href={ODKAZ_OTEVRIT_V_CHROMU}
+              className="tlacitko-klidne !px-6 !py-2.5 !text-xs"
+            >
+              Otevřít v Chromu
+            </a>
+          </div>
+        ) : hlaska ? (
           <p className="text-xs font-light leading-relaxed text-text-jemny">
             {hlaska}
           </p>
