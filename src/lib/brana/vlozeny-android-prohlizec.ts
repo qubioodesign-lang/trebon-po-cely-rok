@@ -58,6 +58,32 @@ export function zpracovatOtevreniVChromu(): boolean {
   return true;
 }
 
+/** Platí jen pro toto načtení stránky, ne pro pozdější obnovení bez parametru. */
+let prichodZFacebookuVTetoStrance = false;
+
+/**
+ * Příchod z Facebooku do Chromu. Hodnotu fb smaže a oznámí plný Chrome.
+ * Hodnotu otevrenoVChromu=1 nemění.
+ */
+export function zpracovatPrichodZFacebooku(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const url = new URL(window.location.href);
+  if (url.searchParams.get(BRANA_OTEVRENO_V_CHROMU_PARAM) === "fb") {
+    vymazatEmbeddedAndroidKontext();
+    sessionStorage.setItem(BRANA_PLNY_CHROME_KLIC, "1");
+
+    url.searchParams.delete(BRANA_OTEVRENO_V_CHROMU_PARAM);
+    const cistaCesta = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState(window.history.state, "", cistaCesta);
+    prichodZFacebookuVTetoStrance = true;
+  }
+
+  return prichodZFacebookuVTetoStrance;
+}
+
 /** Uloží embedded kontext z první navigace (referrer android-app://). */
 export function zapamatovatEmbeddedAndroidKontext(): void {
   if (typeof window === "undefined") {

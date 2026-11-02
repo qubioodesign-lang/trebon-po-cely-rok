@@ -42,3 +42,20 @@ export function aktualniStrankaUrl(): string {
 export function pripravitOtevreniVChromu(aktualniUrl: string): string {
   return sestavitOtevreniVChromuIntentUrl(aktualniUrl);
 }
+
+/**
+ * Intent jen pro facebookový prohlížeč na Androidu.
+ * Nemění cestu s otevrenoVChromu=1.
+ */
+export function sestavitFacebookOtevreniVChromu(aktualniUrl: string): string {
+  if (!aktualniUrl) {
+    return "";
+  }
+
+  const sParametrem = new URL(aktualniUrl);
+  sParametrem.searchParams.set(BRANA_OTEVRENO_V_CHROMU_PARAM, "fb");
+  const cesta = `${sParametrem.host}${sParametrem.pathname}${sParametrem.search}${sParametrem.hash}`;
+  const fallback = encodeURIComponent(sParametrem.toString());
+
+  return `intent://${cesta}#Intent;scheme=https;action=android.intent.action.VIEW;package=com.android.chrome;S.browser_fallback_url=${fallback};end`;
+}

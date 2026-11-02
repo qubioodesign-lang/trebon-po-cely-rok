@@ -33,11 +33,15 @@ import {
   priZmeneInstalacnihoPromptu,
   vyvolatInstalacniDialog,
 } from "@/lib/brana/pwa-instalace";
+import { otevritFacebookInstalacniVrstvu, jeFacebookNaAndroidu } from "@/lib/brana/facebook-instalacni-vrstva";
+import { jeIOS } from "@/lib/uloziste";
 import {
+  jeAndroid,
   vymazatEmbeddedAndroidKontext,
   vycistitEmbeddedPoInstalaci,
   zapamatovatEmbeddedAndroidKontext,
   zpracovatOtevreniVChromu,
+  zpracovatPrichodZFacebooku,
 } from "@/lib/brana/vlozeny-android-prohlizec";
 import {
   bylaVyzvaPlochyZobrazena,
@@ -90,6 +94,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   const [topPx, setTopPx] = useState<number | null>(null);
   const [prepoctiVerze, setPrepoctiVerze] = useState(0);
   const pripravujiRef = useRef(false);
+  const prichodZFacebookuRef = useRef(false);
 
   const obnovitStav = useCallback(() => {
     setPrepoctiVerze((verze) => verze + 1);
@@ -147,6 +152,19 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   }, []);
 
   const zkusZobrazitPoZajmu = useCallback(() => {
+    if (prichodZFacebookuRef.current) {
+      if (jeVyzvaPlochyZavrena() || jeBranaSpustenaJakoPwa()) {
+        return;
+      }
+
+      oznacVyzvuPlochyZobrazenou();
+      setPolitikaSplnena(true);
+      requestAnimationFrame(() => {
+        setPripravena(true);
+      });
+      return;
+    }
+
     setPolitikaSplnena(smiSeZobrazitVyzvaPlochy());
     if (smiSeZobrazitVyzvaPlochy()) {
       zobraz();
@@ -154,8 +172,18 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   }, [zobraz]);
 
   useEffect(() => {
+    const prichodZFacebooku = zpracovatPrichodZFacebooku();
+    if (
+      prichodZFacebooku &&
+      jeAndroid() &&
+      !jeIOS() &&
+      !jeBranaSpustenaJakoPwa()
+    ) {
+      prichodZFacebookuRef.current = true;
+    }
+
     const praveOtevrenoVChromu = zpracovatOtevreniVChromu();
-    if (!praveOtevrenoVChromu) {
+    if (!praveOtevrenoVChromu && !prichodZFacebooku) {
       zapamatovatEmbeddedAndroidKontext();
     }
 
@@ -261,6 +289,15 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
 
     if (okamzita.typ === "CHROME_INTENT") {
       window.location.href = okamzita.url;
+      return;
+    }
+
+    if (
+      jeFacebookNaAndroidu() &&
+      !jeInstalacniPromptKDispozici() &&
+      !jeBranaSpustenaJakoPwa()
+    ) {
+      otevritFacebookInstalacniVrstvu();
       return;
     }
 

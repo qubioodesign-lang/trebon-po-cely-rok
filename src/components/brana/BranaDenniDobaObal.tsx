@@ -15,6 +15,7 @@ import type {
 import { BranaDesktopPozadi } from "./BranaDesktopPozadi";
 import { BranaObrazovka } from "./BranaObrazovka";
 import { BranaPozadi } from "./pozadi/BranaPozadi";
+import { BranaFacebookInstalacniVrstva } from "./BranaFacebookInstalacniVrstva";
 import { BranaIosInstalacniVrstva } from "./BranaIosInstalacniVrstva";
 import { BranaRegistracePWA } from "./BranaRegistracePWA";
 import { BranaVyzvaPlocha } from "./BranaVyzvaPlocha";
@@ -110,6 +111,7 @@ export function BranaDenniDobaObal({
             )}
             <BranaVyzvaPlocha nocRezim={nocRezim} />
             <BranaIosInstalacniVrstva nocRezim={nocRezim} />
+            <BranaFacebookInstalacniVrstva nocRezim={nocRezim} />
           </main>
         </div>
         {desktopPanel}
