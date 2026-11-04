@@ -77,6 +77,25 @@ export interface GeografieNavstev {
   dny: Record<string, GeografieNavstevDen>;
 }
 
+/** Jeden pražský den pěti časových ukazatelů. Neobsahuje ostatní metriky. */
+export interface MetrikyDenPoDnech {
+  navstevy: number;
+  navstevniciNovi: number;
+  navstevniciVracejici: number;
+  navstevyZIkony: number;
+  klikChciSeVracet: number;
+  klikPridatNaPlochu: number;
+}
+
+/**
+ * Denní řada od první sledované události.
+ * `merenoOd` se nastaví jednou. Dny před ním nejsou měřené.
+ */
+export interface MetrikyPoDnech {
+  merenoOd: string;
+  dny: Record<string, MetrikyDenPoDnech>;
+}
+
 /** Struktura celého úložiště */
 export interface UlozisteDat {
   polozky: Polozka[];
@@ -99,6 +118,11 @@ export interface UlozisteDat {
   verzeUloziste?: number;
   /** Denní geografické součty návštěv. Chybějící blok znamená, že se ještě neměřilo. */
   geografieNavstev?: GeografieNavstev;
+  /**
+   * Denní součty pěti ukazatelů od první zaznamenané události.
+   * Chybějící blok znamená, že se ještě neměřilo. Nejsou to celoživotní karty.
+   */
+  metrikyPoDnech?: MetrikyPoDnech;
   /**
    * Začátek aktuálního 24hodinového okna rotace viditelných prolnutí.
    * Chybí nebo je neplatný = galerie se netočí a pořadí zůstává uložené.

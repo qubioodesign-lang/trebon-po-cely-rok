@@ -27,6 +27,7 @@ import { jePlatneZarizeni, type TypZarizeni } from "./zarizeni-navstevnika";
 import type { PushOdber } from "./uloziste-dat";
 import { aplikovatAnalyticsBatch } from "./analytics";
 import { aplikovatKomunitaNavstevu } from "./komunita";
+import { pricistSledovanouMetrikuDne } from "./trebon-metriky-dny";
 import { aplikovatOdchodNavstevy } from "./chovani-navstevniku";
 import { nacistData, upravitData } from "./uloziste-dat";
 
@@ -445,7 +446,12 @@ export function aplikovatMetriky(
   referencniCas: Date = new Date(),
 ): void {
   const agregovane = zajistitMetrikyAgregovane(uloziste);
+  const casDavky = referencniCas;
+  const uzZapocteniLide = new Set<string>();
   for (const udalost of udalosti) {
+    if (udalost.typ === "navsteva") {
+      pricistSledovanouMetrikuDne(uloziste, udalost, casDavky, uzZapocteniLide);
+    }
     if (udalost.typ === "navsteva" && udalost.navstevnikId) {
       aplikovatKomunitaNavstevu(uloziste, udalost.navstevnikId);
     }
@@ -453,9 +459,12 @@ export function aplikovatMetriky(
       aplikovatChovaniNavstevy(uloziste, udalost);
       continue;
     }
+    if (udalost.typ !== "navsteva") {
+      pricistSledovanouMetrikuDne(uloziste, udalost, casDavky, uzZapocteniLide);
+    }
     aplikovatMetriku(agregovane, udalost);
     if (udalost.typ === "navsteva" && oblast) {
-      pricistGeografiiNavstevy(uloziste, oblast, referencniCas);
+      pricistGeografiiNavstevy(uloziste, oblast, casDavky);
     }
   }
   aplikovatAnalyticsBatch(uloziste, udalosti);

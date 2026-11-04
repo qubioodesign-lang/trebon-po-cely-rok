@@ -101,6 +101,57 @@ export interface GeografieObdobiPodklady {
 
 export type GeografieGrafyAdmin = Record<GeografieObdobi, GeografieObdobiPodklady>;
 
+/** Období časové analytiky. Výchozí pohled v administraci je 7 dní. */
+export const METRIKY_DNU_OBDOBI = [7, 30, 90, 365] as const;
+
+export type MetrikyDnuObdobi = (typeof METRIKY_DNU_OBDOBI)[number];
+
+export const METRIKY_DNU_RADY = [
+  "navstevy",
+  "navstevniciNovi",
+  "navstevniciVracejici",
+  "navstevyZIkony",
+  "klikChciSeVracet",
+  "klikPridatNaPlochu",
+] as const;
+
+export type KlicMetrikDne = (typeof METRIKY_DNU_RADY)[number];
+
+export type SouctyMetrikDne = Record<KlicMetrikDne, number | null>;
+
+/** Jeden bod grafu. Null znamená neměřený den, ne nulu. */
+export interface BodMetrikDne {
+  od: string;
+  do: string;
+  rok: number;
+  mesic: number;
+  den: number | null;
+  pocetDnu: number;
+  nedostupnychDnu: number;
+  navstevy: number | null;
+  navstevniciNovi: number | null;
+  navstevniciVracejici: number | null;
+  navstevyZIkony: number | null;
+  klikChciSeVracet: number | null;
+  klikPridatNaPlochu: number | null;
+}
+
+export interface MetrikyDnuObdobiPodklady {
+  obdobi: MetrikyDnuObdobi;
+  rozliseni: "den" | "mesic";
+  /** Pražský den první sledované události. Null znamená, že měření ještě nezačalo. */
+  merenoOd: string | null;
+  okno: { od: string; do: string };
+  /** Jen u 7, 30 a 90 dní a jen když jsou obě období celá po začátku měření. */
+  predchoziOkno: { od: string; do: string } | null;
+  body: BodMetrikDne[];
+  soucty: SouctyMetrikDne;
+  souctyPredchozi: SouctyMetrikDne | null;
+  zmenaProcent: SouctyMetrikDne | null;
+}
+
+export type MetrikyPoDnechGrafy = Record<MetrikyDnuObdobi, MetrikyDnuObdobiPodklady>;
+
 /** Souhrn analytics pro administraci */
 export interface AnalyticsSouhrn {
   zdroje: Record<ZdrojNavstevnika, number>;
@@ -211,6 +262,8 @@ export interface AdminData {
   rotaceProlnutiOd: string | null;
   /** První aktivní položka uloženého pořadí. Push se řídí jí, ne otočenou galerií. */
   polozkaPosledniPublikace: Polozka | null;
+  /** Denní řady pěti ukazatelů. Chybějící začátek měření není nula. */
+  metrikyPoDnech: MetrikyPoDnechGrafy;
 }
 
 /** Chyby při načítání jednotlivých částí administrace */

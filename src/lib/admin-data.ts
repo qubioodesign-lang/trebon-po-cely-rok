@@ -11,6 +11,10 @@ import {
 import { prazdnySouhrnKomunity, spocitatSouhrnKomunity } from "./komunita";
 import { prazdnySouhrnMetrik, ziskatSouhrnZUloziste } from "./metriky";
 import {
+  prazdneGrafyMetrikPoDnech,
+  sestavitMetrikyPoDnechGrafy,
+} from "./trebon-metriky-dny";
+import {
   prazdnySouhrnChovaniNavstevniku,
   spocitatSouhrnChovaniNavstevniku,
 } from "./chovani-navstevniku";
@@ -67,6 +71,7 @@ export async function nacistAdminData(): Promise<AdminVysledek> {
   let rotaceProlnutiOd: string | null = null;
   let polozkaPosledniPublikace: AdminVysledek["data"]["polozkaPosledniPublikace"] =
     null;
+  let metrikyPoDnech = prazdneGrafyMetrikPoDnech();
 
   try {
     const uloziste = await nacistData(oidcHeader);
@@ -83,6 +88,11 @@ export async function nacistAdminData(): Promise<AdminVysledek> {
     polozkaPosledniPublikace =
       zakladniPoradi.find((polozka) => polozka.aktivni) ?? null;
     metriky = ziskatSouhrnZUloziste(uloziste);
+    try {
+      metrikyPoDnech = sestavitMetrikyPoDnechGrafy(uloziste.metrikyPoDnech);
+    } catch {
+      metrikyPoDnech = prazdneGrafyMetrikPoDnech();
+    }
     komunita = spocitatSouhrnKomunity(uloziste);
     analytics = ziskatSouhrnAnalytics(uloziste, zakladniPoradi);
     chovaniNavstevniku = spocitatSouhrnChovaniNavstevniku(uloziste);
@@ -130,6 +140,7 @@ export async function nacistAdminData(): Promise<AdminVysledek> {
       vzkazyTreboni,
       rotaceProlnutiOd,
       polozkaPosledniPublikace,
+      metrikyPoDnech,
     },
     chyby,
   };

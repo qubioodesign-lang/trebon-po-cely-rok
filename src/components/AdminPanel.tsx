@@ -26,6 +26,7 @@ import type { ZalohaInfo } from "@/lib/zaloha/typy";
 import { formatovatVelikost } from "@/lib/zaloha/pomocne";
 import { BlokDiagnozy } from "./admin/BlokDiagnozy";
 import { AdminPrehled } from "./admin/AdminPrehled";
+import { AdminMetrikyPoDnech } from "./admin/AdminMetrikyPoDnech";
 import { AdminSeznamPolozek } from "./admin/AdminSeznamPolozek";
 import { AdminNahledProlnuti } from "./admin/AdminNahledProlnuti";
 import type { UpravaPolozkyStav } from "./admin/AdminFormularUpravy";
@@ -921,6 +922,8 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
           polozky={polozky}
           chybaMetriky={chyby.metriky}
         />
+
+        <AdminMetrikyPoDnech podklady={data?.metrikyPoDnech} />
 
         <AdminPanelUpravy
           polozka={upravovanaPolozka}

@@ -16,6 +16,7 @@ export function normalizovatUloziste(data: UlozisteDat): UlozisteDat {
     chovaniNavstevnikuAgregovane: data.chovaniNavstevnikuAgregovane,
     verzeUloziste: data.verzeUloziste,
     geografieNavstev: data.geografieNavstev,
+    metrikyPoDnech: data.metrikyPoDnech,
     rotaceProlnutiOd: jePlatnyCasRotaceProlnuti(data.rotaceProlnutiOd)
       ? data.rotaceProlnutiOd.trim()
       : undefined,
