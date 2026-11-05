@@ -145,7 +145,7 @@ export interface VysledekDilny {
 
 /**
  * Ořez object-cover, gradient jedoucí s textem, text uprostřed.
- * Vrací PNG. Písmo nezmenšuje.
+ * Vrací JPG v kvalitě 0,92. Písmo nezmenšuje.
  */
 export async function vykreslitDilnu(
   obrazek: CanvasImageSource & { width: number; height: number },
@@ -168,7 +168,7 @@ export async function vykreslitDilnu(
 
   const pripraveny = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   if (pripraveny.length === 0) {
-    return { blob: await pngBlob(platno), nevejdeSe: false };
+    return { blob: await jpgBlob(platno), nevejdeSe: false };
   }
 
   const fontPx = DILNA_FONT_PX * rozmer.naCss;
@@ -207,7 +207,7 @@ export async function vykreslitDilnu(
     nakreslitRadek(ctx, radek, rozmer.sirka / 2, y, fontPx, mezery);
   });
 
-  return { blob: await pngBlob(platno), nevejdeSe };
+  return { blob: await jpgBlob(platno), nevejdeSe };
 }
 
 function vykreslitObal(
@@ -292,11 +292,18 @@ function vykreslitGradient(
   ctx.fillRect(0, horni, sirka, vyska);
 }
 
-function pngBlob(platno: HTMLCanvasElement): Promise<Blob> {
+/** Kvalitní JPEG. Bez stropu velikosti, aby text zůstal čitelný. */
+const JPG_KVALITA = 0.92;
+
+function jpgBlob(platno: HTMLCanvasElement): Promise<Blob> {
   return new Promise((resolve, reject) => {
-    platno.toBlob((blob) => {
-      if (blob) resolve(blob);
-      else reject(new Error("PNG se nepodařilo vytvořit."));
-    }, "image/png");
+    platno.toBlob(
+      (blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error("JPG se nepodařilo vytvořit."));
+      },
+      "image/jpeg",
+      JPG_KVALITA,
+    );
   });
 }

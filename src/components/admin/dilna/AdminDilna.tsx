@@ -119,7 +119,7 @@ export function AdminDilna() {
     if (!nahled) return;
     const odkaz = document.createElement("a");
     odkaz.href = nahled;
-    odkaz.download = "trebon-dilna.png";
+    odkaz.download = "trebon-dilna.jpg";
     odkaz.click();
   };
 
@@ -191,7 +191,7 @@ export function AdminDilna() {
           disabled={!nahled || kresli}
           className="tlacitko-klidne disabled:opacity-30"
         >
-          Stáhnout PNG
+          Stáhnout JPG
         </button>
       </div>
 
@@ -206,7 +206,7 @@ export function AdminDilna() {
       ) : null}
 
       {nahled ? (
-        // Náhled je přímo výsledný PNG, ne samostatná CSS kresba.
+        // Náhled je přímo výsledný JPG, ne samostatná CSS kresba.
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={nahled}
