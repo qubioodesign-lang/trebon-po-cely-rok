@@ -30,6 +30,7 @@ import { AdminMetrikyPoDnech } from "./admin/AdminMetrikyPoDnech";
 import { AdminSeznamPolozek } from "./admin/AdminSeznamPolozek";
 import { AdminNahledProlnuti } from "./admin/AdminNahledProlnuti";
 import { AdminNahledFotografie } from "./admin/AdminNahledFotografie";
+import { AdminDilna } from "./admin/dilna/AdminDilna";
 import type { UpravaPolozkyStav } from "./admin/AdminFormularUpravy";
 import { AdminPanelUpravy } from "./admin/AdminPanelUpravy";
 import { AdminAnalyticsDetail } from "./admin/AdminAnalyticsDetail";
@@ -110,6 +111,7 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
     snimek: "A" | "B" | "C";
   } | null>(null);
   const [nahledId, setNahledId] = useState<string | null>(null);
+  const [zalozka, setZalozka] = useState<"galerie" | "dilna">("galerie");
   const [potvrzeniAkce, setPotvrzeniAkce] = useState("");
   const [potvrzeniUrlSouboru, setPotvrzeniUrlSouboru] = useState<string | null>(
     null
@@ -841,6 +843,27 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
           </button>
         </div>
 
+        <div className="flex gap-4 text-sm font-light">
+          <button
+            type="button"
+            onClick={() => setZalozka("galerie")}
+            className={zalozka === "galerie" ? "text-text" : "text-text-velmiJemny"}
+          >
+            galerie
+          </button>
+          <button
+            type="button"
+            onClick={() => setZalozka("dilna")}
+            className={zalozka === "dilna" ? "text-text" : "text-text-velmiJemny"}
+          >
+            Dílna
+          </button>
+        </div>
+
+        {zalozka === "dilna" ? (
+          <AdminDilna />
+        ) : (
+          <>
         {probihaNahradiFotografii && (
           <p className="text-center text-xs text-text-jemny">
             Probíhá nahrávání...
@@ -1226,9 +1249,12 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
           }
           pocetNavstevZePlochy={metriky?.pocetNavstevZePlochy ?? 0}
         />
+          </>
+        )}
       </div>
 
-      {nahledId &&
+      {zalozka === "galerie" &&
+        nahledId &&
         polozky.find((polozka) => polozka.id === nahledId)?.typ ===
           "prolnuti" && (
           <AdminNahledProlnuti
@@ -1238,7 +1264,8 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
           />
         )}
 
-      {nahledId &&
+      {zalozka === "galerie" &&
+        nahledId &&
         polozky.find((polozka) => polozka.id === nahledId)?.typ ===
           "fotografie" &&
         polozky.find((polozka) => polozka.id === nahledId)?.soubor && (
