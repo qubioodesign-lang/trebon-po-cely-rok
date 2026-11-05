@@ -29,6 +29,7 @@ import { AdminPrehled } from "./admin/AdminPrehled";
 import { AdminMetrikyPoDnech } from "./admin/AdminMetrikyPoDnech";
 import { AdminSeznamPolozek } from "./admin/AdminSeznamPolozek";
 import { AdminNahledProlnuti } from "./admin/AdminNahledProlnuti";
+import { AdminNahledFotografie } from "./admin/AdminNahledFotografie";
 import type { UpravaPolozkyStav } from "./admin/AdminFormularUpravy";
 import { AdminPanelUpravy } from "./admin/AdminPanelUpravy";
 import { AdminAnalyticsDetail } from "./admin/AdminAnalyticsDetail";
@@ -1233,6 +1234,16 @@ export function AdminPanel({ jePrihlasen, data, chyby }: AdminPanelProps) {
           <AdminNahledProlnuti
             polozka={polozky.find((polozka) => polozka.id === nahledId)!}
             casovani={data?.prolnutiCasovani ?? PROLNUTI_CASOVANI_VYCHOZI}
+            onZavrit={() => setNahledId(null)}
+          />
+        )}
+
+      {nahledId &&
+        polozky.find((polozka) => polozka.id === nahledId)?.typ ===
+          "fotografie" &&
+        polozky.find((polozka) => polozka.id === nahledId)?.soubor && (
+          <AdminNahledFotografie
+            polozka={polozky.find((polozka) => polozka.id === nahledId)!}
             onZavrit={() => setNahledId(null)}
           />
         )}

@@ -358,6 +358,26 @@ export function AdminSeznamPolozek({
 
 
 
+                  {polozka.typ === "fotografie" && polozka.soubor && (
+
+                    <button
+
+                      type="button"
+
+                      onClick={() => onNahled(polozka.id)}
+
+                      className="text-xs text-text"
+
+                    >
+
+                      Náhled
+
+                    </button>
+
+                  )}
+
+
+
                   <button
 
                     type="button"
