@@ -232,6 +232,7 @@ export async function nahratPolozku(formData: FormData): Promise<AkceVysledek> {
 
     const vysledek = await ulozitSoubor(soubor, oidcHeader);
     cestaSouboru = vysledek.cestaSouboru;
+    await overitSouborVerejne(cestaSouboru);
 
     const novaPolozka = await vytvoritPolozku(
       {
@@ -250,10 +251,24 @@ export async function nahratPolozku(formData: FormData): Promise<AkceVysledek> {
     return { uspech: true };
   } catch (error) {
     if (cestaSouboru) {
+      const cesta = cestaSouboru;
+      let lzeSmazat = false;
       try {
-        await smazatSoubor(cestaSouboru, oidcHeader);
+        const polozky = await ziskatVsechnyPolozky(oidcHeader);
+        const odkazuje = polozky.some((polozka) =>
+          ziskatSouboryPolozky(polozka).includes(cesta)
+        );
+        lzeSmazat = !odkazuje;
       } catch {
-        // metadata zůstala beze změny – orphan soubor je lepší než ztráta dat
+        lzeSmazat = false;
+      }
+
+      if (lzeSmazat) {
+        try {
+          await smazatSoubor(cesta, oidcHeader);
+        } catch {
+          // osiřelý soubor je lepší než smazat soubor, na který záznam ukazuje
+        }
       }
     }
 
