@@ -271,7 +271,11 @@ function nakreslitRadek(
   });
 }
 
-/** Gradient galerie, vystředěný na blok textu. Konce mimo plátno se oříznou. */
+/**
+ * Jemné podložení vystředěné na text.
+ * Oba konce jsou průhledné, uprostřed je rgba(0,0,0,0.35).
+ * Na hraně obdélníku proto není tmavý řez.
+ */
 function vykreslitGradient(
   ctx: CanvasRenderingContext2D,
   sirka: number,
@@ -280,8 +284,8 @@ function vykreslitGradient(
 ) {
   const vyska = DILNA_GRADIENT_PX * naCss;
   const horni = stredY - vyska / 2;
-  const gradient = ctx.createLinearGradient(0, horni + vyska, 0, horni);
-  gradient.addColorStop(0, "rgba(0, 0, 0, 0.65)");
+  const gradient = ctx.createLinearGradient(0, horni, 0, horni + vyska);
+  gradient.addColorStop(0, "rgba(0, 0, 0, 0)");
   gradient.addColorStop(0.5, "rgba(0, 0, 0, 0.35)");
   gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
   ctx.fillStyle = gradient;
