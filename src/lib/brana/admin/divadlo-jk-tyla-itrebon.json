@@ -1,47 +1,7 @@
 {
-  "vytvoreno": "2026-10-24T07:48:57.413Z",
+  "vytvoreno": "2026-11-06T09:08:55.834Z",
   "zdrojUrl": "https://www.itrebon.cz/kalendar.html",
   "kandidati": [
-    {
-      "nazev": "Dřevěný vojáček a jeho přátelé",
-      "datumOd": "2026-10-24",
-      "datumDo": "2026-10-24",
-      "cas": "15:00",
-      "mistoNeboTyp": "Divadlo J. K. Tyla",
-      "zdrojIdentita": "itrebon|20777"
-    },
-    {
-      "nazev": "OKOLO TŘEBONĚ: Jazz a blues v Třeboni",
-      "datumOd": "2026-10-29",
-      "datumDo": "2026-10-30",
-      "cas": "19:00",
-      "mistoNeboTyp": "Divadlo J. K. Tyla",
-      "zdrojIdentita": "itrebon|20680"
-    },
-    {
-      "nazev": "Aladin a kouzelná lampa - rodinný muzikál",
-      "datumOd": "2026-10-31",
-      "datumDo": "2026-10-31",
-      "cas": "10:00",
-      "mistoNeboTyp": "Divadlo J. K. Tyla",
-      "zdrojIdentita": "itrebon|19751"
-    },
-    {
-      "nazev": "Techtle mechtle - Haló, tady máma",
-      "datumOd": "2026-11-03",
-      "datumDo": "2026-11-03",
-      "cas": "16:00",
-      "mistoNeboTyp": "Divadlo J. K. Tyla",
-      "zdrojIdentita": "itrebon|19511"
-    },
-    {
-      "nazev": "Techtle mechtle - Haló, tady máma",
-      "datumOd": "2026-11-03",
-      "datumDo": "2026-11-03",
-      "cas": "19:30",
-      "mistoNeboTyp": "Divadlo J. K. Tyla",
-      "zdrojIdentita": "itrebon|19428"
-    },
     {
       "nazev": "Ozvěny filmových melodií",
       "datumOd": "2026-11-07",
@@ -49,6 +9,14 @@
       "cas": "19:00",
       "mistoNeboTyp": "Divadlo J. K. Tyla",
       "zdrojIdentita": "itrebon|19900"
+    },
+    {
+      "nazev": "Roztomilé dámy aneb oko za oko",
+      "datumOd": "2026-11-10",
+      "datumDo": "2026-11-10",
+      "cas": "19:30",
+      "mistoNeboTyp": "Divadlo J. K. Tyla",
+      "zdrojIdentita": "itrebon|20845"
     },
     {
       "nazev": "Vy nejste žena, pane - činohra",
@@ -99,12 +67,36 @@
       "zdrojIdentita": "itrebon|20355"
     },
     {
+      "nazev": "Mikulášská pohádka - Jak se čert polepšil - Divadlo Procity",
+      "datumOd": "2026-12-05",
+      "datumDo": "2026-12-05",
+      "cas": "16:00",
+      "mistoNeboTyp": "Divadlo J. K. Tyla",
+      "zdrojIdentita": "itrebon|20843"
+    },
+    {
+      "nazev": "Pohádka tisíce a jedné noci - baletní vystoupení Pražské taneční konzervatoře",
+      "datumOd": "2026-12-16",
+      "datumDo": "2026-12-16",
+      "cas": "19:00",
+      "mistoNeboTyp": "Divadlo J. K. Tyla",
+      "zdrojIdentita": "itrebon|20841"
+    },
+    {
       "nazev": "Šplouch - předsilvestr v Divadle :)",
       "datumOd": "2026-12-30",
       "datumDo": "2026-12-30",
       "cas": "19:30",
       "mistoNeboTyp": "Divadlo J. K. Tyla",
       "zdrojIdentita": "itrebon|20570"
+    },
+    {
+      "nazev": "Hudba Queen a Abba při svíčkách",
+      "datumOd": "2027-01-06",
+      "datumDo": "2027-01-06",
+      "cas": "19:00",
+      "mistoNeboTyp": "Divadlo J. K. Tyla",
+      "zdrojIdentita": "itrebon|20888"
     },
     {
       "nazev": "Chaos - činohra",
@@ -129,6 +121,14 @@
       "cas": "19:00",
       "mistoNeboTyp": "Divadlo J. K. Tyla",
       "zdrojIdentita": "itrebon|20831"
+    },
+    {
+      "nazev": "Česká filmová hudba - Filmový orchestr Praha",
+      "datumOd": "2027-10-08",
+      "datumDo": "2027-10-08",
+      "cas": "19:00",
+      "mistoNeboTyp": "Divadlo J. K. Tyla",
+      "zdrojIdentita": "itrebon|20889"
     }
   ]
 }
