@@ -21,6 +21,7 @@ import {
   jeBranaStavSchvaleni,
   normalizovatStavSchvaleni,
   normalizovatVerejnaJazykovaPoleZBlobu,
+  polePouzeDnesProUlozeni,
   poleZobrazitVeVyhleduProUlozeni,
   dnesIsoVPraze,
   jeUdalostCelaMinula,
@@ -107,6 +108,7 @@ function vychoziDokument(): BranaKonkretniUdalostiDokument {
  * Pole typZdroje smí chybět (starší / ruční / DLOUHODOBÉ); přítomné jen `"RYCHLY"`.
  * Pole redakcneUpravenaPole smí chybět (starší / neupravené záznamy).
  * Pole zobrazitVeVyhledu smí chybět. Jen přesné true u ruční události se ponechá.
+ * Pole pouzeDnes smí chybět. Jen přesné true u ruční události se ponechá.
  */
 function jeUdalostZBlobu(hodnota: unknown): boolean {
   if (!hodnota || typeof hodnota !== "object") {
@@ -215,6 +217,7 @@ function normalizovatUdalostZBlobu(hodnota: unknown): BranaKonkretniUdalost {
       redakcniPolozkaId === null ? (u.rucniPoziceVDni as number) : null,
     stavSchvaleni: normalizovatStavSchvaleni(u.stavSchvaleni),
     ...poleZobrazitVeVyhleduProUlozeni(redakcniPolozkaId, u.zobrazitVeVyhledu),
+    ...polePouzeDnesProUlozeni(redakcniPolozkaId, u.pouzeDnes),
     ...(scanKlic !== undefined ? { scanKlic } : {}),
     ...(zdrojIdentita !== undefined ? { zdrojIdentita } : {}),
     ...(typZdroje !== undefined ? { typZdroje } : {}),

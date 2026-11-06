@@ -212,12 +212,14 @@ export async function pridatRucniKonkretniUdalostAkce(
 
   try {
     const udalost = await pridatRucniKonkretniUdalost(validace.udalost);
-    await pridatPolozkuDoUceniBestEffort({
-      datumOd: udalost.datumOd,
-      cas: udalost.cas,
-      nazev: udalost.nazev,
-      kde: udalost.mistoNeboTyp,
-    });
+    if (udalost.pouzeDnes !== true) {
+      await pridatPolozkuDoUceniBestEffort({
+        datumOd: udalost.datumOd,
+        cas: udalost.cas,
+        nazev: udalost.nazev,
+        kde: udalost.mistoNeboTyp,
+      });
+    }
     revalidatePath("/brana/admin/sprava/kalendar");
     revalidatePath("/brana/admin/sprava/uceni");
     return { uspech: true, udalost };

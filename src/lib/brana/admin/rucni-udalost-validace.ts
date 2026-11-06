@@ -3,6 +3,7 @@
  */
 
 import {
+  polePouzeDnesProUlozeni,
   poleZobrazitVeVyhleduProUlozeni,
   type BranaKonkretniUdalost,
 } from "./konkretni-udalost";
@@ -20,6 +21,8 @@ export type BranaRucniUdalostVstup = {
   rucniPoziceVDni: number;
   /** Jen přesné true se uloží. Chybí, false i neplatná hodnota = NE. */
   zobrazitVeVyhledu?: boolean;
+  /** Jen přesné true = upozornění pouze pro pohled DNES. */
+  pouzeDnes?: boolean;
 };
 
 export type ValidaceRucniUdalostiVysledek =
@@ -75,6 +78,7 @@ export function validovatRucniUdalostVstup(
     typeof data.mistoNeboTyp === "string" ? data.mistoNeboTyp.trim() : "";
   const nazev = typeof data.nazev === "string" ? data.nazev.trim() : "";
   const rucniPoziceVDni = normalizovatRucniPoziciVDni(data.rucniPoziceVDni);
+  const pouzeDnes = data.pouzeDnes === true;
 
   if (!jePlatnyIsoDen(datumOd)) {
     return { ok: false, chyba: "Datum OD není platné." };
@@ -85,7 +89,13 @@ export function validovatRucniUdalostVstup(
   if (datumDo < datumOd) {
     return { ok: false, chyba: "Datum DO nesmí být dříve než datum OD." };
   }
-  if (!CAS.test(cas)) {
+  if (pouzeDnes && datumOd !== datumDo) {
+    return {
+      ok: false,
+      chyba: "Při Pouze Dnes musí být datum OD a DO stejné.",
+    };
+  }
+  if (cas !== "" && !CAS.test(cas)) {
     return { ok: false, chyba: "Čas musí být ve formátu HH:MM." };
   }
   if (!mistoNeboTyp) {
@@ -94,7 +104,7 @@ export function validovatRucniUdalostVstup(
   if (mistoNeboTyp.length > 100) {
     return { ok: false, chyba: "CO / místo je příliš dlouhé." };
   }
-  if (!nazev) {
+  if (!pouzeDnes && !nazev) {
     return { ok: false, chyba: "Vyplňte název." };
   }
   if (nazev.length > 200) {
@@ -116,7 +126,11 @@ export function validovatRucniUdalostVstup(
       rucniPoziceVDni,
       /** Ruční zápis redaktora – vždy schváleno, bez schvalovacího workflow */
       stavSchvaleni: "SCHVALENO",
-      ...poleZobrazitVeVyhleduProUlozeni(null, data.zobrazitVeVyhledu),
+      ...poleZobrazitVeVyhleduProUlozeni(
+        null,
+        pouzeDnes ? false : data.zobrazitVeVyhledu,
+      ),
+      ...polePouzeDnesProUlozeni(null, pouzeDnes),
     },
   };
 }

@@ -82,6 +82,11 @@ export type BranaKonkretniUdalost = {
    */
   zobrazitVeVyhledu?: boolean;
   /**
+   * Jen ruční událost. Chybí nebo není přesné true → běžná položka.
+   * true = veřejně jen pohled DNES, a jen v jediný den datumOd.
+   */
+  pouzeDnes?: boolean;
+  /**
    * Schválení k publikaci.
    * Starší záznamy bez pole se čtou jako SCHVALENO (viz normalizovatStavSchvaleni).
    */
@@ -360,6 +365,37 @@ export function poleZobrazitVeVyhleduProUlozeni(
     return { zobrazitVeVyhledu: true };
   }
   return {};
+}
+
+/**
+ * Do uložené události patří jen přesné true u ruční události.
+ * Chybějící, neplatná i true u automatické události pole vynechá.
+ */
+export function polePouzeDnesProUlozeni(
+  redakcniPolozkaId: string | null,
+  hodnota: unknown,
+): { pouzeDnes: true } | Record<string, never> {
+  if (redakcniPolozkaId === null && hodnota === true) {
+    return { pouzeDnes: true };
+  }
+  return {};
+}
+
+/**
+ * Pouze Dnes patří jen do veřejného DNES a jen ve svůj jediný den.
+ * Ostatní události tato kontrola neomezuje.
+ */
+export function patriPouzeDnesDoVerejnehoPohledu(
+  udalost: Pick<BranaKonkretniUdalost, "pouzeDnes" | "datumOd" | "datumDo">,
+  isoDen: string,
+  jePohledDnes: boolean,
+): boolean {
+  if (udalost.pouzeDnes !== true) {
+    return true;
+  }
+  return (
+    jePohledDnes && udalost.datumOd === isoDen && udalost.datumDo === isoDen
+  );
 }
 
 const DNY_TYDNE = [
@@ -654,6 +690,9 @@ export function souhrnyRucniUdalostiVyhledu(
   const souhrny: BranaAdminVyhledSouhrn[] = [];
   for (const udalost of udalosti) {
     if (udalost.redakcniPolozkaId !== null) {
+      continue;
+    }
+    if (udalost.pouzeDnes === true) {
       continue;
     }
     if (udalost.zobrazitVeVyhledu !== true) {

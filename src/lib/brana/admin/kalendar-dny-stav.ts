@@ -44,7 +44,8 @@ function propsDohnalyUpsert(
     props.mistoNeboTyp === potvrzena.mistoNeboTyp &&
     props.verejneCo === potvrzena.verejneCo &&
     props.verejneRozliseni === potvrzena.verejneRozliseni &&
-    props.rucniPoziceVDni === potvrzena.rucniPoziceVDni
+    props.rucniPoziceVDni === potvrzena.rucniPoziceVDni &&
+    props.pouzeDnes === potvrzena.pouzeDnes
   );
 }
 

@@ -394,6 +394,7 @@ export function BranaAdminKalendarRucniZapis({
   const [nazev, setNazev] = useState("");
   const [rucniPoziceVDni, setRucniPoziceVDni] = useState(0);
   const [zobrazitVeVyhledu, setZobrazitVeVyhledu] = useState(false);
+  const [pouzeDnes, setPouzeDnes] = useState(false);
   const [chyba, setChyba] = useState<string | null>(null);
   const [zprava, setZprava] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -509,6 +510,7 @@ export function BranaAdminKalendarRucniZapis({
     setNazev("");
     setRucniPoziceVDni(0);
     setZobrazitVeVyhledu(false);
+    setPouzeDnes(false);
   }
 
   function zavrit() {
@@ -547,8 +549,11 @@ export function BranaAdminKalendarRucniZapis({
     setVerejneRozliseni(strukturovana ? (udalost.verejneRozliseni ?? "") : "");
     setNazev(udalost.nazev);
     setZobrazitVeVyhledu(
-      jeRucni && udalost.zobrazitVeVyhledu === true,
+      jeRucni &&
+        udalost.pouzeDnes !== true &&
+        udalost.zobrazitVeVyhledu === true,
     );
+    setPouzeDnes(jeRucni && udalost.pouzeDnes === true);
     // 0 = Na začátek – nesmí se ztratit přes truthy kontrolu
     setRucniPoziceVDni(
       udalost.rucniPoziceVDni === null || udalost.rucniPoziceVDni === undefined
@@ -601,7 +606,8 @@ export function BranaAdminKalendarRucniZapis({
       mistoNeboTyp,
       nazev,
       rucniPoziceVDni,
-      zobrazitVeVyhledu,
+      zobrazitVeVyhledu: pouzeDnes ? false : zobrazitVeVyhledu,
+      pouzeDnes,
     };
     startTransition(async () => {
       const vysledek = editovaneId
@@ -837,7 +843,7 @@ export function BranaAdminKalendarRucniZapis({
                 onChange={(e) => {
                   const v = e.target.value;
                   setDatumOd(v);
-                  if (!datumDo || datumDo < v) {
+                  if (pouzeDnes || !datumDo || datumDo < v) {
                     setDatumDo(v);
                   }
                   if (!editaceAutomaticke) {
@@ -852,7 +858,15 @@ export function BranaAdminKalendarRucniZapis({
                 type="date"
                 className={VSTUP}
                 value={datumDo}
-                onChange={(e) => setDatumDo(e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (pouzeDnes) {
+                    setDatumOd(v);
+                    setDatumDo(v);
+                    return;
+                  }
+                  setDatumDo(v);
+                }}
               />
             </label>
             <label className="space-y-1 text-sm text-text">
@@ -889,17 +903,42 @@ export function BranaAdminKalendarRucniZapis({
               </label>
             ) : null}
             {!editaceAutomaticke ? (
-              <label className="space-y-1 text-sm text-text sm:col-span-2">
-                <span className="text-text-jemny">Zobrazit ve Výhledu</span>
-                <select
-                  className={VSTUP}
-                  value={zobrazitVeVyhledu ? "ANO" : "NE"}
-                  onChange={(e) => setZobrazitVeVyhledu(e.target.value === "ANO")}
-                >
-                  <option value="NE">NE</option>
-                  <option value="ANO">ANO</option>
-                </select>
-              </label>
+              <>
+                <label className="space-y-1 text-sm text-text sm:col-span-2">
+                  <span className="text-text-jemny">Zobrazit ve Výhledu</span>
+                  <select
+                    className={VSTUP}
+                    value={pouzeDnes ? "NE" : zobrazitVeVyhledu ? "ANO" : "NE"}
+                    disabled={pouzeDnes}
+                    onChange={(e) =>
+                      setZobrazitVeVyhledu(e.target.value === "ANO")
+                    }
+                  >
+                    <option value="NE">NE</option>
+                    <option value="ANO">ANO</option>
+                  </select>
+                </label>
+                <label className="space-y-1 text-sm text-text sm:col-span-2">
+                  <span className="text-text-jemny">Pouze Dnes</span>
+                  <select
+                    className={VSTUP}
+                    value={pouzeDnes ? "ANO" : "NE"}
+                    onChange={(e) => {
+                      const ano = e.target.value === "ANO";
+                      setPouzeDnes(ano);
+                      if (ano) {
+                        setZobrazitVeVyhledu(false);
+                        if (datumOd) {
+                          setDatumDo(datumOd);
+                        }
+                      }
+                    }}
+                  >
+                    <option value="NE">NE</option>
+                    <option value="ANO">ANO</option>
+                  </select>
+                </label>
+              </>
             ) : null}
             {editaceAutomaticke && editaceStrukturovana ? (
               <>

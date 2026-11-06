@@ -27,6 +27,8 @@ import {
   jeBranaStavSchvaleni,
   normalizovatStavSchvaleni,
   normalizovatVerejnaJazykovaPoleZBlobu,
+  patriPouzeDnesDoVerejnehoPohledu,
+  polePouzeDnesProUlozeni,
   poleZobrazitVeVyhleduProUlozeni,
   rokUdalosti,
   seradUdalostiDne,
@@ -165,6 +167,7 @@ function normalizovatUdalostZBlobu(hodnota: unknown): BranaKonkretniUdalost {
       redakcniPolozkaId === null ? (u.rucniPoziceVDni as number) : null,
     stavSchvaleni: normalizovatStavSchvaleni(u.stavSchvaleni),
     ...poleZobrazitVeVyhleduProUlozeni(redakcniPolozkaId, u.zobrazitVeVyhledu),
+    ...polePouzeDnesProUlozeni(redakcniPolozkaId, u.pouzeDnes),
     ...(scanKlic !== undefined ? { scanKlic } : {}),
     ...verejnaPole,
   };
@@ -377,15 +380,20 @@ export function projektujSchvaleneDoVerejnehoPohledu(args: {
       maPouzivatAno(u.redakcniPolozkaId),
   );
 
-  const udalostiProDen = (isoDen: string): BranaReferencniAkce[] => {
-    const vDni = kandidati.filter((u) =>
-      dnyTrvaniUdalosti(u).includes(isoDen),
+  const udalostiProDen = (
+    isoDen: string,
+    jePohledDnes: boolean,
+  ): BranaReferencniAkce[] => {
+    const vDni = kandidati.filter(
+      (u) =>
+        dnyTrvaniUdalosti(u).includes(isoDen) &&
+        patriPouzeDnesDoVerejnehoPohledu(u, isoDen, jePohledDnes),
     );
     return seradUdalostiDne(vDni, poradiRedakcni).map(doVerejneAkce);
   };
 
   if (stranka === "dnes") {
-    const akce = udalostiProDen(okna.dnesIso);
+    const akce = udalostiProDen(okna.dnesIso, true);
     return {
       akce,
       bloky: [akce],
@@ -395,7 +403,7 @@ export function projektujSchvaleneDoVerejnehoPohledu(args: {
   }
 
   if (stranka === "zitra") {
-    const akce = udalostiProDen(okna.zitraIso);
+    const akce = udalostiProDen(okna.zitraIso, false);
     return {
       akce,
       bloky: [akce],
@@ -405,7 +413,9 @@ export function projektujSchvaleneDoVerejnehoPohledu(args: {
   }
 
   if (stranka === "vikend") {
-    const bloky = okna.vikendIsoDny.map(udalostiProDen);
+    const bloky = okna.vikendIsoDny.map((isoDen) =>
+      udalostiProDen(isoDen, false),
+    );
     return {
       akce: bloky[0] ?? [],
       bloky,
@@ -415,7 +425,9 @@ export function projektujSchvaleneDoVerejnehoPohledu(args: {
   }
 
   if (stranka === "7-dni") {
-    const bloky = okna.sedmDniIso.map(udalostiProDen);
+    const bloky = okna.sedmDniIso.map((isoDen) =>
+      udalostiProDen(isoDen, false),
+    );
     return {
       akce: bloky[0] ?? [],
       bloky,

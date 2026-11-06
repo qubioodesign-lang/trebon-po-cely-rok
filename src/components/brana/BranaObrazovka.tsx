@@ -186,6 +186,14 @@ export function BranaObrazovka({
                 pohled === "vyhled"
                   ? blok * data.vyhledPredelIndex + indexVBloku
                   : indexVBloku;
+              const udajVpravoText = udajVpravo(
+                data,
+                pohled,
+                blok,
+                indexVBloku,
+                globalniIndex,
+                cas,
+              );
 
               return (
                 <li
@@ -207,16 +215,9 @@ export function BranaObrazovka({
                       </span>
                     ) : null}
                   </div>
-                  <span className="brana-akce-cas">
-                    {udajVpravo(
-                      data,
-                      pohled,
-                      blok,
-                      indexVBloku,
-                      globalniIndex,
-                      cas,
-                    )}
-                  </span>
+                  {udajVpravoText.trim() ? (
+                    <span className="brana-akce-cas">{udajVpravoText}</span>
+                  ) : null}
                 </li>
               );
             })}
