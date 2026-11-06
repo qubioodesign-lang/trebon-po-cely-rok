@@ -5,6 +5,8 @@ import type { BranaVerejnaStranka } from "@/lib/brana/navigace-stranky";
 import { branaKonfiguraceVsechPohledu } from "@/lib/brana/pohledy-data";
 import { parseBranaPozadiVarianta } from "@/lib/brana/pozadi-varianty";
 import { nactiVerejnouVetuAtmosfery } from "@/lib/brana/atmosfera-verejne";
+import { nactiSkrytiZameckehoParku } from "@/lib/brana/admin/zamecky-park-uloziste";
+import { verejnaVetaZameckehoParku } from "@/lib/brana/zamecky-park";
 import {
   nactiVerejneSchvalenePohledovaData,
   prazdnaVerejnaPohledovaDataPriChybe,
@@ -42,6 +44,13 @@ export async function BranaVerejnaStranka({
   // Atmosféra jen DNES; fail-soft null = vůbec nerenderovat.
   const atmosferaVeta =
     stranka === "dnes" ? await nactiVerejnouVetuAtmosfery() : null;
+  let parkVeta: string | null = null;
+  let parkSkrytoDo: string | null = null;
+  if (stranka === "dnes") {
+    const skryti = await nactiSkrytiZameckehoParku();
+    parkSkrytoDo = skryti.stav === "ok" ? skryti.skrytoDo : null;
+    parkVeta = verejnaVetaZameckehoParku(new Date(), parkSkrytoDo);
+  }
 
   return (
     <BranaHlavni
@@ -51,6 +60,8 @@ export async function BranaVerejnaStranka({
       variantaPozadi={parseBranaPozadiVarianta(pozadi)}
       vychoziNocRezim={vychoziNocRezim}
       atmosferaVeta={atmosferaVeta}
+      parkVeta={parkVeta}
+      parkSkrytoDo={parkSkrytoDo}
     />
   );
 }

@@ -19,6 +19,7 @@ import {
   useBranaVerejnaCesta,
 } from "@/lib/brana/use-brana-cesty";
 import { BranaAtmosferaDnes } from "./BranaAtmosferaDnes";
+import { BranaZameckyParkDnes } from "./BranaZameckyParkDnes";
 import { BranaDenniPredel } from "./BranaDenniPredel";
 import {
   BranaCasovaKotvaScrollovana,
@@ -62,6 +63,10 @@ type BranaObrazovkaProps = {
   konfiguracePohledu?: BranaKonfiguracePohledu[];
   /** Hotová věta Atmosféry; jen DNES. null/undefined = nerenderovat. */
   atmosferaVeta?: string | null;
+  /** Serverová věta parku; jen DNES. null = při prvním vykreslení nic. */
+  parkVeta?: string | null;
+  /** Konec ručního skrytí parku. null = řídí se jen časem. */
+  parkSkrytoDo?: string | null;
 };
 
 function kotvaScrollProStranku(
@@ -141,6 +146,8 @@ export function BranaObrazovka({
   data: dataProp,
   konfiguracePohledu,
   atmosferaVeta = null,
+  parkVeta = null,
+  parkSkrytoDo = null,
 }: BranaObrazovkaProps) {
   const pohled = aktivniStranka;
   const data = dataProp ?? nactiBranaSdilenaPohledovaData();
@@ -347,6 +354,12 @@ export function BranaObrazovka({
       >
         {zobrazitAtmosferu && atmosferaVeta ? (
           <BranaAtmosferaDnes veta={atmosferaVeta} />
+        ) : null}
+        {pohled === "dnes" ? (
+          <BranaZameckyParkDnes
+            vychoziVeta={parkVeta}
+            skrytoDo={parkSkrytoDo}
+          />
         ) : null}
         {seznamAkci}
         {kotvaScroll ? (

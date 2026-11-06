@@ -56,6 +56,8 @@ import {
   zrusitAtmosferaDovetek,
   zrusitAtmosferaRucniText,
 } from "@/lib/brana/admin/atmosfera-uloziste";
+import { ulozitSkrytiZameckehoParku } from "@/lib/brana/admin/zamecky-park-uloziste";
+import { dalsiZmenaStavuZameckehoParku } from "@/lib/brana/zamecky-park";
 import {
   BranaAtmosferaCasKonfliktLimitError,
 } from "@/lib/brana/admin/atmosfera-cas";
@@ -1095,6 +1097,37 @@ export async function smazatBranaVzkazAkce(
     return { uspech: true };
   } catch {
     return { uspech: false, chyba: "Vzkaz se nepodařilo smazat." };
+  }
+}
+
+export type BranaZameckyParkSkrytiAkceVysledek =
+  | { uspech: true; skrytoDo: string }
+  | { uspech: false; chyba: string };
+
+/**
+ * Skryje park do nejbližší změny jeho stavu.
+ * Píše jen data/brana-zamecky-park.json, ne dokument Atmosféry.
+ */
+export async function skrytZameckyParkDoDalsiZmenyAkce(): Promise<BranaZameckyParkSkrytiAkceVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  try {
+    const skrytoDo = dalsiZmenaStavuZameckehoParku(new Date()).toISOString();
+    await ulozitSkrytiZameckehoParku(skrytoDo);
+    revalidatePath("/brana/admin/sprava/atmosfera");
+    revalidatePath("/brana");
+    return { uspech: true, skrytoDo };
+  } catch (error) {
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message.trim()
+        : null;
+    return {
+      uspech: false,
+      chyba: detail ?? "Skrytí zámeckého parku se nepodařilo uložit.",
+    };
   }
 }
 

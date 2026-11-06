@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   nastavitBranaAtmosferaRucniTextAkce,
+  skrytZameckyParkDoDalsiZmenyAkce,
   ulozitBranaAtmosferaDovetekAkce,
   zrusitBranaAtmosferaDovetekAkce,
   zrusitBranaAtmosferaRucniTextAkce,
@@ -29,6 +30,9 @@ type Props = {
   pocatecni: BranaAtmosferaDokument | null;
   chybaCteni: string | null;
   uloziteniPovoleno: boolean;
+  parkSkrytoDo: string | null;
+  parkJeSkryty: boolean;
+  parkChybaCteni: string | null;
 };
 
 function formatCas(iso: string | null): string {
@@ -46,6 +50,9 @@ export function BranaAdminAtmosfera({
   pocatecni,
   chybaCteni,
   uloziteniPovoleno,
+  parkSkrytoDo: parkSkrytoDoPocatek,
+  parkJeSkryty: parkJeSkrytyPocatek,
+  parkChybaCteni,
 }: Props) {
   const [dokument, setDokument] = useState(pocatecni);
   const [text, setText] = useState("");
@@ -53,6 +60,24 @@ export function BranaAdminAtmosfera({
   const [hlaska, setHlaska] = useState<string | null>(null);
   const [chyba, setChyba] = useState<string | null>(chybaCteni);
   const [probiha, startTransition] = useTransition();
+  const [parkSkrytoDo, setParkSkrytoDo] = useState(parkSkrytoDoPocatek);
+  const [parkJeSkryty, setParkJeSkryty] = useState(parkJeSkrytyPocatek);
+  const [parkChyba, setParkChyba] = useState<string | null>(parkChybaCteni);
+
+  useEffect(() => {
+    if (!parkJeSkryty || !parkSkrytoDo) {
+      return;
+    }
+    const konec = Date.parse(parkSkrytoDo);
+    if (!Number.isFinite(konec)) {
+      return;
+    }
+    const prodleva = Math.max(konec - Date.now(), 0) + 50;
+    const casovac = setTimeout(() => {
+      setParkJeSkryty(false);
+    }, prodleva);
+    return () => clearTimeout(casovac);
+  }, [parkJeSkryty, parkSkrytoDo]);
 
   const automatickaVeta = dokument
     ? verejnaVetaAtmosfery(dokument.stav)
@@ -114,6 +139,19 @@ export function BranaAdminAtmosfera({
       }
       setDovetek("");
       setHlaska("Dovětek je uložený.");
+    });
+  };
+
+  const skrytPark = () => {
+    setParkChyba(null);
+    startTransition(async () => {
+      const vysledek = await skrytZameckyParkDoDalsiZmenyAkce();
+      if (!vysledek.uspech) {
+        setParkChyba(vysledek.chyba);
+        return;
+      }
+      setParkSkrytoDo(vysledek.skrytoDo);
+      setParkJeSkryty(true);
     });
   };
 
@@ -293,6 +331,32 @@ export function BranaAdminAtmosfera({
             </button>
           </div>
         ) : null}
+      </div>
+
+      <div className="space-y-3 border-t border-text-velmiJemny/15 pt-4">
+        <p className="text-sm font-medium text-text">Zámecký park</p>
+        {parkChyba ? (
+          <p className="text-sm text-text" role="alert">
+            {parkChyba}
+          </p>
+        ) : parkJeSkryty && parkSkrytoDo ? (
+          <p className="text-sm text-text" role="status">
+            Park je ručně skrytý. Automatický režim se obnoví{" "}
+            {formatCas(parkSkrytoDo)}.
+          </p>
+        ) : (
+          <p className="text-sm text-text">
+            Park se řídí automaticky podle otevírací doby.
+          </p>
+        )}
+        <button
+          type="button"
+          className={TLACITKO}
+          disabled={!uloziteniPovoleno || probiha || parkJeSkryty}
+          onClick={skrytPark}
+        >
+          Dočasně skrýt
+        </button>
       </div>
     </section>
   );

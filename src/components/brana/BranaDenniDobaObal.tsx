@@ -30,6 +30,8 @@ type BranaDenniDobaObalProps = {
   pohledovaData?: BranaSdilenaPohledovaData;
   konfiguracePohledu?: BranaKonfiguracePohledu[];
   atmosferaVeta?: string | null;
+  parkVeta?: string | null;
+  parkSkrytoDo?: string | null;
   children?: ReactNode;
   desktopPanel?: ReactNode;
 };
@@ -49,6 +51,8 @@ export function BranaDenniDobaObal({
   variantaPozadi,
   vychoziNocRezim,
   atmosferaVeta = null,
+  parkVeta = null,
+  parkSkrytoDo = null,
   children,
   desktopPanel,
 }: BranaDenniDobaObalProps) {
@@ -107,6 +111,8 @@ export function BranaDenniDobaObal({
                 data={pohledovaData}
                 konfiguracePohledu={konfiguracePohledu}
                 atmosferaVeta={atmosferaVeta}
+                parkVeta={parkVeta}
+                parkSkrytoDo={parkSkrytoDo}
               />
             )}
             <BranaVyzvaPlocha nocRezim={nocRezim} />

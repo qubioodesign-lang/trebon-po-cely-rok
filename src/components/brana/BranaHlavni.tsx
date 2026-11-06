@@ -16,6 +16,10 @@ type BranaHlavniProps = {
   vychoziNocRezim: boolean;
   /** Veřejná věta Atmosféry jen pro DNES; null = nerenderovat. */
   atmosferaVeta?: string | null;
+  /** Veřejná věta parku jen pro DNES; null = nerenderovat. */
+  parkVeta?: string | null;
+  /** Konec ručního skrytí parku. */
+  parkSkrytoDo?: string | null;
 };
 
 /** Vstupní obrazovka projektu Brána – /brana */
@@ -26,6 +30,8 @@ export function BranaHlavni({
   variantaPozadi,
   vychoziNocRezim,
   atmosferaVeta = null,
+  parkVeta = null,
+  parkSkrytoDo = null,
 }: BranaHlavniProps) {
   return (
     <>
@@ -37,6 +43,8 @@ export function BranaHlavni({
         variantaPozadi={variantaPozadi}
         vychoziNocRezim={vychoziNocRezim}
         atmosferaVeta={atmosferaVeta}
+        parkVeta={parkVeta}
+        parkSkrytoDo={parkSkrytoDo}
         desktopPanel={<BranaDesktopInformacniPanel />}
       />
     </>

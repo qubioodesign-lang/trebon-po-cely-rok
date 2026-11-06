@@ -145,6 +145,14 @@
     height: 1.4em;
   }
 
+  /**
+   * Zámecký park — pouze DNES, pod Atmosférou a nad Kalendářem.
+   * Prvek existuje jen s větou, takže bez textu nepřidá mezeru.
+   */
+  .brana-zamecky-park {
+    @apply mb-3 text-[0.9375rem] font-medium leading-snug text-white;
+  }
+
   .brana-prostor-obsah {
     @apply flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pt-2;
     overflow-x: hidden;
