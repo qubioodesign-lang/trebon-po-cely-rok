@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
 import { ziskatOidcZHlavicek } from "@/lib/env-blob";
+import { ulozitBranaFacebookNahled } from "@/lib/brana/facebook-nahled";
 import { smazatBranaVzkazSoubor } from "@/lib/brana/vzkaz/uloziste";
 import type { BranaKonkretniUdalost } from "@/lib/brana/admin/konkretni-udalost";
 import {
@@ -1154,6 +1155,40 @@ export async function zrusitBranaAtmosferaDovetekAkce(): Promise<BranaAtmosferaD
       uspech: false,
       chyba: detail ?? "Dovětek Atmosféry se nepodařilo odstranit.",
       dokument: null,
+    };
+  }
+}
+
+export type BranaFacebookNahledAkceVysledek =
+  | { uspech: true; odkaz: string; nahledUrl: string }
+  | { uspech: false; chyba: string };
+
+/** Uloží ruční snímek a vrátí odkaz až po veřejném ověření. */
+export async function nahratBranaFacebookNahledAkce(
+  soubor: File,
+): Promise<BranaFacebookNahledAkceVysledek> {
+  if (!(await jeAdminPrihlasen())) {
+    return { uspech: false, chyba: "Nejste přihlášeni." };
+  }
+
+  if (!(soubor instanceof File)) {
+    return { uspech: false, chyba: "Chybí obrázek. Odkaz nebyl vytvořen." };
+  }
+
+  try {
+    const ulozeno = await ulozitBranaFacebookNahled(soubor);
+    return {
+      uspech: true,
+      odkaz: ulozeno.odkaz,
+      nahledUrl: ulozeno.nahledUrl,
+    };
+  } catch (error) {
+    const detail = error instanceof Error ? error.message.trim() : "";
+    return {
+      uspech: false,
+      chyba: detail.endsWith("Odkaz nebyl vytvořen.")
+        ? detail
+        : "Obrázek se nepodařilo nahrát. Odkaz nebyl vytvořen.",
     };
   }
 }

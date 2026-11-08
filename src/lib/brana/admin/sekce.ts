@@ -52,7 +52,7 @@ export const BRANA_ADMIN_SPRAVA_SEKCE = [
   { id: "upozorneni", label: "Upozornění", segment: "upozorneni" },
   { id: "atmosfera", label: "Atmosféra", segment: "atmosfera" },
   { id: "zaloha", label: "Záloha", segment: "zaloha" },
-  { id: "vzkazy", label: "Vzkazy", segment: "vzkazy" },
+  { id: "vzkazy", label: "Vzkazy / Facebook", segment: "vzkazy" },
 ] as const satisfies ReadonlyArray<BranaAdminNavPolozka<BranaAdminSpravaSekce>>;
 
 /** Výchozí vstup do Správy (hlavní budoucí pracovní plocha) */

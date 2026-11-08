@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { BranaAdminFacebook } from "@/components/brana/admin/BranaAdminFacebook";
 import { BranaAdminObal } from "@/components/brana/admin/BranaAdminObal";
 import { BranaAdminVzkazy } from "@/components/brana/admin/BranaAdminVzkazy";
 import { jeAdminPrihlasen } from "@/lib/autentizace";
@@ -33,6 +34,7 @@ export default async function StrankaBranaAdminVzkazy() {
   return (
     <BranaAdminObal host={host} aktivniCast="sprava" aktivniSpravaSekce="vzkazy">
       <BranaAdminVzkazy vzkazy={vzkazy} chyba={chyba} />
+      <BranaAdminFacebook />
     </BranaAdminObal>
   );
 }
