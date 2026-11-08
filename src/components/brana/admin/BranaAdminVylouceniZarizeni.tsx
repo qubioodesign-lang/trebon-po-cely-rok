@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  doplnitDomenovouCookieVylouceni,
   jeBranaAnalytikaVyloucena,
   nastavitBranaVylouceniAnalytiky,
   zobrazitVylouceniPoUlozeni,
@@ -15,6 +16,7 @@ export function BranaAdminVylouceniZarizeni() {
   const [vylouceno, setVylouceno] = useState<boolean | null>(null);
 
   useEffect(() => {
+    doplnitDomenovouCookieVylouceni();
     setVylouceno(jeBranaAnalytikaVyloucena());
   }, []);
 
@@ -32,7 +34,8 @@ export function BranaAdminVylouceniZarizeni() {
         Vyloučení zařízení
       </h2>
       <p className="brana-text-jemny">
-        Platí jen v tomto prohlížeči na této adrese. Ostatní návštěvníci se nemění.
+        Platí v tomto prohlížeči pro obě adresy BRÁNY. Facebookový prohlížeč
+        je potřeba nastavit zvlášť. Ostatní návštěvníci se nemění.
       </p>
       {vylouceno ? (
         <p className="brana-text-jemny">Toto zařízení je vyloučeno z analytiky.</p>
