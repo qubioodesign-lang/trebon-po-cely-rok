@@ -1,6 +1,7 @@
 import "server-only";
 
 import { del, list, put } from "@vercel/blob";
+import sharp from "sharp";
 import {
   maBlobAutentizaciProZapis,
   pouzivaBlobUloziste,
@@ -17,6 +18,10 @@ export const BRANA_FACEBOOK_ODKAZ_ZAKLAD =
 
 const MAX_BAJTU = 8 * 1024 * 1024;
 const MAX_STRANA = 16_000;
+const KARTA_SIRKA = 1200;
+const KARTA_VYSKA = 630;
+const KARTA_POZADI = { r: 0xfa, g: 0xf8, b: 0xf5 };
+const MAX_PIXELU_KARTY = 24_000_000;
 
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -167,6 +172,60 @@ function overitNahled(soubor: File, telo: Buffer): OverenyNahled {
   throw new Error("Lze nahrát jen úplný PNG nebo JPEG. Odkaz nebyl vytvořen.");
 }
 
+/**
+ * Celý snímek doprostřed plátna 1200×630, bez ořezu a deformace.
+ * Volné plochy jsou #FAF8F5. Výsledek je samostatný JPEG BRÁNY.
+ */
+async function slozitBranaFacebookKartu(vstup: Buffer): Promise<Buffer> {
+  try {
+    const { data, info } = await sharp(vstup, {
+      failOn: "error",
+      limitInputPixels: MAX_PIXELU_KARTY,
+      pages: 1,
+    })
+      .rotate()
+      .resize(KARTA_SIRKA, KARTA_VYSKA, {
+        fit: "inside",
+        withoutEnlargement: false,
+      })
+      .toBuffer({ resolveWithObject: true });
+
+    if (
+      info.width < 1 ||
+      info.height < 1 ||
+      info.width > KARTA_SIRKA ||
+      info.height > KARTA_VYSKA
+    ) {
+      throw new Error("rozmer");
+    }
+
+    const left = Math.floor((KARTA_SIRKA - info.width) / 2);
+    const top = Math.floor((KARTA_VYSKA - info.height) / 2);
+
+    return await sharp({
+      create: {
+        width: KARTA_SIRKA,
+        height: KARTA_VYSKA,
+        channels: 3,
+        background: KARTA_POZADI,
+      },
+    })
+      .composite([{ input: data, left, top }])
+      .jpeg({ quality: 90 })
+      .toBuffer();
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.endsWith("Odkaz nebyl vytvořen.")
+    ) {
+      throw error;
+    }
+    throw new Error(
+      "Facebookovou kartu se nepodařilo vytvořit. Odkaz nebyl vytvořen.",
+    );
+  }
+}
+
 async function smazatJenTentoNovySoubor(
   url: string,
   oidc: string | null,
@@ -180,8 +239,8 @@ async function smazatJenTentoNovySoubor(
 }
 
 /**
- * Uloží původní soubor a vrátí odkaz až po veřejném ověření.
- * Při chybě nový soubor smaže. Starší snímky nemění.
+ * Uloží širokou kartu a vrátí odkaz až po veřejném ověření.
+ * Při chybě smaže jen tento nový soubor. Starší snímky nemění.
  */
 export async function ulozitBranaFacebookNahled(soubor: File): Promise<{
   id: string;
@@ -198,16 +257,17 @@ export async function ulozitBranaFacebookNahled(soubor: File): Promise<{
   }
 
   const overeny = overitNahled(soubor, Buffer.from(await soubor.arrayBuffer()));
+  const karta = await slozitBranaFacebookKartu(overeny.telo);
   const id = crypto.randomUUID().toLowerCase();
-  const cesta = `${BRANA_FACEBOOK_NAHLED_PREFIX}${id}.${overeny.pripona}`;
+  const cesta = `${BRANA_FACEBOOK_NAHLED_PREFIX}${id}.jpg`;
   const volby = await ziskatVolbyBlobAsync(oidc);
 
-  const blob = await put(cesta, overeny.telo, {
+  const blob = await put(cesta, karta, {
     ...volby,
     access: "public",
     addRandomSuffix: false,
     allowOverwrite: false,
-    contentType: overeny.contentType,
+    contentType: "image/jpeg",
   });
 
   if (blob.pathname !== cesta) {
