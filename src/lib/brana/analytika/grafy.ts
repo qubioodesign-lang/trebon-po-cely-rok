@@ -133,6 +133,16 @@ export type PodkladyGrafuBrany = {
     soucetCelkem: number | null;
     soucetDesktop: number | null;
   };
+  plocha: {
+    zobrazeni: BodPoctuGrafu[];
+    klik: BodPoctuGrafu[];
+    zavreni: BodPoctuGrafu[];
+    soucetZobrazeni: number | null;
+    soucetKlik: number | null;
+    soucetZavreni: number | null;
+    /** 100 × klepnutí / návštěvy téhož období. Nula návštěv je null. */
+    podilKlikNaNavstevy: number | null;
+  };
 };
 
 type MetrikyDne = {
@@ -151,6 +161,9 @@ type MetrikyDne = {
   proklikTrebon: number;
   qr: number;
   qrDesktop: number;
+  plochaZobrazeni: number;
+  plochaKlik: number;
+  plochaZavreni: number;
 };
 
 function datumZIso(iso: string): BranaDatum {
@@ -208,6 +221,9 @@ function prazdneMetriky(): MetrikyDne {
     proklikTrebon: 0,
     qr: 0,
     qrDesktop: 0,
+    plochaZobrazeni: 0,
+    plochaKlik: 0,
+    plochaZavreni: 0,
   };
 }
 
@@ -238,6 +254,9 @@ function metrikyZDne(den: BranaAnalytikaDen): MetrikyDne {
     proklikTrebon: den.proklikTrebon,
     qr: den.zdroje.qr,
     qrDesktop: den.qrDesktop,
+    plochaZobrazeni: den.plochaZobrazeni,
+    plochaKlik: den.plochaKlik,
+    plochaZavreni: den.plochaZavreni,
   };
 }
 
@@ -258,6 +277,16 @@ function procentoProchazeni(konec: number, delsi: number): number | null {
     return null;
   }
   return (100 * konec) / delsi;
+}
+
+function podilKlikNaNavstevy(
+  klik: number | null,
+  navstevy: number | null,
+): number | null {
+  if (klik === null || navstevy === null || navstevy === 0) {
+    return null;
+  }
+  return (100 * klik) / navstevy;
 }
 
 function zmenaProcent(aktualni: number | null, predchozi: number | null): number | null {
@@ -582,6 +611,10 @@ export function sestavitPodkladyGrafu(
   const proklikTrebon = rada(aktualniDny, (metriky) => metriky.proklikTrebon);
   const qrCelkem = rada(aktualniDny, (metriky) => metriky.qr);
   const qrDesktop = rada(aktualniDny, (metriky) => metriky.qrDesktop);
+  const plochaZobrazeni = rada(aktualniDny, (metriky) => metriky.plochaZobrazeni);
+  const plochaKlik = rada(aktualniDny, (metriky) => metriky.plochaKlik);
+  const plochaZavreni = rada(aktualniDny, (metriky) => metriky.plochaZavreni);
+  const soucetPlochaKlik = soucetHodnot(plochaKlik);
 
   return {
     obdobi,
@@ -656,6 +689,15 @@ export function sestavitPodkladyGrafu(
       desktop: qrDesktop,
       soucetCelkem: soucetHodnot(qrCelkem),
       soucetDesktop: soucetHodnot(qrDesktop),
+    },
+    plocha: {
+      zobrazeni: plochaZobrazeni,
+      klik: plochaKlik,
+      zavreni: plochaZavreni,
+      soucetZobrazeni: soucetHodnot(plochaZobrazeni),
+      soucetKlik: soucetPlochaKlik,
+      soucetZavreni: soucetHodnot(plochaZavreni),
+      podilKlikNaNavstevy: podilKlikNaNavstevy(soucetPlochaKlik, soucet),
     },
   };
 }

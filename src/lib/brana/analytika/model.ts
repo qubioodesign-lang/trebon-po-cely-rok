@@ -94,6 +94,13 @@ export type BranaAnalytikaDen = {
   proklikTrebon: number;
   /** Desktopový QR. Chybějící údaj staršího dne je nula a je součástí zdrojů qr. */
   qrDesktop: number;
+  /**
+   * Nabídka Přidat na plochu. Chybějící údaj staršího dne je nula.
+   * Není to návštěva, instalace ani identifikace osoby.
+   */
+  plochaZobrazeni: number;
+  plochaKlik: number;
+  plochaZavreni: number;
   hodiny: number[];
   zarizeni: Record<BranaAnalytikaZarizeni, number>;
   spusteni: {
@@ -121,12 +128,22 @@ export type BranaAnalytikaDokument = {
  * Způsob spuštění a druh návštěvníka jsou volitelné.
  * Sdílení je jen `{ typ: "sdileni" }` a přičítá denní počet stisků.
  * Proklik je jen `{ typ: "proklikTrebon" }` a přičítá denní počet kliknutí.
+ * Nabídka plochy je jen `{ typ }` a přičítá jeden denní počet. Není to návštěva.
  */
 export type BranaAnalytikaUdalostSdileni = {
   typ: "sdileni";
 };
 export type BranaAnalytikaUdalostProklikTrebon = {
   typ: "proklikTrebon";
+};
+export const BRANA_ANALYTIKA_PLOCHA = [
+  "plochaZobrazeni",
+  "plochaKlik",
+  "plochaZavreni",
+] as const;
+export type BranaAnalytikaPlocha = (typeof BRANA_ANALYTIKA_PLOCHA)[number];
+export type BranaAnalytikaUdalostPlochy = {
+  typ: BranaAnalytikaPlocha;
 };
 export type BranaAnalytikaUdalostNavstevy = {
   typ: "navsteva";
@@ -155,7 +172,8 @@ export type BranaAnalytikaUdalost =
   | BranaAnalytikaUdalostPohledu
   | BranaAnalytikaUdalostProchazeni
   | BranaAnalytikaUdalostSdileni
-  | BranaAnalytikaUdalostProklikTrebon;
+  | BranaAnalytikaUdalostProklikTrebon
+  | BranaAnalytikaUdalostPlochy;
 
 export type VysledekBranaAnalytiky =
   | { ok: true }
@@ -200,6 +218,9 @@ export function prazdnyDenAnalytiky(): BranaAnalytikaDen {
     prochazeni,
     proklikTrebon: 0,
     qrDesktop: 0,
+    plochaZobrazeni: 0,
+    plochaKlik: 0,
+    plochaZavreni: 0,
     hodiny: Array.from({ length: 24 }, () => 0),
     zarizeni,
     spusteni: { ikona: 0, prohlizec: 0 },
@@ -251,6 +272,24 @@ function parsovatDen(raw: unknown): BranaAnalytikaDen | null {
       return null;
     }
     vysledek.qrDesktop = den.qrDesktop;
+  }
+  if (den.plochaZobrazeni !== undefined) {
+    if (!jeNezaporneCeleCislo(den.plochaZobrazeni)) {
+      return null;
+    }
+    vysledek.plochaZobrazeni = den.plochaZobrazeni;
+  }
+  if (den.plochaKlik !== undefined) {
+    if (!jeNezaporneCeleCislo(den.plochaKlik)) {
+      return null;
+    }
+    vysledek.plochaKlik = den.plochaKlik;
+  }
+  if (den.plochaZavreni !== undefined) {
+    if (!jeNezaporneCeleCislo(den.plochaZavreni)) {
+      return null;
+    }
+    vysledek.plochaZavreni = den.plochaZavreni;
   }
 
   if (!den.zdroje || typeof den.zdroje !== "object") {
@@ -499,6 +538,7 @@ const POVOLENE_KLICE_POHLEDU = new Set(["typ", "pohled", "raz"]);
 const POVOLENE_KLICE_PROCHAZENI = new Set(["typ", "pohled", "metrika"]);
 const POVOLENE_KLICE_SDILENI = new Set(["typ"]);
 const POVOLENE_KLICE_PROKLIK_TREBON = new Set(["typ"]);
+const POVOLENE_KLICE_PLOCHY = new Set(["typ"]);
 
 function jeSpusteni(hodnota: unknown): hodnota is BranaAnalytikaSpusteni {
   return (BRANA_ANALYTIKA_SPUSTENI as readonly string[]).includes(
@@ -530,7 +570,29 @@ function vycistitUdalost(raw: unknown): BranaAnalytikaUdalost | null {
   if (zaznam.typ === "proklikTrebon") {
     return vycistitUdalostProklikTrebon(zaznam);
   }
+  if (jePlocha(zaznam.typ)) {
+    return vycistitUdalostPlochy(zaznam);
+  }
   return vycistitUdalostNavstevy(raw);
+}
+
+function jePlocha(hodnota: unknown): hodnota is BranaAnalytikaPlocha {
+  return (BRANA_ANALYTIKA_PLOCHA as readonly string[]).includes(hodnota as string);
+}
+
+function vycistitUdalostPlochy(
+  zaznam: Record<string, unknown>,
+): BranaAnalytikaUdalostPlochy | null {
+  for (const klic of Object.keys(zaznam)) {
+    if (!POVOLENE_KLICE_PLOCHY.has(klic)) {
+      return null;
+    }
+  }
+  if (!jePlocha(zaznam.typ)) {
+    return null;
+  }
+
+  return { typ: zaznam.typ };
 }
 
 function vycistitUdalostProklikTrebon(
@@ -721,6 +783,20 @@ function pricistSdileni(den: BranaAnalytikaDen): BranaAnalytikaDen {
   return { ...den, sdileniKlik };
 }
 
+function pricistPlochu(
+  den: BranaAnalytikaDen,
+  klic: BranaAnalytikaPlocha,
+): BranaAnalytikaDen {
+  const pocet = den[klic] + 1;
+  if (!Number.isSafeInteger(pocet)) {
+    throw new Error(
+      "Počet přidání na plochu přesáhl bezpečný rozsah. Nic nebylo uloženo.",
+    );
+  }
+
+  return { ...den, [klic]: pocet };
+}
+
 function pricistProklikTrebon(den: BranaAnalytikaDen): BranaAnalytikaDen {
   const proklikTrebon = den.proklikTrebon + 1;
   if (!Number.isSafeInteger(proklikTrebon)) {
@@ -802,6 +878,7 @@ function pricistNavstevu(
  * Jedna návštěva zvýší právě jedno počítadlo zařízení.
  * Stisk sdílení mění jen denní počet sdílení.
  * Proklik mění jen denní počet kliknutí na zápatí.
+ * Událost nabídky plochy mění jen svůj denní počet.
  * Starší pole konce obsahu u dvou pohledů se těmito událostmi nemění.
  * Začátek měření zařízení se zapíše při první návštěvě a dál se nemění.
  */
@@ -829,7 +906,13 @@ export function aplikovatDavkuAnalytiky(
       den = pricistSdileni(den);
     } else if (udalost.typ === "proklikTrebon") {
       den = pricistProklikTrebon(den);
-    } else {
+    } else if (
+      udalost.typ === "plochaZobrazeni" ||
+      udalost.typ === "plochaKlik" ||
+      udalost.typ === "plochaZavreni"
+    ) {
+      den = pricistPlochu(den, udalost.typ);
+    } else if (udalost.typ === "navsteva") {
       den = pricistNavstevu(den, udalost, oblast, zarizeni);
     }
   }

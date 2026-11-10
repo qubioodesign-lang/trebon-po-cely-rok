@@ -3,6 +3,7 @@ import {
   type BranaAnalytikaNavstevnik,
   type BranaAnalytikaPohled,
   type BranaAnalytikaSpusteni,
+  type BranaAnalytikaPlocha,
   type BranaAnalytikaUdalost,
   type BranaAnalytikaUdalostNavstevy,
   type BranaAnalytikaUdalostProchazeni,
@@ -114,6 +115,61 @@ async function odeslatPripravenyPozadavek(
   } catch {
     return { pokusu: 1, odeslano: false };
   }
+}
+
+/**
+ * Nabídka Přidat na plochu se počítá jen mimo facebookový prohlížeč
+ * a mimo přechod do Chromu. Samotné rozhodnutí instalaci nemění.
+ */
+export function maSePocitatNabidkaPlochy(
+  facebookNaAndroidu: boolean,
+  typCesty: string,
+): boolean {
+  return !facebookNaAndroidu && typCesty !== "CHROME_INTENT";
+}
+
+/** Zobrazení nabídky jde odeslat nejvýš jednou za načtení stránky. */
+export function smiOdeslatZobrazeniPlochy(
+  uzOdeslano: boolean,
+  pocitat: boolean,
+): boolean {
+  return pocitat && !uzOdeslano;
+}
+
+/**
+ * Rozhodnutí i odeslání nabídky plochy.
+ * Synchronní výjimka rozpoznání prostředí nebo odeslání se spolkne.
+ * Volající na síť nečeká.
+ */
+export function odeslatPlochuBezPreruseni(
+  typ: BranaAnalytikaPlocha,
+  typCesty: string,
+  rozpoznatFacebook: () => boolean,
+  odeslat: BranaAnalytikaOdesilac,
+): void {
+  try {
+    if (!maSePocitatNabidkaPlochy(rozpoznatFacebook(), typCesty)) {
+      return;
+    }
+    void odeslatUdalostPlochy(typ, odeslat).catch(() => undefined);
+  } catch {
+    // Analytika nesmí přerušit instalaci.
+  }
+}
+
+/**
+ * Jedna událost nabídky plochy. Neúspěch se neopakuje a fronta se nezakládá.
+ * Volající na výsledek nečeká.
+ */
+export async function odeslatUdalostPlochy(
+  typ: BranaAnalytikaPlocha,
+  odeslat: BranaAnalytikaOdesilac,
+): Promise<BranaOdeslaniVysledek> {
+  if (!jeOdeslaniBranaAnalytikyPovoleno()) {
+    return { pokusu: 0, odeslano: false };
+  }
+
+  return odeslatPripravenyPozadavek(sestavitPozadavekDavky([{ typ }]), odeslat);
 }
 
 /** Jedno kliknutí na odkaz Třeboň po celý rok. Neúspěch se neopakuje a fronta se nezakládá. */

@@ -34,6 +34,12 @@ import {
   vyvolatInstalacniDialog,
 } from "@/lib/brana/pwa-instalace";
 import { otevritFacebookInstalacniVrstvu, jeFacebookNaAndroidu } from "@/lib/brana/facebook-instalacni-vrstva";
+import type { BranaAnalytikaPlocha } from "@/lib/brana/analytika/model";
+import {
+  maSePocitatNabidkaPlochy,
+  odeslatPlochuBezPreruseni,
+  smiOdeslatZobrazeniPlochy,
+} from "@/lib/brana/analytika/odeslani-navstevy";
 import { jeIOS } from "@/lib/uloziste";
 import {
   jeAndroid,
@@ -56,6 +62,18 @@ import {
 
 const BRANA_PRIPRAVA_MAX_MS = 2_000;
 const TEXT_PRIPRAVA = "Připravuji přidání na plochu…";
+
+/** Jednou za načtení stránky. Nové načtení modul vynuluje. */
+let zobrazeniPlochyOdeslano = false;
+
+function odeslatRozhodnutiPlochy(typ: BranaAnalytikaPlocha, typCesty: string): void {
+  odeslatPlochuBezPreruseni(
+    typ,
+    typCesty,
+    jeFacebookNaAndroidu,
+    (url, pozadavek) => fetch(url, pozadavek),
+  );
+}
 
 type BranaVyzvaPlochaProps = {
   nocRezim: boolean;
@@ -224,6 +242,26 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
   }, [zkusZobrazitPoZajmu]);
 
   useEffect(() => {
+    if (!pripravena || !viditelnost.viditelna) {
+      return;
+    }
+    try {
+      if (
+        !smiOdeslatZobrazeniPlochy(
+          zobrazeniPlochyOdeslano,
+          maSePocitatNabidkaPlochy(jeFacebookNaAndroidu(), cesta.typ),
+        )
+      ) {
+        return;
+      }
+      zobrazeniPlochyOdeslano = true;
+      odeslatRozhodnutiPlochy("plochaZobrazeni", cesta.typ);
+    } catch {
+      // Zobrazení už je na obrazovce.
+    }
+  }, [cesta.typ, pripravena, viditelnost.viditelna]);
+
+  useEffect(() => {
     if (!viditelnost.viditelna) {
       return;
     }
@@ -259,6 +297,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     zavritVyzvuPlochy();
     skrytVyzvu();
     obnovitStav();
+    odeslatRozhodnutiPlochy("plochaZavreni", cesta.typ);
   };
 
   const hlavniKlik = useCallback(async () => {
@@ -271,6 +310,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     });
 
     if (okamzita.typ === "PROMPT") {
+      odeslatRozhodnutiPlochy("plochaKlik", okamzita.typ);
       const vysledek = await vyvolatInstalacniDialog();
 
       if (vysledek === "accepted") {
@@ -283,6 +323,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
     }
 
     if (okamzita.typ === "IOS_INSTALACE") {
+      odeslatRozhodnutiPlochy("plochaKlik", okamzita.typ);
       otevritBranaIosInstalacniObrazovku(okamzita.varianta);
       return;
     }
@@ -301,6 +342,7 @@ export function BranaVyzvaPlocha({ nocRezim }: BranaVyzvaPlochaProps) {
       return;
     }
 
+    odeslatRozhodnutiPlochy("plochaKlik", "ZATIM_NEDOSTUPNA");
     pripravujiRef.current = true;
     setPripravuji(true);
     obnovitStav();

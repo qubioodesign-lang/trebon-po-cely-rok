@@ -305,6 +305,9 @@ function testStarsiAPrazdne(): void {
   delete (surovy as { qrDesktop?: number }).qrDesktop;
   delete (surovy as { prochazeni?: unknown }).prochazeni;
   delete (surovy as { oblast?: unknown }).oblast;
+  delete (surovy as { plochaZobrazeni?: number }).plochaZobrazeni;
+  delete (surovy as { plochaKlik?: number }).plochaKlik;
+  delete (surovy as { plochaZavreni?: number }).plochaZavreni;
   const starsi = parsovatDokumentAnalytiky({ verze: 1, dny: { [DNES]: surovy } });
   assert(starsi !== null, "starší den bez nových polí zůstane čitelný");
   const podklady = sestavitPodkladyGrafu(starsi ?? prazdnyDokumentAnalytiky(), TED, 7);
@@ -313,7 +316,11 @@ function testStarsiAPrazdne(): void {
       podklady.qr.soucetCelkem === 0 &&
       podklady.qr.soucetDesktop === 0 &&
       podklady.geografie.procenta.trebonsko === null &&
-      podklady.prochazeni.soucty.dnes.procento === null,
+      podklady.prochazeni.soucty.dnes.procento === null &&
+      podklady.plocha.soucetZobrazeni === 0 &&
+      podklady.plocha.soucetKlik === 0 &&
+      podklady.plocha.soucetZavreni === 0 &&
+      podklady.plocha.podilKlikNaNavstevy === 0,
     "chybějící novější pole jsou nuly a procento bez jmenovatele chybí",
   );
 
@@ -322,7 +329,8 @@ function testStarsiAPrazdne(): void {
     prazdny.navstevnost.soucet === 0 &&
       prazdny.navstevnost.zmenaProcent === null &&
       prazdny.geografie.procenta.neurceno === null &&
-      prazdny.prochazeni.soucty["7-dni"].procento === null,
+      prazdny.prochazeni.soucty["7-dni"].procento === null &&
+      prazdny.plocha.podilKlikNaNavstevy === null,
     "prázdný dokument má nulové počty a nedostupná procenta",
   );
 }

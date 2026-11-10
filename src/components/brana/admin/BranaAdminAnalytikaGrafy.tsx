@@ -147,6 +147,7 @@ export function BranaAdminAnalytikaGrafy({
         body={data.proklikTrebon.klik}
         krivky={[krivkaPoctu("Kliknutí", 0, data.proklikTrebon.klik)]}
       />
+      <GrafPlochy key={`plocha-${obdobi}`} data={data} />
       <GrafDvou
         key={`qr-${obdobi}`}
         nadpis="QR"
@@ -171,6 +172,27 @@ function krivkaPoctu(nazev: string, poradi: number, body: readonly BodPoctuGrafu
     hodnoty: body.map((bod) => bod.hodnota),
     poznamka: (index) => textPoctu(body[index]?.hodnota ?? null),
   };
+}
+
+function textPodiluNavstev(podil: number | null): string {
+  return podil === null ? "—" : `${textCisla(podil)} %`;
+}
+
+function GrafPlochy({ data }: { data: PodkladyGrafuBrany }) {
+  const plocha = data.plocha;
+  return (
+    <GrafDvou
+      nadpis="Přidání na plochu"
+      popis="Klepnutí není instalace. Není to počet osob. Měření začíná až nasazením této funkce; starší nuly nejsou důkaz, že zájem nebyl."
+      souhrn={`Zobrazení nabídky ${textPoctu(plocha.soucetZobrazeni)}. Klepnutí na Přidat ${textPoctu(plocha.soucetKlik)}. Zavření křížkem ${textPoctu(plocha.soucetZavreni)}. Kliknutí / návštěvy ${textPodiluNavstev(plocha.podilKlikNaNavstevy)}.`}
+      body={plocha.zobrazeni}
+      krivky={[
+        krivkaPoctu("Zobrazení nabídky", 0, plocha.zobrazeni),
+        krivkaPoctu("Klepnutí na Přidat", 1, plocha.klik),
+        krivkaPoctu("Zavření křížkem", 2, plocha.zavreni),
+      ]}
+    />
+  );
 }
 
 function GrafNavstevnosti({ data }: { data: PodkladyGrafuBrany }) {

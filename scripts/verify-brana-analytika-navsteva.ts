@@ -404,6 +404,10 @@ async function testOdeslani(): Promise<void> {
   assert(!modul.includes("userAgent"), "odeslání nedělá otisk zařízení");
   assert(!modul.includes("geolocation"), "odeslání nečte polohu");
 
+  const povoleneOdesilani = new Set([
+    join("src", "components", "brana", "BranaObrazovka.tsx"),
+    join("src", "components", "brana", "BranaVyzvaPlocha.tsx"),
+  ]);
   const importy: string[] = [];
   for (const koren of [join("src", "app"), join("src", "components")]) {
     for (const soubor of vsechnySoubory(koren)) {
@@ -412,7 +416,11 @@ async function testOdeslani(): Promise<void> {
       }
     }
   }
-  assert(importy.length === 0, "veřejná BRÁNA odesílání neimportuje");
+  const neocekavane = importy.filter((soubor) => !povoleneOdesilani.has(soubor));
+  assert(
+    neocekavane.length === 0 && importy.length === povoleneOdesilani.size,
+    "odesílání je jen v zápatí a v nabídce plochy",
+  );
 }
 
 function vsechnySoubory(adresar: string): string[] {
