@@ -133,6 +133,10 @@ export type PodkladyGrafuBrany = {
     soucetCelkem: number | null;
     soucetDesktop: number | null;
   };
+  trebondnes: {
+    prichod: BodPoctuGrafu[];
+    soucet: number | null;
+  };
   plocha: {
     zobrazeni: BodPoctuGrafu[];
     klik: BodPoctuGrafu[];
@@ -161,6 +165,7 @@ type MetrikyDne = {
   proklikTrebon: number;
   qr: number;
   qrDesktop: number;
+  trebondnes: number;
   plochaZobrazeni: number;
   plochaKlik: number;
   plochaZavreni: number;
@@ -221,6 +226,7 @@ function prazdneMetriky(): MetrikyDne {
     proklikTrebon: 0,
     qr: 0,
     qrDesktop: 0,
+    trebondnes: 0,
     plochaZobrazeni: 0,
     plochaKlik: 0,
     plochaZavreni: 0,
@@ -254,6 +260,7 @@ function metrikyZDne(den: BranaAnalytikaDen): MetrikyDne {
     proklikTrebon: den.proklikTrebon,
     qr: den.zdroje.qr,
     qrDesktop: den.qrDesktop,
+    trebondnes: den.trebondnes,
     plochaZobrazeni: den.plochaZobrazeni,
     plochaKlik: den.plochaKlik,
     plochaZavreni: den.plochaZavreni,
@@ -611,6 +618,7 @@ export function sestavitPodkladyGrafu(
   const proklikTrebon = rada(aktualniDny, (metriky) => metriky.proklikTrebon);
   const qrCelkem = rada(aktualniDny, (metriky) => metriky.qr);
   const qrDesktop = rada(aktualniDny, (metriky) => metriky.qrDesktop);
+  const trebondnes = rada(aktualniDny, (metriky) => metriky.trebondnes);
   const plochaZobrazeni = rada(aktualniDny, (metriky) => metriky.plochaZobrazeni);
   const plochaKlik = rada(aktualniDny, (metriky) => metriky.plochaKlik);
   const plochaZavreni = rada(aktualniDny, (metriky) => metriky.plochaZavreni);
@@ -689,6 +697,10 @@ export function sestavitPodkladyGrafu(
       desktop: qrDesktop,
       soucetCelkem: soucetHodnot(qrCelkem),
       soucetDesktop: soucetHodnot(qrDesktop),
+    },
+    trebondnes: {
+      prichod: trebondnes,
+      soucet: soucetHodnot(trebondnes),
     },
     plocha: {
       zobrazeni: plochaZobrazeni,

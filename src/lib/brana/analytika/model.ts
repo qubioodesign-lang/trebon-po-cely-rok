@@ -94,6 +94,8 @@ export type BranaAnalytikaDen = {
   proklikTrebon: number;
   /** Desktopový QR. Chybějící údaj staršího dne je nula a je součástí zdrojů qr. */
   qrDesktop: number;
+  /** Příchod přes trebondnes.cz. Chybějící údaj staršího dne je nula a není to QR ani sdílení. */
+  trebondnes: number;
   /**
    * Nabídka Přidat na plochu. Chybějící údaj staršího dne je nula.
    * Není to návštěva, instalace ani identifikace osoby.
@@ -149,8 +151,8 @@ export type BranaAnalytikaUdalostNavstevy = {
   typ: "navsteva";
   spusteni?: BranaAnalytikaSpusteni;
   navstevnik?: BranaAnalytikaNavstevnik;
-  /** QR nebo příchod ze sdíleného odkazu. Jeden zdroj na návštěvu. */
-  zdroj?: "qr" | "sdileni";
+  /** QR, sdílený odkaz nebo trebondnes.cz. Jeden zdroj na návštěvu. */
+  zdroj?: "qr" | "sdileni" | "trebondnes";
   /** Desktopový QR. Smí být jen spolu se zdrojem qr a není další návštěva. */
   qrDesktop?: true;
 };
@@ -218,6 +220,7 @@ export function prazdnyDenAnalytiky(): BranaAnalytikaDen {
     prochazeni,
     proklikTrebon: 0,
     qrDesktop: 0,
+    trebondnes: 0,
     plochaZobrazeni: 0,
     plochaKlik: 0,
     plochaZavreni: 0,
@@ -272,6 +275,12 @@ function parsovatDen(raw: unknown): BranaAnalytikaDen | null {
       return null;
     }
     vysledek.qrDesktop = den.qrDesktop;
+  }
+  if (den.trebondnes !== undefined) {
+    if (!jeNezaporneCeleCislo(den.trebondnes)) {
+      return null;
+    }
+    vysledek.trebondnes = den.trebondnes;
   }
   if (den.plochaZobrazeni !== undefined) {
     if (!jeNezaporneCeleCislo(den.plochaZobrazeni)) {
@@ -698,6 +707,11 @@ function vycistitUdalostNavstevy(raw: unknown): BranaAnalytikaUdalostNavstevy | 
         }
         cista.qrDesktop = true;
       }
+    } else if (zaznam.zdroj === "trebondnes") {
+      if ("qrDesktop" in zaznam) {
+        return null;
+      }
+      cista.zdroj = "trebondnes";
     } else {
       return null;
     }
@@ -828,6 +842,7 @@ function pricistNavstevu(
   poctyZarizeni[kategorie] += 1;
   const zdroje = { ...den.zdroje };
   let qrDesktop = den.qrDesktop;
+  let trebondnes = den.trebondnes;
   if (udalost.zdroj === "qr") {
     zdroje.qr += 1;
     if (udalost.qrDesktop) {
@@ -835,6 +850,8 @@ function pricistNavstevu(
     }
   } else if (udalost.zdroj === "sdileni") {
     zdroje.sdileni += 1;
+  } else if (udalost.zdroj === "trebondnes") {
+    trebondnes += 1;
   }
   const pocty = [
     navstevy,
@@ -852,6 +869,7 @@ function pricistNavstevu(
     zdroje.qr,
     zdroje.sdileni,
     qrDesktop,
+    trebondnes,
   ];
 
   if (pocty.some((hodnota) => !Number.isSafeInteger(hodnota))) {
@@ -868,6 +886,7 @@ function pricistNavstevu(
     zarizeni: poctyZarizeni,
     zdroje,
     qrDesktop,
+    trebondnes,
   };
 }
 

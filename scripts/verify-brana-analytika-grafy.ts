@@ -308,6 +308,7 @@ function testStarsiAPrazdne(): void {
   delete (surovy as { plochaZobrazeni?: number }).plochaZobrazeni;
   delete (surovy as { plochaKlik?: number }).plochaKlik;
   delete (surovy as { plochaZavreni?: number }).plochaZavreni;
+  delete (surovy as { trebondnes?: number }).trebondnes;
   const starsi = parsovatDokumentAnalytiky({ verze: 1, dny: { [DNES]: surovy } });
   assert(starsi !== null, "starší den bez nových polí zůstane čitelný");
   const podklady = sestavitPodkladyGrafu(starsi ?? prazdnyDokumentAnalytiky(), TED, 7);
@@ -320,7 +321,8 @@ function testStarsiAPrazdne(): void {
       podklady.plocha.soucetZobrazeni === 0 &&
       podklady.plocha.soucetKlik === 0 &&
       podklady.plocha.soucetZavreni === 0 &&
-      podklady.plocha.podilKlikNaNavstevy === 0,
+      podklady.plocha.podilKlikNaNavstevy === 0 &&
+      podklady.trebondnes.soucet === 0,
     "chybějící novější pole jsou nuly a procento bez jmenovatele chybí",
   );
 

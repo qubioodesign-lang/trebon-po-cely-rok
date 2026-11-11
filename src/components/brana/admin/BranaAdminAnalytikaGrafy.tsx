@@ -159,6 +159,14 @@ export function BranaAdminAnalytikaGrafy({
           krivkaPoctu("QR desktop", 1, data.qr.desktop),
         ]}
       />
+      <GrafDvou
+        key={`trebondnes-${obdobi}`}
+        nadpis="trebondnes.cz"
+        popis="Příchod přes trebondnes.cz je součást celkových návštěv. Není to QR ani sdílení. Měření začíná nasazením této funkce; starší nuly nejsou důkaz, že příchody nebyly."
+        souhrn={`Příchody ${textPoctu(data.trebondnes.soucet)}.`}
+        body={data.trebondnes.prichod}
+        krivky={[krivkaPoctu("trebondnes.cz", 0, data.trebondnes.prichod)]}
+      />
     </div>
   );
 }

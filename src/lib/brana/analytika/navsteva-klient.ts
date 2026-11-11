@@ -31,11 +31,12 @@ export type BranaNavstevaVstup = {
 
 export type BranaZdrojPrichodu =
   | { zdroj: "qr"; qrDesktop?: true }
-  | { zdroj: "sdileni" };
+  | { zdroj: "sdileni" }
+  | { zdroj: "trebondnes" };
 
 /**
  * Jeden zdroj z adresy.
- * Pořadí: desktopový QR, ostatní QR, sdílený odkaz.
+ * Pořadí: desktopový QR, ostatní QR, sdílený odkaz, trebondnes.cz.
  * WhatsApp a neznámá značka zdrojem nejsou.
  */
 export function rozpoznatZdrojZAdresy(
@@ -57,6 +58,9 @@ export function rozpoznatZdrojZAdresy(
     }
     if (znacky.includes("sdileni")) {
       return { zdroj: "sdileni" };
+    }
+    if (znacky.includes("trebondnes")) {
+      return { zdroj: "trebondnes" };
     }
     return null;
   } catch {
@@ -194,6 +198,8 @@ export function rozhodnoutZacatekNavstevy(
       }
     } else if (zdroj?.zdroj === "sdileni") {
       udalost.zdroj = "sdileni";
+    } else if (zdroj?.zdroj === "trebondnes") {
+      udalost.zdroj = "trebondnes";
     }
     return { zaznamenat: true, udalost };
   } catch {

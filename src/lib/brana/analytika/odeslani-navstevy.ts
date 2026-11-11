@@ -63,7 +63,7 @@ export function sestavitPozadavekNavstevy(
   if (jeNavstevnik(udalost.navstevnik)) {
     cista.navstevnik = udalost.navstevnik;
   }
-  prepsatQr(cista, udalost);
+  prepsatZdroj(cista, udalost);
 
   return {
     method: "POST",
@@ -292,16 +292,20 @@ function doplnitDruhNavstevnika(
   if (druh) {
     cista.navstevnik = druh;
   }
-  prepsatQr(cista, udalost);
+  prepsatZdroj(cista, udalost);
   return cista;
 }
 
-function prepsatQr(
+function prepsatZdroj(
   cil: BranaAnalytikaUdalostNavstevy,
   zdroj: BranaAnalytikaUdalostNavstevy,
 ): void {
   if (zdroj.zdroj === "sdileni") {
     cil.zdroj = "sdileni";
+    return;
+  }
+  if (zdroj.zdroj === "trebondnes") {
+    cil.zdroj = "trebondnes";
     return;
   }
   if (zdroj.zdroj !== "qr") {

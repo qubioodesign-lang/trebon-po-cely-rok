@@ -156,6 +156,18 @@ function testRozpoznani(): void {
     neznamyAQr?.zdroj === "qr" && neznamyAQr.qrDesktop === undefined,
     "neznámý zdroj neblokuje ostatní QR",
   );
+  const qrATrebondnes = rozpoznatZdrojZAdresy("?z=trebondnes&z=qr");
+  assert(
+    qrATrebondnes?.zdroj === "qr" && qrATrebondnes.qrDesktop === undefined,
+    "ostatní QR má přednost před trebondnes",
+  );
+  const desktopATrebondnes = rozpoznatZdrojZAdresy("?z=trebondnes&zdroj=desktop-qr");
+  assert(
+    desktopATrebondnes?.zdroj === "qr" && desktopATrebondnes.qrDesktop === true,
+    "desktopový QR má přednost před trebondnes",
+  );
+  const sdileniATrebondnes = rozpoznatZdrojZAdresy("?z=trebondnes&z=sdileni");
+  assert(sdileniATrebondnes?.zdroj === "sdileni", "sdílení má přednost před trebondnes");
 }
 
 async function testNavstevaASoucty(): Promise<void> {
