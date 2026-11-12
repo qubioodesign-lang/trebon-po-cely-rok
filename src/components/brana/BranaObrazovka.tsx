@@ -19,6 +19,7 @@ import {
   useBranaVerejnaCesta,
 } from "@/lib/brana/use-brana-cesty";
 import { BranaAtmosferaDnes } from "./BranaAtmosferaDnes";
+import { BranaAkciNaVikend } from "./BranaAkciNaVikend";
 import { BranaZameckyParkDnes } from "./BranaZameckyParkDnes";
 import { BranaDenniPredel } from "./BranaDenniPredel";
 import {
@@ -67,6 +68,10 @@ type BranaObrazovkaProps = {
   parkVeta?: string | null;
   /** Konec ručního skrytí parku. null = řídí se jen časem. */
   parkSkrytoDo?: string | null;
+  /** Počet akcí na víkend z načtení DNES. null = nerenderovat. */
+  pocetAkciNaVikend?: number | null;
+  /** Pražský den, ke kterému počet patří. */
+  oknoAkciNaVikend?: string | null;
 };
 
 function kotvaScrollProStranku(
@@ -148,6 +153,8 @@ export function BranaObrazovka({
   atmosferaVeta = null,
   parkVeta = null,
   parkSkrytoDo = null,
+  pocetAkciNaVikend = null,
+  oknoAkciNaVikend = null,
 }: BranaObrazovkaProps) {
   const pohled = aktivniStranka;
   const data = dataProp ?? nactiBranaSdilenaPohledovaData();
@@ -359,6 +366,12 @@ export function BranaObrazovka({
           <BranaZameckyParkDnes
             vychoziVeta={parkVeta}
             skrytoDo={parkSkrytoDo}
+          />
+        ) : null}
+        {pohled === "dnes" ? (
+          <BranaAkciNaVikend
+            pocet={pocetAkciNaVikend}
+            oknoIso={oknoAkciNaVikend}
           />
         ) : null}
         {seznamAkci}

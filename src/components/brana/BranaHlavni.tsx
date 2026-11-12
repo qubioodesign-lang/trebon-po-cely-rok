@@ -20,6 +20,10 @@ type BranaHlavniProps = {
   parkVeta?: string | null;
   /** Konec ručního skrytí parku. */
   parkSkrytoDo?: string | null;
+  /** Počet akcí na víkend z načtení DNES. null = nerenderovat. */
+  pocetAkciNaVikend?: number | null;
+  /** Pražský den, ke kterému počet patří. */
+  oknoAkciNaVikend?: string | null;
 };
 
 /** Vstupní obrazovka projektu Brána – /brana */
@@ -32,6 +36,8 @@ export function BranaHlavni({
   atmosferaVeta = null,
   parkVeta = null,
   parkSkrytoDo = null,
+  pocetAkciNaVikend = null,
+  oknoAkciNaVikend = null,
 }: BranaHlavniProps) {
   return (
     <>
@@ -45,6 +51,8 @@ export function BranaHlavni({
         atmosferaVeta={atmosferaVeta}
         parkVeta={parkVeta}
         parkSkrytoDo={parkSkrytoDo}
+        pocetAkciNaVikend={pocetAkciNaVikend}
+        oknoAkciNaVikend={oknoAkciNaVikend}
         desktopPanel={<BranaDesktopInformacniPanel />}
       />
     </>

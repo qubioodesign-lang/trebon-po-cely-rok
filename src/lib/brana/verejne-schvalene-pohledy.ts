@@ -45,6 +45,12 @@ import { nacistRedakcniPoradiProScheduler } from "@/lib/brana/admin/redakcni-por
 import type { BranaRedakcniPolozkaStav } from "@/lib/brana/admin/redakcni-kostra";
 import { maDatumOdPatritDoVyhledu } from "@/lib/brana/admin/obdobi-7-dni";
 import { maUkazkovyVyhledAno } from "@/lib/brana/admin/ukazkove-udalosti";
+import {
+  isoDenPrahy,
+  jeOknoAkciNaVikend,
+  pocetRadkuVikendoveProjekce,
+  pripojitVolitelnyPocet,
+} from "@/lib/brana/sdileni-akci-na-vikend";
 
 const VERZE_ULOZISTE = 1;
 
@@ -508,14 +514,16 @@ export function projektujSchvaleneDoVerejnehoPohledu(args: {
   };
 }
 
-/**
- * Server-only načtení SCHVALENO → data jednoho veřejného pohledu.
- * Při chybě čtení/validace: ok: false (žádný mix s provizorními daty).
- */
-export async function nactiVerejneSchvalenePohledovaData(
-  stranka: BranaVerejnaStranka,
-  okamzik: Date = new Date(),
-): Promise<NactiVerejneSchvalenePohledovaDataVysledek> {
+type PodkladyVerejneProjekce =
+  | {
+      ok: true;
+      udalosti: BranaKonkretniUdalost[];
+      polozky: BranaRedakcniPolozkaStav[];
+    }
+  | { ok: false };
+
+/** Jedno čtení dokumentu událostí a redakčního pořadí. */
+async function nacistPodkladyVerejneProjekce(): Promise<PodkladyVerejneProjekce> {
   const [udalostiVysledek, redakcniVysledek] = await Promise.all([
     nacistKonkretniUdalostiProVerejnouProjekci(),
     nacistRedakcniPoradiProScheduler(),
@@ -525,14 +533,103 @@ export async function nactiVerejneSchvalenePohledovaData(
     return { ok: false };
   }
 
+  return {
+    ok: true,
+    udalosti: udalostiVysledek.udalosti,
+    polozky: redakcniVysledek.polozky,
+  };
+}
+
+/**
+ * Server-only načtení SCHVALENO → data jednoho veřejného pohledu.
+ * Při chybě čtení/validace: ok: false (žádný mix s provizorními daty).
+ */
+export async function nactiVerejneSchvalenePohledovaData(
+  stranka: BranaVerejnaStranka,
+  okamzik: Date = new Date(),
+): Promise<NactiVerejneSchvalenePohledovaDataVysledek> {
+  const podklady = await nacistPodkladyVerejneProjekce();
+  if (!podklady.ok) {
+    return { ok: false };
+  }
+
   const data = projektujSchvaleneDoVerejnehoPohledu({
     stranka,
-    udalosti: udalostiVysledek.udalosti,
-    redakcniPolozky: redakcniVysledek.polozky,
+    udalosti: podklady.udalosti,
+    redakcniPolozky: podklady.polozky,
     okna: sestavVerejnaCasovaOkna(okamzik),
   });
 
   return { ok: true, data };
+}
+
+export type DnesSPoctemAkciNaVikend = {
+  data: BranaSdilenaPohledovaData;
+  /** null = mimo okno nebo se počet nepodařilo spočítat. 0 = víkend bez řádků. */
+  pocet: number | null;
+  oknoIso: string | null;
+};
+
+/**
+ * Druhá projekce víkendu ze stejných polí, která už drží projekce DNES.
+ * Mimo okno se víkend neprojekuje. Selhání čísla nechá data DNES.
+ */
+export function sestavitDnesSPoctemAkciNaVikend(args: {
+  udalosti: readonly BranaKonkretniUdalost[];
+  redakcniPolozky: readonly BranaRedakcniPolozkaStav[];
+  okamzik: Date;
+}): DnesSPoctemAkciNaVikend {
+  const okna = sestavVerejnaCasovaOkna(args.okamzik);
+  const data = projektujSchvaleneDoVerejnehoPohledu({
+    stranka: "dnes",
+    udalosti: args.udalosti,
+    redakcniPolozky: args.redakcniPolozky,
+    okna,
+  });
+
+  return pripojitVolitelnyPocet(data, () => {
+    if (!jeOknoAkciNaVikend(args.okamzik)) {
+      return { pocet: null, oknoIso: null };
+    }
+    const vikend = projektujSchvaleneDoVerejnehoPohledu({
+      stranka: "vikend",
+      udalosti: args.udalosti,
+      redakcniPolozky: args.redakcniPolozky,
+      okna,
+    });
+    const pocet = pocetRadkuVikendoveProjekce(vikend.bloky);
+    if (pocet == null) {
+      return { pocet: null, oknoIso: null };
+    }
+    return {
+      pocet,
+      oknoIso: pocet > 0 ? isoDenPrahy(args.okamzik) : null,
+    };
+  });
+}
+
+/**
+ * DNES a volitelný počet víkendových řádků z jednoho načtení.
+ * Chyba čísla vrací pohled DNES a pocet null. Chyba podkladů: ok false.
+ */
+export async function nactiVerejnaDataDnesSPoctemAkciNaVikend(
+  okamzik: Date = new Date(),
+): Promise<
+  | { ok: true; data: BranaSdilenaPohledovaData; pocet: number | null; oknoIso: string | null }
+  | { ok: false }
+> {
+  const podklady = await nacistPodkladyVerejneProjekce();
+  if (!podklady.ok) {
+    return { ok: false };
+  }
+
+  const sestava = sestavitDnesSPoctemAkciNaVikend({
+    udalosti: podklady.udalosti,
+    redakcniPolozky: podklady.polozky,
+    okamzik,
+  });
+
+  return { ok: true, ...sestava };
 }
 
 /** Fail-closed prázdná data pohledu – bez provizorního mixu. */

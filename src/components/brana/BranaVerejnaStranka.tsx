@@ -8,6 +8,7 @@ import { nactiVerejnouVetuAtmosfery } from "@/lib/brana/atmosfera-verejne";
 import { nactiSkrytiZameckehoParku } from "@/lib/brana/admin/zamecky-park-uloziste";
 import { verejnaVetaZameckehoParku } from "@/lib/brana/zamecky-park";
 import {
+  nactiVerejnaDataDnesSPoctemAkciNaVikend,
   nactiVerejneSchvalenePohledovaData,
   prazdnaVerejnaPohledovaDataPriChybe,
 } from "@/lib/brana/verejne-schvalene-pohledy";
@@ -34,12 +35,26 @@ export async function BranaVerejnaStranka({
   searchParams,
 }: BranaVerejnaStrankaProps) {
   const { pozadi } = await searchParams;
-  const vychoziNocRezim = jeNocniRezimVPraze();
-  const schvalene = await nactiVerejneSchvalenePohledovaData(stranka);
-  // Fail-closed: při chybě prázdná projekce – bez mixu s provizorními daty.
-  const pohledovaData = schvalene.ok
-    ? schvalene.data
-    : prazdnaVerejnaPohledovaDataPriChybe(stranka);
+  const okamzik = new Date();
+  const vychoziNocRezim = jeNocniRezimVPraze(okamzik);
+  let pohledovaData;
+  let pocetAkciNaVikend: number | null = null;
+  let oknoAkciNaVikend: string | null = null;
+  if (stranka === "dnes") {
+    const dnes = await nactiVerejnaDataDnesSPoctemAkciNaVikend(okamzik);
+    pohledovaData = dnes.ok
+      ? dnes.data
+      : prazdnaVerejnaPohledovaDataPriChybe(stranka);
+    if (dnes.ok && dnes.pocet != null && dnes.pocet > 0) {
+      pocetAkciNaVikend = dnes.pocet;
+      oknoAkciNaVikend = dnes.oknoIso;
+    }
+  } else {
+    const schvalene = await nactiVerejneSchvalenePohledovaData(stranka);
+    pohledovaData = schvalene.ok
+      ? schvalene.data
+      : prazdnaVerejnaPohledovaDataPriChybe(stranka);
+  }
   const konfiguracePohledu = branaKonfiguraceVsechPohledu();
   // Atmosféra jen DNES; fail-soft null = vůbec nerenderovat.
   const atmosferaVeta =
@@ -49,7 +64,7 @@ export async function BranaVerejnaStranka({
   if (stranka === "dnes") {
     const skryti = await nactiSkrytiZameckehoParku();
     parkSkrytoDo = skryti.stav === "ok" ? skryti.skrytoDo : null;
-    parkVeta = verejnaVetaZameckehoParku(new Date(), parkSkrytoDo);
+    parkVeta = verejnaVetaZameckehoParku(okamzik, parkSkrytoDo);
   }
 
   return (
@@ -62,6 +77,8 @@ export async function BranaVerejnaStranka({
       atmosferaVeta={atmosferaVeta}
       parkVeta={parkVeta}
       parkSkrytoDo={parkSkrytoDo}
+      pocetAkciNaVikend={pocetAkciNaVikend}
+      oknoAkciNaVikend={oknoAkciNaVikend}
     />
   );
 }
