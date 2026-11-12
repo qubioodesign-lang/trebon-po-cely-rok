@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { skrytAkciNaVikendDoKonceOknaAkce } from "@/app/brana/admin/akci-na-vikend-akce";
 import {
   nastavitBranaAtmosferaRucniTextAkce,
   skrytZameckyParkDoDalsiZmenyAkce,
@@ -8,6 +9,7 @@ import {
   zrusitBranaAtmosferaDovetekAkce,
   zrusitBranaAtmosferaRucniTextAkce,
 } from "@/app/brana/admin/actions";
+import { dalsiKontrolaAkciNaVikend } from "@/lib/brana/sdileni-akci-na-vikend";
 import { BranaAtmosferaDnes } from "@/components/brana/BranaAtmosferaDnes";
 import {
   BRANA_ATMOSFERA_DOVETEK_MAX,
@@ -33,6 +35,10 @@ type Props = {
   parkSkrytoDo: string | null;
   parkJeSkryty: boolean;
   parkChybaCteni: string | null;
+  vikendSkrytoDo: string | null;
+  vikendJeSkryty: boolean;
+  vikendJeVOkne: boolean;
+  vikendChybaCteni: string | null;
 };
 
 function formatCas(iso: string | null): string {
@@ -53,6 +59,10 @@ export function BranaAdminAtmosfera({
   parkSkrytoDo: parkSkrytoDoPocatek,
   parkJeSkryty: parkJeSkrytyPocatek,
   parkChybaCteni,
+  vikendSkrytoDo: vikendSkrytoDoPocatek,
+  vikendJeSkryty: vikendJeSkrytyPocatek,
+  vikendJeVOkne: vikendJeVOknePocatek,
+  vikendChybaCteni,
 }: Props) {
   const [dokument, setDokument] = useState(pocatecni);
   const [text, setText] = useState("");
@@ -63,6 +73,12 @@ export function BranaAdminAtmosfera({
   const [parkSkrytoDo, setParkSkrytoDo] = useState(parkSkrytoDoPocatek);
   const [parkJeSkryty, setParkJeSkryty] = useState(parkJeSkrytyPocatek);
   const [parkChyba, setParkChyba] = useState<string | null>(parkChybaCteni);
+  const [vikendSkrytoDo, setVikendSkrytoDo] = useState(vikendSkrytoDoPocatek);
+  const [vikendJeSkryty, setVikendJeSkryty] = useState(vikendJeSkrytyPocatek);
+  const [vikendJeVOkne, setVikendJeVOkne] = useState(vikendJeVOknePocatek);
+  const [vikendChyba, setVikendChyba] = useState<string | null>(
+    vikendChybaCteni,
+  );
 
   useEffect(() => {
     if (!parkJeSkryty || !parkSkrytoDo) {
@@ -78,6 +94,19 @@ export function BranaAdminAtmosfera({
     }, prodleva);
     return () => clearTimeout(casovac);
   }, [parkJeSkryty, parkSkrytoDo]);
+
+  useEffect(() => {
+    if (!vikendJeVOkne) {
+      return;
+    }
+    const konec = dalsiKontrolaAkciNaVikend(new Date());
+    const prodleva = Math.max(konec.getTime() - Date.now(), 0);
+    const casovac = setTimeout(() => {
+      setVikendJeVOkne(false);
+      setVikendJeSkryty(false);
+    }, prodleva);
+    return () => clearTimeout(casovac);
+  }, [vikendJeVOkne]);
 
   const automatickaVeta = dokument
     ? verejnaVetaAtmosfery(dokument.stav)
@@ -152,6 +181,19 @@ export function BranaAdminAtmosfera({
       }
       setParkSkrytoDo(vysledek.skrytoDo);
       setParkJeSkryty(true);
+    });
+  };
+
+  const skrytVikend = () => {
+    setVikendChyba(null);
+    startTransition(async () => {
+      const vysledek = await skrytAkciNaVikendDoKonceOknaAkce();
+      if (!vysledek.uspech) {
+        setVikendChyba(vysledek.chyba);
+        return;
+      }
+      setVikendSkrytoDo(vysledek.skrytoDo);
+      setVikendJeSkryty(true);
     });
   };
 
@@ -354,6 +396,34 @@ export function BranaAdminAtmosfera({
           className={TLACITKO}
           disabled={!uloziteniPovoleno || probiha || parkJeSkryty}
           onClick={skrytPark}
+        >
+          Dočasně skrýt
+        </button>
+      </div>
+
+      <div className="space-y-3 border-t border-text-velmiJemny/15 pt-4">
+        <p className="text-sm font-medium text-text">Akcí na víkend</p>
+        {vikendChyba ? (
+          <p className="text-sm text-text" role="alert">
+            {vikendChyba}
+          </p>
+        ) : vikendJeSkryty && vikendSkrytoDo ? (
+          <p className="text-sm text-text" role="status">
+            Sdělení je dočasně skryté. V příštím okně se znovu zobrazí.
+          </p>
+        ) : (
+          <p className="text-sm text-text">
+            Počet se získává automaticky z kalendáře Víkend. Zobrazuje se v
+            pondělí a ve čtvrtek ve volném okně zámeckého parku.
+          </p>
+        )}
+        <button
+          type="button"
+          className={TLACITKO}
+          disabled={
+            !uloziteniPovoleno || probiha || vikendJeSkryty || !vikendJeVOkne
+          }
+          onClick={skrytVikend}
         >
           Dočasně skrýt
         </button>

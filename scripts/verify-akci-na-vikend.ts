@@ -9,11 +9,18 @@ import { okamzikZPrahy } from "../src/lib/brana/cas";
 import type { BranaKonkretniUdalost } from "../src/lib/brana/admin/konkretni-udalost";
 import type { BranaRedakcniPolozkaStav } from "../src/lib/brana/admin/redakcni-kostra";
 import {
+  chranitCteniSkrytiAkciNaVikend,
   isoDenPrahy,
+  jeAkciNaVikendRucneSkryte,
   jeOknoAkciNaVikend,
+  konecAktualnihoOknaAkciNaVikend,
   maSeZobrazitAkciNaVikend,
+  nacteniSkrytiAkciNaVikendZDokumentu,
+  parsovatDokumentSkrytiAkciNaVikend,
   pripojitVolitelnyPocet,
+  uplatnitSkrytiAkciNaVikend,
   vetaParkuASdeleniSeNekryji,
+  type NacteniSkrytiAkciNaVikend,
 } from "../src/lib/brana/sdileni-akci-na-vikend";
 import { verejnaVetaZameckehoParku } from "../src/lib/brana/zamecky-park";
 import {
@@ -267,6 +274,241 @@ const teloPodkladu = zdroj.slice(
 overit(
   teloPodkladu.split("Promise.all").length === 2,
   "podklady mají jediné souběžné načtení",
+);
+overit(
+  !zdroj.includes("nactiSkrytiAkciNaVikend") &&
+    !zdroj.includes("akci-na-vikend-uloziste"),
+  "výpočet počtu nečte úložiště skrytí",
+);
+
+const konecPondeli = konecAktualnihoOknaAkciNaVikend(PONDĚLI);
+const konecCtvrtka = konecAktualnihoOknaAkciNaVikend(CTVRTEK);
+const dalsiPondeli = praha(2026, 8, 10, 10, 0);
+if (!konecPondeli || !konecCtvrtka) {
+  throw new Error("v okně je konec");
+}
+overit(
+  konecPondeli.getTime() === PONDĚLI_UPOZORNENI.getTime(),
+  "pondělní skrytí končí začátkem upozornění parku",
+);
+overit(
+  konecCtvrtka.getTime() === CTVRTEK_UPOZORNENI.getTime(),
+  "čtvrteční skrytí končí začátkem upozornění parku",
+);
+overit(konecAktualnihoOknaAkciNaVikend(UTERY) === null, "úterý skrytí dopředu nedovolí");
+overit(
+  konecAktualnihoOknaAkciNaVikend(PONDĚLI_PRED) === null,
+  "před sedmou skrytí dopředu nedovolí",
+);
+overit(
+  konecAktualnihoOknaAkciNaVikend(PONDĚLI_UPOZORNENI) === null,
+  "v upozornění skrytí dopředu nedovolí",
+);
+overit(
+  konecAktualnihoOknaAkciNaVikend(praha(2026, 8, 8, 10, 0)) === null,
+  "sobota skrytí dopředu nedovolí",
+);
+
+const skrytiPondeli: NacteniSkrytiAkciNaVikend = {
+  stav: "ok",
+  skrytoDo: konecPondeli.toISOString(),
+  oknoIso: "2026-08-03",
+};
+const skrytiCtvrtka: NacteniSkrytiAkciNaVikend = {
+  stav: "ok",
+  skrytoDo: konecCtvrtka.toISOString(),
+  oknoIso: "2026-08-06",
+};
+
+overit(
+  uplatnitSkrytiAkciNaVikend(PONDĚLI, 5, oknoPondeli, skrytiPondeli).pocet ===
+    null,
+  "pondělní skrytí větu vezme",
+);
+overit(
+  jeAkciNaVikendRucneSkryte(
+    praha(2026, 8, 3, 19, 14),
+    skrytiPondeli.skrytoDo,
+    skrytiPondeli.oknoIso,
+  ),
+  "těsně před koncem okna skrytí ještě platí",
+);
+overit(
+  !jeAkciNaVikendRucneSkryte(
+    PONDĚLI_UPOZORNENI,
+    skrytiPondeli.skrytoDo,
+    skrytiPondeli.oknoIso,
+  ),
+  "na hraně okna skrytí končí",
+);
+overit(
+  uplatnitSkrytiAkciNaVikend(CTVRTEK, 5, isoDenPrahy(CTVRTEK), skrytiPondeli)
+    .pocet === 5,
+  "ve čtvrtek se pondělní skrytí nevrací",
+);
+overit(
+  uplatnitSkrytiAkciNaVikend(CTVRTEK, 5, isoDenPrahy(CTVRTEK), skrytiCtvrtka)
+    .pocet === null,
+  "čtvrteční skrytí větu vezme",
+);
+overit(
+  uplatnitSkrytiAkciNaVikend(
+    dalsiPondeli,
+    5,
+    isoDenPrahy(dalsiPondeli),
+    skrytiCtvrtka,
+  ).pocet === 5,
+  "v dalším pondělí se čtvrteční skrytí nevrací",
+);
+overit(
+  !jeAkciNaVikendRucneSkryte(
+    PONDĚLI,
+    skrytiCtvrtka.skrytoDo,
+    skrytiPondeli.oknoIso,
+  ),
+  "čas pozdějšího okna dnešek neskryje",
+);
+overit(
+  !jeAkciNaVikendRucneSkryte(UTERY, skrytiCtvrtka.skrytoDo, skrytiCtvrtka.oknoIso),
+  "mimo okno uložený čas budoucí sdělení neskryje",
+);
+
+const parkDoUt = praha(2026, 8, 4, 7, 0).toISOString();
+const vetaPriUpozorneni = verejnaVetaZameckehoParku(PONDĚLI_UPOZORNENI, null);
+overit(verejnaVetaZameckehoParku(PONDĚLI, parkDoUt) === null, "park má vlastní skrytí");
+overit(
+  uplatnitSkrytiAkciNaVikend(PONDĚLI, 5, oknoPondeli, { stav: "neni" }).pocet ===
+    5,
+  "skrytí parku sdělení akcí neskryje",
+);
+overit(vetaPriUpozorneni !== null, "park v upozornění mluví");
+overit(
+  verejnaVetaZameckehoParku(PONDĚLI_UPOZORNENI, null) === vetaPriUpozorneni,
+  "skrytí akcí větu parku nemění",
+);
+
+const nulaPoSkryti = uplatnitSkrytiAkciNaVikend(PONDĚLI, 0, null, {
+  stav: "neni",
+});
+overit(nulaPoSkryti.pocet === 0, "nula zůstane nulou, když skrytí chybí");
+overit(
+  !maSeZobrazitAkciNaVikend(PONDĚLI, nulaPoSkryti.pocet, nulaPoSkryti.oknoIso),
+  "při nule se věta nezobrazí ani bez skrytí",
+);
+overit(sestava.pocet === 5, "skrytí nepřepíše spočítaný počet");
+
+const chybejici = uplatnitSkrytiAkciNaVikend(PONDĚLI, 5, oknoPondeli, {
+  stav: "neni",
+});
+overit(chybejici.pocet === 5 && chybejici.oknoIso === oknoPondeli, "chybějící úložiště větu nechá");
+
+const poskozenyDokument = nacteniSkrytiAkciNaVikendZDokumentu({
+  verze: 1,
+  skrytoDo: "necas",
+  oknoIso: "2026-08-03",
+});
+overit(poskozenyDokument.stav === "chyba", "poškozený dokument je chyba čtení");
+overit(
+  uplatnitSkrytiAkciNaVikend(PONDĚLI, 5, oknoPondeli, poskozenyDokument).pocet ===
+    null,
+  "poškozené úložiště větu neukáže",
+);
+overit(
+  uplatnitSkrytiAkciNaVikend(PONDĚLI, 5, oknoPondeli, { stav: "chyba" }).pocet ===
+    null,
+  "chyba čtení větu neukáže",
+);
+
+const dokumentSPoctem = parsovatDokumentSkrytiAkciNaVikend({
+  verze: 1,
+  skrytoDo: skrytiPondeli.skrytoDo,
+  oknoIso: skrytiPondeli.oknoIso,
+  pocet: 7,
+});
+overit(
+  dokumentSPoctem.ok === true && !("pocet" in dokumentSPoctem),
+  "dokument skrytí počet neuchovává",
+);
+overit(
+  parsovatDokumentSkrytiAkciNaVikend({ verze: 1, skrytoDo: null, oknoIso: null })
+    .ok === true,
+  "prázdné skrytí je platný dokument",
+);
+overit(
+  parsovatDokumentSkrytiAkciNaVikend(null).ok === false,
+  "prázdný obsah dokumentu je chyba",
+);
+
+function verejnaStrankaPriCteniSkryti(cist: () => NacteniSkrytiAkciNaVikend) {
+  const pohledovaData = { znacka: "dnes" };
+  const parkVeta = verejnaVetaZameckehoParku(PONDĚLI, null);
+  const nacteni = chranitCteniSkrytiAkciNaVikend(cist);
+  return {
+    pohledovaData,
+    parkVeta,
+    ...uplatnitSkrytiAkciNaVikend(PONDĚLI, 5, oknoPondeli, nacteni),
+  };
+}
+
+const priVyjimce = verejnaStrankaPriCteniSkryti(() => {
+  throw new Error("úložiště skrytí selhalo");
+});
+overit(priVyjimce.pohledovaData.znacka === "dnes", "chyba skrytí nechá data DNES");
+overit(priVyjimce.parkVeta === null, "chyba skrytí nechá stav parku");
+overit(priVyjimce.pocet === null && priVyjimce.oknoIso === null, "výjimka čtení větu neukáže");
+overit(
+  chranitCteniSkrytiAkciNaVikend(() => ({ stav: "co" }) as never).stav ===
+    "chyba",
+  "neznámé čtení je chyba",
+);
+
+const uloziste = readFileSync(
+  resolve(process.cwd(), "src/lib/brana/admin/akci-na-vikend-uloziste.ts"),
+  "utf8",
+);
+overit(
+  uloziste.includes('data/brana-akci-na-vikend.json'),
+  "skrytí má vlastní soubor",
+);
+overit(uloziste.includes('stav: "neni"'), "chybějící soubor není chyba");
+overit(uloziste.includes('stav: "chyba"'), "selhání čtení je chyba");
+overit(!uloziste.includes("pocet"), "úložiště počet nezapisuje");
+const akce = readFileSync(
+  resolve(process.cwd(), "src/app/brana/admin/akci-na-vikend-akce.ts"),
+  "utf8",
+);
+overit(
+  akce.indexOf("if (!konec)") !== -1 &&
+    akce.indexOf("if (!konec)") < akce.indexOf("await ulozitSkrytiAkciNaVikend"),
+  "mimo okno se skrytí nezapíše",
+);
+overit(!akce.includes("pocet"), "akce počet neukládá");
+const hlavniAkce = readFileSync(
+  resolve(process.cwd(), "src/app/brana/admin/actions.ts"),
+  "utf8",
+);
+overit(
+  !hlavniAkce.includes("skrytAkciNaVikend") &&
+    !hlavniAkce.includes("akci-na-vikend"),
+  "nová akce není v hlavním actions.ts",
+);
+const verejnaStranka = readFileSync(
+  resolve(process.cwd(), "src/components/brana/BranaVerejnaStranka.tsx"),
+  "utf8",
+);
+overit(
+  verejnaStranka.includes("nactiSkrytiZameckehoParku") &&
+    verejnaStranka.includes("verejnaVetaZameckehoParku"),
+  "veřejná stránka park dál čte po svém",
+);
+overit(
+  verejnaStranka.indexOf("verejnaVetaZameckehoParku(okamzik") <
+    verejnaStranka.indexOf("nactiSkrytiAkciNaVikend()"),
+  "selhání skrytí akcí přijde až po větě parku",
+);
+overit(
+  verejnaStranka.includes('stav: "chyba"'),
+  "odmítnuté čtení skrytí veřejnou stránku neshodí",
 );
 
 console.log("Akcí na víkend: všechna ověření prošla.");

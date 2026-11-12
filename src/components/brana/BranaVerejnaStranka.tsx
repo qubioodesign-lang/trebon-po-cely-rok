@@ -5,7 +5,12 @@ import type { BranaVerejnaStranka } from "@/lib/brana/navigace-stranky";
 import { branaKonfiguraceVsechPohledu } from "@/lib/brana/pohledy-data";
 import { parseBranaPozadiVarianta } from "@/lib/brana/pozadi-varianty";
 import { nactiVerejnouVetuAtmosfery } from "@/lib/brana/atmosfera-verejne";
+import { nactiSkrytiAkciNaVikend } from "@/lib/brana/admin/akci-na-vikend-uloziste";
 import { nactiSkrytiZameckehoParku } from "@/lib/brana/admin/zamecky-park-uloziste";
+import {
+  chranitCteniSkrytiAkciNaVikend,
+  uplatnitSkrytiAkciNaVikend,
+} from "@/lib/brana/sdileni-akci-na-vikend";
 import { verejnaVetaZameckehoParku } from "@/lib/brana/zamecky-park";
 import {
   nactiVerejnaDataDnesSPoctemAkciNaVikend,
@@ -65,6 +70,20 @@ export async function BranaVerejnaStranka({
     const skryti = await nactiSkrytiZameckehoParku();
     parkSkrytoDo = skryti.stav === "ok" ? skryti.skrytoDo : null;
     parkVeta = verejnaVetaZameckehoParku(okamzik, parkSkrytoDo);
+  }
+  if (stranka === "dnes") {
+    const nacteniSkrytiAkci = await nactiSkrytiAkciNaVikend().then(
+      (nacteni) => chranitCteniSkrytiAkciNaVikend(() => nacteni),
+      () => ({ stav: "chyba" as const }),
+    );
+    const poSkryti = uplatnitSkrytiAkciNaVikend(
+      okamzik,
+      pocetAkciNaVikend,
+      oknoAkciNaVikend,
+      nacteniSkrytiAkci,
+    );
+    pocetAkciNaVikend = poSkryti.pocet;
+    oknoAkciNaVikend = poSkryti.oknoIso;
   }
 
   return (
