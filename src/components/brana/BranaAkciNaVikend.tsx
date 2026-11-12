@@ -57,7 +57,7 @@ export function BranaAkciNaVikend({ pocet, oknoIso }: BranaAkciNaVikendProps) {
   return (
     <p className="brana-zamecky-park">
       <span className="brana-akce-typ">{POPISEK_AKCI_NA_VIKEND}</span>
-      {` ${pocet}`}
+      <span style={{ marginLeft: 9 }}>{pocet}</span>
     </p>
   );
 }
