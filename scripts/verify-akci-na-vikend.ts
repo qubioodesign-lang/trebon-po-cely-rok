@@ -12,18 +12,27 @@ import {
   chranitCteniSkrytiAkciNaVikend,
   isoDenPrahy,
   jeAkciNaVikendRucneSkryte,
+  dalsiKontrolaAkciNaVikend,
   jeOknoAkciNaVikend,
+  jeUdalostTrhem,
   konecAktualnihoOknaAkciNaVikend,
+  maSePripravitPocetAkciNaVikend,
   maSeZobrazitAkciNaVikend,
   nacteniSkrytiAkciNaVikendZDokumentu,
   parsovatDokumentSkrytiAkciNaVikend,
   pripojitVolitelnyPocet,
   uplatnitSkrytiAkciNaVikend,
   vetaParkuASdeleniSeNekryji,
+  vetaParkuVedleAkciNaVikend,
   type NacteniSkrytiAkciNaVikend,
 } from "../src/lib/brana/sdileni-akci-na-vikend";
-import { verejnaVetaZameckehoParku } from "../src/lib/brana/zamecky-park";
 import {
+  verejnaVetaZameckehoParku,
+  VETA_ZAMECKY_PARK_BRZY,
+  VETA_ZAMECKY_PARK_ZAVRENO,
+} from "../src/lib/brana/zamecky-park";
+import {
+  jsouTrhyVeSchvalenychVikendovychDnech,
   projektujSchvaleneDoVerejnehoPohledu,
   sestavVerejnaCasovaOkna,
   sestavitDnesSPoctemAkciNaVikend,
@@ -86,11 +95,24 @@ function udalost(
 const PONDĚLI = praha(2026, 8, 3, 10, 0);
 const PONDĚLI_PRED = praha(2026, 8, 3, 6, 59);
 const PONDĚLI_SEDMA = praha(2026, 8, 3, 7, 0);
+const PONDĚLI_PRED_UPOZORNENIM = praha(2026, 8, 3, 19, 14);
 const PONDĚLI_UPOZORNENI = praha(2026, 8, 3, 19, 15);
+const PONDĚLI_ZAVRENI = praha(2026, 8, 3, 20, 0);
 const PONDĚLI_ZAVRENO = praha(2026, 8, 3, 22, 0);
+const UTERY_PULNOC = praha(2026, 8, 4, 0, 0);
 const UTERY = praha(2026, 8, 4, 10, 0);
+const STREDA = praha(2026, 8, 5, 10, 0);
+const PATEK = praha(2026, 8, 7, 10, 0);
+const SOBOTA = praha(2026, 8, 8, 10, 0);
+const NEDELE = praha(2026, 8, 9, 22, 0);
+const CTVRTEK_PRED = praha(2026, 8, 6, 6, 59);
+const CTVRTEK_SEDMA = praha(2026, 8, 6, 7, 0);
 const CTVRTEK = praha(2026, 8, 6, 10, 0);
+const CTVRTEK_PRED_UPOZORNENIM = praha(2026, 8, 6, 19, 14);
 const CTVRTEK_UPOZORNENI = praha(2026, 8, 6, 19, 15);
+const CTVRTEK_ZAVRENI = praha(2026, 8, 6, 20, 0);
+const CTVRTEK_ZAVRENO = praha(2026, 8, 6, 22, 0);
+const PATEK_PULNOC = praha(2026, 8, 7, 0, 0);
 
 const udalosti: BranaKonkretniUdalost[] = [
   udalost("sobota", "2026-08-08", "2026-08-08"),
@@ -130,11 +152,14 @@ overit(jeOknoAkciNaVikend(PONDĚLI_SEDMA), "pondělí 7:00 je okno");
 overit(jeOknoAkciNaVikend(PONDĚLI), "pondělí dopoledne je okno");
 overit(jeOknoAkciNaVikend(CTVRTEK), "čtvrtek dopoledne je okno");
 overit(!jeOknoAkciNaVikend(PONDĚLI_PRED), "6:59 okno není");
+overit(jeOknoAkciNaVikend(PONDĚLI_PRED_UPOZORNENIM), "minutu před upozorněním okno je");
 overit(!jeOknoAkciNaVikend(PONDĚLI_UPOZORNENI), "začátek upozornění okno není");
 overit(!jeOknoAkciNaVikend(CTVRTEK_UPOZORNENI), "čtvrteční upozornění okno není");
-overit(!jeOknoAkciNaVikend(PONDĚLI_ZAVRENO), "zavřený park okno není");
+overit(jeOknoAkciNaVikend(PONDĚLI_ZAVRENI), "okamžik zavření parku okno je");
+overit(jeOknoAkciNaVikend(PONDĚLI_ZAVRENO), "večer po zavření se okno vrací");
+overit(!jeOknoAkciNaVikend(UTERY_PULNOC), "úterý o půlnoci okno není");
 overit(!jeOknoAkciNaVikend(UTERY), "úterý okno není");
-overit(!jeOknoAkciNaVikend(praha(2026, 8, 8, 10, 0)), "sobota okno není");
+overit(!jeOknoAkciNaVikend(SOBOTA), "sobota okno není");
 
 const dnesPrimo = projekce("dnes", PONDĚLI);
 const vikendPrimo = projekce("vikend", PONDĚLI);
@@ -160,6 +185,7 @@ overit(
   "počet je součet víkendových řádků a vícedenní akce je dvakrát",
 );
 overit(sestava.pocet === 5, "očekávaný součet je 5");
+overit(sestava.jsouTrhy === false, "víkend bez trhů říká, že trhy nejsou");
 overit(sestava.oknoIso === "2026-08-03", "okno nese pražské pondělí");
 
 const vikendZnovu = projekce("vikend", PONDĚLI);
@@ -174,6 +200,7 @@ const nula = sestavitDnesSPoctemAkciNaVikend({
   okamzik: PONDĚLI,
 });
 overit(nula.pocet === 0, "prázdný víkend je nula, ne chyba");
+overit(nula.jsouTrhy === null, "nula nepřidá větu o trzích");
 overit(nula.oknoIso === null, "nula nemá okno pro větu");
 overit(
   !maSeZobrazitAkciNaVikend(PONDĚLI, nula.pocet, nula.oknoIso),
@@ -186,6 +213,7 @@ const mimo = sestavitDnesSPoctemAkciNaVikend({
   okamzik: UTERY,
 });
 overit(mimo.pocet === null, "mimo okno se počet nepočítá");
+overit(mimo.jsouTrhy === null, "mimo okno se trhy nehodnotí");
 overit(
   JSON.stringify(mimo.data) ===
     JSON.stringify(projekce("dnes", UTERY)),
@@ -243,8 +271,20 @@ for (const cas of casy) {
   );
 }
 overit(
-  !maSeZobrazitAkciNaVikend(PONDĚLI_ZAVRENO, 5, oknoPondeli),
-  "skrytý zavřený park okno nerozšíří",
+  maSeZobrazitAkciNaVikend(PONDĚLI_ZAVRENO, 5, oknoPondeli),
+  "po zavření parku se víkendové sdělení vrací",
+);
+overit(
+  vetaParkuVedleAkciNaVikend(PONDĚLI_ZAVRENO, 5, oknoPondeli, null) === null,
+  "večer vedle sdělení nezbývá zavřený park",
+);
+overit(
+  verejnaVetaZameckehoParku(PONDĚLI_ZAVRENO, null) === VETA_ZAMECKY_PARK_ZAVRENO,
+  "samotná věta zavřeného parku zůstala",
+);
+overit(
+  !maSeZobrazitAkciNaVikend(UTERY, 5, isoDenPrahy(UTERY)),
+  "úterý okno nerozšíří",
 );
 
 const zdroj = readFileSync(
@@ -288,12 +328,12 @@ if (!konecPondeli || !konecCtvrtka) {
   throw new Error("v okně je konec");
 }
 overit(
-  konecPondeli.getTime() === PONDĚLI_UPOZORNENI.getTime(),
-  "pondělní skrytí končí začátkem upozornění parku",
+  konecPondeli.getTime() === UTERY_PULNOC.getTime(),
+  "pondělní skrytí vydrží do půlnoci",
 );
 overit(
-  konecCtvrtka.getTime() === CTVRTEK_UPOZORNENI.getTime(),
-  "čtvrteční skrytí končí začátkem upozornění parku",
+  konecCtvrtka.getTime() === PATEK_PULNOC.getTime(),
+  "čtvrteční skrytí vydrží do půlnoci",
 );
 overit(konecAktualnihoOknaAkciNaVikend(UTERY) === null, "úterý skrytí dopředu nedovolí");
 overit(
@@ -334,12 +374,33 @@ overit(
   "těsně před koncem okna skrytí ještě platí",
 );
 overit(
-  !jeAkciNaVikendRucneSkryte(
+  jeAkciNaVikendRucneSkryte(
     PONDĚLI_UPOZORNENI,
     skrytiPondeli.skrytoDo,
     skrytiPondeli.oknoIso,
   ),
-  "na hraně okna skrytí končí",
+  "v upozornění skrytí ještě drží večer",
+);
+overit(
+  jeAkciNaVikendRucneSkryte(
+    PONDĚLI_ZAVRENO,
+    skrytiPondeli.skrytoDo,
+    skrytiPondeli.oknoIso,
+  ),
+  "večer po skrytí se sdělení nevrací",
+);
+overit(
+  uplatnitSkrytiAkciNaVikend(PONDĚLI_ZAVRENO, 5, oknoPondeli, skrytiPondeli)
+    .pocet === null,
+  "večerní načtení skryté sdělení neukáže",
+);
+overit(
+  !jeAkciNaVikendRucneSkryte(
+    UTERY_PULNOC,
+    skrytiPondeli.skrytoDo,
+    skrytiPondeli.oknoIso,
+  ),
+  "po půlnoci pondělní skrytí nepokračuje",
 );
 overit(
   uplatnitSkrytiAkciNaVikend(CTVRTEK, 5, isoDenPrahy(CTVRTEK), skrytiPondeli)
@@ -510,5 +571,407 @@ overit(
   verejnaStranka.includes('stav: "chyba"'),
   "odmítnuté čtení skrytí veřejnou stránku neshodí",
 );
+
+function vetaASdeleniSeNekryji(
+  cas: Date,
+  pocet: number | null,
+  okno: string | null,
+): void {
+  const sdeleni = maSeZobrazitAkciNaVikend(cas, pocet, okno);
+  const park = vetaParkuVedleAkciNaVikend(cas, pocet, okno, null);
+  overit(!(sdeleni && park !== null), "dvě konkurenční věty se nekryjí");
+  if (!sdeleni) {
+    overit(
+      park === verejnaVetaZameckehoParku(cas, null),
+      "bez víkendové věty zůstává dosavadní park",
+    );
+  }
+}
+
+const oknoCtvrtka = isoDenPrahy(CTVRTEK);
+const casySdeleni = [
+  [PONDĚLI_PRED, false],
+  [PONDĚLI_SEDMA, true],
+  [PONDĚLI_PRED_UPOZORNENIM, true],
+  [PONDĚLI_UPOZORNENI, false],
+  [PONDĚLI_ZAVRENI, true],
+  [PONDĚLI_ZAVRENO, true],
+  [UTERY_PULNOC, false],
+  [CTVRTEK_PRED, false],
+  [CTVRTEK_SEDMA, true],
+  [CTVRTEK_PRED_UPOZORNENIM, true],
+  [CTVRTEK_UPOZORNENI, false],
+  [CTVRTEK_ZAVRENI, true],
+  [CTVRTEK_ZAVRENO, true],
+  [PATEK_PULNOC, false],
+] as const;
+for (const [cas, maSvetit] of casySdeleni) {
+  const okno = isoDenPrahy(cas) === "2026-08-06" ? oknoCtvrtka : oknoPondeli;
+  overit(maSeZobrazitAkciNaVikend(cas, 5, okno) === maSvetit, "okno víkendového sdělení");
+  overit(!maSeZobrazitAkciNaVikend(cas, 0, null), "při nule sdělení nesvítí");
+  vetaASdeleniSeNekryji(cas, 5, okno);
+  vetaASdeleniSeNekryji(cas, null, null);
+}
+overit(
+  verejnaVetaZameckehoParku(PONDĚLI_UPOZORNENI, null) === VETA_ZAMECKY_PARK_BRZY,
+  "upozornění parku má svou větu",
+);
+overit(
+  vetaParkuVedleAkciNaVikend(PONDĚLI_ZAVRENO, null, null, null) ===
+    VETA_ZAMECKY_PARK_ZAVRENO,
+  "při nule zůstává večer zavřený park",
+);
+overit(
+  dalsiKontrolaAkciNaVikend(PONDĚLI).getTime() === PONDĚLI_UPOZORNENI.getTime(),
+  "dopoledne sdělení končí začátkem upozornění",
+);
+overit(
+  dalsiKontrolaAkciNaVikend(PONDĚLI_UPOZORNENI).getTime() ===
+    PONDĚLI_ZAVRENI.getTime(),
+  "upozornění končí zavřením parku",
+);
+overit(
+  dalsiKontrolaAkciNaVikend(PONDĚLI_ZAVRENO).getTime() === UTERY_PULNOC.getTime(),
+  "večerní sdělení končí půlnocí",
+);
+overit(
+  dalsiKontrolaAkciNaVikend(praha(2026, 8, 4, 22, 0)).getTime() ===
+    praha(2026, 8, 5, 7, 0).getTime(),
+  "úterní večer dál čeká na otevření parku",
+);
+
+const bezZmeny = [STREDA, PATEK, SOBOTA, NEDELE, praha(2026, 8, 4, 22, 0), praha(2026, 8, 8, 22, 0)];
+for (const cas of bezZmeny) {
+  overit(!jeOknoAkciNaVikend(cas), "ostatní dny okno nemají");
+  overit(
+    vetaParkuVedleAkciNaVikend(cas, 5, oknoPondeli, null) ===
+      verejnaVetaZameckehoParku(cas, null),
+    "ostatní dny nechávají park beze změny",
+  );
+}
+
+const listopadPred = praha(2026, 11, 2, 6, 59);
+const listopadSedma = praha(2026, 11, 2, 7, 0);
+const listopadPredUpo = praha(2026, 11, 2, 16, 14);
+const listopadUpo = praha(2026, 11, 2, 16, 15);
+const listopadZavreni = praha(2026, 11, 2, 17, 0);
+const listopadVecer = praha(2026, 11, 2, 22, 0);
+const listopadPulnoc = praha(2026, 11, 3, 0, 0);
+const oknoListopad = isoDenPrahy(listopadSedma);
+overit(!jeOknoAkciNaVikend(listopadPred), "listopadové ráno okno není");
+overit(jeOknoAkciNaVikend(listopadSedma), "listopadová sedmá okno je");
+overit(jeOknoAkciNaVikend(listopadPredUpo), "listopad minutu před upozorněním okno je");
+overit(!jeOknoAkciNaVikend(listopadUpo), "listopadové upozornění okno není");
+overit(jeOknoAkciNaVikend(listopadZavreni), "listopadové zavření okno je");
+overit(jeOknoAkciNaVikend(listopadVecer), "listopadový večer okno je");
+overit(!jeOknoAkciNaVikend(listopadPulnoc), "listopadová půlnoc okno není");
+overit(
+  verejnaVetaZameckehoParku(listopadUpo, null) === VETA_ZAMECKY_PARK_BRZY,
+  "listopadové upozornění má větu parku",
+);
+overit(
+  vetaParkuVedleAkciNaVikend(listopadVecer, 5, oknoListopad, null) === null,
+  "listopadový večer vedle sdělení park nesvítí",
+);
+overit(
+  konecAktualnihoOknaAkciNaVikend(listopadSedma)?.getTime() ===
+    listopadPulnoc.getTime(),
+  "listopadové skrytí vydrží do půlnoci",
+);
+
+overit(
+  jeAkciNaVikendRucneSkryte(CTVRTEK_ZAVRENO, skrytiCtvrtka.skrytoDo, skrytiCtvrtka.oknoIso),
+  "čtvrteční skrytí drží i večer",
+);
+overit(
+  !jeAkciNaVikendRucneSkryte(PATEK_PULNOC, skrytiCtvrtka.skrytoDo, skrytiCtvrtka.oknoIso),
+  "po čtvrteční půlnoci skrytí nepokračuje",
+);
+overit(
+  !maSeZobrazitAkciNaVikend(CTVRTEK_ZAVRENO, 5, oknoCtvrtka) ||
+    vetaParkuVedleAkciNaVikend(CTVRTEK_ZAVRENO, 5, oknoCtvrtka, null) === null,
+  "čtvrteční večer nenechá obě věty",
+);
+
+const vikendDny = ["2026-08-08", "2026-08-09"];
+function jsouTrhy(seznam: BranaKonkretniUdalost[], redakce = polozky) {
+  return jsouTrhyVeSchvalenychVikendovychDnech({
+    udalosti: seznam,
+    redakcniPolozky: redakce,
+    vikendIsoDny: vikendDny,
+  });
+}
+function rucniTrh(
+  nazev: string,
+  doplnek: Partial<BranaKonkretniUdalost> = {},
+): boolean {
+  return jeUdalostTrhem({
+    redakcniPolozkaId: doplnek.redakcniPolozkaId ?? null,
+    nazev,
+    mistoNeboTyp: doplnek.mistoNeboTyp ?? "náměstí",
+    verejneCo: doplnek.verejneCo,
+    verejneRozliseni: doplnek.verejneRozliseni,
+  });
+}
+
+overit(rucniTrh("Adventní zámecké trhy"), "ruční trhy v názvu");
+overit(rucniTrh("Regionální trh a dětské dílničky"), "ruční trh jako samostatné slovo");
+overit(rucniTrh("Na trhu"), "tvar trhu");
+overit(rucniTrh("jde trhem"), "tvar trhem");
+overit(rucniTrh("velké TRHY"), "tvar trhy bez ohledu na velikost");
+overit(rucniTrh("bez trhů"), "tvar trhů");
+overit(rucniTrh("na trzích"), "tvar trzích");
+overit(rucniTrh("Květinový jarmark"), "jarmark");
+overit(rucniTrh("Dílničky", { verejneCo: "Trh" }), "veřejné označení Trh");
+overit(rucniTrh("Dílničky", { verejneRozliseni: "jarmark" }), "veřejné rozlišení jarmark");
+overit(!rucniTrh("Koncert na náměstí"), "obyčejná akce není trh");
+overit(!rucniTrh("trhat dřevo"), "trhat není samostatné slovo trh");
+overit(!rucniTrh("trhnutí"), "trhnutí není trh");
+overit(!rucniTrh("jarmarku"), "jarmarku není celé slovo jarmark");
+overit(!rucniTrh("Netrh"), "Netrh není samostatné slovo");
+overit(!rucniTrh("tržiště"), "tržiště není tvar trh");
+overit(!rucniTrh("Street Food Festival"), "ruční festival bez slova trh není trh");
+overit(
+  jeUdalostTrhem({
+    redakcniPolozkaId: "trhy",
+    nazev: "Beer & Food Fest",
+    mistoNeboTyp: "náměstí",
+  }),
+  "Beer & Food Fest pod položkou trhy",
+);
+overit(
+  jeUdalostTrhem({
+    redakcniPolozkaId: "trhy",
+    nazev: "Street Food Festival",
+    mistoNeboTyp: "náměstí",
+  }),
+  "Street Food Festival pod položkou trhy",
+);
+overit(
+  !jeUdalostTrhem({
+    redakcniPolozkaId: "kino",
+    nazev: "Letní trh",
+    mistoNeboTyp: "kino",
+  }),
+  "jiná redakční položka se slovem trh nestačí",
+);
+
+const redakceTrhu = [...polozky, polozka("trhy", "ANO")];
+const automaticke = sestavitDnesSPoctemAkciNaVikend({
+  udalosti: [
+    ...udalosti,
+    udalost("advent", "2026-08-08", "2026-08-08", {
+      redakcniPolozkaId: "trhy",
+      nazev: "Adventní",
+      rucniPoziceVDni: null,
+    }),
+  ],
+  redakcniPolozky: redakceTrhu,
+  okamzik: PONDĚLI,
+});
+overit(automaticke.pocet === 6, "automatický trh je v počtu jen jednou");
+overit(automaticke.jsouTrhy === true, "automatické trhy");
+
+const beer = sestavitDnesSPoctemAkciNaVikend({
+  udalosti: [
+    ...udalosti,
+    udalost("beer", "2026-08-08", "2026-08-09", {
+      redakcniPolozkaId: "trhy",
+      nazev: "Beer & Food Fest",
+      rucniPoziceVDni: null,
+    }),
+  ],
+  redakcniPolozky: redakceTrhu,
+  okamzik: PONDĚLI,
+});
+overit(beer.pocet === 7, "vícedenní trh se v počtu počítá v sobotu i v neděli");
+overit(beer.jsouTrhy === true, "vícedenní Beer & Food Fest je trh");
+
+const rucni = sestavitDnesSPoctemAkciNaVikend({
+  udalosti: [
+    ...udalosti,
+    udalost("rucni-trh", "2026-08-09", "2026-08-09", {
+      nazev: "Adventní zámecké trhy",
+    }),
+  ],
+  redakcniPolozky: polozky,
+  okamzik: PONDĚLI,
+});
+overit(rucni.pocet === 6, "ruční trh nepřidá počet navíc");
+overit(rucni.jsouTrhy === true, "ruční schválené trhy");
+
+const neschvalene = sestavitDnesSPoctemAkciNaVikend({
+  udalosti: [
+    ...udalosti,
+    udalost("ceka-trh", "2026-08-08", "2026-08-08", {
+      stavSchvaleni: "CEKA_NA_SCHVALENI",
+      redakcniPolozkaId: "trhy",
+      nazev: "Trh",
+      rucniPoziceVDni: null,
+    }),
+  ],
+  redakcniPolozky: redakceTrhu,
+  okamzik: PONDĚLI,
+});
+overit(neschvalene.pocet === 5, "neschválený trh počet nemění");
+overit(neschvalene.jsouTrhy === false, "neschválený trh se nepočítá");
+
+const jenDnesTrh = jsouTrhy([
+  udalost("sobota", "2026-08-08", "2026-08-08"),
+  udalost("jen-trh", "2026-08-08", "2026-08-08", {
+    pouzeDnes: true,
+    nazev: "Sobotní trh",
+  }),
+]);
+overit(jenDnesTrh === false, "trh pouze pro DNES ve víkendu není");
+
+const vypnute = jsouTrhy(
+  [
+    udalost("sobota", "2026-08-08", "2026-08-08"),
+    udalost("vypnute", "2026-08-08", "2026-08-08", {
+      redakcniPolozkaId: "trhy",
+      nazev: "Trh",
+      rucniPoziceVDni: null,
+    }),
+  ],
+  [polozka("trhy", "NE")],
+);
+overit(vypnute === false, "vypnutá položka trhy se nepočítá");
+
+function prvniVykresleni(
+  cas: Date,
+  pocet: number | null,
+  okno: string | null,
+  jsouTrhyVety: boolean | null,
+): boolean {
+  return (
+    jsouTrhyVety != null && maSeZobrazitAkciNaVikend(cas, pocet, okno)
+  );
+}
+
+const behemUpozorneni = sestavitDnesSPoctemAkciNaVikend({
+  udalosti,
+  redakcniPolozky: polozky,
+  okamzik: PONDĚLI_UPOZORNENI,
+});
+const behemCtvrtka = sestavitDnesSPoctemAkciNaVikend({
+  udalosti,
+  redakcniPolozky: polozky,
+  okamzik: CTVRTEK_UPOZORNENI,
+});
+const predSedmou = sestavitDnesSPoctemAkciNaVikend({
+  udalosti,
+  redakcniPolozky: polozky,
+  okamzik: PONDĚLI_PRED,
+});
+overit(predSedmou.pocet === null, "před sedmou se počet nepřipravuje");
+overit(
+  behemUpozorneni.pocet === sestava.pocet && behemUpozorneni.pocet === 5,
+  "během upozornění je připravený stejný počet",
+);
+overit(
+  behemUpozorneni.jsouTrhy === sestava.jsouTrhy,
+  "během upozornění se trhy hodnotí stejně",
+);
+overit(
+  behemUpozorneni.oknoIso === oknoPondeli,
+  "počet z upozornění patří k pondělí",
+);
+overit(
+  !prvniVykresleni(
+    PONDĚLI_UPOZORNENI,
+    behemUpozorneni.pocet,
+    behemUpozorneni.oknoIso,
+    behemUpozorneni.jsouTrhy,
+  ),
+  "při otevření během upozornění věta ještě nesvítí",
+);
+overit(
+  verejnaVetaZameckehoParku(PONDĚLI_UPOZORNENI, null) === VETA_ZAMECKY_PARK_BRZY,
+  "při otevření během upozornění mluví park",
+);
+overit(
+  maSeZobrazitAkciNaVikend(
+    PONDĚLI_ZAVRENI,
+    behemUpozorneni.pocet,
+    behemUpozorneni.oknoIso,
+  ),
+  "stránka otevřená během upozornění ukáže větu po zavření",
+);
+overit(
+  vetaParkuVedleAkciNaVikend(
+    PONDĚLI_ZAVRENI,
+    behemUpozorneni.pocet,
+    behemUpozorneni.oknoIso,
+    null,
+  ) === null,
+  "po zavření se k návratu věty nepřidá zavřený park",
+);
+overit(
+  behemCtvrtka.pocet === 5 &&
+    maSeZobrazitAkciNaVikend(
+      CTVRTEK_ZAVRENI,
+      behemCtvrtka.pocet,
+      behemCtvrtka.oknoIso,
+    ) &&
+    !prvniVykresleni(
+      CTVRTEK_UPOZORNENI,
+      behemCtvrtka.pocet,
+      behemCtvrtka.oknoIso,
+      behemCtvrtka.jsouTrhy,
+    ),
+  "čtvrteční upozornění také vrátí větu po zavření",
+);
+const skryteUpozorneni = uplatnitSkrytiAkciNaVikend(
+  PONDĚLI_UPOZORNENI,
+  behemUpozorneni.pocet,
+  behemUpozorneni.oknoIso,
+  skrytiPondeli,
+);
+overit(skryteUpozorneni.pocet === null, "ruční skrytí vezme i počet z upozornění");
+overit(
+  !maSeZobrazitAkciNaVikend(
+    PONDĚLI_ZAVRENI,
+    skryteUpozorneni.pocet,
+    skryteUpozorneni.oknoIso,
+  ),
+  "skrytá stránka z upozornění se po zavření nevrátí",
+);
+overit(maSePripravitPocetAkciNaVikend(PONDĚLI_UPOZORNENI), "upozornění počet připraví");
+overit(!maSePripravitPocetAkciNaVikend(PONDĚLI_PRED), "ráno se počet nepřipravuje");
+overit(!maSePripravitPocetAkciNaVikend(UTERY), "úterý se počet nepřipravuje");
+
+const vetaKomponenta = readFileSync(
+  resolve(process.cwd(), "src/components/brana/BranaAkciNaVikend.tsx"),
+  "utf8",
+);
+const teloVety = vetaKomponenta.slice(vetaKomponenta.indexOf("return ("));
+overit(
+  teloVety.includes(`className="brana-akce-typ">{POPISEK_AKCI_NA_VIKEND}`),
+  "popisek má původní barvu",
+);
+overit(
+  teloVety.includes("style={{ marginLeft: 9 }}>{pocet}") &&
+    !teloVety.includes('className="brana-akce-typ" style={{ marginLeft: 9 }}'),
+  "číslo zůstává jediný bílý akcent",
+);
+overit(
+  /className="brana-akce-typ">\s*\{jsouTrhy \? DODATEK_TRHY_JSOU : DODATEK_TRHY_NEJSOU\}/.test(
+    teloVety,
+  ),
+  "dodatek o trzích má barvu popisku",
+);
+
+const ukazka = jsouTrhy(
+  [
+    udalost("ukazka-trh", "2026-08-08", "2026-08-08", {
+      redakcniPolozkaId: "trhy",
+      nazev: "Trh",
+      rucniPoziceVDni: null,
+    }),
+  ],
+  redakceTrhu,
+);
+overit(ukazka === false, "ukázkový trh se nepočítá");
 
 console.log("Akcí na víkend: všechna ověření prošla.");

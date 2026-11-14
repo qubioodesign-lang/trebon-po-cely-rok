@@ -27,6 +27,7 @@ export default async function StrankaBranaAdminAtmosfera() {
   let parkJeSkryty = false;
   let parkChybaCteni: string | null = null;
   let vikendSkrytoDo: string | null = null;
+  let vikendOknoIso: string | null = null;
   let vikendJeSkryty = false;
   let vikendJeVOkne = false;
   let vikendChybaCteni: string | null = null;
@@ -57,6 +58,7 @@ export default async function StrankaBranaAdminAtmosfera() {
           "Stav skrytí akcí na víkend se nepodařilo načíst.";
       } else if (skrytiVikend.stav === "ok") {
         vikendSkrytoDo = skrytiVikend.skrytoDo;
+        vikendOknoIso = skrytiVikend.oknoIso;
         vikendJeSkryty = jeAkciNaVikendRucneSkryte(
           vikendOkamzik,
           skrytiVikend.skrytoDo,
@@ -82,6 +84,7 @@ export default async function StrankaBranaAdminAtmosfera() {
         parkJeSkryty={parkJeSkryty}
         parkChybaCteni={parkChybaCteni}
         vikendSkrytoDo={vikendSkrytoDo}
+        vikendOknoIso={vikendOknoIso}
         vikendJeSkryty={vikendJeSkryty}
         vikendJeVOkne={vikendJeVOkne}
         vikendChybaCteni={vikendChybaCteni}

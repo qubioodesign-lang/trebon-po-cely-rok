@@ -9,6 +9,7 @@ import { nactiSkrytiAkciNaVikend } from "@/lib/brana/admin/akci-na-vikend-ulozis
 import { nactiSkrytiZameckehoParku } from "@/lib/brana/admin/zamecky-park-uloziste";
 import {
   chranitCteniSkrytiAkciNaVikend,
+  maSeZobrazitAkciNaVikend,
   uplatnitSkrytiAkciNaVikend,
 } from "@/lib/brana/sdileni-akci-na-vikend";
 import { verejnaVetaZameckehoParku } from "@/lib/brana/zamecky-park";
@@ -45,6 +46,8 @@ export async function BranaVerejnaStranka({
   let pohledovaData;
   let pocetAkciNaVikend: number | null = null;
   let oknoAkciNaVikend: string | null = null;
+  let jsouTrhyAkciNaVikend: boolean | null = null;
+  let vychoziViditelneAkciNaVikend = false;
   if (stranka === "dnes") {
     const dnes = await nactiVerejnaDataDnesSPoctemAkciNaVikend(okamzik);
     pohledovaData = dnes.ok
@@ -53,6 +56,7 @@ export async function BranaVerejnaStranka({
     if (dnes.ok && dnes.pocet != null && dnes.pocet > 0) {
       pocetAkciNaVikend = dnes.pocet;
       oknoAkciNaVikend = dnes.oknoIso;
+      jsouTrhyAkciNaVikend = dnes.jsouTrhy;
     }
   } else {
     const schvalene = await nactiVerejneSchvalenePohledovaData(stranka);
@@ -84,6 +88,15 @@ export async function BranaVerejnaStranka({
     );
     pocetAkciNaVikend = poSkryti.pocet;
     oknoAkciNaVikend = poSkryti.oknoIso;
+    if (pocetAkciNaVikend == null) {
+      jsouTrhyAkciNaVikend = null;
+    }
+    vychoziViditelneAkciNaVikend =
+      jsouTrhyAkciNaVikend != null &&
+      maSeZobrazitAkciNaVikend(okamzik, pocetAkciNaVikend, oknoAkciNaVikend);
+    if (vychoziViditelneAkciNaVikend) {
+      parkVeta = null;
+    }
   }
 
   return (
@@ -98,6 +111,8 @@ export async function BranaVerejnaStranka({
       parkSkrytoDo={parkSkrytoDo}
       pocetAkciNaVikend={pocetAkciNaVikend}
       oknoAkciNaVikend={oknoAkciNaVikend}
+      jsouTrhyAkciNaVikend={jsouTrhyAkciNaVikend}
+      vychoziViditelneAkciNaVikend={vychoziViditelneAkciNaVikend}
     />
   );
 }

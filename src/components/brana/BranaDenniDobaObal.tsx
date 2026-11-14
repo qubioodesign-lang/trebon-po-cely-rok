@@ -34,6 +34,8 @@ type BranaDenniDobaObalProps = {
   parkSkrytoDo?: string | null;
   pocetAkciNaVikend?: number | null;
   oknoAkciNaVikend?: string | null;
+  jsouTrhyAkciNaVikend?: boolean | null;
+  vychoziViditelneAkciNaVikend?: boolean;
   children?: ReactNode;
   desktopPanel?: ReactNode;
 };
@@ -57,6 +59,8 @@ export function BranaDenniDobaObal({
   parkSkrytoDo = null,
   pocetAkciNaVikend = null,
   oknoAkciNaVikend = null,
+  jsouTrhyAkciNaVikend = null,
+  vychoziViditelneAkciNaVikend = false,
   children,
   desktopPanel,
 }: BranaDenniDobaObalProps) {
@@ -119,6 +123,8 @@ export function BranaDenniDobaObal({
                 parkSkrytoDo={parkSkrytoDo}
                 pocetAkciNaVikend={pocetAkciNaVikend}
                 oknoAkciNaVikend={oknoAkciNaVikend}
+                jsouTrhyAkciNaVikend={jsouTrhyAkciNaVikend}
+                vychoziViditelneAkciNaVikend={vychoziViditelneAkciNaVikend}
               />
             )}
             <BranaVyzvaPlocha nocRezim={nocRezim} />

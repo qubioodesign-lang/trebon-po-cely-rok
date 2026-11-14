@@ -1,6 +1,12 @@
-import { okamzikVPraze } from "@/lib/brana/cas";
+import {
+  dnesVPraze,
+  okamzikVPraze,
+  okamzikZPrahy,
+  pridatDny,
+} from "@/lib/brana/cas";
 import {
   dalsiZmenaStavuZameckehoParku,
+  dalsiZmenaVerejnehoTextuParku,
   stavZameckehoParku,
   verejnaVetaZameckehoParku,
 } from "@/lib/brana/zamecky-park";
@@ -11,9 +17,15 @@ import {
  * ze stejných už načtených událostí. Místo zůstává jeden odstavec.
  */
 export const POPISEK_AKCI_NA_VIKEND = "Akcí na víkend";
+export const DODATEK_TRHY_JSOU = " · a jsou trhy";
+export const DODATEK_TRHY_NEJSOU = " · trhy nejsou";
 
 const DEN_PONDELI = 1;
 const DEN_CTVRTEK = 4;
+const PISMENO = "a-záčďéěíňóřšťúůýž";
+const VYRAZ_SLOVA_TRHU = new RegExp(
+  `(^|[^${PISMENO}])(?:trzích|trhů|trhem|trhu|trhy|trh|jarmark)(?=$|[^${PISMENO}])`,
+);
 
 export function isoDenPrahy(okamzik: Date): string {
   const praha = okamzikVPraze(okamzik);
@@ -22,13 +34,55 @@ export function isoDenPrahy(okamzik: Date): string {
   return `${praha.rok}-${mesic}-${den}`;
 }
 
-/** Pondělí nebo čtvrtek a přirozený stav parku „nic“. Skrytí parku okno nerozšiřuje. */
-export function jeOknoAkciNaVikend(okamzik: Date): boolean {
+function jeDenVikendovehoSdeleni(okamzik: Date): boolean {
   const den = okamzikVPraze(okamzik).denVTydnu;
-  if (den !== DEN_PONDELI && den !== DEN_CTVRTEK) {
+  return den === DEN_PONDELI || den === DEN_CTVRTEK;
+}
+
+/** Půlnoc následujícího pražského dne. Konec večerního návratu sdělení. */
+export function pulnocPoDniPrahy(okamzik: Date): Date {
+  const dalsi = pridatDny(dnesVPraze(okamzik), 1);
+  return okamzikZPrahy(dalsi.rok, dalsi.mesic, dalsi.den, 0, 0);
+}
+
+/**
+ * Večer po zavření téhož dne. Ráno 00:00–07:00 sem nepatří:
+ * další změna stavu je ještě dnešní sedmá hodina.
+ */
+function jeVecerPoZavreniParku(okamzik: Date): boolean {
+  if (stavZameckehoParku(okamzik) !== "zavreno") {
     return false;
   }
-  return stavZameckehoParku(okamzik) === "nic";
+  return isoDenPrahy(dalsiZmenaStavuZameckehoParku(okamzik)) !== isoDenPrahy(okamzik);
+}
+
+/**
+ * Pondělí nebo čtvrtek, od 7:00 do začátku upozornění parku
+ * a znovu od zavření do půlnoci. Skrytí parku okno nerozšiřuje.
+ */
+export function jeOknoAkciNaVikend(okamzik: Date): boolean {
+  if (!jeDenVikendovehoSdeleni(okamzik)) {
+    return false;
+  }
+  if (stavZameckehoParku(okamzik) === "nic") {
+    return true;
+  }
+  return jeVecerPoZavreniParku(okamzik);
+}
+
+/**
+ * Počet se připraví i během upozornění parku.
+ * Věta v tu chvíli nesvítí, otevřená stránka ji po zavření ukáže bez nového požadavku.
+ * Ráno před sedmou a ostatní dny se nepočítá.
+ */
+export function maSePripravitPocetAkciNaVikend(okamzik: Date): boolean {
+  if (!jeDenVikendovehoSdeleni(okamzik)) {
+    return false;
+  }
+  if (jeOknoAkciNaVikend(okamzik)) {
+    return true;
+  }
+  return stavZameckehoParku(okamzik) === "brzy";
 }
 
 export function pocetRadkuVikendoveProjekce(
@@ -49,7 +103,7 @@ export function pocetRadkuVikendoveProjekce(
 
 /**
  * Věta patří na obrazovku jen s kladným počtem z téhož pražského dne
- * a jen dokud je park ve stavu „nic“.
+ * a jen v pondělním nebo čtvrtečním okně.
  */
 export function maSeZobrazitAkciNaVikend(
   okamzik: Date,
@@ -65,9 +119,34 @@ export function maSeZobrazitAkciNaVikend(
   return jeOknoAkciNaVikend(okamzik);
 }
 
-/** Další hranice, kdy se viditelnost může změnit. Bez posunu za čas parku. */
+/**
+ * Další hranice viditelnosti. V pondělí a ve čtvrtek večer je to půlnoc,
+ * jinak nejbližší změna stavu parku.
+ */
 export function dalsiKontrolaAkciNaVikend(okamzik: Date): Date {
-  return dalsiZmenaStavuZameckehoParku(okamzik);
+  const park = dalsiZmenaStavuZameckehoParku(okamzik);
+  if (!jeDenVikendovehoSdeleni(okamzik)) {
+    return park;
+  }
+  const pulnoc = pulnocPoDniPrahy(okamzik);
+  return pulnoc.getTime() < park.getTime() ? pulnoc : park;
+}
+
+/**
+ * Park si v pondělí a ve čtvrtek večer připočte půlnoc,
+ * aby se zavřená věta vrátila, až víkendové sdělení skončí.
+ * Ostatní dny zůstávají na původní hranici parku.
+ */
+export function dalsiPrekresleniParkuVedleVikendu(
+  okamzik: Date,
+  skrytoDo: string | null,
+): Date {
+  const park = dalsiZmenaVerejnehoTextuParku(okamzik, skrytoDo);
+  if (!jeDenVikendovehoSdeleni(okamzik)) {
+    return park;
+  }
+  const pulnoc = pulnocPoDniPrahy(okamzik);
+  return pulnoc.getTime() < park.getTime() ? pulnoc : park;
 }
 
 /**
@@ -76,18 +155,50 @@ export function dalsiKontrolaAkciNaVikend(okamzik: Date): Date {
  */
 export function pripojitVolitelnyPocet<T>(
   data: T,
-  spocitat: () => { pocet: number | null; oknoIso: string | null },
-): { data: T; pocet: number | null; oknoIso: string | null } {
+  spocitat: () => {
+    pocet: number | null;
+    oknoIso: string | null;
+    jsouTrhy?: boolean | null;
+  },
+): {
+  data: T;
+  pocet: number | null;
+  oknoIso: string | null;
+  jsouTrhy: boolean | null;
+} {
   try {
     const vysledek = spocitat();
+    const pocet = vysledek.pocet;
+    const jsouTrhy =
+      pocet != null && pocet > 0 && typeof vysledek.jsouTrhy === "boolean"
+        ? vysledek.jsouTrhy
+        : null;
     return {
       data,
-      pocet: vysledek.pocet,
+      pocet,
       oknoIso: vysledek.oknoIso,
+      jsouTrhy,
     };
   } catch {
-    return { data, pocet: null, oknoIso: null };
+    return { data, pocet: null, oknoIso: null, jsouTrhy: null };
   }
+}
+
+/**
+ * Věta parku, která smí být vedle víkendového sdělení.
+ * Dokud sdělení svítí, zavřený park se neukáže.
+ */
+export function vetaParkuVedleAkciNaVikend(
+  okamzik: Date,
+  pocet: number | null,
+  oknoIso: string | null,
+  parkSkrytoDo: string | null,
+): string | null {
+  const veta = verejnaVetaZameckehoParku(okamzik, parkSkrytoDo);
+  if (maSeZobrazitAkciNaVikend(okamzik, pocet, oknoIso)) {
+    return null;
+  }
+  return veta;
 }
 
 /** Sdělení a věta parku nemohou platit v jednom okamžiku. */
@@ -98,8 +209,44 @@ export function vetaParkuASdeleniSeNekryji(
   parkSkrytoDo: string | null,
 ): boolean {
   const sdeleni = maSeZobrazitAkciNaVikend(okamzik, pocet, oknoIso);
-  const park = verejnaVetaZameckehoParku(okamzik, parkSkrytoDo) !== null;
+  const park =
+    vetaParkuVedleAkciNaVikend(okamzik, pocet, oknoIso, parkSkrytoDo) !== null;
   return !(sdeleni && park);
+}
+
+export type UdalostProRozpoznaniTrhu = {
+  redakcniPolozkaId: string | null;
+  nazev: string;
+  mistoNeboTyp: string;
+  verejneCo?: string | null;
+  verejneRozliseni?: string | null;
+};
+
+/** Samostatné slovo trh / jarmark. Ne podřetězec uvnitř jiného slova. */
+export function textObsahujeSlovoTrhu(text: string): boolean {
+  return VYRAZ_SLOVA_TRHU.test(text.toLocaleLowerCase("cs-CZ"));
+}
+
+/**
+ * Trh je schválená položka „trhy“, nebo ruční událost,
+ * jejíž název či veřejné označení nese samostatné slovo trh.
+ */
+export function jeUdalostTrhem(udalost: UdalostProRozpoznaniTrhu): boolean {
+  if (udalost.redakcniPolozkaId === "trhy") {
+    return true;
+  }
+  if (udalost.redakcniPolozkaId !== null) {
+    return false;
+  }
+  const text = [
+    udalost.nazev,
+    udalost.mistoNeboTyp,
+    udalost.verejneCo,
+    udalost.verejneRozliseni,
+  ]
+    .filter((cast): cast is string => typeof cast === "string" && cast.length > 0)
+    .join("\n");
+  return textObsahujeSlovoTrhu(text);
 }
 
 const OKNO_ISO = /^\d{4}-\d{2}-\d{2}$/;
@@ -109,12 +256,15 @@ export type NacteniSkrytiAkciNaVikend =
   | { stav: "ok"; skrytoDo: string | null; oknoIso: string | null }
   | { stav: "chyba" };
 
-/** Konec dnešního okna. Mimo okno null, takže skrytí dopředu uložit nejde. */
+/**
+ * Skrytí platí do půlnoci téhož pražského dne.
+ * Mimo okno null, takže skrytí dopředu uložit nejde.
+ */
 export function konecAktualnihoOknaAkciNaVikend(okamzik: Date): Date | null {
   if (!jeOknoAkciNaVikend(okamzik)) {
     return null;
   }
-  return dalsiKontrolaAkciNaVikend(okamzik);
+  return pulnocPoDniPrahy(okamzik);
 }
 
 export function jePlatneSkrytiAkciNaVikend(hodnota: unknown): hodnota is string {
@@ -193,8 +343,9 @@ export function chranitCteniSkrytiAkciNaVikend(
 }
 
 /**
- * Skrytí platí jen pro uložený pražský den a jen do konce jeho okna.
- * Starší i pozdější čas další okno neskryje.
+ * Skrytí platí jen pro uložený pražský den a jen do jeho půlnoci.
+ * Drží i přes upozornění parku, takže večer se věta sama nevrátí.
+ * Starší i pozdější čas další pondělí nebo čtvrtek neskryje.
  */
 export function jeAkciNaVikendRucneSkryte(
   okamzik: Date,
@@ -207,12 +358,12 @@ export function jeAkciNaVikendRucneSkryte(
   ) {
     return false;
   }
-  if (oknoIso !== isoDenPrahy(okamzik) || !jeOknoAkciNaVikend(okamzik)) {
+  if (oknoIso !== isoDenPrahy(okamzik) || !jeDenVikendovehoSdeleni(okamzik)) {
     return false;
   }
   const konec = Date.parse(skrytoDo);
-  const konecOkna = dalsiKontrolaAkciNaVikend(okamzik).getTime();
-  return okamzik.getTime() < konec && konec <= konecOkna;
+  const pulnoc = pulnocPoDniPrahy(okamzik).getTime();
+  return okamzik.getTime() < konec && konec <= pulnoc;
 }
 
 /**

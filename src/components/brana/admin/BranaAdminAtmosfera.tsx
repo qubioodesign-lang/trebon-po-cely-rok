@@ -9,7 +9,12 @@ import {
   zrusitBranaAtmosferaDovetekAkce,
   zrusitBranaAtmosferaRucniTextAkce,
 } from "@/app/brana/admin/actions";
-import { dalsiKontrolaAkciNaVikend } from "@/lib/brana/sdileni-akci-na-vikend";
+import {
+  dalsiKontrolaAkciNaVikend,
+  isoDenPrahy,
+  jeAkciNaVikendRucneSkryte,
+  jeOknoAkciNaVikend,
+} from "@/lib/brana/sdileni-akci-na-vikend";
 import { BranaAtmosferaDnes } from "@/components/brana/BranaAtmosferaDnes";
 import {
   BRANA_ATMOSFERA_DOVETEK_MAX,
@@ -36,6 +41,7 @@ type Props = {
   parkJeSkryty: boolean;
   parkChybaCteni: string | null;
   vikendSkrytoDo: string | null;
+  vikendOknoIso: string | null;
   vikendJeSkryty: boolean;
   vikendJeVOkne: boolean;
   vikendChybaCteni: string | null;
@@ -60,6 +66,7 @@ export function BranaAdminAtmosfera({
   parkJeSkryty: parkJeSkrytyPocatek,
   parkChybaCteni,
   vikendSkrytoDo: vikendSkrytoDoPocatek,
+  vikendOknoIso: vikendOknoIsoPocatek,
   vikendJeSkryty: vikendJeSkrytyPocatek,
   vikendJeVOkne: vikendJeVOknePocatek,
   vikendChybaCteni,
@@ -74,6 +81,7 @@ export function BranaAdminAtmosfera({
   const [parkJeSkryty, setParkJeSkryty] = useState(parkJeSkrytyPocatek);
   const [parkChyba, setParkChyba] = useState<string | null>(parkChybaCteni);
   const [vikendSkrytoDo, setVikendSkrytoDo] = useState(vikendSkrytoDoPocatek);
+  const [vikendOknoIso, setVikendOknoIso] = useState(vikendOknoIsoPocatek);
   const [vikendJeSkryty, setVikendJeSkryty] = useState(vikendJeSkrytyPocatek);
   const [vikendJeVOkne, setVikendJeVOkne] = useState(vikendJeVOknePocatek);
   const [vikendChyba, setVikendChyba] = useState<string | null>(
@@ -96,17 +104,24 @@ export function BranaAdminAtmosfera({
   }, [parkJeSkryty, parkSkrytoDo]);
 
   useEffect(() => {
-    if (!vikendJeVOkne) {
-      return;
-    }
-    const konec = dalsiKontrolaAkciNaVikend(new Date());
-    const prodleva = Math.max(konec.getTime() - Date.now(), 0);
-    const casovac = setTimeout(() => {
-      setVikendJeVOkne(false);
-      setVikendJeSkryty(false);
-    }, prodleva);
-    return () => clearTimeout(casovac);
-  }, [vikendJeVOkne]);
+    let casovac: ReturnType<typeof setTimeout> | null = null;
+    const naplanuj = () => {
+      const ted = new Date();
+      setVikendJeVOkne(jeOknoAkciNaVikend(ted));
+      setVikendJeSkryty(
+        jeAkciNaVikendRucneSkryte(ted, vikendSkrytoDo, vikendOknoIso),
+      );
+      const dalsi = dalsiKontrolaAkciNaVikend(ted);
+      const prodleva = Math.max(dalsi.getTime() - Date.now(), 0);
+      casovac = setTimeout(naplanuj, prodleva);
+    };
+    naplanuj();
+    return () => {
+      if (casovac) {
+        clearTimeout(casovac);
+      }
+    };
+  }, [vikendSkrytoDo, vikendOknoIso]);
 
   const automatickaVeta = dokument
     ? verejnaVetaAtmosfery(dokument.stav)
@@ -193,6 +208,7 @@ export function BranaAdminAtmosfera({
         return;
       }
       setVikendSkrytoDo(vysledek.skrytoDo);
+      setVikendOknoIso(isoDenPrahy(new Date()));
       setVikendJeSkryty(true);
     });
   };
@@ -414,7 +430,8 @@ export function BranaAdminAtmosfera({
         ) : (
           <p className="text-sm text-text">
             Počet se získává automaticky z kalendáře Víkend. Zobrazuje se v
-            pondělí a ve čtvrtek ve volném okně zámeckého parku.
+            pondělí a ve čtvrtek kromě rána před otevřením parku a posledních
+            45 minut před zavřením.
           </p>
         )}
         <button

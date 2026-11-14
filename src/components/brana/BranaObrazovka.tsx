@@ -72,6 +72,10 @@ type BranaObrazovkaProps = {
   pocetAkciNaVikend?: number | null;
   /** Pražský den, ke kterému počet patří. */
   oknoAkciNaVikend?: string | null;
+  /** Doplněk věty o trzích. null = věta se neskládá. */
+  jsouTrhyAkciNaVikend?: boolean | null;
+  /** První vykreslení víkendové věty. Během upozornění parku false. */
+  vychoziViditelneAkciNaVikend?: boolean;
 };
 
 function kotvaScrollProStranku(
@@ -155,6 +159,8 @@ export function BranaObrazovka({
   parkSkrytoDo = null,
   pocetAkciNaVikend = null,
   oknoAkciNaVikend = null,
+  jsouTrhyAkciNaVikend = null,
+  vychoziViditelneAkciNaVikend = false,
 }: BranaObrazovkaProps) {
   const pohled = aktivniStranka;
   const data = dataProp ?? nactiBranaSdilenaPohledovaData();
@@ -366,12 +372,16 @@ export function BranaObrazovka({
           <BranaZameckyParkDnes
             vychoziVeta={parkVeta}
             skrytoDo={parkSkrytoDo}
+            pocetAkciNaVikend={pocetAkciNaVikend}
+            oknoAkciNaVikend={oknoAkciNaVikend}
           />
         ) : null}
         {pohled === "dnes" ? (
           <BranaAkciNaVikend
             pocet={pocetAkciNaVikend}
             oknoIso={oknoAkciNaVikend}
+            jsouTrhy={jsouTrhyAkciNaVikend}
+            vychoziViditelne={vychoziViditelneAkciNaVikend}
           />
         ) : null}
         {seznamAkci}

@@ -22,6 +22,10 @@ import {
   ziskatVolbyBranaAdminBlob,
 } from "@/lib/brana/admin/env-blob-brana-admin";
 import {
+  jeUdalostTrhem,
+  maSePripravitPocetAkciNaVikend,
+} from "@/lib/brana/sdileni-akci-na-vikend";
+import {
   dnyTrvaniUdalosti,
   formatujDatumVyhled,
   jeBranaStavSchvaleni,
@@ -47,7 +51,6 @@ import { maDatumOdPatritDoVyhledu } from "@/lib/brana/admin/obdobi-7-dni";
 import { maUkazkovyVyhledAno } from "@/lib/brana/admin/ukazkove-udalosti";
 import {
   isoDenPrahy,
-  jeOknoAkciNaVikend,
   pocetRadkuVikendoveProjekce,
   pripojitVolitelnyPocet,
 } from "@/lib/brana/sdileni-akci-na-vikend";
@@ -568,11 +571,50 @@ export type DnesSPoctemAkciNaVikend = {
   /** null = mimo okno nebo se počet nepodařilo spočítat. 0 = víkend bez řádků. */
   pocet: number | null;
   oknoIso: string | null;
+  /** null = věta se neskládá. true/false jen při kladném počtu. */
+  jsouTrhy: boolean | null;
 };
 
 /**
+ * Trh ve schváleném veřejném programu soboty a neděle.
+ * Stejná pravidla jako víkendová projekce. Počet řádků nemění.
+ */
+export function jsouTrhyVeSchvalenychVikendovychDnech(args: {
+  udalosti: readonly BranaKonkretniUdalost[];
+  redakcniPolozky: readonly BranaRedakcniPolozkaStav[];
+  vikendIsoDny: readonly string[];
+}): boolean {
+  const polozkyPodleId = new Map(
+    args.redakcniPolozky.map((polozka) => [polozka.id, polozka] as const),
+  );
+  const dny = new Set(args.vikendIsoDny);
+
+  for (const udalost of args.udalosti) {
+    if (udalost.stavSchvaleni !== "SCHVALENO" || udalost.id.startsWith("ukazka-")) {
+      continue;
+    }
+    if (
+      udalost.redakcniPolozkaId !== null &&
+      polozkyPodleId.get(udalost.redakcniPolozkaId)?.pouzivat !== "ANO"
+    ) {
+      continue;
+    }
+    const padneNaVikend = dnyTrvaniUdalosti(udalost).some(
+      (isoDen) =>
+        dny.has(isoDen) &&
+        patriPouzeDnesDoVerejnehoPohledu(udalost, isoDen, false),
+    );
+    if (padneNaVikend && jeUdalostTrhem(udalost)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
  * Druhá projekce víkendu ze stejných polí, která už drží projekce DNES.
- * Mimo okno se víkend neprojekuje. Selhání čísla nechá data DNES.
+ * Počítá se v okně a během upozornění parku. Selhání čísla nechá data DNES.
  */
 export function sestavitDnesSPoctemAkciNaVikend(args: {
   udalosti: readonly BranaKonkretniUdalost[];
@@ -588,7 +630,7 @@ export function sestavitDnesSPoctemAkciNaVikend(args: {
   });
 
   return pripojitVolitelnyPocet(data, () => {
-    if (!jeOknoAkciNaVikend(args.okamzik)) {
+    if (!maSePripravitPocetAkciNaVikend(args.okamzik)) {
       return { pocet: null, oknoIso: null };
     }
     const vikend = projektujSchvaleneDoVerejnehoPohledu({
@@ -598,12 +640,17 @@ export function sestavitDnesSPoctemAkciNaVikend(args: {
       okna,
     });
     const pocet = pocetRadkuVikendoveProjekce(vikend.bloky);
-    if (pocet == null) {
-      return { pocet: null, oknoIso: null };
+    if (pocet == null || pocet < 1) {
+      return { pocet, oknoIso: null, jsouTrhy: null };
     }
     return {
       pocet,
-      oknoIso: pocet > 0 ? isoDenPrahy(args.okamzik) : null,
+      oknoIso: isoDenPrahy(args.okamzik),
+      jsouTrhy: jsouTrhyVeSchvalenychVikendovychDnech({
+        udalosti: args.udalosti,
+        redakcniPolozky: args.redakcniPolozky,
+        vikendIsoDny: okna.vikendIsoDny,
+      }),
     };
   });
 }
@@ -615,7 +662,13 @@ export function sestavitDnesSPoctemAkciNaVikend(args: {
 export async function nactiVerejnaDataDnesSPoctemAkciNaVikend(
   okamzik: Date = new Date(),
 ): Promise<
-  | { ok: true; data: BranaSdilenaPohledovaData; pocet: number | null; oknoIso: string | null }
+  | {
+      ok: true;
+      data: BranaSdilenaPohledovaData;
+      pocet: number | null;
+      oknoIso: string | null;
+      jsouTrhy: boolean | null;
+    }
   | { ok: false }
 > {
   const podklady = await nacistPodkladyVerejneProjekce();

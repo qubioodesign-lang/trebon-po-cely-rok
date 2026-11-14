@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import {
   dalsiKontrolaAkciNaVikend,
+  DODATEK_TRHY_JSOU,
+  DODATEK_TRHY_NEJSOU,
   maSeZobrazitAkciNaVikend,
   POPISEK_AKCI_NA_VIKEND,
 } from "@/lib/brana/sdileni-akci-na-vikend";
@@ -12,16 +14,23 @@ type BranaAkciNaVikendProps = {
   pocet: number | null;
   /** Pražský den, ke kterému počet patří. */
   oknoIso: string | null;
+  /** null = věta se neskládá. */
+  jsouTrhy: boolean | null;
+  /** První vykreslení. Během upozornění parku je false, počet už je připravený. */
+  vychoziViditelne: boolean;
 };
 
 /**
  * Stejný odstavec jako park. První vykreslení je serverové.
- * Otevřená stránka počet nepřepočítává, jen ho včas skryje.
+ * Otevřená stránka počet nepřepočítává, jen ho včas skryje a po zavření parku vrátí.
  */
-export function BranaAkciNaVikend({ pocet, oknoIso }: BranaAkciNaVikendProps) {
-  const [viditelne, setViditelne] = useState(
-    pocet != null && pocet > 0 && oknoIso != null,
-  );
+export function BranaAkciNaVikend({
+  pocet,
+  oknoIso,
+  jsouTrhy,
+  vychoziViditelne,
+}: BranaAkciNaVikendProps) {
+  const [viditelne, setViditelne] = useState(vychoziViditelne);
 
   useEffect(() => {
     let zruseno = false;
@@ -36,7 +45,9 @@ export function BranaAkciNaVikend({ pocet, oknoIso }: BranaAkciNaVikendProps) {
         setViditelne(maSeZobrazitAkciNaVikend(ted, pocet, oknoIso));
       }
       const dalsi = dalsiKontrolaAkciNaVikend(ted);
-      const prodleva = Math.max(dalsi.getTime() - Date.now(), 0);
+      const naHranici = maSeZobrazitAkciNaVikend(dalsi, pocet, oknoIso);
+      const prodleva =
+        Math.max(dalsi.getTime() - Date.now(), 0) + (naHranici ? 100 : 0);
       casovac = setTimeout(naplanuj, prodleva);
     };
 
@@ -50,7 +61,7 @@ export function BranaAkciNaVikend({ pocet, oknoIso }: BranaAkciNaVikendProps) {
     };
   }, [pocet, oknoIso]);
 
-  if (!viditelne || pocet == null || pocet < 1) {
+  if (!viditelne || pocet == null || pocet < 1 || jsouTrhy == null) {
     return null;
   }
 
@@ -58,6 +69,9 @@ export function BranaAkciNaVikend({ pocet, oknoIso }: BranaAkciNaVikendProps) {
     <p className="brana-zamecky-park">
       <span className="brana-akce-typ">{POPISEK_AKCI_NA_VIKEND}</span>
       <span style={{ marginLeft: 9 }}>{pocet}</span>
+      <span className="brana-akce-typ">
+        {jsouTrhy ? DODATEK_TRHY_JSOU : DODATEK_TRHY_NEJSOU}
+      </span>
     </p>
   );
 }

@@ -2,15 +2,19 @@
 
 import { useEffect, useState } from "react";
 import {
-  dalsiZmenaVerejnehoTextuParku,
-  verejnaVetaZameckehoParku,
-} from "@/lib/brana/zamecky-park";
+  dalsiPrekresleniParkuVedleVikendu,
+  vetaParkuVedleAkciNaVikend,
+} from "@/lib/brana/sdileni-akci-na-vikend";
 
 type BranaZameckyParkDnesProps = {
   /** Věta spočítaná na serveru. null = při prvním vykreslení nic. */
   vychoziVeta: string | null;
   /** Konec ručního skrytí. null = park se řídí jen časem. */
   skrytoDo: string | null;
+  /** Počet víkendového sdělení. null = park se jím neřídí. */
+  pocetAkciNaVikend?: number | null;
+  /** Pražský den víkendového sdělení. */
+  oknoAkciNaVikend?: string | null;
 };
 
 const NAZEV = "Zámecký park";
@@ -22,6 +26,8 @@ const NAZEV = "Zámecký park";
 export function BranaZameckyParkDnes({
   vychoziVeta,
   skrytoDo,
+  pocetAkciNaVikend = null,
+  oknoAkciNaVikend = null,
 }: BranaZameckyParkDnesProps) {
   const [veta, setVeta] = useState(vychoziVeta);
 
@@ -35,9 +41,16 @@ export function BranaZameckyParkDnes({
       }
       const ted = new Date();
       if (!zruseno) {
-        setVeta(verejnaVetaZameckehoParku(ted, skrytoDo));
+        setVeta(
+          vetaParkuVedleAkciNaVikend(
+            ted,
+            pocetAkciNaVikend,
+            oknoAkciNaVikend,
+            skrytoDo,
+          ),
+        );
       }
-      const dalsi = dalsiZmenaVerejnehoTextuParku(ted, skrytoDo);
+      const dalsi = dalsiPrekresleniParkuVedleVikendu(ted, skrytoDo);
       const prodleva = Math.max(dalsi.getTime() - Date.now(), 0) + 50;
       casovac = setTimeout(naplanuj, prodleva);
     };
@@ -50,7 +63,7 @@ export function BranaZameckyParkDnes({
         clearTimeout(casovac);
       }
     };
-  }, [skrytoDo]);
+  }, [skrytoDo, pocetAkciNaVikend, oknoAkciNaVikend]);
 
   if (!veta?.startsWith(`${NAZEV} `)) {
     return null;
