@@ -15,7 +15,14 @@ export const generateViewport = generateBranaViewport;
 
 const NAZEV_NAHLEDU = "BRÁNA do Třeboně";
 
-/** Metadata jen pro uložený facebookový snímek. Ostatní adresy Dnes nemění. */
+const METADATA_BEZNEHO_DNES: Metadata = {
+  title: { absolute: "BRÁNA do Třeboně | Program akcí v Třeboni" },
+  description:
+    "Co se dnes, zítra a o víkendu děje v Třeboni? Přehled kulturních a dalších akcí na jednom místě.",
+  alternates: { canonical: "https://brana.trebonpocelyrok.cz/" },
+};
+
+/** Běžné Dnes bez platného fbk má titulek pro vyhledávač. Uložený facebookový snímek se nemění. */
 export async function generateMetadata({
   searchParams,
 }: {
@@ -24,7 +31,7 @@ export async function generateMetadata({
   try {
     const { fbk } = await searchParams;
     if (typeof fbk !== "string" || !jeBranaFacebookFbk(fbk)) {
-      return {};
+      return METADATA_BEZNEHO_DNES;
     }
 
     const nahled = await najitBranaFacebookNahled(fbk);
