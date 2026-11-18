@@ -146,12 +146,17 @@
     line-height: 1.375;
   }
 
+  .brana-casova-kotva-vztah-text {
+    color: rgb(255 255 255 / 0.7);
+  }
+
   .brana-casova-kotva-srdce {
-    width: 0.9em;
-    height: 0.9em;
+    width: calc(0.9em + 2px);
+    height: calc(0.9em + 2px);
     display: block;
     flex: 0 0 auto;
     overflow: visible;
+    color: #fff;
   }
 
   .brana-casova-kotva-pocet {
