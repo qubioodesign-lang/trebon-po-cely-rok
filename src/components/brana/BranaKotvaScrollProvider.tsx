@@ -122,6 +122,34 @@ export function useBranaKotvaScroll() {
   return useContext(BranaKotvaScrollContext);
 }
 
+/** Počáteční hodnota budoucího počítadla. Oddělovač tisíců, bez pevného stropu. */
+const BRANA_VZTAH_POCET = "1\u00a0247";
+
+/** Statický vztah k Třeboni. Bez kliknutí, animace a zápisu. */
+export function BranaVztahKTrebone() {
+  return (
+    <span className="brana-casova-kotva-vztah">
+      <span>Třeboň v</span>
+      <svg
+        className="brana-casova-kotva-srdce"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <path
+          d="M12 19.6s-6.6-4.1-6.6-8.2C5.4 8.6 7.2 7 9.1 7c1.2 0 2.2.6 2.9 1.6.7-1 1.7-1.6 2.9-1.6 1.9 0 3.7 1.6 3.7 4.4 0 4.1-6.6 8.2-6.6 8.2z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      </svg>
+      <span className="brana-casova-kotva-pocet">{BRANA_VZTAH_POCET}</span>
+    </span>
+  );
+}
+
 export function BranaCasovaKotvaScrollovana({
   vychoziLabel,
 }: {
@@ -132,7 +160,8 @@ export function BranaCasovaKotvaScrollovana({
 
   return (
     <p className="brana-casova-kotva" aria-label="Časová kotva">
-      {label}
+      <span className="brana-casova-kotva-den">{label}</span>
+      <BranaVztahKTrebone />
     </p>
   );
 }

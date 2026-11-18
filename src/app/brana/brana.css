@@ -126,8 +126,36 @@
   }
 
   .brana-casova-kotva {
-    @apply px-6 pb-3 pt-2.5 text-left text-[0.9375rem] font-semibold leading-snug;
+    @apply flex items-center justify-between gap-2 px-6 pb-3 pt-2.5 text-left text-[0.9375rem] font-semibold leading-snug;
     color: var(--brand-accent);
+    white-space: nowrap;
+  }
+
+  .brana-casova-kotva-den {
+    flex: 0 0 auto;
+  }
+
+  .brana-casova-kotva-vztah {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28em;
+    flex: 0 0 auto;
+    color: #fff;
+    font-size: 0.8125rem;
+    font-weight: 400;
+    line-height: 1.375;
+  }
+
+  .brana-casova-kotva-srdce {
+    width: 0.9em;
+    height: 0.9em;
+    display: block;
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+
+  .brana-casova-kotva-pocet {
+    color: rgb(255 255 255 / 0.7);
   }
 
   /**

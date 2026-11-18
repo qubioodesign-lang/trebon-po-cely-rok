@@ -25,6 +25,7 @@ import { BranaDenniPredel } from "./BranaDenniPredel";
 import {
   BranaCasovaKotvaScrollovana,
   BranaKotvaScrollProvider,
+  BranaVztahKTrebone,
 } from "./BranaKotvaScrollProvider";
 import { BranaSwipeObsah, pripravitBranaListovani } from "./BranaSwipeObsah";
 import { BranaIkonaObalka } from "./BranaIkony";
@@ -355,7 +356,8 @@ export function BranaObrazovka({
           />
         ) : (
           <p className="brana-casova-kotva" aria-label="Časová kotva">
-            {textCasoveKotvy(pohled)}
+            <span className="brana-casova-kotva-den">{textCasoveKotvy(pohled)}</span>
+            <BranaVztahKTrebone />
           </p>
         )}
       </div>
