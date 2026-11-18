@@ -151,12 +151,13 @@
   }
 
   .brana-casova-kotva-srdce {
-    width: 17px;
-    height: 17px;
+    width: 19px;
+    height: 19px;
     display: block;
     flex: 0 0 auto;
     overflow: visible;
     color: #fff;
+    transform: translateY(-1.5px);
   }
 
   .brana-casova-kotva-pocet {
