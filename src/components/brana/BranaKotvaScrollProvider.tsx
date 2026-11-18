@@ -140,7 +140,7 @@ export function BranaVztahKTrebone() {
           d="M12 19.6s-6.6-4.1-6.6-8.2C5.4 8.6 7.2 7 9.1 7c1.2 0 2.2.6 2.9 1.6.7-1 1.7-1.6 2.9-1.6 1.9 0 3.7 1.6 3.7 4.4 0 4.1-6.6 8.2-6.6 8.2z"
           fill="none"
           stroke="currentColor"
-          strokeWidth="1.366"
+          strokeWidth="1.4"
           strokeLinejoin="round"
           strokeLinecap="round"
         />

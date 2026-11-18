@@ -151,8 +151,8 @@
   }
 
   .brana-casova-kotva-srdce {
-    width: calc(0.9em + 2px);
-    height: calc(0.9em + 2px);
+    width: 17px;
+    height: 17px;
     display: block;
     flex: 0 0 auto;
     overflow: visible;
