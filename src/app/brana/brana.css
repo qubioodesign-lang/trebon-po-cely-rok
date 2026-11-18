@@ -198,7 +198,7 @@
   .brana-casova-kotva-srdce.brana-srdce-pulz path {
     transform-box: fill-box;
     transform-origin: center;
-    animation: brana-srdce-pulz 550ms ease-in-out;
+    animation: brana-srdce-pulz 800ms ease-in-out;
   }
 
   @keyframes brana-srdce-pulz {
@@ -208,7 +208,13 @@
       stroke: #fff;
     }
 
-    45% {
+    32% {
+      transform: scale(1.15);
+      fill: #e15a5a;
+      stroke: #e15a5a;
+    }
+
+    52% {
       transform: scale(1.15);
       fill: #e15a5a;
       stroke: #e15a5a;

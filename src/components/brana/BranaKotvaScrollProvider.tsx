@@ -127,7 +127,7 @@ export function useBranaKotvaScroll() {
 const BRANA_VZTAH_POCET = "1\u00a0247";
 
 /** Záloha, kdyby animationend nepřišel. Delší než pulz i jeho kratší barevná verze. */
-const BRANA_SRDCE_ZAMEK_MS = 800;
+const BRANA_SRDCE_ZAMEK_MS = 1100;
 
 /** Klepnutí vyplní srdce a jednou ho zvětší. Číslo zůstává statické. */
 export function BranaVztahKTrebone() {
