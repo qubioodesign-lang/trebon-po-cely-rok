@@ -150,6 +150,41 @@
     color: rgb(255 255 255 / 0.7);
   }
 
+  .brana-casova-kotva-vztah-tlacitko {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28em;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    appearance: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .brana-casova-kotva-vztah-tlacitko:focus {
+    outline: none;
+  }
+
+  .brana-casova-kotva-vztah-tlacitko:focus-visible {
+    outline: 1px solid rgb(255 255 255 / 0.9);
+    outline-offset: 3px;
+  }
+
+  .brana-casova-kotva-vztah-tlacitko::before {
+    content: "";
+    position: absolute;
+    top: -10px;
+    right: 0;
+    bottom: -12px;
+    left: 0;
+  }
+
   .brana-casova-kotva-srdce {
     width: 19px;
     height: 19px;
@@ -158,6 +193,56 @@
     overflow: visible;
     color: #fff;
     transform: translateY(-1.5px);
+  }
+
+  .brana-casova-kotva-srdce.brana-srdce-pulz path {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: brana-srdce-pulz 550ms ease-in-out;
+  }
+
+  @keyframes brana-srdce-pulz {
+    0% {
+      transform: scale(1);
+      fill: transparent;
+      stroke: #fff;
+    }
+
+    45% {
+      transform: scale(1.15);
+      fill: #e15a5a;
+      stroke: #e15a5a;
+    }
+
+    100% {
+      transform: scale(1);
+      fill: transparent;
+      stroke: #fff;
+    }
+  }
+
+  @keyframes brana-srdce-barva {
+    0% {
+      fill: transparent;
+      stroke: #fff;
+    }
+
+    45% {
+      fill: #e15a5a;
+      stroke: #e15a5a;
+    }
+
+    100% {
+      fill: transparent;
+      stroke: #fff;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .brana-casova-kotva-srdce.brana-srdce-pulz path {
+      animation-name: brana-srdce-barva;
+      animation-duration: 280ms;
+    }
   }
 
   .brana-casova-kotva-pocet {
