@@ -4,6 +4,7 @@ import type {
   BranaKonfiguracePohledu,
   BranaSdilenaPohledovaData,
 } from "@/lib/brana/pohledy-data";
+import { nacistVztahPocet } from "@/lib/brana/vztah-uloziste";
 import { BranaDesktopInformacniPanel } from "./BranaDesktopInformacniPanel";
 import { BranaDenniDobaObal } from "./BranaDenniDobaObal";
 import { BranaRozpoznaniNavstevy } from "./BranaRozpoznaniNavstevy";
@@ -31,7 +32,7 @@ type BranaHlavniProps = {
 };
 
 /** Vstupní obrazovka projektu Brána – /brana */
-export function BranaHlavni({
+export async function BranaHlavni({
   stranka = "dnes",
   pohledovaData,
   konfiguracePohledu,
@@ -45,6 +46,9 @@ export function BranaHlavni({
   jsouTrhyAkciNaVikend = null,
   vychoziViditelneAkciNaVikend = false,
 }: BranaHlavniProps) {
+  const vztah = await nacistVztahPocet();
+  const vztahPocet = vztah.stav === "ok" ? vztah.pocet : null;
+
   return (
     <>
       <BranaRozpoznaniNavstevy stranka={stranka} />
@@ -61,6 +65,7 @@ export function BranaHlavni({
         oknoAkciNaVikend={oknoAkciNaVikend}
         jsouTrhyAkciNaVikend={jsouTrhyAkciNaVikend}
         vychoziViditelneAkciNaVikend={vychoziViditelneAkciNaVikend}
+        vztahPocet={vztahPocet}
         desktopPanel={<BranaDesktopInformacniPanel />}
       />
     </>

@@ -123,17 +123,25 @@ export function useBranaKotvaScroll() {
   return useContext(BranaKotvaScrollContext);
 }
 
-/** Počáteční hodnota budoucího počítadla. Oddělovač tisíců, bez pevného stropu. */
-const BRANA_VZTAH_POCET = "1\u00a0247";
-
 /** Záloha, kdyby animationend nepřišel. Delší než pulz i jeho kratší barevná verze. */
 const BRANA_SRDCE_ZAMEK_MS = 1100;
 
-/** Klepnutí vyplní srdce a jednou ho zvětší. Číslo zůstává statické. */
-export function BranaVztahKTrebone() {
+function formatovatVztahPocet(pocet: number): string {
+  return String(pocet).replace(/\B(?=(\d{3})+(?!\d))/g, "\u00a0");
+}
+
+/** Klepnutí vyplní srdce. První klepnutí otevření přičte jedničku. */
+export function BranaVztahKTrebone({
+  vztahPocet,
+}: {
+  vztahPocet: number | null;
+}) {
   const srdceRef = useRef<SVGSVGElement>(null);
   const beziRef = useRef(false);
   const casovacRef = useRef<number | null>(null);
+  const zapocitanoRef = useRef(false);
+  const zivyRef = useRef(true);
+  const [zobrazenyPocet, setZobrazenyPocet] = useState(vztahPocet);
 
   const uvolnitPulz = useCallback(() => {
     if (casovacRef.current !== null) {
@@ -145,7 +153,13 @@ export function BranaVztahKTrebone() {
     beziRef.current = false;
   }, []);
 
-  useEffect(() => () => uvolnitPulz(), [uvolnitPulz]);
+  useEffect(
+    () => () => {
+      zivyRef.current = false;
+      uvolnitPulz();
+    },
+    [uvolnitPulz],
+  );
 
   const spustitPulz = () => {
     const srdce = srdceRef.current;
@@ -167,13 +181,36 @@ export function BranaVztahKTrebone() {
     uvolnitPulz();
   };
 
+  const priKliknuti = () => {
+    spustitPulz();
+    if (zobrazenyPocet === null || zapocitanoRef.current) {
+      return;
+    }
+
+    zapocitanoRef.current = true;
+    const pred = zobrazenyPocet;
+    setZobrazenyPocet(pred + 1);
+
+    void fetch("/api/brana/vztah", { method: "POST" })
+      .then((odpoved) => {
+        if (!odpoved.ok) {
+          throw new Error("zapis");
+        }
+      })
+      .catch(() => {
+        if (zivyRef.current) {
+          setZobrazenyPocet(pred);
+        }
+      });
+  };
+
   return (
     <span className="brana-casova-kotva-vztah">
       <button
         type="button"
         className="brana-casova-kotva-vztah-tlacitko"
         aria-label="Třeboň v srdci"
-        onClick={spustitPulz}
+        onClick={priKliknuti}
       >
         <span className="brana-casova-kotva-vztah-text">Třeboň v</span>
         <svg
@@ -194,15 +231,21 @@ export function BranaVztahKTrebone() {
           />
         </svg>
       </button>
-      <span className="brana-casova-kotva-pocet">{BRANA_VZTAH_POCET}</span>
+      {zobrazenyPocet === null ? null : (
+        <span className="brana-casova-kotva-pocet">
+          {formatovatVztahPocet(zobrazenyPocet)}
+        </span>
+      )}
     </span>
   );
 }
 
 export function BranaCasovaKotvaScrollovana({
   vychoziLabel,
+  vztahPocet,
 }: {
   vychoziLabel: string;
+  vztahPocet: number | null;
 }) {
   const kontext = useBranaKotvaScroll();
   const label = kontext?.aktualniLabel ?? vychoziLabel;
@@ -210,7 +253,7 @@ export function BranaCasovaKotvaScrollovana({
   return (
     <p className="brana-casova-kotva" aria-label="Časová kotva">
       <span className="brana-casova-kotva-den">{label}</span>
-      <BranaVztahKTrebone />
+      <BranaVztahKTrebone vztahPocet={vztahPocet} />
     </p>
   );
 }

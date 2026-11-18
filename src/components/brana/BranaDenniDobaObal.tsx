@@ -36,6 +36,8 @@ type BranaDenniDobaObalProps = {
   oknoAkciNaVikend?: string | null;
   jsouTrhyAkciNaVikend?: boolean | null;
   vychoziViditelneAkciNaVikend?: boolean;
+  /** null = společný počet se nepodařilo načíst. */
+  vztahPocet?: number | null;
   children?: ReactNode;
   desktopPanel?: ReactNode;
 };
@@ -61,6 +63,7 @@ export function BranaDenniDobaObal({
   oknoAkciNaVikend = null,
   jsouTrhyAkciNaVikend = null,
   vychoziViditelneAkciNaVikend = false,
+  vztahPocet = null,
   children,
   desktopPanel,
 }: BranaDenniDobaObalProps) {
@@ -125,6 +128,7 @@ export function BranaDenniDobaObal({
                 oknoAkciNaVikend={oknoAkciNaVikend}
                 jsouTrhyAkciNaVikend={jsouTrhyAkciNaVikend}
                 vychoziViditelneAkciNaVikend={vychoziViditelneAkciNaVikend}
+                vztahPocet={vztahPocet}
               />
             )}
             <BranaVyzvaPlocha nocRezim={nocRezim} />

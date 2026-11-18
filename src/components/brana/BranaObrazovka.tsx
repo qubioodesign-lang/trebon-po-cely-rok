@@ -77,6 +77,8 @@ type BranaObrazovkaProps = {
   jsouTrhyAkciNaVikend?: boolean | null;
   /** První vykreslení víkendové věty. Během upozornění parku false. */
   vychoziViditelneAkciNaVikend?: boolean;
+  /** null = společný počet není známý a klepnutí se nezapočte. */
+  vztahPocet?: number | null;
 };
 
 function kotvaScrollProStranku(
@@ -162,6 +164,7 @@ export function BranaObrazovka({
   oknoAkciNaVikend = null,
   jsouTrhyAkciNaVikend = null,
   vychoziViditelneAkciNaVikend = false,
+  vztahPocet = null,
 }: BranaObrazovkaProps) {
   const pohled = aktivniStranka;
   const data = dataProp ?? nactiBranaSdilenaPohledovaData();
@@ -353,11 +356,12 @@ export function BranaObrazovka({
         {kotvaScroll ? (
           <BranaCasovaKotvaScrollovana
             vychoziLabel={kotvaScroll.vychoziLabel}
+            vztahPocet={vztahPocet}
           />
         ) : (
           <p className="brana-casova-kotva" aria-label="Časová kotva">
             <span className="brana-casova-kotva-den">{textCasoveKotvy(pohled)}</span>
-            <BranaVztahKTrebone />
+            <BranaVztahKTrebone vztahPocet={vztahPocet} />
           </p>
         )}
       </div>
