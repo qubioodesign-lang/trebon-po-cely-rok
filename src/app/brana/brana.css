@@ -196,7 +196,7 @@
   }
 
   .brana-casova-kotva-srdce path {
-    --brana-srdce-dech-vypln: 0.4;
+    --brana-srdce-dech-vypln: 0.6;
     transform-box: fill-box;
     transform-origin: center;
     animation: brana-srdce-dech 3s ease-in-out infinite;
