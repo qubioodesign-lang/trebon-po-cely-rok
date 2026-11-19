@@ -195,10 +195,27 @@
     transform: translateY(-1.5px);
   }
 
+  .brana-casova-kotva-srdce path {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: brana-srdce-dech 3s ease-in-out infinite;
+  }
+
   .brana-casova-kotva-srdce.brana-srdce-pulz path {
     transform-box: fill-box;
     transform-origin: center;
     animation: brana-srdce-pulz 800ms ease-in-out;
+  }
+
+  @keyframes brana-srdce-dech {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+
+    50% {
+      transform: scale(1.15);
+    }
   }
 
   @keyframes brana-srdce-pulz {
@@ -245,6 +262,10 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .brana-casova-kotva-srdce path {
+      animation: none;
+    }
+
     .brana-casova-kotva-srdce.brana-srdce-pulz path {
       animation-name: brana-srdce-barva;
       animation-duration: 280ms;

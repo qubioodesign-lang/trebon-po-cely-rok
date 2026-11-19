@@ -174,6 +174,13 @@ export function BranaVztahKTrebone({
   };
 
   const poAnimaci = (event: AnimationEvent<SVGSVGElement>) => {
+    if (
+      event.animationName !== "brana-srdce-pulz" &&
+      event.animationName !== "brana-srdce-barva"
+    ) {
+      return;
+    }
+
     if (event.target !== srdceRef.current?.querySelector("path")) {
       return;
     }
