@@ -1,31 +1,7 @@
 {
-  "vytvoreno": "2026-11-06T09:08:55.834Z",
+  "vytvoreno": "2026-11-21T05:52:04.269Z",
   "zdrojUrl": "https://www.itrebon.cz/kalendar.html",
   "kandidati": [
-    {
-      "nazev": "Ozvěny filmových melodií",
-      "datumOd": "2026-11-07",
-      "datumDo": "2026-11-07",
-      "cas": "19:00",
-      "mistoNeboTyp": "Divadlo J. K. Tyla",
-      "zdrojIdentita": "itrebon|19900"
-    },
-    {
-      "nazev": "Roztomilé dámy aneb oko za oko",
-      "datumOd": "2026-11-10",
-      "datumDo": "2026-11-10",
-      "cas": "19:30",
-      "mistoNeboTyp": "Divadlo J. K. Tyla",
-      "zdrojIdentita": "itrebon|20845"
-    },
-    {
-      "nazev": "Vy nejste žena, pane - činohra",
-      "datumOd": "2026-11-18",
-      "datumDo": "2026-11-18",
-      "cas": "19:30",
-      "mistoNeboTyp": "Divadlo J. K. Tyla",
-      "zdrojIdentita": "itrebon|20354"
-    },
     {
       "nazev": "Kalif čáp - loutkové představení",
       "datumOd": "2026-11-21",
@@ -67,6 +43,14 @@
       "zdrojIdentita": "itrebon|20355"
     },
     {
+      "nazev": "OT: Vánoce s Bárkou",
+      "datumOd": "2026-12-04",
+      "datumDo": "2026-12-04",
+      "cas": "19:00",
+      "mistoNeboTyp": "Divadlo J. K. Tyla",
+      "zdrojIdentita": "itrebon|20907"
+    },
+    {
       "nazev": "Mikulášská pohádka - Jak se čert polepšil - Divadlo Procity",
       "datumOd": "2026-12-05",
       "datumDo": "2026-12-05",
@@ -75,12 +59,28 @@
       "zdrojIdentita": "itrebon|20843"
     },
     {
+      "nazev": "Vánoční miniturné XIV. - vystoupení žáků ZUŠ Třeboň",
+      "datumOd": "2026-12-15",
+      "datumDo": "2026-12-15",
+      "cas": "18:00",
+      "mistoNeboTyp": "Divadlo J. K. Tyla",
+      "zdrojIdentita": "itrebon|20931"
+    },
+    {
       "nazev": "Pohádka tisíce a jedné noci - baletní vystoupení Pražské taneční konzervatoře",
       "datumOd": "2026-12-16",
       "datumDo": "2026-12-16",
       "cas": "19:00",
       "mistoNeboTyp": "Divadlo J. K. Tyla",
       "zdrojIdentita": "itrebon|20841"
+    },
+    {
+      "nazev": "Vánoční show Victory dance company",
+      "datumOd": "2026-12-18",
+      "datumDo": "2026-12-18",
+      "cas": "17:00",
+      "mistoNeboTyp": "Divadlo J. K. Tyla",
+      "zdrojIdentita": "itrebon|20935"
     },
     {
       "nazev": "Šplouch - předsilvestr v Divadle :)",
@@ -97,6 +97,14 @@
       "cas": "19:00",
       "mistoNeboTyp": "Divadlo J. K. Tyla",
       "zdrojIdentita": "itrebon|20888"
+    },
+    {
+      "nazev": "Odmocnina ženy",
+      "datumOd": "2027-01-14",
+      "datumDo": "2027-01-14",
+      "cas": "19:00",
+      "mistoNeboTyp": "Divadlo J. K. Tyla",
+      "zdrojIdentita": "itrebon|20901"
     },
     {
       "nazev": "Chaos - činohra",
@@ -121,6 +129,22 @@
       "cas": "19:00",
       "mistoNeboTyp": "Divadlo J. K. Tyla",
       "zdrojIdentita": "itrebon|20831"
+    },
+    {
+      "nazev": "Ani za milion! - činohra Komorního divadla Kalich",
+      "datumOd": "2027-06-17",
+      "datumDo": "2027-06-17",
+      "cas": "19:30",
+      "mistoNeboTyp": "Divadlo J. K. Tyla",
+      "zdrojIdentita": "itrebon|21020"
+    },
+    {
+      "nazev": "V závěji - činohra od Komorního divadla Kalich",
+      "datumOd": "2027-09-21",
+      "datumDo": "2027-09-21",
+      "cas": "19:30",
+      "mistoNeboTyp": "Divadlo J. K. Tyla",
+      "zdrojIdentita": "itrebon|21021"
     },
     {
       "nazev": "Česká filmová hudba - Filmový orchestr Praha",
