@@ -17,6 +17,8 @@ import {
 } from "./lazenska-matine";
 import { maRedakcniOverride } from "./redakcni-override";
 
+const NOCTURNA_REDAKCNI_POLOZKA_ID = "trebonska-nocturna";
+
 export type BranaScanAutomatickaUdalostVstup = {
   redakcniPolozkaId: string;
   datumOd: string;
@@ -329,7 +331,22 @@ export function aplikovatScanKandidatyNaUdalosti(
       }
     }
 
-    // 2) Fallback: scanKlic (včetně starých záznamů bez identity)
+    // 2) Nocturna: stejný den a čas je stejný koncert i po změně URL nebo názvu.
+    // Záznam se nepřepisuje. Ostatní položky sem nevstupují.
+    if (redakcniPolozkaId === NOCTURNA_REDAKCNI_POLOZKA_ID) {
+      const idxNocturna = nove.findIndex(
+        (u) =>
+          u.redakcniPolozkaId === NOCTURNA_REDAKCNI_POLOZKA_ID &&
+          u.datumOd === normalizovany.datumOd &&
+          u.cas.trim() === normalizovany.cas,
+      );
+      if (idxNocturna >= 0) {
+        jizExistuje += 1;
+        continue;
+      }
+    }
+
+    // 3) Fallback: scanKlic (včetně starých záznamů bez identity)
     const idxKlic = nove.findIndex((u) =>
       jeDuplicitniPodleScanKlic(u, normalizovany, scanKlic),
     );
