@@ -1000,10 +1000,7 @@ function overNocturnaCasoveSerie(): void {
   );
   assert(formatujDatumVyhled(letoR) === "6.7.–10.7.", formatujDatumVyhled(letoR));
   assert(letoR.verejneCo === "Třeboňská nocturna", "léto CO");
-  assert(
-    letoR.verejneRozliseni === "Konírna, Zámek Třeboň",
-    `léto KDE ${letoR.verejneRozliseni}`,
-  );
+  assert(letoR.verejneRozliseni == null, `léto bez KDE ${letoR.verejneRozliseni}`);
   assert(letoR.klic === "2027:trebonska-nocturna:2027-07-06", letoR.klic);
   assert(ciziR.klic === "2027:kino-svetozor", `cizí klíč ${ciziR.klic}`);
   assert(ciziR.nazev === "", "cizí série bez názvu");
@@ -1086,7 +1083,264 @@ function overNocturnaCasoveSerie(): void {
   console.log("OK nocturna: mezera 60 dní dělí série, cizí série ne");
 }
 
+function kdeSouhrnu(souhrn: BranaAdminVyhledSouhrn): string {
+  return rozlozAkci({
+    mistoNeboTyp: souhrn.mistoNeboTyp,
+    nazev: souhrn.nazev,
+    cas: "",
+    ...(souhrn.verejneCo !== undefined
+      ? {
+          verejneCo: souhrn.verejneCo,
+          verejneRozliseni: souhrn.verejneRozliseni ?? null,
+        }
+      : {}),
+  }).misto;
+}
+
+function clenSerie(args: {
+  id: string;
+  polozka: string;
+  datum: string;
+  nazev: string;
+  mistoNeboTyp: string;
+  verejneCo?: string;
+  verejneRozliseni?: string | null;
+}): BranaKonkretniUdalost {
+  return udalost({
+    id: args.id,
+    redakcniPolozkaId: args.polozka,
+    datumOd: args.datum,
+    datumDo: args.datum,
+    nazev: args.nazev,
+    mistoNeboTyp: args.mistoNeboTyp,
+    ...(args.verejneCo !== undefined
+      ? {
+          verejneCo: args.verejneCo,
+          verejneRozliseni: args.verejneRozliseni ?? null,
+        }
+      : {}),
+  });
+}
+
+function jedinaSerie(
+  polozka: string,
+  clenove: BranaKonkretniUdalost[],
+): BranaAdminVyhledSouhrn {
+  const souhrny = seskupVyhledUdalostiRokuNaSouhrny(
+    2027,
+    clenove,
+    () => true,
+  );
+  assert(souhrny.length === 1, `${polozka}: jeden souhrn, je ${souhrny.length}`);
+  return souhrny[0];
+}
+
+function overKdeSouhrnuSerie(): void {
+  const zima = jedinaSerie(
+    NOCTURNA_ID,
+    ["2027-01-21", "2027-02-18", "2027-03-18"].map((datum, i) =>
+      clenSerie({
+        id: `kz${i}`,
+        polozka: NOCTURNA_ID,
+        datum,
+        nazev: `Zima ${i}`,
+        mistoNeboTyp: "Třeboňská nocturna Divadlo J. K. Tyla",
+        verejneCo: "Třeboňská nocturna",
+        verejneRozliseni: "Divadlo J. K. Tyla",
+      }),
+    ),
+  );
+  assert(kdeSouhrnu(zima) === "Divadlo J. K. Tyla", `zima KDE ${kdeSouhrnu(zima)}`);
+
+  const leto = jedinaSerie(
+    NOCTURNA_ID,
+    [
+      ["2027-07-06", "Konírna, Zámek Třeboň"],
+      ["2027-07-07", "Malé nádvoří zámku Třeboň"],
+      ["2027-07-08", "Kostel sv. Jiljí"],
+    ].map(([datum, misto], i) =>
+      clenSerie({
+        id: `kl${i}`,
+        polozka: NOCTURNA_ID,
+        datum,
+        nazev: `Léto ${i}`,
+        mistoNeboTyp: `Třeboňská nocturna ${misto}`,
+        verejneCo: "Třeboňská nocturna",
+        verejneRozliseni: misto,
+      }),
+    ),
+  );
+  assert(kdeSouhrnu(leto) === "", "léto bez KDE");
+  assert(leto.verejneCo === "Třeboňská nocturna", "léto CO zůstává");
+
+  const jeden = jedinaSerie(NOCTURNA_ID, [
+    clenSerie({
+      id: "k1",
+      polozka: NOCTURNA_ID,
+      datum: "2026-12-17",
+      nazev: "Dětský pěvecký sbor Českého rozhlasu",
+      mistoNeboTyp: "Třeboňská nocturna Divadlo J. K. Tyla",
+      verejneCo: "Třeboňská nocturna",
+      verejneRozliseni: "Divadlo J. K. Tyla",
+    }),
+  ]);
+  assert(jeden.nazev === "Dětský pěvecký sbor Českého rozhlasu", "jeden název");
+  assert(kdeSouhrnu(jeden) === "Divadlo J. K. Tyla", "jeden KDE");
+
+  const stejne = jedinaSerie(JINA_ID, [
+    clenSerie({
+      id: "c1",
+      polozka: JINA_ID,
+      datum: "2027-05-01",
+      nazev: "Film A",
+      mistoNeboTyp: "Kino Světozor",
+      verejneCo: "Kino",
+      verejneRozliseni: "Světozor",
+    }),
+    clenSerie({
+      id: "c2",
+      polozka: JINA_ID,
+      datum: "2027-06-01",
+      nazev: "Film B",
+      mistoNeboTyp: "Kino Světozor",
+      verejneCo: "Kino",
+      verejneRozliseni: "Světozor",
+    }),
+  ]);
+  assert(kdeSouhrnu(stejne) === "Světozor", "cizí stejné KDE");
+  assert(stejne.nazev === "", "cizí série bez názvu");
+
+  const ruzne = jedinaSerie(JINA_ID, [
+    clenSerie({
+      id: "r1",
+      polozka: JINA_ID,
+      datum: "2027-05-01",
+      nazev: "Film A",
+      mistoNeboTyp: "Kino Světozor",
+      verejneCo: "Kino",
+      verejneRozliseni: "Světozor",
+    }),
+    clenSerie({
+      id: "r2",
+      polozka: JINA_ID,
+      datum: "2027-06-01",
+      nazev: "Film B",
+      mistoNeboTyp: "Kino Aurora",
+      verejneCo: "Kino",
+      verejneRozliseni: "Aurora",
+    }),
+  ]);
+  assert(kdeSouhrnu(ruzne) === "", "cizí různá KDE pryč");
+  assert(ruzne.verejneCo === "Kino", "cizí CO zůstává");
+
+  const velikost = jedinaSerie(JINA_ID, [
+    clenSerie({
+      id: "v1",
+      polozka: JINA_ID,
+      datum: "2027-05-01",
+      nazev: "A",
+      mistoNeboTyp: "Kino Světozor",
+      verejneCo: "Kino",
+      verejneRozliseni: "Světozor",
+    }),
+    clenSerie({
+      id: "v2",
+      polozka: JINA_ID,
+      datum: "2027-06-01",
+      nazev: "B",
+      mistoNeboTyp: "Kino SVĚTOZOR",
+      verejneCo: "Kino",
+      verejneRozliseni: "SVĚTOZOR",
+    }),
+  ]);
+  assert(kdeSouhrnu(velikost) === "Světozor", "velikost písmen je stejné KDE");
+
+  const mezery = jedinaSerie(JINA_ID, [
+    clenSerie({
+      id: "m1",
+      polozka: JINA_ID,
+      datum: "2027-05-01",
+      nazev: "A",
+      mistoNeboTyp: "Kino Světozor",
+      verejneCo: "Kino",
+      verejneRozliseni: "Velké  nádvoří",
+    }),
+    clenSerie({
+      id: "m2",
+      polozka: JINA_ID,
+      datum: "2027-06-01",
+      nazev: "B",
+      mistoNeboTyp: "Kino Světozor",
+      verejneCo: "Kino",
+      verejneRozliseni: "Velké nádvoří",
+    }),
+  ]);
+  assert(kdeSouhrnu(mezery) === "Velké  nádvoří", "mezery jsou stejné KDE");
+
+  const legacyStejne = jedinaSerie("legacy-stejne", [
+    clenSerie({
+      id: "ls1",
+      polozka: "legacy-stejne",
+      datum: "2027-05-01",
+      nazev: "A",
+      mistoNeboTyp: "Kino Světozor",
+    }),
+    clenSerie({
+      id: "ls2",
+      polozka: "legacy-stejne",
+      datum: "2027-06-01",
+      nazev: "B",
+      mistoNeboTyp: "Kino Světozor",
+    }),
+  ]);
+  assert(legacyStejne.mistoNeboTyp === "Kino Světozor", "legacy stejné mistoNeboTyp");
+  assert(kdeSouhrnu(legacyStejne) === "Světozor", "legacy stejné KDE");
+
+  const legacyRuzne = jedinaSerie("legacy-ruzne", [
+    clenSerie({
+      id: "lr1",
+      polozka: "legacy-ruzne",
+      datum: "2027-05-01",
+      nazev: "A",
+      mistoNeboTyp: "Kino Světozor",
+    }),
+    clenSerie({
+      id: "lr2",
+      polozka: "legacy-ruzne",
+      datum: "2027-06-01",
+      nazev: "B",
+      mistoNeboTyp: "Kino Aurora",
+    }),
+  ]);
+  assert(kdeSouhrnu(legacyRuzne) === "", "legacy různá KDE pryč");
+  assert(legacyRuzne.mistoNeboTyp === "Kino", "legacy CO z typu zůstává");
+
+  const prazdne = jedinaSerie(JINA_ID, [
+    clenSerie({
+      id: "p1",
+      polozka: JINA_ID,
+      datum: "2027-05-01",
+      nazev: "A",
+      mistoNeboTyp: "Koncert",
+      verejneCo: "Koncert",
+      verejneRozliseni: "",
+    }),
+    clenSerie({
+      id: "p2",
+      polozka: JINA_ID,
+      datum: "2027-06-01",
+      nazev: "B",
+      mistoNeboTyp: "Koncert Kostel sv. Jiljí",
+      verejneCo: "Koncert",
+      verejneRozliseni: "Kostel sv. Jiljí",
+    }),
+  ]);
+  assert(kdeSouhrnu(prazdne) === "", "prázdné a vyplněné KDE se neschovají do jednoho místa");
+  console.log("OK KDE souhrnu: stejné místo zůstane, různá místa zmizí");
+}
+
 overNocturnaCasoveSerie();
+overKdeSouhrnuSerie();
 overSeedAStaryBlob();
 overUlozeniVyhledSerie();
 overSestNocturnaJednohoRoku();

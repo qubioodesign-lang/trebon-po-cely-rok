@@ -4,6 +4,7 @@
  */
 
 import { dnesVPraze } from "@/lib/brana/cas";
+import { rozdelTypAkce, rozlozAkci } from "./akce-rozlozeni";
 import {
   maDatumOdPatritDoVyhledu,
   type BranaVyhledDatumovaHranice,
@@ -630,6 +631,47 @@ function rozdelNocturnuPodleMezery(
   return serie;
 }
 
+/** Stejné místo i při jiném počtu mezer a jiné velikosti písmen. */
+function klicZobrazenehoKde(text: string): string {
+  return text.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function zobrazeneKdeClena(clen: {
+  mistoNeboTyp: string;
+  nazev: string;
+  verejneCo?: string | null;
+  verejneRozliseni?: string | null;
+}): string {
+  return rozlozAkci({
+    mistoNeboTyp: clen.mistoNeboTyp,
+    nazev: clen.nazev,
+    cas: "",
+    ...(clen.verejneCo !== undefined
+      ? {
+          verejneCo: clen.verejneCo,
+          verejneRozliseni: clen.verejneRozliseni ?? null,
+        }
+      : {}),
+  }).misto;
+}
+
+function souhrnSerieBezKde(
+  souhrn: BranaAdminVyhledSouhrn,
+): BranaAdminVyhledSouhrn {
+  const bezStruktury =
+    souhrn.verejneCo !== undefined
+      ? { ...souhrn, verejneRozliseni: null }
+      : souhrn;
+  if (klicZobrazenehoKde(zobrazeneKdeClena(bezStruktury)) === "") {
+    return bezStruktury;
+  }
+  const { typ, zbytek } = rozdelTypAkce(bezStruktury.mistoNeboTyp.trim());
+  if (zbytek) {
+    return { ...bezStruktury, mistoNeboTyp: typ };
+  }
+  return bezStruktury;
+}
+
 function souhrnVyhledoveSerie(
   rok: number,
   redakcniPolozkaId: string,
@@ -645,7 +687,7 @@ function souhrnVyhledoveSerie(
     }
   }
   const jeSerie = serazene.length > 1;
-  return {
+  const souhrn: BranaAdminVyhledSouhrn = {
     klic,
     redakcniPolozkaId,
     datumOd: reprezentant.datumOd,
@@ -660,6 +702,17 @@ function souhrnVyhledoveSerie(
         }
       : {}),
   };
+  if (!jeSerie) {
+    return souhrn;
+  }
+  const klice = serazene.map((clen) =>
+    klicZobrazenehoKde(zobrazeneKdeClena(clen)),
+  );
+  const prvni = klice[0] ?? "";
+  if (klice.every((klicKde) => klicKde === prvni)) {
+    return souhrn;
+  }
+  return souhrnSerieBezKde(souhrn);
 }
 
 /**
