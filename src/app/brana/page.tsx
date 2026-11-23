@@ -16,10 +16,10 @@ export const generateViewport = generateBranaViewport;
 const NAZEV_NAHLEDU = "BRÁNA do Třeboně";
 
 const METADATA_BEZNEHO_DNES: Metadata = {
-  title: { absolute: "BRÁNA do Třeboně | Program akcí v Třeboni" },
+  title: { absolute: "Třeboň dnes – co se děje v Třeboni | BRÁNA" },
   description:
-    "Co se dnes, zítra a o víkendu děje v Třeboni? Přehled kulturních a dalších akcí na jednom místě.",
-  alternates: { canonical: "https://brana.trebonpocelyrok.cz/" },
+    "Co se dnes děje v Třeboni? Vybrané kulturní a další akce s místem a časem konání.",
+  alternates: { canonical: "https://brana.trebonpocelyrok.cz" },
 };
 
 /** Běžné Dnes bez platného fbk má titulek pro vyhledávač. Uložený facebookový snímek se nemění. */
