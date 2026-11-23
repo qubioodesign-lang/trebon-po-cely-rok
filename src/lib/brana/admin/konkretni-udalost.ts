@@ -596,8 +596,75 @@ export function projektujVyhledPodleRoku(
     }));
 }
 
+const NOCTURNA_REDAKCNI_POLOZKA_ID = "trebonska-nocturna";
+/**
+ * Nocturna: další koncert o tolik dní později začíná novou časovou sérii.
+ * Měsíční krok známých abonentních koncertů je pod touto hranicí.
+ */
+const NOCTURNA_NOVA_SERIE_OD_DNU = 60;
+
+function rozdilZacatkuKoncertuVeDnech(predchozi: string, dalsi: string): number {
+  const ms = parsujIsoDen(dalsi).getTime() - parsujIsoDen(predchozi).getTime();
+  return Math.round(ms / 86_400_000);
+}
+
+/** Seřazené koncerty Nocturny → úseky oddělené mezerou 60 a více dní. */
+function rozdelNocturnuPodleMezery(
+  serazene: readonly BranaKonkretniUdalost[],
+): BranaKonkretniUdalost[][] {
+  const serie: BranaKonkretniUdalost[][] = [];
+  for (const koncert of serazene) {
+    const otevrena = serie[serie.length - 1];
+    const predchozi = otevrena?.[otevrena.length - 1];
+    if (
+      !otevrena ||
+      !predchozi ||
+      rozdilZacatkuKoncertuVeDnech(predchozi.datumOd, koncert.datumOd) >=
+        NOCTURNA_NOVA_SERIE_OD_DNU
+    ) {
+      serie.push([koncert]);
+      continue;
+    }
+    otevrena.push(koncert);
+  }
+  return serie;
+}
+
+function souhrnVyhledoveSerie(
+  rok: number,
+  redakcniPolozkaId: string,
+  serazene: readonly BranaKonkretniUdalost[],
+  klic: string,
+): BranaAdminVyhledSouhrn {
+  const reprezentant = serazene[0];
+  let datumDo = posledniPlatnyDenUdalosti(reprezentant);
+  for (const clen of serazene) {
+    const konec = posledniPlatnyDenUdalosti(clen);
+    if (konec > datumDo) {
+      datumDo = konec;
+    }
+  }
+  const jeSerie = serazene.length > 1;
+  return {
+    klic,
+    redakcniPolozkaId,
+    datumOd: reprezentant.datumOd,
+    datumDo,
+    mistoNeboTyp: reprezentant.mistoNeboTyp,
+    // Série: bez názvu jednotlivého koncertu – CO/KDE z jazyka položky.
+    nazev: jeSerie ? "" : reprezentant.nazev,
+    ...(reprezentant.verejneCo !== undefined
+      ? {
+          verejneCo: reprezentant.verejneCo,
+          verejneRozliseni: reprezentant.verejneRozliseni ?? null,
+        }
+      : {}),
+  };
+}
+
 /**
  * Seskupení už zařazených událostí jednoho roku podle redakcniPolozkaId + vyhledSerie.
+ * Nocturna v tom roce navíc dělí časové série mezerou 60 dní.
  * Stejné pravidlo pro Admin i veřejný Výhled. Filtr data / stavu sem nepatří.
  */
 export function seskupVyhledUdalostiRokuNaSouhrny(
@@ -640,30 +707,17 @@ export function seskupVyhledUdalostiRokuNaSouhrny(
       continue;
     }
 
-    const reprezentant = serazene[0];
-    let datumDo = posledniPlatnyDenUdalosti(reprezentant);
-    for (const clen of serazene) {
-      const konec = posledniPlatnyDenUdalosti(clen);
-      if (konec > datumDo) {
-        datumDo = konec;
-      }
+    const useky =
+      redakcniPolozkaId === NOCTURNA_REDAKCNI_POLOZKA_ID
+        ? rozdelNocturnuPodleMezery(serazene)
+        : [serazene];
+    for (const usek of useky) {
+      const klic =
+        redakcniPolozkaId === NOCTURNA_REDAKCNI_POLOZKA_ID
+          ? `${rok}:${redakcniPolozkaId}:${usek[0].datumOd}`
+          : `${rok}:${redakcniPolozkaId}`;
+      souhrny.push(souhrnVyhledoveSerie(rok, redakcniPolozkaId, usek, klic));
     }
-    const jeSerie = serazene.length > 1;
-    souhrny.push({
-      klic: `${rok}:${redakcniPolozkaId}`,
-      redakcniPolozkaId,
-      datumOd: reprezentant.datumOd,
-      datumDo,
-      mistoNeboTyp: reprezentant.mistoNeboTyp,
-      // Série: bez názvu jednotlivého koncertu – CO/KDE z jazyka položky.
-      nazev: jeSerie ? "" : reprezentant.nazev,
-      ...(reprezentant.verejneCo !== undefined
-        ? {
-            verejneCo: reprezentant.verejneCo,
-            verejneRozliseni: reprezentant.verejneRozliseni ?? null,
-          }
-        : {}),
-    });
   }
 
   souhrny.sort(porovnatSouhrnyVyhledu);

@@ -9,11 +9,10 @@ import { rozlozAkci } from "../src/lib/brana/admin/akce-rozlozeni";
 import type { BranaKonkretniUdalost } from "../src/lib/brana/admin/konkretni-udalost";
 import {
   formatujDatumVyhled,
-  projektujAdminVyhledSouhrnyPodleRoku,
   projektujKalendarDny,
-  projektujVyhledPodleRoku,
   rokUdalosti,
   seskupVyhledUdalostiRokuNaSouhrny,
+  type BranaAdminVyhledRokSkupina,
   type BranaAdminVyhledSouhrn,
 } from "../src/lib/brana/admin/konkretni-udalost";
 import { maDatumOdPatritDoVyhledu } from "../src/lib/brana/admin/obdobi-7-dni";
@@ -288,7 +287,7 @@ function overUlozeniVyhledSerie(): void {
 }
 
 function overSestNocturnaJednohoRoku(): void {
-  const souhrny = projektujAdminVyhledSouhrnyPodleRoku(
+  const souhrny = projektujAdminVyhledKHranici(
     NOCTURNA_2026,
     maVyhledAno,
     maVyhledSeriiZMapy(SERIE_NOCTURNA_TRHY_JEDNOTLIVE),
@@ -309,7 +308,7 @@ function overSestNocturnaJednohoRoku(): void {
 }
 
 function overDvaRokySamostatne(): void {
-  const souhrny = projektujAdminVyhledSouhrnyPodleRoku(
+  const souhrny = projektujAdminVyhledKHranici(
     [...NOCTURNA_2026, ...NOCTURNA_2027],
     maVyhledAno,
     maVyhledSeriiZMapy(SERIE_NOCTURNA_TRHY_JEDNOTLIVE),
@@ -344,7 +343,7 @@ function overJednodenni(): void {
     nazev: "Film X",
     mistoNeboTyp: "Kino Světozor",
   });
-  const souhrny = projektujAdminVyhledSouhrnyPodleRoku(
+  const souhrny = projektujAdminVyhledKHranici(
     [u],
     maVyhledAno,
     maVyhledSeriiZMapy(SERIE_NOCTURNA_TRHY_JEDNOTLIVE),
@@ -368,7 +367,7 @@ function overVicedenniJednu(): void {
     nazev: "Festival",
     mistoNeboTyp: "Kino Světozor",
   });
-  const souhrny = projektujAdminVyhledSouhrnyPodleRoku(
+  const souhrny = projektujAdminVyhledKHranici(
     [u],
     maVyhledAno,
     maVyhledSeriiZMapy(SERIE_NOCTURNA_TRHY_JEDNOTLIVE),
@@ -384,7 +383,7 @@ function overVicedenniJednu(): void {
 }
 
 function overTrhySedmSamostatnych(): void {
-  const souhrny = projektujAdminVyhledSouhrnyPodleRoku(
+  const souhrny = projektujAdminVyhledKHranici(
     TRHY_7_CEKA,
     maVyhledAno,
     maVyhledSeriiZMapy(SERIE_NOCTURNA_TRHY_JEDNOTLIVE),
@@ -420,7 +419,7 @@ function overTrhySedmSamostatnych(): void {
 }
 
 function overTrhyStaryBlobStaleSerie(): void {
-  const souhrny = projektujAdminVyhledSouhrnyPodleRoku(
+  const souhrny = projektujAdminVyhledKHranici(
     TRHY_7_CEKA,
     maVyhledAno,
     () => true,
@@ -441,7 +440,7 @@ function overMintVicedenniJedenZaznam(): void {
     datumOd: "2026-09-27",
     datumDo: "2026-09-28",
   });
-  const souhrny = projektujAdminVyhledSouhrnyPodleRoku(
+  const souhrny = projektujAdminVyhledKHranici(
     [budouci],
     maVyhledAno,
     maVyhledSeriiZMapy(SERIE_NOCTURNA_TRHY_JEDNOTLIVE),
@@ -468,7 +467,7 @@ function overVylovRozmberkBezeZmeny(): void {
     verejneCo: "Výlov",
     verejneRozliseni: "Rožmberk",
   });
-  const souhrny = projektujAdminVyhledSouhrnyPodleRoku(
+  const souhrny = projektujAdminVyhledKHranici(
     [u],
     maVyhledAno,
     maVyhledSeriiZMapy(SERIE_NOCTURNA_TRHY_JEDNOTLIVE),
@@ -493,16 +492,17 @@ function overKalendarNeseskupuje(): void {
   for (const u of vse) {
     assert(idVKalendari.has(u.id), `kalendář musí obsahovat ${u.id}`);
   }
-  const jednotlive = projektujVyhledPodleRoku(vse, maVyhledAno);
-  const pocetJednotlivych = jednotlive.reduce(
-    (n, g) => n + g.udalosti.length,
-    0,
+  const poHranici = vse.filter(
+    (u) =>
+      u.redakcniPolozkaId !== null &&
+      maVyhledAno(u.redakcniPolozkaId) &&
+      maDatumOdPatritDoVyhledu(u.datumOd, VEREJNA_HRANICE),
   );
   assert(
-    pocetJednotlivych === 8 + 7,
-    `projektujVyhledPodleRoku stále jednotlivé, je ${pocetJednotlivych}`,
+    poHranici.length === 8 + 7,
+    `k 31. 8. 2026 patří do Výhledu všech 15, je ${poHranici.length}`,
   );
-  console.log("OK kalendář + projektujVyhledPodleRoku = jednotlivé události");
+  console.log("OK kalendář drží jednotlivé události; Výhled k 31. 8. 2026 má 15");
 }
 
 /** Stejná datumová hranice jako veřejný Výhled k 31. 8. 2026. */
@@ -519,6 +519,41 @@ const VEREJNA_HRANICE = {
   ],
 } as const;
 const VEREJNY_AKTUALNI_ROK = 2026;
+
+/**
+ * Admin kontroly rozsahu série používají stejný zmrazený den jako veřejný Výhled.
+ * Produkční projekce čte skutečné dnešní datum a staré fixture by jinak časem vypadly.
+ */
+function projektujAdminVyhledKHranici(
+  udalosti: readonly BranaKonkretniUdalost[],
+  maVyhledAnoFn: (redakcniPolozkaId: string) => boolean,
+  maVyhledSerii: (redakcniPolozkaId: string) => boolean = () => true,
+): BranaAdminVyhledRokSkupina[] {
+  const vybrane = udalosti.filter(
+    (u) =>
+      u.stavSchvaleni !== "VYRAZENO" &&
+      u.redakcniPolozkaId !== null &&
+      maVyhledAnoFn(u.redakcniPolozkaId) &&
+      maDatumOdPatritDoVyhledu(u.datumOd, VEREJNA_HRANICE),
+  );
+  const podleRoku = new Map<number, BranaKonkretniUdalost[]>();
+  for (const udalost of vybrane) {
+    const rok = rokUdalosti(udalost);
+    const seznam = podleRoku.get(rok) ?? [];
+    seznam.push(udalost);
+    podleRoku.set(rok, seznam);
+  }
+  return [...podleRoku.keys()]
+    .sort((a, b) => a - b)
+    .map((rok) => ({
+      rok,
+      souhrny: seskupVyhledUdalostiRokuNaSouhrny(
+        rok,
+        podleRoku.get(rok) ?? [],
+        maVyhledSerii,
+      ),
+    }));
+}
 
 function nocturnaVerejna(
   partial: Pick<BranaKonkretniUdalost, "id" | "datumOd" | "nazev"> &
@@ -685,9 +720,12 @@ function overVerejnaRokyNeslucuj(): void {
     }),
   ];
   const { letosni, pozdejsi } = projektujVerejnyVyhledSouhrny(karty);
-  assert(letosni.length === 1, "2026: 1 souhrn");
+  assert(letosni.length === 2, `2026: mezera 63 dní = 2 série, je ${letosni.length}`);
   assert(pozdejsi.length === 1, "2027: 1 souhrn, nesloučeno");
-  assert(formatujDatumVyhled(letosni[0]) === "15.10.–17.12.", "2026 rozsah");
+  assert(formatujDatumVyhled(letosni[0]) === "15.10.", "první koncert 2026");
+  assert(letosni[0].nazev === "Koncert A", "jeden koncert drží název");
+  assert(formatujDatumVyhled(letosni[1]) === "17.12.", "druhý koncert 2026");
+  assert(letosni[1].nazev === "Koncert F", "druhý koncert drží název");
   assert(formatujDatumVyhled(pozdejsi[0]) === "21.1.–18.3.", "2027 rozsah");
   console.log("OK veřejný Výhled: 2026 a 2027 zvlášť");
 }
@@ -813,10 +851,11 @@ function overVerejneCekaAVyrazenoMimo(): void {
     trhCeka,
   ]);
   assert(pozdejsi.length === 0, "jen 2026");
-  assert(letosni.length === 1, "CEKA/VYRAZENO nenačtou další řádek");
+  assert(letosni.length === 2, "CEKA/VYRAZENO nenačtou další řádek");
   assert(
-    formatujDatumVyhled(letosni[0]) === "15.10.–17.12.",
-    `CEKA/VYRAZENO nesmí prodloužit rozsah, je ${formatujDatumVyhled(letosni[0])}`,
+    formatujDatumVyhled(letosni[0]) === "15.10." &&
+      formatujDatumVyhled(letosni[1]) === "17.12.",
+    `CEKA/VYRAZENO nesmí prodloužit rozsah, je ${letosni.map(formatujDatumVyhled).join(", ")}`,
   );
   assert(
     !letosni.some((s) => s.verejneRozliseni === "Tajný trh"),
@@ -827,6 +866,227 @@ function overVerejneCekaAVyrazenoMimo(): void {
   console.log("OK veřejný Výhled: CEKA i VYRAZENO mimo");
 }
 
+function nocturnaKoncert(args: {
+  id: string;
+  datum: string;
+  nazev: string;
+  misto: string;
+}): BranaKonkretniUdalost {
+  return udalost({
+    id: args.id,
+    redakcniPolozkaId: NOCTURNA_ID,
+    datumOd: args.datum,
+    datumDo: args.datum,
+    nazev: args.nazev,
+    mistoNeboTyp: args.misto,
+    verejneCo: "Třeboňská nocturna",
+    verejneRozliseni: args.misto,
+  });
+}
+
+function overNocturnaCasoveSerie(): void {
+  const prosinec = nocturnaKoncert({
+    id: "n-2026",
+    datum: "2026-12-17",
+    nazev: "Dětský pěvecký sbor Českého rozhlasu",
+    misto: "Divadlo J. K. Tyla",
+  });
+  const zima = (
+    [
+      ["2027-01-21", "Dvořákovo klavírní kvarteto"],
+      ["2027-02-18", "Smetanovo trio"],
+      ["2027-03-18", "Irvin Venyš"],
+    ] as const
+  ).map(([datum, nazev], i) =>
+    nocturnaKoncert({
+      id: `z${i}`,
+      datum,
+      nazev,
+      misto: "Divadlo J. K. Tyla",
+    }),
+  );
+  const leto = (
+    [
+      ["2027-07-06", "Konírna, Zámek Třeboň"],
+      ["2027-07-07", "Malé nádvoří zámku Třeboň"],
+      ["2027-07-08", "Kostel sv. Jiljí"],
+      ["2027-07-09", "Nádvoří Městského úřadu Třeboň"],
+      ["2027-07-10", "Nádvoří Městského úřadu Třeboň"],
+    ] as const
+  ).map(([datum, misto], i) =>
+    nocturnaKoncert({
+      id: `l${i}`,
+      datum,
+      nazev: `Léto ${i + 1}`,
+      misto,
+    }),
+  );
+  const cizi = [
+    udalost({
+      id: "c1",
+      redakcniPolozkaId: JINA_ID,
+      datumOd: "2027-01-10",
+      datumDo: "2027-01-10",
+      nazev: "Film leden",
+      mistoNeboTyp: "Kino Světozor",
+      verejneCo: "Film",
+      verejneRozliseni: "Světozor",
+    }),
+    udalost({
+      id: "c2",
+      redakcniPolozkaId: JINA_ID,
+      datumOd: "2027-08-20",
+      datumDo: "2027-08-20",
+      nazev: "Film srpen",
+      mistoNeboTyp: "Kino Světozor",
+      verejneCo: "Film",
+      verejneRozliseni: "Světozor",
+    }),
+  ];
+
+  const souhrny = projektujAdminVyhledKHranici(
+    [prosinec, ...zima, ...leto, ...cizi],
+    maVyhledAno,
+    maVyhledSeriiZMapy(SERIE_NOCTURNA_TRHY_JEDNOTLIVE),
+  );
+  const r2026 = souhrny.find((s) => s.rok === 2026);
+  const r2027 = souhrny.find((s) => s.rok === 2027);
+  assert(r2026?.souhrny.length === 1, "2026: jeden řádek");
+  const jeden = r2026?.souhrny[0];
+  assert(jeden !== undefined, "2026 souhrn");
+  if (!jeden) {
+    return;
+  }
+  assert(
+    jeden.nazev === "Dětský pěvecký sbor Českého rozhlasu",
+    `2026 název ${jeden.nazev}`,
+  );
+  assert(
+    formatujDatumVyhled(jeden) === "17.12.",
+    `2026 datum ${formatujDatumVyhled(jeden)}`,
+  );
+  assert(
+    jeden.klic === "2026:trebonska-nocturna:2026-12-17",
+    `2026 klíč ${jeden.klic}`,
+  );
+
+  const noc = (r2027?.souhrny ?? []).filter(
+    (s) => s.redakcniPolozkaId === NOCTURNA_ID,
+  );
+  const ciziRadky = (r2027?.souhrny ?? []).filter(
+    (s) => s.redakcniPolozkaId === JINA_ID,
+  );
+  assert(noc.length === 2, `2027 nocturna řádků ${noc.length}`);
+  assert(ciziRadky.length === 1, `cizí řádků ${ciziRadky.length}`);
+  const zimaR = noc[0];
+  const letoR = noc[1];
+  const ciziR = ciziRadky[0];
+  assert(zimaR.nazev === "", "zima bez názvu koncertu");
+  assert(
+    zimaR.datumOd === "2027-01-21" && zimaR.datumDo === "2027-03-18",
+    "zima rozsah",
+  );
+  assert(
+    formatujDatumVyhled(zimaR) === "21.1.–18.3.",
+    formatujDatumVyhled(zimaR),
+  );
+  assert(zimaR.verejneCo === "Třeboňská nocturna", "zima CO");
+  assert(zimaR.verejneRozliseni === "Divadlo J. K. Tyla", "zima KDE");
+  assert(zimaR.klic === "2027:trebonska-nocturna:2027-01-21", zimaR.klic);
+  assert(letoR.nazev === "", "léto bez názvu koncertu");
+  assert(
+    letoR.datumOd === "2027-07-06" && letoR.datumDo === "2027-07-10",
+    "léto rozsah",
+  );
+  assert(formatujDatumVyhled(letoR) === "6.7.–10.7.", formatujDatumVyhled(letoR));
+  assert(letoR.verejneCo === "Třeboňská nocturna", "léto CO");
+  assert(
+    letoR.verejneRozliseni === "Konírna, Zámek Třeboň",
+    `léto KDE ${letoR.verejneRozliseni}`,
+  );
+  assert(letoR.klic === "2027:trebonska-nocturna:2027-07-06", letoR.klic);
+  assert(ciziR.klic === "2027:kino-svetozor", `cizí klíč ${ciziR.klic}`);
+  assert(ciziR.nazev === "", "cizí série bez názvu");
+  assert(
+    ciziR.datumOd === "2027-01-10" && ciziR.datumDo === "2027-08-20",
+    "cizí série zůstala jedna přes mezeru delší než 60 dní",
+  );
+
+  const hranice = (druhyDen: string) =>
+    seskupVyhledUdalostiRokuNaSouhrny(
+      2028,
+      [
+        nocturnaKoncert({
+          id: "h1",
+          datum: "2028-01-01",
+          nazev: "A",
+          misto: "Divadlo J. K. Tyla",
+        }),
+        nocturnaKoncert({
+          id: "h2",
+          datum: druhyDen,
+          nazev: "B",
+          misto: "Divadlo J. K. Tyla",
+        }),
+      ],
+      () => true,
+    );
+  const po59 = hranice("2028-02-29");
+  const po60 = hranice("2028-03-01");
+  assert(po59.length === 1, `59 dní má být 1 série, je ${po59.length}`);
+  assert(po60.length === 2, `60 dní má být 2 série, je ${po60.length}`);
+
+  const sest = seskupVyhledUdalostiRokuNaSouhrny(
+    2026,
+    NOCTURNA_2026,
+    () => true,
+  );
+  assert(sest.length === 1, "šest koncertů po 14 dnech = 1 série");
+  assert(
+    sest[0].datumOd === "2026-10-15" && sest[0].datumDo === "2026-12-17",
+    "šestice 15.10.–17.12.",
+  );
+  assert(
+    sest[0].klic === "2026:trebonska-nocturna:2026-10-15",
+    sest[0].klic,
+  );
+  const ledenBrezen = seskupVyhledUdalostiRokuNaSouhrny(
+    2027,
+    NOCTURNA_2027,
+    () => true,
+  );
+  assert(ledenBrezen.length === 1, "mezera 56 dní = 1 série");
+  assert(
+    formatujDatumVyhled(ledenBrezen[0]) === "21.1.–18.3.",
+    formatujDatumVyhled(ledenBrezen[0]),
+  );
+
+  const trhyJednotlive = seskupVyhledUdalostiRokuNaSouhrny(
+    2026,
+    TRHY_7_CEKA,
+    (id) => id !== TRHY_ID,
+  );
+  assert(trhyJednotlive.length === 7, "trhy bez série = 7 řádků");
+  assert(
+    trhyJednotlive.every((s) => s.klic.startsWith("2026:trhy:")),
+    "trhy mají klíč jednotlivé události",
+  );
+  const trhySerie = seskupVyhledUdalostiRokuNaSouhrny(
+    2026,
+    TRHY_7_CEKA,
+    () => true,
+  );
+  assert(trhySerie.length === 1, "trhy jako série = 1 řádek i přes mezeru 60+ dní");
+  assert(trhySerie[0].klic === "2026:trhy", `klíč trhů ${trhySerie[0].klic}`);
+  assert(
+    trhySerie[0].datumOd === "2026-09-12" &&
+      trhySerie[0].datumDo === "2026-12-19",
+    "rozsah trhů beze změny",
+  );
+  console.log("OK nocturna: mezera 60 dní dělí série, cizí série ne");
+}
+
+overNocturnaCasoveSerie();
 overSeedAStaryBlob();
 overUlozeniVyhledSerie();
 overSestNocturnaJednohoRoku();
