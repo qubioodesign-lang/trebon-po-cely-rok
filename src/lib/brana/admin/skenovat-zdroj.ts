@@ -58,6 +58,8 @@ import {
   jeKkcRohacZdrojUrl,
   najitKkcRohacKotvuId,
   parsovatUdalostiZeZdroje,
+  jeTrebonskaNocturnaZdrojUrl,
+  sestavTrebonskaNocturnaProgramUrl,
   sestavItrebonKalendarUrlky,
   sestavDumStepankaKalendarUrlkyCtyriMesice,
   sestavRybarstviPodzimniVylovyUrl,
@@ -714,6 +716,7 @@ async function skenovatZnamyZdrojJadro(
   // vlastní parser (jen Vernisáž / Komentovaná prohlídka). Před GBU.
   // iTřeboň GBU: výpis /kalendar.html + stránky 2…12.
   // Okolo Třeboně: 1 GET /program/.
+  // Třeboňská nocturna: uložená URL zůstává, čte se /program téhož hosta.
   // Ostatní zdroje: 1 fetch = 1 URL.
   let kandidati: BranaScanKandidat[];
   if (jeDumStepankaNetolickehoZdrojUrl(zdroj.url)) {
@@ -842,6 +845,10 @@ async function skenovatZnamyZdrojJadro(
   } else if (jeTrebonskyMaratonZdrojUrl(zdroj.url)) {
     const { text } = await nacistTeloZdroje(zdroj.url);
     kandidati = parsovatTrebonskyMaratonOdpocty(text);
+  } else if (jeTrebonskaNocturnaZdrojUrl(zdroj.url)) {
+    const programUrl = sestavTrebonskaNocturnaProgramUrl(zdroj.url);
+    const { text, contentType } = await nacistTeloZdroje(programUrl);
+    kandidati = parsovatUdalostiZeZdroje(text, contentType);
   } else {
     const { text, contentType } = await nacistTeloZdroje(zdroj.url);
     kandidati = parsovatUdalostiZeZdroje(text, contentType);

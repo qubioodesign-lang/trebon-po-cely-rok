@@ -719,6 +719,124 @@ function textBezHtmlTagu(html: string): string {
   return dekodovatHtmlText(html.replace(/<[^>]+>/g, " "));
 }
 
+/** Oficiální web Nocturny. Uložená URL zdroje se kvůli /program nemění. */
+export function jeTrebonskaNocturnaZdrojUrl(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./i, "").toLowerCase();
+    return host === "trebonskanocturna.cz";
+  } catch {
+    return false;
+  }
+}
+
+/** Aktuální program. Homepage v administraci zůstává, scan čte tuhle cestu. */
+export function sestavTrebonskaNocturnaProgramUrl(zdrojUrl: string): string {
+  const base = new URL(zdrojUrl);
+  return `${base.protocol}//${base.host}/program`;
+}
+
+/** Nové karty /program. Vedle nich zůstává starý formát /koncert/. */
+function jeTrebonskaNocturnaNovaKartaHtml(html: string): boolean {
+  return (
+    /trebonskanocturna\.cz/i.test(html) && /nocturna-event-card/i.test(html)
+  );
+}
+
+/**
+ * Vlastní cesta na webu Nocturny. GoOut, iTřeboň a další vstupenky sem nepatří.
+ */
+function normalizovatNocturnaVlastniCestu(href: string): string | null {
+  try {
+    const u = new URL(href, "https://www.trebonskanocturna.cz");
+    const host = u.hostname.replace(/^www\./i, "").toLowerCase();
+    if (host !== "trebonskanocturna.cz") {
+      return null;
+    }
+    const path = u.pathname.replace(/\/+$/, "").toLowerCase();
+    if (!path || path === "/" || path === "/program") {
+      return null;
+    }
+    return path;
+  } catch {
+    return null;
+  }
+}
+
+function vytahnoutNocturnaDetailCestu(karta: string): string | null {
+  const odkazy = karta.matchAll(/<a\b[^>]*>/gi);
+  for (const odkaz of odkazy) {
+    const tag = odkaz[0];
+    if (!/nocturna-event-detail/i.test(tag)) {
+      continue;
+    }
+    const href = tag.match(/href=["']([^"']+)["']/i)?.[1];
+    if (!href) {
+      continue;
+    }
+    const cesta = normalizovatNocturnaVlastniCestu(href);
+    if (cesta) {
+      return cesta;
+    }
+  }
+  return null;
+}
+
+/**
+ * article.nocturna-event-card → jeden kandidát.
+ * Název z h3, místo z odstavce, identita jen z vlastního detailu.
+ */
+function parsovatTrebonskaNocturnaKarty(
+  html: string,
+  vysledek: BranaScanKandidat[],
+): void {
+  const karty = html.matchAll(
+    /<article\b[^>]*\bnocturna-event-card\b[^>]*>[\s\S]*?<\/article>/gi,
+  );
+  for (const karta of karty) {
+    if (vysledek.length >= MAX_KANDIDATU) {
+      return;
+    }
+    const blok = karta[0];
+    const meta =
+      blok.match(
+        /class=["'][^"']*nocturna-event-meta[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+      )?.[1] ?? "";
+    const den = meta.match(/(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})/);
+    const cas = meta.match(/(\d{1,2}):(\d{2})/);
+    if (!den || !cas) {
+      continue;
+    }
+    const rozklad = rozlozDatumCasZdroje(
+      `${den[1]}.${den[2]}.${den[3]} ${cas[1]}:${cas[2]}`,
+    );
+    if (!rozklad?.datum || !rozklad.cas) {
+      continue;
+    }
+    const nazev = textBezHtmlTagu(
+      blok.match(
+        /<h3[^>]*nocturna-event-title[^>]*>([\s\S]*?)<\/h3>/i,
+      )?.[1] ?? "",
+    );
+    if (!jePouzitelnyNazevNocturnaKoncertu(nazev)) {
+      continue;
+    }
+    const mistoNeboTyp = textBezHtmlTagu(
+      blok.match(
+        /<p[^>]*nocturna-event-place[^>]*>([\s\S]*?)<\/p>/i,
+      )?.[1] ?? "",
+    );
+    const cesta = vytahnoutNocturnaDetailCestu(blok);
+    vysledek.push({
+      nazev,
+      datumOd: rozklad.datum,
+      datumDo: rozklad.datum,
+      cas: rozklad.cas,
+      mistoNeboTyp,
+      ...(cesta ? { zdrojIdentita: `nocturna|${cesta}` } : {}),
+    });
+  }
+}
+
 /** Úzká detekce programu Třeboňské nocturny (WordPress / Oxygen karty koncertů). */
 function jeTrebonskaNocturnaProgramHtml(html: string): boolean {
   return (
@@ -3944,6 +4062,13 @@ export function parsovatUdalostiZeZdroje(
   // Před JSON-LD i před listingem article.event. Fail-closed → 0, bez mixu.
   if (jeTrebon105VidinyFestivalDetailHtml(telo)) {
     parsovatTrebon105VidinyFestivalDetail(telo, vysledek);
+    return deduplikovatScanKandidaty(vysledek);
+  }
+
+  // Nové karty /program. Před JSON-LD, aby vstupenky nevytvořily druhou událost.
+  // Starý formát /koncert/ zůstává níž, když tahle šablona na stránce není.
+  if (jeTrebonskaNocturnaNovaKartaHtml(telo)) {
+    parsovatTrebonskaNocturnaKarty(telo, vysledek);
     return deduplikovatScanKandidaty(vysledek);
   }
 

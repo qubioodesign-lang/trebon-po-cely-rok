@@ -3,7 +3,11 @@
  * Spuštění: npx tsx scripts/verify-brana-nocturna-parser.ts
  */
 
-import { parsovatUdalostiZeZdroje } from "../src/lib/brana/admin/zdroj-scan-parser";
+import {
+  jeTrebonskaNocturnaZdrojUrl,
+  parsovatUdalostiZeZdroje,
+  sestavTrebonskaNocturnaProgramUrl,
+} from "../src/lib/brana/admin/zdroj-scan-parser";
 
 function fail(msg: string): never {
   console.error(`FAIL: ${msg}`);
@@ -122,6 +126,86 @@ function overNocturnaFixture(): void {
   );
 }
 
+const NOCTURNA_PROGRAM_FIXTURE = `<!DOCTYPE html>
+<html><head><link rel="canonical" href="https://www.trebonskanocturna.cz/program"></head><body>
+<article class="nocturna-event-card">
+  <div class="nocturna-event-meta">
+    <span class="nocturna-event-meta-item">21.01.2027</span>
+    <span class="nocturna-event-meta-item">19:00</span>
+  </div>
+  <h3 class="nocturna-event-title">Dvořákovo klavírní kvarteto</h3>
+  <p class="nocturna-event-place">Divadlo J. K. Tyla, Třeboň</p>
+  <a class="nocturna-event-ticket" href="https://vstupenky.itrebon.cz/mrs-trebon/hall/1">Koupit vstupenku</a>
+  <a class="nocturna-event-detail" href="/dvorakovo-klavirni-kvarteto-a-miroslav-taborsky">Detail akce</a>
+</article>
+<article class="nocturna-event-card">
+  <div class="nocturna-event-meta">
+    <span class="nocturna-event-meta-item">08.07.2027</span>
+    <span class="nocturna-event-meta-item">19:30</span>
+  </div>
+  <h3 class="nocturna-event-title">Čtvero ročních dob - Daniel Matejča &amp; Barocco sempre giovane</h3>
+  <p class="nocturna-event-place">Kostel sv. Jiljí</p>
+  <a class="nocturna-event-ticket" href="https://goout.net/cs/ctvero-rocnich-dob/szpovoy/">Koupit vstupenku</a>
+  <a class="nocturna-event-detail" href="/ctvero-rocnich-dob-daniel-matejca-barocco-sempre-giovane">Detail akce</a>
+</article>
+</body></html>`;
+
+function overNoveKartyProgramu(): void {
+  assert(
+    jeTrebonskaNocturnaZdrojUrl("https://www.trebonskanocturna.cz/"),
+    "homepage je zdroj Nocturny",
+  );
+  assert(
+    !jeTrebonskaNocturnaZdrojUrl("https://www.kinotrebon.cz/"),
+    "kino není zdroj Nocturny",
+  );
+  assert(
+    sestavTrebonskaNocturnaProgramUrl("https://www.trebonskanocturna.cz/") ===
+      "https://www.trebonskanocturna.cz/program",
+    "z homepage vznikne /program",
+  );
+  assert(
+    sestavTrebonskaNocturnaProgramUrl(
+      "https://www.trebonskanocturna.cz/program",
+    ) === "https://www.trebonskanocturna.cz/program",
+    "už uložené /program se nezdvojí",
+  );
+
+  const kandidati = parsovatUdalostiZeZdroje(
+    NOCTURNA_PROGRAM_FIXTURE,
+    "text/html",
+  );
+  assert(kandidati.length === 2, `nové karty: očekáváno 2, je ${kandidati.length}`);
+  assert(kandidati[0].datumOd === "2027-01-21", kandidati[0].datumOd);
+  assert(kandidati[0].cas === "19:00", kandidati[0].cas);
+  assert(
+    kandidati[0].zdrojIdentita ===
+      "nocturna|/dvorakovo-klavirni-kvarteto-a-miroslav-taborsky",
+    `identita zimy: ${kandidati[0].zdrojIdentita}`,
+  );
+  assert(
+    !String(kandidati[0].zdrojIdentita).includes("itrebon"),
+    "iTřeboň nesmí být identita",
+  );
+  assert(kandidati[1].datumOd === "2027-07-08" && kandidati[1].cas === "19:30", "léto");
+  assert(
+    kandidati[1].nazev ===
+      "Čtvero ročních dob - Daniel Matejča & Barocco sempre giovane",
+    `název: ${kandidati[1].nazev}`,
+  );
+  assert(kandidati[1].mistoNeboTyp === "Kostel sv. Jiljí", kandidati[1].mistoNeboTyp);
+  assert(
+    kandidati[1].zdrojIdentita ===
+      "nocturna|/ctvero-rocnich-dob-daniel-matejca-barocco-sempre-giovane",
+    `identita léta: ${kandidati[1].zdrojIdentita}`,
+  );
+  assert(
+    !String(kandidati[1].zdrojIdentita).includes("goout"),
+    "GoOut nesmí být identita",
+  );
+  console.log("OK nové karty /program: vlastní cesta, bez GoOut a iTřeboně");
+}
+
 function overKinotrebonZůstává(): void {
   const kandidati = parsovatUdalostiZeZdroje(
     KINOTREBON_FIXTURE,
@@ -164,6 +248,7 @@ async function overZiveHomepageVolitelne(): Promise<void> {
 
 async function main(): Promise<void> {
   overNocturnaFixture();
+  overNoveKartyProgramu();
   overKinotrebonZůstává();
   await overZiveHomepageVolitelne();
   console.log("ALL PASS");
