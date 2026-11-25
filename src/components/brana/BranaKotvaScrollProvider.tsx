@@ -219,7 +219,7 @@ export function BranaVztahKTrebone({
         aria-label="Třeboň v srdci"
         onClick={priKliknuti}
       >
-        <span className="brana-casova-kotva-vztah-text">mám Třeboň v</span>
+        <span className="brana-casova-kotva-vztah-text">Třeboň v</span>
         <svg
           ref={srdceRef}
           className="brana-casova-kotva-srdce"
