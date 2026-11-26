@@ -40,9 +40,12 @@ function zapsatStavRotace(uloziste: UlozisteDat, stav: StavRotacePolozek): void 
 
 /** Vrátí aktivní položky v pořadí, které se právě ukazuje návštěvníkům. */
 export async function ziskatAktivniPolozky(
-  oidcZHeaderu?: string | null
+  oidcZHeaderu?: string | null,
+  volby?: { signal?: AbortSignal },
 ): Promise<PolozkaVerejna[]> {
-  const uloziste = await nacistData(oidcZHeaderu);
+  const uloziste = volby?.signal
+    ? await nacistDataCerstve(oidcZHeaderu, { signal: volby.signal })
+    : await nacistData(oidcZHeaderu);
 
   return polozkyVerejneGalerie(
     uloziste.polozky,

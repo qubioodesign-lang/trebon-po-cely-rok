@@ -428,35 +428,28 @@
   }
 
   .brana-pata-odkaz {
-    @apply inline-block shrink-0 text-[0.9375rem] font-medium leading-snug tracking-tight text-white no-underline;
+    @apply inline-flex max-w-full shrink-0 flex-col items-center text-[0.9375rem] font-normal leading-snug tracking-tight text-white no-underline;
+  }
+
+  .brana-pata-odkaz-radek {
+    @apply inline-flex items-baseline justify-center;
   }
 
   .brana-pata-odkaz-text {
-    @apply relative inline-block;
-  }
-
-  /* Stejný poměr a řez jako horní značka, základ je stávající velikost odkazu. */
-  .brana-pata-odkaz-hlavni {
-    @apply inline-block text-[calc(0.9375rem*1.09)] font-semibold;
-  }
-
-  .brana-pata-odkaz-hlavni::after {
-    content: "";
-    display: block;
-    font-size: 0.9375rem;
-    width: calc(100% - 0.15em);
-    height: 1px;
-    margin-top: 0.125rem;
-    margin-left: 0.15em;
-    background-color: var(--brand-accent);
-  }
-
-  .brana-pata-odkaz-pokracovani {
-    @apply text-[calc(0.9375rem*0.875)] font-normal;
+    @apply font-normal;
   }
 
   .brana-pata-odkaz-sipka {
-    opacity: 0.7;
+    opacity: 1;
+  }
+
+  .brana-pata-odkaz-popis {
+    display: block;
+    max-width: 100%;
+    margin-top: 0.35rem;
+    white-space: pre-wrap;
+    text-align: center;
+    font-weight: 400;
   }
 
   .brana-pata-aktualizace {

@@ -31,6 +31,11 @@ import { BranaSwipeObsah, pripravitBranaListovani } from "./BranaSwipeObsah";
 import { BranaIkonaObalka } from "./BranaIkony";
 import { BranaTlacitkoSdileni } from "./BranaTlacitkoSdileni";
 import { BranaTextAktualizace, BranaAktualizaceProvider } from "./BranaTextAktualizace";
+import {
+  odkazNaTrebonSPolozkou,
+  TEXT_POZVANKY_TREBON,
+  type PozvankaProlnuti,
+} from "@/lib/brana/pozvanka-prolnuti";
 
 const JEDNOPISMENNE_PREDLOZKY = /(\s)([ksvzou])(\s+)(?=\S)/gi;
 
@@ -79,6 +84,8 @@ type BranaObrazovkaProps = {
   vychoziViditelneAkciNaVikend?: boolean;
   /** null = společný počet není známý a klepnutí se nezapočte. */
   vztahPocet?: number | null;
+  /** null = jen stálý řádek, bez parametru polozka. */
+  pozvankaProlnuti?: PozvankaProlnuti | null;
 };
 
 function kotvaScrollProStranku(
@@ -165,6 +172,7 @@ export function BranaObrazovka({
   jsouTrhyAkciNaVikend = null,
   vychoziViditelneAkciNaVikend = false,
   vztahPocet = null,
+  pozvankaProlnuti = null,
 }: BranaObrazovkaProps) {
   const pohled = aktivniStranka;
   const data = dataProp ?? nactiBranaSdilenaPohledovaData();
@@ -174,7 +182,11 @@ export function BranaObrazovka({
   const navigace = useBranaNavigace();
   const vzkazHref = useBranaVerejnaCesta("vzkaz");
   const informaceHref = useBranaVerejnaCesta("informace");
-  const trebonHref = useBranaOdkazNaTrebon();
+  const trebonZaklad = useBranaOdkazNaTrebon();
+  const trebonHref = odkazNaTrebonSPolozkou(
+    trebonZaklad,
+    pozvankaProlnuti?.id,
+  );
   const kotvaScroll = kotvaScrollProStranku(pohled);
   const pataJednodenni = pohled === "dnes" || pohled === "zitra";
   const pocetBloku = data.bloky
@@ -264,13 +276,15 @@ export function BranaObrazovka({
           className="brana-pata-odkaz"
           onClick={zaznamenatKlikNaTrebon}
         >
-          <span className="brana-pata-odkaz-text">
-            <span className="brana-pata-odkaz-hlavni">TŘEBOŇ</span>
-            <span className="brana-pata-odkaz-pokracovani"> po celý rok</span>
-          </span>{" "}
-          <span className="brana-pata-odkaz-sipka" aria-hidden>
-            →
+          <span className="brana-pata-odkaz-radek">
+            <span className="brana-pata-odkaz-text">{TEXT_POZVANKY_TREBON}</span>{" "}
+            <span className="brana-pata-odkaz-sipka" aria-hidden>
+              →
+            </span>
           </span>
+          {pozvankaProlnuti ? (
+            <span className="brana-pata-odkaz-popis">{pozvankaProlnuti.popis}</span>
+          ) : null}
         </Link>
       </div>
       <p className="brana-pata-aktualizace">

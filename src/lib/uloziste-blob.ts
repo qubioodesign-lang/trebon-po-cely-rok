@@ -5,6 +5,12 @@ import { unstable_noStore as noStore } from "next/cache";
 import type { UlozisteDat } from "./uloziste-dat";
 import { normalizovatUloziste } from "./uloziste-normalizace";
 import { ziskatBlobStoreId, ziskatVolbyBlobAsync } from "./env-blob";
+import {
+  jePreruseni,
+  volbyFetchSSignalem,
+  volbyGetSSignalem,
+  vyzadovatPokracovani,
+} from "./signal-cteni";
 
 /** Cesta k metadata JSON v Blob úložišti */
 export const BLOB_CESTA_METADATA = "data/uloziste.json";
@@ -25,6 +31,8 @@ export interface VolbyCteniBlob {
    * zápisu proto stojí na etagu z `put` a `head`, ne na tomto těle.
    */
   bezVerejneCache?: boolean;
+  /** Přeruší get() i veřejný fetch. Bez signálu zůstává dosavadní volání. */
+  signal?: AbortSignal;
 }
 
 /** Veřejná URL metadat – čtení bez autentizovaného Blob get() */
@@ -42,13 +50,21 @@ function sestavitVerejneUrlMetadata(): string {
 async function nacistTextZBlobGet(
   pathname: string,
   volby: { storeId?: string; token?: string; oidcToken?: string },
-  useCache?: boolean
+  useCache?: boolean,
+  signal?: AbortSignal,
 ): Promise<string | null> {
-  const vysledek = await get(pathname, {
-    access: "public",
-    ...volby,
-    ...(useCache === false ? { useCache: false as const } : {}),
-  });
+  vyzadovatPokracovani(signal);
+  const vysledek = await get(
+    pathname,
+    volbyGetSSignalem(
+      {
+        access: "public" as const,
+        ...volby,
+        ...(useCache === false ? { useCache: false as const } : {}),
+      },
+      signal,
+    ),
+  );
 
   if (!vysledek?.stream) {
     return null;
@@ -60,19 +76,27 @@ async function nacistTextZBlobGet(
 /** Stáhne metadata přes veřejnou URL (bez Bearer tokenu) */
 async function stahnoutMetadataVerejne(
   url: string,
-  bypassCache: boolean
+  bypassCache: boolean,
+  signal?: AbortSignal,
 ): Promise<string | null> {
+  vyzadovatPokracovani(signal);
   const fetchUrl = bypassCache
     ? `${url}${url.includes("?") ? "&" : "?"}_=${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
     : url;
 
-  const odpoved = await fetch(fetchUrl, {
-    cache: "no-store",
-    headers: {
-      "Cache-Control": "no-cache, no-store, must-revalidate",
-      Pragma: "no-cache",
-    },
-  });
+  const odpoved = await fetch(
+    fetchUrl,
+    volbyFetchSSignalem(
+      {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+        },
+      },
+      signal,
+    ),
+  );
 
   if (odpoved.status === 404) {
     return null;
@@ -110,7 +134,9 @@ export async function nacistDataBlob(
 
   const bypassCache = volbyCteni?.bypassCache ?? true;
   const bezVerejneCache = volbyCteni?.bezVerejneCache === true;
+  const signal = volbyCteni?.signal;
   const volby = await ziskatVolbyBlobAsync(oidcZHeaderu);
+  vyzadovatPokracovani(signal);
 
   if (bezVerejneCache) {
     if (!volby.token && !volby.oidcToken) {
@@ -120,13 +146,19 @@ export async function nacistDataBlob(
     }
 
     try {
-      const cerstvy = await nacistTextZBlobGet(BLOB_CESTA_METADATA, volby, false);
+      const cerstvy = await nacistTextZBlobGet(
+        BLOB_CESTA_METADATA,
+        volby,
+        false,
+        signal,
+      );
       if (cerstvy !== null) return parsovatMetadata(cerstvy);
-    } catch {
+    } catch (error) {
+      if (jePreruseni(error, signal)) throw error;
       // useCache: false u veřejného blobu nemusí projít – běžné get() stále bez veřejné URL
     }
 
-    const text = await nacistTextZBlobGet(BLOB_CESTA_METADATA, volby);
+    const text = await nacistTextZBlobGet(BLOB_CESTA_METADATA, volby, undefined, signal);
     if (text === null) {
       throw new Error("Metadata v Blob nebyla nalezena.");
     }
@@ -135,18 +167,24 @@ export async function nacistDataBlob(
 
   if (volby.token || volby.oidcToken) {
     try {
-      const text = await nacistTextZBlobGet(BLOB_CESTA_METADATA, volby);
+      const text = await nacistTextZBlobGet(
+        BLOB_CESTA_METADATA,
+        volby,
+        undefined,
+        signal,
+      );
       if (text !== null) {
         return parsovatMetadata(text);
       }
-    } catch {
+    } catch (error) {
+      if (jePreruseni(error, signal)) throw error;
       // Fallback na veřejný fetch níže
     }
   }
 
   try {
     const url = sestavitVerejneUrlMetadata();
-    const text = await stahnoutMetadataVerejne(url, bypassCache);
+    const text = await stahnoutMetadataVerejne(url, bypassCache, signal);
     return parsovatMetadata(text);
   } catch (error) {
     if (error instanceof Error) {

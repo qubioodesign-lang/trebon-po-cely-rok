@@ -18,6 +18,7 @@ import {
   nactiVerejneSchvalenePohledovaData,
   prazdnaVerejnaPohledovaDataPriChybe,
 } from "@/lib/brana/verejne-schvalene-pohledy";
+import { nacistPozvankuPrvnihoProlnuti } from "@/lib/brana/pozvanka-prolnuti-cteni";
 
 type BranaSearchParams = Promise<{ pozadi?: string }>;
 
@@ -40,6 +41,7 @@ export async function BranaVerejnaStranka({
   stranka,
   searchParams,
 }: BranaVerejnaStrankaProps) {
+  const pozvankaPromise = nacistPozvankuPrvnihoProlnuti();
   const { pozadi } = await searchParams;
   const okamzik = new Date();
   const vychoziNocRezim = jeNocniRezimVPraze(okamzik);
@@ -113,6 +115,7 @@ export async function BranaVerejnaStranka({
       oknoAkciNaVikend={oknoAkciNaVikend}
       jsouTrhyAkciNaVikend={jsouTrhyAkciNaVikend}
       vychoziViditelneAkciNaVikend={vychoziViditelneAkciNaVikend}
+      pozvankaPromise={pozvankaPromise}
     />
   );
 }

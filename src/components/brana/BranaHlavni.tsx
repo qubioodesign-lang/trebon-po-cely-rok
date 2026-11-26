@@ -5,6 +5,7 @@ import type {
   BranaSdilenaPohledovaData,
 } from "@/lib/brana/pohledy-data";
 import { nacistVztahPocet } from "@/lib/brana/vztah-uloziste";
+import type { PozvankaProlnuti } from "@/lib/brana/pozvanka-prolnuti";
 import { BranaDesktopInformacniPanel } from "./BranaDesktopInformacniPanel";
 import { BranaDenniDobaObal } from "./BranaDenniDobaObal";
 import { BranaRozpoznaniNavstevy } from "./BranaRozpoznaniNavstevy";
@@ -29,6 +30,8 @@ type BranaHlavniProps = {
   jsouTrhyAkciNaVikend?: boolean | null;
   /** První vykreslení víkendové věty. Během upozornění parku false. */
   vychoziViditelneAkciNaVikend?: boolean;
+  /** Už běžící čtení prvního prolnutí. null = jen stálý řádek odkazu. */
+  pozvankaPromise?: Promise<PozvankaProlnuti | null>;
 };
 
 /** Vstupní obrazovka projektu Brána – /brana */
@@ -45,8 +48,12 @@ export async function BranaHlavni({
   oknoAkciNaVikend = null,
   jsouTrhyAkciNaVikend = null,
   vychoziViditelneAkciNaVikend = false,
+  pozvankaPromise = Promise.resolve(null),
 }: BranaHlavniProps) {
-  const vztah = await nacistVztahPocet();
+  const [vztah, pozvankaProlnuti] = await Promise.all([
+    nacistVztahPocet(),
+    pozvankaPromise,
+  ]);
   const vztahPocet = vztah.stav === "ok" ? vztah.pocet : null;
 
   return (
@@ -66,6 +73,7 @@ export async function BranaHlavni({
         jsouTrhyAkciNaVikend={jsouTrhyAkciNaVikend}
         vychoziViditelneAkciNaVikend={vychoziViditelneAkciNaVikend}
         vztahPocet={vztahPocet}
+        pozvankaProlnuti={pozvankaProlnuti}
         desktopPanel={<BranaDesktopInformacniPanel />}
       />
     </>

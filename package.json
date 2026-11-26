@@ -14,6 +14,7 @@
     "test:brana-cas": "npx tsx scripts/verify-brana-cas.ts",
     "test:brana-denni-doba": "npx tsx scripts/verify-brana-denni-doba.ts",
     "test:rotace-prolnuti": "npx tsx scripts/verify-rotace-prolnuti.ts",
+    "test:brana-pozvanka": "npx tsx scripts/verify-brana-pozvanka-prolnuti.ts",
     "test:prolnuti-vytvoreni": "npx tsx scripts/verify-prolnuti-vytvoreni.ts"
   },
   "dependencies": {

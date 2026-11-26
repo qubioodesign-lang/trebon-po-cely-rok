@@ -149,6 +149,8 @@ export interface VolbyCteniDat {
   bypassCache?: boolean;
   /** Viz `VolbyCteniBlob.bezVerejneCache`. */
   bezVerejneCache?: boolean;
+  /** Viz `VolbyCteniBlob.signal`. Bez signálu se čtení nemění. */
+  signal?: AbortSignal;
 }
 
 const MAX_POKUSY_ZAPISU = 12;
@@ -221,6 +223,7 @@ async function nacistDataProZapis(
     return nacistDataBlob(oidcZHeaderu, {
       bypassCache: volbyCteni?.bypassCache ?? true,
       bezVerejneCache: volbyCteni?.bezVerejneCache === true,
+      signal: volbyCteni?.signal,
     });
   }
   return nacistDataLokalne();

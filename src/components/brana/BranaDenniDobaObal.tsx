@@ -12,6 +12,7 @@ import type {
   BranaKonfiguracePohledu,
   BranaSdilenaPohledovaData,
 } from "@/lib/brana/pohledy-data";
+import type { PozvankaProlnuti } from "@/lib/brana/pozvanka-prolnuti";
 import { BranaDesktopPozadi } from "./BranaDesktopPozadi";
 import { BranaObrazovka } from "./BranaObrazovka";
 import { BranaPozadi } from "./pozadi/BranaPozadi";
@@ -38,6 +39,8 @@ type BranaDenniDobaObalProps = {
   vychoziViditelneAkciNaVikend?: boolean;
   /** null = společný počet se nepodařilo načíst. */
   vztahPocet?: number | null;
+  /** null = v zápatí zůstane jen stálý řádek. */
+  pozvankaProlnuti?: PozvankaProlnuti | null;
   children?: ReactNode;
   desktopPanel?: ReactNode;
 };
@@ -64,6 +67,7 @@ export function BranaDenniDobaObal({
   jsouTrhyAkciNaVikend = null,
   vychoziViditelneAkciNaVikend = false,
   vztahPocet = null,
+  pozvankaProlnuti = null,
   children,
   desktopPanel,
 }: BranaDenniDobaObalProps) {
@@ -129,6 +133,7 @@ export function BranaDenniDobaObal({
                 jsouTrhyAkciNaVikend={jsouTrhyAkciNaVikend}
                 vychoziViditelneAkciNaVikend={vychoziViditelneAkciNaVikend}
                 vztahPocet={vztahPocet}
+                pozvankaProlnuti={pozvankaProlnuti}
               />
             )}
             <BranaVyzvaPlocha nocRezim={nocRezim} />
