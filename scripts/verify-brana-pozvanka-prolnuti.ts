@@ -339,6 +339,23 @@ overit(odkaz.includes("<circle") && odkaz.includes('fill="none"'), "šipka je ob
 overit(!odkaz.includes("→"), "za textem už není textová šipka");
 overit(odkaz.includes("{pozvankaProlnuti.popis}"), "popis zůstává v tomtéž odkazu");
 overit((odkaz.match(/onClick=/g) ?? []).length === 1, "uvnitř odkazu je jedna událost");
+const blokTextu = css.slice(
+  css.indexOf(".brana-pata-odkaz-text {"),
+  css.indexOf(".brana-pata-odkaz-popis {"),
+);
+const blokPopisu = css.slice(
+  css.indexOf(".brana-pata-odkaz-popis {"),
+  css.indexOf(".brana-pata-aktualizace {"),
+);
+const barvaVztahu = css.match(
+  /\.brana-casova-kotva-vztah-text\s*\{[^}]*color:\s*([^;]+);/,
+)?.[1];
+overit(blokTextu.includes("letter-spacing: 0.04em;"), "stálé pozvání má rozpal 0.04em");
+overit(!blokPopisu.includes("letter-spacing:"), "popis si ponechává dosavadní rozpal");
+overit(
+  barvaVztahu !== undefined && blokPopisu.includes(`color: ${barvaVztahu};`),
+  "popis přebírá barvu textu Třeboň v",
+);
 
 const stranky = [
   "src/app/brana/page.tsx",

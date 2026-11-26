@@ -442,6 +442,7 @@
   .brana-pata-odkaz-text {
     font-size: calc(0.9375rem * 0.88);
     font-weight: 400;
+    letter-spacing: 0.04em;
   }
 
   .brana-pata-odkaz-popis {
@@ -452,6 +453,7 @@
     white-space: pre-wrap;
     text-align: center;
     font-weight: 400;
+    color: rgb(255 255 255 / 0.7);
   }
 
   .brana-pata-aktualizace {
