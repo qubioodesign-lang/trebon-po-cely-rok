@@ -315,6 +315,30 @@ overit(
 );
 overit(css.includes("white-space: pre-wrap"), "zalomení popisu zůstává ve stylu");
 overit(!css.includes(".brana-pata-odkaz-hlavni::after"), "odkaz už nemá podtržení");
+overit(
+  css.includes("font-size: calc(0.9375rem * 0.88);"),
+  "stálé pozvání je menší přibližně o 12 %",
+);
+overit(
+  css.includes("font-size: calc(0.9375rem * 0.78);"),
+  "popis je menší přibližně o 22 %",
+);
+overit(
+  css.includes("width: calc(0.9375rem * 0.88 * 1.5);"),
+  "kruh má průměr jedenapůlnásobku výšky stálého písma",
+);
+overit(
+  css.includes("margin-top: 0.35rem;"),
+  "mezera mezi pozváním a popisem zůstává",
+);
+const odkaz = obrazovka.slice(
+  obrazovka.indexOf('className="brana-pata-odkaz"'),
+  obrazovka.indexOf("brana-pata-aktualizace"),
+);
+overit(odkaz.includes("<circle") && odkaz.includes('fill="none"'), "šipka je obrysový kruh");
+overit(!odkaz.includes("→"), "za textem už není textová šipka");
+overit(odkaz.includes("{pozvankaProlnuti.popis}"), "popis zůstává v tomtéž odkazu");
+overit((odkaz.match(/onClick=/g) ?? []).length === 1, "uvnitř odkazu je jedna událost");
 
 const stranky = [
   "src/app/brana/page.tsx",

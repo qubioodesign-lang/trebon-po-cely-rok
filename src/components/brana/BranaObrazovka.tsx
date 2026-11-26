@@ -276,12 +276,29 @@ export function BranaObrazovka({
           className="brana-pata-odkaz"
           onClick={zaznamenatKlikNaTrebon}
         >
-          <span className="brana-pata-odkaz-radek">
-            <span className="brana-pata-odkaz-text">{TEXT_POZVANKY_TREBON}</span>{" "}
-            <span className="brana-pata-odkaz-sipka" aria-hidden>
-              →
-            </span>
-          </span>
+          <svg
+            className="brana-pata-odkaz-znacka"
+            viewBox="0 0 24 24"
+            aria-hidden
+          >
+            <circle
+              cx="12"
+              cy="12"
+              r="10.35"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.15"
+            />
+            <path
+              d="M7.6 12h7.3M12.2 8.6 16.1 12l-3.9 3.4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.15"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <span className="brana-pata-odkaz-text">{TEXT_POZVANKY_TREBON}</span>
           {pozvankaProlnuti ? (
             <span className="brana-pata-odkaz-popis">{pozvankaProlnuti.popis}</span>
           ) : null}
