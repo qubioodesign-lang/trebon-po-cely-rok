@@ -64,6 +64,9 @@ interface PropsGalerieHlavni {
 /** Práh tažení pro přepnutí fotografie (v pixelech) */
 const PRAH_TAZENI = 50;
 
+/** Replay začne nabíhat až tolik ms po začátku náběhu věty. */
+const ODSTUP_REPLAY_PO_SDILENI_MS = 400;
+
 /** Navigační šipka – stejný vzhled, bez pozadí */
 function SipkaNavigace({
   smer,
@@ -176,6 +179,8 @@ export function GalerieHlavni({
   const [jeTazeni, setJeTazeni] = useState(false);
   const [prolnutiOvladani, setProlnutiOvladani] =
     useState<ProlnutiOvladani | null>(null);
+  const [sdileniOkamzikuViditelne, setSdileniOkamzikuViditelne] = useState(false);
+  const [replayViditelne, setReplayViditelne] = useState(false);
 
   const zacatekX = useRef(0);
   const aktualniIndexRef = useRef(aktualniIndex);
@@ -184,6 +189,35 @@ export function GalerieHlavni({
   useChovaniNavstevnika("pribeh");
 
   aktualniIndexRef.current = aktualniIndex;
+
+  const polozkaProSdileni = polozky[aktualniIndex];
+
+  useEffect(() => {
+    if (
+      polozkaProSdileni?.typ !== "prolnuti" ||
+      prolnutiOvladani?.faze !== "dokonceno"
+    ) {
+      setSdileniOkamzikuViditelne(false);
+      return;
+    }
+
+    setSdileniOkamzikuViditelne(true);
+  }, [polozkaProSdileni?.id, polozkaProSdileni?.typ, prolnutiOvladani?.faze]);
+
+  useEffect(() => {
+    if (!prolnutiOvladani?.zobrazitSipku) {
+      setReplayViditelne(false);
+      return;
+    }
+
+    const id = window.setTimeout(() => {
+      setReplayViditelne(true);
+    }, ODSTUP_REPLAY_PO_SDILENI_MS);
+
+    return () => {
+      window.clearTimeout(id);
+    };
+  }, [polozkaProSdileni?.id, prolnutiOvladani?.zobrazitSipku]);
 
   // Obnovení pozice po návratu (odkaz, systémové Zpět, gesto na iPhonu)
   useEffect(() => {
@@ -435,9 +469,18 @@ export function GalerieHlavni({
           {/* Šipka replay prolnutí – střed obrazovky, lehce pod geometrickým středem */}
           {jeProlnuti && prolnutiOvladani && (
             <div className="pointer-events-none absolute inset-x-0 top-[57%] z-[15] flex -translate-y-1/2 justify-center">
+              <div className="pointer-events-none absolute bottom-full left-1/2 mb-11 -translate-x-1/2">
+                <OdkazSdilet
+                  polozkaId={aktualniPolozka.id}
+                  nadReplay
+                  viditelny={sdileniOkamzikuViditelne}
+                  klikaci={sdileniOkamzikuViditelne}
+                  fadeMs={prolnutiCasovani.replayFadeMs}
+                />
+              </div>
               <div className="pointer-events-auto">
                 <SipkaPrehratProlnuti
-                  viditelna={prolnutiOvladani.zobrazitSipku}
+                  viditelna={replayViditelne}
                   onClick={handleReplayProlnuti}
                   fadeMs={prolnutiCasovani.replayFadeMs}
                 />

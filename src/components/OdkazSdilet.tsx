@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { sdiletPolozku } from "@/lib/sdileni";
+import { tridyMobilnihoPopisuProlnuti } from "@/lib/popis-radky";
 import { useMetriky } from "@/hooks/useMetriky";
 
 function IkonaSdileni() {
@@ -30,13 +31,28 @@ interface PropsOdkazSdilet {
   polozkaId: string;
   /** Mobilní záhlaví – symbol v pravém horním poli */
   nadFotkou?: boolean;
+  /** Věta nad replay. Stejné sdílení, jiný vzhled. */
+  nadReplay?: boolean;
+  viditelny?: boolean;
+  /** Klepnutí až spolu s replay. Do té doby text jen nabíhá. */
+  klikaci?: boolean;
+  fadeMs?: number;
 }
+
+const TEXT_SDILENI_OKAMZIKU = "Sdílet tento okamžik";
 
 const TRIDA_ODKAZ =
   "inline-block text-[0.6875rem] font-light tracking-wide transition-colors duration-300 focus-visible:outline-none";
 
 /** Nenápadný odkaz „sdílet“ – systémové sdílení nebo kopie odkazu do schránky */
-export function OdkazSdilet({ polozkaId, nadFotkou = false }: PropsOdkazSdilet) {
+export function OdkazSdilet({
+  polozkaId,
+  nadFotkou = false,
+  nadReplay = false,
+  viditelny = false,
+  klikaci = false,
+  fadeMs = 800,
+}: PropsOdkazSdilet) {
   const [potvrzeni, setPotvrzeni] = useState("");
   const { odeslat } = useMetriky();
 
@@ -55,6 +71,53 @@ export function OdkazSdilet({ polozkaId, nadFotkou = false }: PropsOdkazSdilet) 
       }
     }
   };
+
+  if (nadReplay) {
+    return (
+      <div className="relative">
+        {potvrzeni ? (
+          <p className="pointer-events-none absolute bottom-full left-1/2 mb-1 -translate-x-1/2 whitespace-nowrap text-center text-[0.625rem] text-white/40">
+            {potvrzeni}
+          </p>
+        ) : null}
+        <div
+          className="relative"
+          style={{
+            opacity: viditelny ? 1 : 0,
+            transition: `opacity ${fadeMs}ms ease-out`,
+            pointerEvents: "none",
+          }}
+        >
+          <span
+            aria-hidden
+            className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+            style={{
+              width: "16rem",
+              height: "4.5rem",
+              background:
+                "radial-gradient(ellipse 8rem 2.25rem at center, rgba(0, 0, 0, 0.65) 0%, rgba(0, 0, 0, 0.65) 30%, rgba(0, 0, 0, 0.35) 62%, rgba(0, 0, 0, 0) 100%)",
+            }}
+          />
+          <button
+            type="button"
+            onClick={handleSdilet}
+            className={`${tridyMobilnihoPopisuProlnuti(TEXT_SDILENI_OKAMZIKU)} relative whitespace-nowrap border-none bg-transparent p-0 outline-none`}
+            style={{
+              pointerEvents: klikaci ? "auto" : "none",
+            }}
+            tabIndex={klikaci ? 0 : -1}
+            aria-hidden={klikaci ? undefined : true}
+          >
+            <span
+              aria-hidden
+              className="absolute inset-x-0 top-1/2 h-11 -translate-y-1/2"
+            />
+            {TEXT_SDILENI_OKAMZIKU}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (nadFotkou) {
     return (
